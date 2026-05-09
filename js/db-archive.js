@@ -153,4 +153,20 @@
     loadArchivedCars,
     saveArchivedCar,
     deleteArchivedCar,
-    s
+    seedArchivedCarsIfEmpty,
+  };
+
+  console.log('[db-archive] ready');
+})();
+
+// ========================================
+// グローバルショートカット：window.saveArchivedCarById(carId)
+// archivedCars 配列から car を引いて save（fire-and-forget）
+// ========================================
+window.saveArchivedCarById = function (carId) {
+  if (!window.dbArchive || !carId) return;
+  if (typeof archivedCars === 'undefined' || !Array.isArray(archivedCars)) return;
+  const car = archivedCars.find(x => x && x.id === carId);
+  if (!car) return;
+  window.dbArchive.saveArchivedCar(car).catch(e => console.error('[saveArchivedCarById] failed', carId, e));
+};

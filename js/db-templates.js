@@ -207,4 +207,25 @@
   // 公開
   // -----------------------------------------
   window.dbTemplates = {
-    loadAllTemp
+    loadAllTemplates,
+    saveTemplate,
+    deleteTemplate,
+    seedTemplatesIfEmpty,
+    replaceInMemory,
+    refreshTemplates,
+  };
+
+  console.log('[db-templates] ready');
+})();
+
+// ========================================
+// グローバルショートカット：window.saveChecklistTemplate(tplId)
+// ChecklistTemplates から引いて save（fire-and-forget）
+// ========================================
+window.saveChecklistTemplate = function (tplId) {
+  if (!window.dbTemplates || !tplId) return;
+  if (typeof ChecklistTemplates === 'undefined') return;
+  const tpl = ChecklistTemplates[tplId];
+  if (!tpl) return;
+  window.dbTemplates.saveTemplate(tpl).catch(e => console.error('[saveChecklistTemplate] failed', tplId, e));
+};

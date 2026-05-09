@@ -176,4 +176,31 @@ function renderArchive() {
         </div>
         <div class="arc-cars" style="display:none">
           <div class="arc-car-row" style="color:var(--text3);font-weight:600;font-size:10px;border-bottom:1px solid var(--border)">
-            <span>管理番号</span><span>車両</span><span>ボディ</span><span>走行距離<
+            <span>管理番号</span><span>車両</span><span>ボディ</span><span>走行距離</span><span>販売価格</span><span style="text-align:right">在庫日数</span>
+          </div>
+          ${carRows}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="arc-year">
+      <div class="arc-year-head" onclick="toggleArchiveYear(this)">
+        <h3>${y}年</h3>
+        <div style="font-size:12px;color:var(--text3)">${yearCount}台 / ${(yearTotal/10000).toFixed(0)}万円</div>
+      </div>
+      <div class="arc-year-body">${monthsHtml}</div>
+    </div>`;
+  }).join('');
+}
+function toggleArchiveYear(head) {
+  const body = head.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+function toggleArchiveMonth(head) {
+  // v1.8.38: nextElementSibling は「目標vs実績の薄字行」を指してしまっていたバグを修正。
+  //          親 .arc-month を辿って、その中の .arc-cars を対象にする。
+  const parent = head.closest('.arc-month');
+  if (!parent) return;
+  const body = parent.querySelector('.arc-cars');
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
