@@ -60,12 +60,31 @@
   const DELIVERY_TOGGLE_TASKS = ['d_docs', 'd_reg', 'd_complete'];
   const DELIVERY_WORKFLOW_TASKS = ['d_prep', 'd_maint'];
 
-  // workflow の完了データ（簡易版：完了マーカーだけ）
-  function _completeWorkflow() {
-    return { _all_done: true, _completed_at: _daysAgo(_randInt(1, 30)) };
+  // tasks-def.js の REGEN_TASKS / DELIVERY_TASKS から workflow 全項目 true なオブジェクトを生成
+  function _completeWorkflowFor(taskId, isDelivery) {
+    const tasksDef = isDelivery ? (typeof DELIVERY_TASKS !== 'undefined' ? DELIVERY_TASKS : []) : (typeof REGEN_TASKS !== 'undefined' ? REGEN_TASKS : []);
+    const task = tasksDef.find((t) => t.id === taskId);
+    if (!task || !task.sections) return { _completed: true };
+    const out = {};
+    task.sections.forEach((sec) => {
+      (sec.items || []).forEach((item) => {
+        out[item.id] = true;
+      });
+    });
+    return out;
   }
-  function _partialWorkflow(progressPct) {
-    return { _partial: true, _pct: progressPct };
+  // 部分完了：sectionsの中からランダムにX%だけtrue化
+  function _partialWorkflowFor(taskId, isDelivery, pct) {
+    const tasksDef = isDelivery ? (typeof DELIVERY_TASKS !== 'undefined' ? DELIVERY_TASKS : []) : (typeof REGEN_TASKS !== 'undefined' ? REGEN_TASKS : []);
+    const task = tasksDef.find((t) => t.id === taskId);
+    if (!task || !task.sections) return {};
+    const out = {};
+    task.sections.forEach((sec) => {
+      (sec.items || []).forEach((item) => {
+        if (Math.random() < pct / 100) out[item.id] = true;
+      });
+    });
+    return out;
   }
 
   // 車両ごとに「あるべき進捗状態」のタスクを設定
@@ -75,36 +94,33 @@
     car.equipment = {};
 
     if (col === 'other' || col === 'purchase') {
-      // 何もしない（ほぼ未着手）
       return;
     }
     if (col === 'regen') {
-      // 再生中：30〜70% 進捗
-      const targetPct = _randInt(30, 70);
-      // toggleタスクは半数くらい true
+      // 再生中：50〜80% 進捗（しっかり進んでる感）
+      const targetPct = _randInt(50, 80);
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = Math.random() < (targetPct / 100); });
-      // workflow も部分完了
       REGEN_WORKFLOW_TASKS.forEach((t) => {
-        if (Math.random() < 0.4) car.regenTasks[t] = _completeWorkflow();
-        else if (Math.random() < 0.6) car.regenTasks[t] = _partialWorkflow(_randInt(20, 80));
+        if (Math.random() < 0.5) car.regenTasks[t] = _completeWorkflowFor(t, false);
+        else car.regenTasks[t] = _partialWorkflowFor(t, false, _randInt(40, 90));
       });
       return;
     }
     if (col === 'exhibit') {
-      // 展示：再生フェーズ 100% 完了
+      // 展示：再生フェーズ 100% 完了（全項目 true、t_complete も true）
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
-      REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflow(); });
+      REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
       return;
     }
     if (col === 'delivery') {
       // 納車準備：再生フェーズ完了 + 納車フェーズ部分完了
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
-      REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflow(); });
-      const dPct = _randInt(20, 80);
+      REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
+      const dPct = _randInt(40, 80);
       DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = Math.random() < (dPct / 100); });
       DELIVERY_WORKFLOW_TASKS.forEach((t) => {
-        if (Math.random() < 0.4) car.deliveryTasks[t] = _completeWorkflow();
-        else if (Math.random() < 0.6) car.deliveryTasks[t] = _partialWorkflow(_randInt(30, 80));
+        if (Math.random() < 0.5) car.deliveryTasks[t] = _completeWorkflowFor(t, true);
+        else car.deliveryTasks[t] = _partialWorkflowFor(t, true, _randInt(40, 80));
       });
       return;
     }
@@ -219,6 +235,60 @@
   }
 
   // =====================================
+  // 操作ログ（auditLogs）80件・過去30日に分散
+  //   作業実績ビュー（worklog）はこの globalLogs から計算される
+  // =====================================
+  const ACTION_TEMPLATES = [
+    '装備品チェック を完了',
+    '再生 を完了',
+    '写真撮影 を完了',
+    '見積もり作成 を完了',
+    'webUP を完了',
+    '展示 を完了',
+    '再生完了 にチェック',
+    '納車準備 を完了',
+    '納車整備 を完了',
+    '書類 を完了',
+    '登録 を完了',
+    '完全完了 にチェック',
+    '車両情報を編集',
+    '価格を変更',
+    '展示中 → 納車準備 へ移動',
+    '仕入れ → 再生中 へ移動',
+    '再生中 → 展示中 へ移動',
+    'お客様情報を更新',
+    '作業メモを追記',
+    '写真を更新',
+  ];
+
+  function _makeAuditLogs(carsList) {
+    const logs = [];
+    for (let i = 0; i < 80; i++) {
+      const dAgo = _randInt(0, 30);
+      const hour = _randInt(8, 19);
+      const min = _randInt(0, 59);
+      const d = new Date();
+      d.setDate(d.getDate() - dAgo);
+      d.setHours(hour, min, 0, 0);
+      const car = _rand(carsList);
+      const staff = _rand(STAFF.filter((s) => s.role !== 'viewer'));
+      logs.push({
+        timeJs: d, // ソート用
+        time: d.toISOString(),
+        timeStr: `${d.getMonth() + 1}/${d.getDate()} ${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`,
+        uid: staff.uid,
+        userName: staff.name,
+        carId: car.id,
+        carNum: car.num,
+        action: _rand(ACTION_TEMPLATES),
+      });
+    }
+    // 時刻昇順にソート（古い → 新しい）
+    logs.sort((a, b) => a.timeJs - b.timeJs);
+    return logs;
+  }
+
+  // =====================================
   // 付箋
   // =====================================
   const NOTES = [
@@ -301,6 +371,15 @@
         updatedAt: _today(),
       });
     }
+
+    // auditLogs（操作ログ）— 作業実績ビュー（worklog）もこれを使う
+    const auditLogs = _makeAuditLogs(cars);
+    for (const log of auditLogs) {
+      const { timeJs, ...doc } = log;
+      doc.time = timeJs; // モックは Date を Firestore Timestamp 風に扱う
+      await ref.collection('auditLogs').add(doc);
+    }
+    console.log(`[demo-seed]   auditLogs: ${auditLogs.length}件`);
 
     // integrations/line
     await ref.collection('integrations').doc('line').set({
