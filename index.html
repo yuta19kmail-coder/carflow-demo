@@ -519,6 +519,10 @@
                     <div class="toggle" id="line-daily-closed-toggle" onclick="toggleDailyClosed()"></div>
                   </div>
 
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
+                    <span style="font-size:11px;color:var(--text3);margin-right:4px">🧪 デモ：</span>
+                    <button class="btn-sm" onclick="window.demoTriggerDailyReport()">日報通知を見る</button>
+                  </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -536,6 +540,10 @@
                     <div class="toggle" id="line-trig-redboard-toggle" onclick="toggleLineTrigger('redBoardNote')"></div>
                   </div>
 
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
+                    <span style="font-size:11px;color:var(--text3);margin-right:4px">🧪 デモ：</span>
+                    <button class="btn-sm" onclick="window.demoTriggerRedBoardNote({title:'エンジン異音', body:'朝一の試運転で点灯。OBDで読んだら触媒系。詳細確認要。'})">赤付箋通知を見る</button>
+                  </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -571,6 +579,12 @@
                     </div>
                   </div>
 
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
+                    <span style="font-size:11px;color:var(--text3);margin-right:4px;width:100%">🧪 デモ：</span>
+                    <button class="btn-sm" onclick="window.demoTriggerTaskComplete('商品撮影', 'KM-D004', 'トヨタ ヴォクシー')">A文面（個別タスク完了）</button>
+                    <button class="btn-sm" onclick="window.demoShowLineToast('🎊 KM-D004 トヨタ ヴォクシー の再生フェーズが完了しました！\n\n皆さんお疲れさまでした✨\n早く売れるといいね✨', { label: '再生フェーズ完了' })">B文面（再生フェーズ完了）</button>
+                    <button class="btn-sm" onclick="window.demoShowLineToast('🎊 KM-D004 トヨタ ヴォクシー の納車準備フェーズが完了しました！\n\n皆さんお疲れさまでした✨\n納車が楽しみです✨', { label: '納車準備フェーズ完了' })">B文面（納車準備フェーズ完了）</button>
+                  </div>
                 </div>
               </section>
 
@@ -1544,7 +1558,10 @@
 
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=273"></script>
-<!-- デモ版：auth.js を demo-auth-mock.js に置き換え -->
+<!-- デモ版：auth.js は読み込むが、Firebase auth は mock 済み（onAuthStateChanged 発火しない）-->
+<!-- ヘルパー関数（_refreshHeaderAvatars 等）は他モジュールから参照されるため必要 -->
+<script src="js/auth.js?v=273"></script>
+<!-- デモ版：本番 auth.js を読んだ後、ログインUIを差し替え -->
 <script src="js/demo-auth-mock.js"></script>
 <script src="js/navigation.js?v=273"></script>
 <script src="js/archive.js?v=273"></script>

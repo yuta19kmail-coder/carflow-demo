@@ -61,6 +61,8 @@
     const col = COLS[Math.min(idx % COLS.length, COLS.length - 1)];
     const num = `KM-D${String(idx).padStart(3, '0')}`;
     const purchaseDate = _daysAgo(_randInt(10, 180));
+    // 写真：images/sample/car1.jpg 〜 car13.jpg をローテーション
+    const photoIdx = ((idx - 1) % 13) + 1;
     const car = {
       id: 'demo-car-' + idx,
       num,
@@ -81,7 +83,7 @@
       deliveryTasks: {},
       equipment: {},
       logs: [],
-      photo: '',
+      photo: `images/sample/car${photoIdx}.jpg`,
       createdAt: purchaseDate,
       updatedAt: _today(),
     };
@@ -154,27 +156,26 @@
 
   // =====================================
   // 設定（settings/main）
+  //   ※ appTaskEnabled 等は設定しない → tasks-def.js のメモリ既定値を活かす
   // =====================================
+  const _curYM = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
   const SETTINGS = {
     appSettings: {
-      invWarn: 90,        // 在庫日数警告（90日超え）
-      delWarn: 14,        // 納車日リミット警告（2週間切り）
+      invWarn: 90,
+      delWarn: 14,
       deliveryLeadDays: 10,
       notif: { enabled: true },
-      goals: { sales: 10000000, count: 8 },  // 月間目標
+      goals: { sales: 10000000, count: 8 },
     },
-    closedDays: ['日', '祝'],
-    closedRules: [],
+    // 🚫 定休日：水曜（毎週）+ 火曜（隔週）
+    closedRules: [
+      { id: 'r-w-3', pattern: 'weekly', dow: 3 },                                  // 毎週水曜
+      { id: 'r-bw-2', pattern: 'biweekly', dow: 2, anchorYM: _curYM },             // 隔週火曜
+    ],
     customHolidays: [],
     SIZES: SIZES,
-    appTaskEnabled: { regen: {}, delivery: {} },
-    appTaskOrder: { regen: [], delivery: [] },
-    appTaskDeadline: { regen: {}, delivery: {} },
-    appTaskWeight: { regen: {}, delivery: {} },
-    appTaskMode: { regen: {}, delivery: {} },
-    appCustomTasks: [],
-    boardLabels: { red: '緊急', yellow: '確認', blue: '予定', green: '目標', pink: 'メモ' },
-    _seedSampleDone: true,  // 再シード抑止
+    boardLabels: { red: '緊急', orange: '今日中', yellow: '今週中', green: '連絡', blue: '余裕' },
+    _seedSampleDone: true,
   };
 
   // =====================================

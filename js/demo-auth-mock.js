@@ -99,13 +99,11 @@
     if (appEl) appEl.style.display = 'flex';
 
     // calendar 初期値
-    if (typeof calYear !== 'undefined') calYear = new Date().getFullYear();
-    if (typeof calMonth !== 'undefined') calMonth = new Date().getMonth();
+    try { calYear = new Date().getFullYear(); } catch (e) { window.calYear = new Date().getFullYear(); }
+    try { calMonth = new Date().getMonth(); } catch (e) { window.calMonth = new Date().getMonth(); }
 
-    // 祝日（オフラインなのでスキップ可能）
-    if (typeof fetchJpHolidays === 'function') {
-      try { fetchJpHolidays(); } catch (e) {}
-    }
+    // 祝日（外部APIなのでスキップ。デモには不要）
+    // if (typeof fetchJpHolidays === 'function') fetchJpHolidays();
 
     // モバイル表示判定
     if (typeof mobileAdminMode !== 'undefined') mobileAdminMode = false;
@@ -120,6 +118,14 @@
     // ロール表示制御
     if (typeof _applyRoleVisibility === 'function') { try { _applyRoleVisibility(); } catch (e) {} }
     if (typeof _refreshHeaderAvatars === 'function') { try { _refreshHeaderAvatars(); } catch (e) {} }
+
+    // 初期タブを「タスク管理（カンバン）」に設定して、ダッシュボードから1ステップで何か見せる
+    try {
+      const kanbanTab = document.querySelector('.tab[onclick*="kanban"]');
+      if (kanbanTab && typeof switchTab === 'function') {
+        switchTab('kanban', kanbanTab);
+      }
+    } catch (e) { console.warn('[demo-auth] initial tab setup:', e); }
 
     // バナー
     _showDemoBanner();
