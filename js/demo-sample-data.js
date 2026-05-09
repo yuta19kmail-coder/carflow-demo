@@ -61,23 +61,21 @@
   const DELIVERY_WORKFLOW_TASKS = ['d_prep', 'd_maint'];
 
   // 装備品データを生成（exhibit / delivery / done 車両用）
-  // EQUIPMENT_CATEGORIES.items の type に応じてランダム値を埋める
-  function _makeEquipmentData(fillRate) {
+  // EQUIPMENT_CATEGORIES.items 全項目に値を入れる（100%チェック完了）
+  function _makeEquipmentData() {
     if (typeof EQUIPMENT_CATEGORIES === 'undefined') return {};
     const out = {};
     EQUIPMENT_CATEGORIES.forEach((cat) => {
       (cat.items || []).forEach((item) => {
-        if (Math.random() > (fillRate || 0.85)) return; // 15% は未入力（空欄）
         if (item.type === 'tri') {
           // 'on' = あり, 'off' = なし, 'none' = 未確認
-          const r = Math.random();
-          out[item.id] = r < 0.65 ? 'on' : (r < 0.9 ? 'off' : 'none');
+          //  → 装備チェック「やってる」状態なので 'on'/'off' どちらかにする（'none'=未確認は出さない）
+          out[item.id] = Math.random() < 0.7 ? 'on' : 'off';
         } else if (item.type === 'select' && Array.isArray(item.options)) {
           out[item.id] = _rand(item.options);
         } else if (item.type === 'text') {
           out[item.id] = '';
         } else {
-          // その他はとりあえず 'on'
           out[item.id] = 'on';
         }
       });
@@ -135,17 +133,19 @@
       // 展示：再生フェーズ 100% 完了（全項目 true、t_complete も true）
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
       REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
-      // t_equip と equipment 詳細も埋める
-      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
-      car.equipment = _makeEquipmentData(0.85);
+      // t_equip 完了用：car.equipment に EQUIPMENT_CATEGORIES の全項目値、regenTasks.t_equip に同じものをコピー
+      const eqData = _makeEquipmentData();
+      car.equipment = eqData;
+      car.regenTasks['t_equip'] = Object.assign({}, eqData);
       return;
     }
     if (col === 'delivery') {
       // 納車準備：再生フェーズ完了 + 納車フェーズ部分完了
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
       REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
-      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
-      car.equipment = _makeEquipmentData(0.9);
+      const eqDataD = _makeEquipmentData();
+      car.equipment = eqDataD;
+      car.regenTasks['t_equip'] = Object.assign({}, eqDataD);
       const dPct = _randInt(40, 80);
       DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = Math.random() < (dPct / 100); });
       DELIVERY_WORKFLOW_TASKS.forEach((t) => {
@@ -158,8 +158,9 @@
       // 納車済み：全タスク完了
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
       REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
-      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
-      car.equipment = _makeEquipmentData(0.95);
+      const eqDataX = _makeEquipmentData();
+      car.equipment = eqDataX;
+      car.regenTasks['t_equip'] = Object.assign({}, eqDataX);
       DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = true; });
       DELIVERY_WORKFLOW_TASKS.forEach((t) => { car.deliveryTasks[t] = _completeWorkflowFor(t, true); });
       return;

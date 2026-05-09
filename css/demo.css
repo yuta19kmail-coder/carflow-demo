@@ -35,13 +35,24 @@
   background: rgba(255, 255, 255, .4);
 }
 
-/* バナー分本体を下げる */
+/* バナー分本体を下げる：高さ計算でちゃんとビューポート内に収める */
 body.demo-mode {
-  padding-top: 36px !important;
+  padding-top: 0 !important;        /* paddingではなくappの高さで対応 */
 }
 body.demo-mode #login-screen {
-  padding-top: 36px !important;
+  margin-top: 36px !important;
   min-height: calc(100vh - 36px) !important;
+}
+/* メインアプリ：100vh ではなく viewport - banner */
+body.demo-mode #app {
+  margin-top: 36px !important;
+  height: calc(100vh - 36px) !important;
+}
+/* オーバーレイ（モーダル）もバナーぶん下げる */
+body.demo-mode .overlay,
+body.demo-mode .confirm-overlay {
+  top: 36px !important;
+  height: calc(100vh - 36px) !important;
 }
 
 /* ===== デモログインボタン ===== */
@@ -212,7 +223,17 @@ body.demo-mode #login-screen {
   #demo-banner span {
     flex: 1;
   }
-  body.demo-mode {
-    padding-top: 32px !important;
+  body.demo-mode #app {
+    margin-top: 32px !important;
+    height: calc(100vh - 32px) !important;
+  }
+  body.demo-mode #login-screen {
+    margin-top: 32px !important;
+    min-height: calc(100vh - 32px) !important;
+  }
+  body.demo-mode .overlay,
+  body.demo-mode .confirm-overlay {
+    top: 32px !important;
+    height: calc(100vh - 32px) !important;
   }
 }
