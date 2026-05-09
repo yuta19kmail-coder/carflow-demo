@@ -60,6 +60,31 @@
   const DELIVERY_TOGGLE_TASKS = ['d_docs', 'd_reg', 'd_complete'];
   const DELIVERY_WORKFLOW_TASKS = ['d_prep', 'd_maint'];
 
+  // 装備品データを生成（exhibit / delivery / done 車両用）
+  // EQUIPMENT_CATEGORIES.items の type に応じてランダム値を埋める
+  function _makeEquipmentData(fillRate) {
+    if (typeof EQUIPMENT_CATEGORIES === 'undefined') return {};
+    const out = {};
+    EQUIPMENT_CATEGORIES.forEach((cat) => {
+      (cat.items || []).forEach((item) => {
+        if (Math.random() > (fillRate || 0.85)) return; // 15% は未入力（空欄）
+        if (item.type === 'tri') {
+          // 'on' = あり, 'off' = なし, 'none' = 未確認
+          const r = Math.random();
+          out[item.id] = r < 0.65 ? 'on' : (r < 0.9 ? 'off' : 'none');
+        } else if (item.type === 'select' && Array.isArray(item.options)) {
+          out[item.id] = _rand(item.options);
+        } else if (item.type === 'text') {
+          out[item.id] = '';
+        } else {
+          // その他はとりあえず 'on'
+          out[item.id] = 'on';
+        }
+      });
+    });
+    return out;
+  }
+
   // tasks-def.js の REGEN_TASKS / DELIVERY_TASKS から workflow 全項目 true なオブジェクトを生成
   function _completeWorkflowFor(taskId, isDelivery) {
     const tasksDef = isDelivery ? (typeof DELIVERY_TASKS !== 'undefined' ? DELIVERY_TASKS : []) : (typeof REGEN_TASKS !== 'undefined' ? REGEN_TASKS : []);
@@ -110,18 +135,33 @@
       // 展示：再生フェーズ 100% 完了（全項目 true、t_complete も true）
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
       REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
+      // t_equip と equipment 詳細も埋める
+      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
+      car.equipment = _makeEquipmentData(0.85);
       return;
     }
     if (col === 'delivery') {
       // 納車準備：再生フェーズ完了 + 納車フェーズ部分完了
       REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
       REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
+      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
+      car.equipment = _makeEquipmentData(0.9);
       const dPct = _randInt(40, 80);
       DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = Math.random() < (dPct / 100); });
       DELIVERY_WORKFLOW_TASKS.forEach((t) => {
         if (Math.random() < 0.5) car.deliveryTasks[t] = _completeWorkflowFor(t, true);
         else car.deliveryTasks[t] = _partialWorkflowFor(t, true, _randInt(40, 80));
       });
+      return;
+    }
+    if (col === 'done') {
+      // 納車済み：全タスク完了
+      REGEN_TOGGLE_TASKS.forEach((t) => { car.regenTasks[t] = true; });
+      REGEN_WORKFLOW_TASKS.forEach((t) => { car.regenTasks[t] = _completeWorkflowFor(t, false); });
+      car.regenTasks['t_equip'] = _completeWorkflowFor('t_equip', false);
+      car.equipment = _makeEquipmentData(0.95);
+      DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = true; });
+      DELIVERY_WORKFLOW_TASKS.forEach((t) => { car.deliveryTasks[t] = _completeWorkflowFor(t, true); });
       return;
     }
   }
@@ -133,9 +173,10 @@
   const CAR_PLAN = [
     { col: 'other',    count: 2, invDays: [5, 12] },
     { col: 'purchase', count: 4, invDays: [3, 8, 15, 25] },
-    { col: 'regen',    count: 5, invDays: [40, 65, 75, 85, 95] },     // 警告閾値90付近
-    { col: 'exhibit',  count: 6, invDays: [70, 80, 88, 95, 105, 130] }, // 警告またぐ分布
-    { col: 'delivery', count: 3, invDays: [50, 70, 100] },             // 納車準備
+    { col: 'regen',    count: 5, invDays: [40, 65, 75, 85, 95] },
+    { col: 'exhibit',  count: 6, invDays: [70, 80, 88, 95, 105, 130] },
+    { col: 'delivery', count: 3, invDays: [50, 70, 100] },
+    { col: 'done',     count: 2, invDays: [60, 90] },                 // 納車済み（月締め前）
   ];
 
   function _makeCarsByPlan() {
@@ -175,6 +216,11 @@
         };
         if (col === 'delivery') {
           car.deliveryDate = _daysFromNow(_randInt(2, 14));
+          car.customerName = _rand(CUSTOMERS);
+          car.contract = 1;
+        }
+        if (col === 'done') {
+          car.deliveryDate = _daysAgo(_randInt(3, 14));
           car.customerName = _rand(CUSTOMERS);
           car.contract = 1;
         }
