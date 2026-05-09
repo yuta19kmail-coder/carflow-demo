@@ -1,0 +1,358 @@
+/* ========================================
+   deal.css （v1.0.16）
+   商談ビュー専用 — キオスク的UI
+   顧客と話しているときの「アテ」になるビジュアル
+   ======================================== */
+
+/* ===== 商談モード時の全体レイアウト切替 ===== */
+/* サイドバー・タブ・トップバーの一部を隠す。フォントサイズだけは残す */
+body.deal-mode .sidebar,
+body.deal-mode .tabs,
+body.deal-mode .topbar-logo,
+body.deal-mode .tb-btn,
+body.deal-mode .topbar-user,
+body.deal-mode .sidebar-toggle,
+body.deal-mode .action-area {
+  display: none !important;
+}
+body.deal-mode .topbar {
+  justify-content: flex-end;
+  padding: 6px 18px;
+}
+body.deal-mode .views {
+  padding: 0;
+}
+body.deal-mode .body-row {
+  background: var(--bg);
+}
+/* 商談ビュー以外のビュー描画はそのまま、ただし deal-mode では deal だけ表示される */
+
+/* ===== 商談ビュー本体 ===== */
+#view-deal {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 終了ボタン（右上、目立たない） */
+.deal-exit-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  opacity: .55;
+  transition: .15s;
+}
+.deal-exit-btn:hover {
+  opacity: 1;
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* 列レイアウト（展示ビューと同じ横並び） */
+.deal-cols {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 4px 14px;
+  flex: 1;
+  min-height: 0;
+}
+.deal-col {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+.deal-col.stock {
+  background: var(--bg3);
+}
+.deal-col-hdr {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.deal-col-name {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.deal-col-icon {
+  font-size: 18px;
+}
+.deal-col-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ===== カード（全カード統一サイズ：写真→タイトル→年式距離→金額まで必ず見える） ===== */
+.deal-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+  cursor: pointer;
+  transition: .15s;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0; /* 列内で縮まない */
+}
+.deal-card:hover {
+  border-color: var(--blue);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(55,138,221,.15);
+}
+.deal-card-thumb {
+  height: 170px;
+  flex-shrink: 0;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  overflow: hidden;
+}
+.deal-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.deal-card-body {
+  padding: 13px 14px 16px;
+}
+.deal-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.deal-card-stats {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.deal-stat {
+  flex: 1;
+}
+.deal-stat-num {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+.deal-stat-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-left: 2px;
+}
+.deal-stat-lbl {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 3px;
+  letter-spacing: .04em;
+}
+.deal-card-price {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--blue);
+  letter-spacing: -.02em;
+  text-align: right;
+}
+
+/* ===== 商談用ポップアップ ===== */
+.deal-overlay {
+  background: rgba(0,0,0,.78);
+  backdrop-filter: blur(6px);
+}
+.deal-popup {
+  position: relative;
+  background: var(--bg);
+  border-radius: 18px;
+  width: min(900px, 92vw);
+  max-height: 88vh;
+  overflow: hidden;
+  box-shadow: 0 20px 80px rgba(0,0,0,.5);
+}
+.deal-popup-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: .15s;
+}
+.deal-popup-close:hover {
+  background: rgba(0,0,0,.85);
+  transform: scale(1.05);
+}
+.deal-popup-body {
+  display: flex;
+  flex-direction: row;
+  max-height: 88vh;
+  min-height: 480px;
+}
+
+/* v1.3.10: 装備詳細モードの切替
+   data-eq-mode="0" → 通常表示（写真+情報）  /  data-eq-mode="1" → 装備詳細パネル
+   .deal-main / .deal-eq-panel の幅指定がないと flex 子要素が内容サイズになり、
+   ポップアップ枠の1/3程度しか使わない見た目になっていた。 */
+.deal-main {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.deal-eq-panel {
+  display: none;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 24px 28px;
+  background: var(--bg);
+}
+.deal-popup-body[data-eq-mode="1"] .deal-main { display: none; }
+.deal-popup-body[data-eq-mode="1"] .deal-eq-panel { display: block; }
+
+/* 戻るボタン */
+.deal-eq-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+.deal-eq-back:hover { background: var(--bg4); color: var(--text); }
+
+/* 「装備詳細を見る」起動ボタン */
+.deal-eq-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 18px;
+  background: rgba(55, 138, 221, 0.12);
+  border: 1px solid rgba(55, 138, 221, 0.30);
+  border-radius: var(--r);
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-start;
+  transition: .15s;
+}
+.deal-eq-trigger:hover {
+  background: rgba(55, 138, 221, 0.22);
+}
+.deal-popup-photo {
+  flex: 1.2;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+.deal-popup-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.deal-popup-emoji {
+  font-size: 96px;
+}
+.deal-popup-info {
+  flex: 1;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+.deal-popup-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+.deal-popup-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 24px;
+}
+.deal-popup-stat-lbl {
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
+.deal-popup-stat-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+.deal-popup-stat-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-left: 2px;
+}
+.deal-popup-price {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--blue);
+  letter-spacing: -.02em;
+  text-align: right;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+/* レスポンシブ：狭い時は縦並び */
+@media (max-width: 720px) {
+  .deal-popup-body {
+    flex-direction: column;
+  }
+  .deal-popup-photo {
+    min-height: 220px;
+  }
+  .deal-popup-info {
+    padding: 24px 22px;
+  }
+}

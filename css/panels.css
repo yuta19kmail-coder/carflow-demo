@@ -1,0 +1,749 @@
+/* ========================================
+   panels.css
+   右サイドパネル（ダッシュボード、ログ、メンバー、設定、通知）
+   ======================================== */
+
+.side-panel{display:none;flex:1;overflow:auto;padding:16px;flex-direction:column;gap:14px}
+.side-panel.open{display:flex}
+.panel-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.panel-sub{font-size:13px;color:var(--text2)}
+.panel-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
+.panel-card h3{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)}
+
+/* ダッシュボード統計ボックス */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.stat-num{font-size:26px;font-weight:700;color:var(--blue)}
+.stat-label{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* 設定画面の行 */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+
+/* 操作ログの行 */
+.log-row{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.log-row:last-child{border-bottom:none}
+.log-time{color:var(--text3);font-size:10px;width:90px;flex-shrink:0}
+.log-user{color:var(--blue);font-weight:600;width:64px;flex-shrink:0}
+
+/* メンバー一覧の行 */
+.member-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.member-row:last-child{border-bottom:none}
+.m-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+/* v1.7.29: メンバー並び替え用の▲▼ボタン */
+.m-arrow{width:22px;height:18px;font-size:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:3px;cursor:pointer;padding:0;line-height:1;font-family:inherit}
+.m-arrow:hover:not(:disabled){background:var(--blue);color:#fff;border-color:var(--blue)}
+.m-arrow:disabled{opacity:.3;cursor:not-allowed}
+
+
+/* ========================================
+   アコーディオン（設定画面用）
+   ★flex-shrink:0 で「全カードが縮む」現象を防止
+   ★side-panel自体がスクロールするため、中身がはみ出してもOK
+   ======================================== */
+.side-panel > *{flex-shrink:0 !important}
+
+.acc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;flex-shrink:0 !important}
+.acc-head{display:flex !important;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;user-select:none;transition:background .15s}
+.acc-head:hover{background:var(--bg3)}
+.acc-head h3{font-size:13px;font-weight:600;color:var(--text);margin:0}
+.acc-chev{font-size:14px;color:var(--text3);transition:transform .2s;display:inline-block}
+.acc-card[data-acc-open="1"] .acc-chev{transform:rotate(180deg);color:var(--blue)}
+
+/* デフォルト＝閉じる */
+.acc-body{display:none !important;padding:0 16px 16px;border-top:1px solid var(--border)}
+/* 開いた時＝全表示。max-height制限なし、画面側でスクロール */
+.acc-card[data-acc-open="1"] > .acc-body{display:block !important;padding-top:14px}
+
+/* ========================================
+   トップバー追加ボタン
+   ======================================== */
+.tb-btn{font-size:12px;font-weight:600;color:var(--blue);background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:var(--r);padding:6px 12px;cursor:pointer;margin-left:8px;transition:.15s}
+.tb-btn:hover{background:rgba(55,138,221,.22)}
+
+/* ========================================
+   ダッシュボード詳細トグル
+   ======================================== */
+.dash-sec-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.dash-sec-title h3{margin:0;font-size:13px;font-weight:600;color:var(--text2)}
+.dash-detail-btn{font-size:11px;color:var(--text3);background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer}
+.dash-detail-btn:hover{color:var(--text);border-color:var(--text3)}
+.dash-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.dash-detail.open{display:block}
+
+/* ========================================
+   ダッシュボード：着地予測バー（land-bar）
+   ======================================== */
+.land-bar{display:flex;height:32px;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:8px 0 14px}
+.land-bar > div{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transition:width .3s;white-space:nowrap;overflow:hidden}
+.land-fixed{background:var(--green)}
+.land-likely{background:var(--blue)}
+.land-possible{background:var(--orange);color:#1a1d27}
+.land-remain{background:var(--bg4);color:var(--text3);font-weight:600}
+
+/* 着地予測の凡例（任意で使用） */
+.land-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--text2);margin-top:6px}
+.land-legend-item{display:flex;align-items:center;gap:6px}
+.land-legend-dot{width:10px;height:10px;border-radius:3px}
+
+/* ========================================
+   ダッシュボード：KPIグリッド
+   ======================================== */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px}
+.kpi-label{font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.kpi-value{font-size:22px;font-weight:700;color:var(--text);line-height:1.2}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.kpi-positive{color:var(--green)}
+.kpi-negative{color:var(--red)}
+
+/* ========================================
+   ダッシュボード：警告サマリー行
+   ======================================== */
+.wr-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.wr-label{flex:1;font-size:12px;color:var(--text2)}
+.warn-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.warn-row:last-child{border-bottom:none}
+.warn-row input[type="number"]{width:64px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;text-align:right;outline:none}
+/* v1.7.25: 「↺ デフォルトに戻す」行 */
+.settings-reset-row{margin-top:10px;display:flex;justify-content:flex-end}
+.toggle{width:36px;height:20px;background:var(--bg4);border:1px solid var(--border);border-radius:10px;cursor:pointer;position:relative;transition:.2s}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:var(--text2);border-radius:50%;top:2px;left:2px;transition:.2s}
+.toggle.on{background:rgba(29,185,122,.3);border-color:var(--green)}
+.toggle.on::after{background:var(--green);left:18px}
+
+/* ========================================
+   販売実績ビュー（archive）
+   ======================================== */
+.arc-year{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:14px}
+.arc-year-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--bg3);user-select:none;transition:background .15s}
+.arc-year-head:hover{background:var(--bg4)}
+.arc-year-head h3{font-size:15px;font-weight:700;color:var(--text);margin:0}
+.arc-year-body{padding:12px 14px}
+
+.arc-month{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:10px}
+.arc-month:last-child{margin-bottom:0}
+.arc-month-head{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;color:var(--text)}
+.arc-month-head:hover{color:var(--blue)}
+.arc-month-title{font-size:14px;font-weight:600;flex-shrink:0}
+.arc-month-stat{font-size:12px;color:var(--text2);flex:1}
+.arc-achv{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0}
+.arc-achv.hit{background:rgba(29,185,122,.18);color:var(--green);border:1px solid rgba(29,185,122,.4)}
+.arc-achv.miss{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid rgba(245,158,11,.35)}
+
+.arc-cars{margin-top:10px;border-top:1px dashed var(--border);padding-top:8px}
+.arc-car-row{display:grid;grid-template-columns:80px 1fr 70px 90px 100px 80px;gap:10px;align-items:center;padding:7px 4px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)}
+.arc-car-row:last-child{border-bottom:none}
+.arc-car-row .mono{font-family:'SF Mono','Consolas',monospace;color:var(--blue);font-weight:600}
+
+/* ========================================
+   v0.9.6 表示設定（テーマ・フォントサイズ）
+   ======================================== */
+.theme-picker, .fontsize-picker{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.theme-btn, .fontsize-btn{
+  flex:1;
+  min-width:80px;
+  padding:11px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  color:var(--text2);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.15s;
+  font-family:inherit;
+}
+.theme-btn:hover, .fontsize-btn:hover{
+  background:var(--bg4);
+  color:var(--text);
+  border-color:var(--text3);
+}
+.theme-btn.active, .fontsize-btn.active{
+  background:rgba(55,138,221,.18);
+  border-color:var(--blue);
+  color:var(--blue);
+}
+
+/* ライトモードでの選択中ボタン色味調整 */
+:root[data-theme="light"] .theme-btn.active,
+:root[data-theme="light"] .fontsize-btn.active{
+  background:rgba(37,99,235,.10);
+  color:var(--blue);
+  border-color:var(--blue);
+}
+
+/* ========================================
+   v0.9.8 トップバーのフォントサイズクイックボタン
+   ======================================== */
+.tb-btn.font-quick{
+  display:inline-flex;align-items:center;gap:4px;
+}
+.tb-btn.font-quick #tb-fontsize-label{
+  font-size:11px;
+  font-weight:600;
+  min-width:24px;
+  text-align:left;
+}
+
+/* スマホ時はクイック切替ボタンを非表示（mobile.cssでカバー済みだが念のため） */
+@media (max-width: 768px) {
+  .tb-btn.font-quick{display:none !important}
+}
+
+/* ========================================
+   v0.9.9 トップバーのフォントサイズ3分割ボタン
+   ======================================== */
+.tb-fontsize-group{
+  display:inline-flex;
+  margin-left:8px;
+  border:1px solid rgba(55,138,221,.3);
+  border-radius:var(--r);
+  overflow:hidden;
+  background:rgba(55,138,221,.08);
+}
+.tb-fontsize-btn{
+  background:transparent;
+  border:none;
+  border-right:1px solid rgba(55,138,221,.3);
+  padding:5px 11px;
+  cursor:pointer;
+  color:var(--text2);
+  font-weight:700;
+  transition:.15s;
+  font-family:inherit;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:28px;
+}
+.tb-fontsize-btn:last-child{border-right:none}
+.tb-fontsize-btn:hover{background:rgba(55,138,221,.15);color:var(--text)}
+.tb-fontsize-btn.active{
+  background:rgba(55,138,221,.28);
+  color:var(--blue);
+}
+
+/* スマホ時は非表示 */
+@media (max-width: 768px) {
+  .tb-fontsize-group{display:none !important}
+}
+
+/* ライトモードでの色調整 */
+:root[data-theme="light"] .tb-fontsize-group{
+  border-color:rgba(30,95,194,.4);
+  background:rgba(30,95,194,.08);
+}
+:root[data-theme="light"] .tb-fontsize-btn{
+  border-right-color:rgba(30,95,194,.4);
+}
+:root[data-theme="light"] .tb-fontsize-btn:hover{
+  background:rgba(30,95,194,.15);
+}
+:root[data-theme="light"] .tb-fontsize-btn.active{
+  background:rgba(30,95,194,.20);
+  color:var(--blue);
+}
+
+
+/* ========================================
+   v1.0.30: 設定パネル再構成（サイドバー型）
+   ======================================== */
+
+/* ルート：side-panel.settings-v2 が padding:16px を持つので調整 */
+.settings-v2 {
+  padding: 0 !important;
+  gap: 0 !important;
+  display: none;
+}
+.settings-v2.open { display: flex; }
+
+.settings-head {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 左：項目ナビ */
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 12px 8px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.settings-nav-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+.settings-nav-item.active {
+  background: rgba(55,138,221,.16);
+  color: var(--blue);
+}
+.settings-nav-icon {
+  font-size: 18px;
+  width: 22px;
+  text-align: center;
+}
+.settings-nav-label { flex: 1; }
+
+/* 右：コンテンツ */
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 28px 40px;
+  min-width: 0;
+}
+
+.settings-section {
+  display: none;
+}
+.settings-section.active {
+  display: block;
+}
+
+.settings-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.settings-section-desc {
+  font-size: 12px;
+  color: var(--text3);
+  margin: 0 0 18px;
+}
+
+/* カード（セクション内の各設定ブロック） */
+.settings-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.settings-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.settings-card-title .settings-card-hint {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 400;
+  margin-left: 6px;
+}
+.settings-card-desc {
+  font-size: 12px;
+  color: var(--text2);
+  margin: 0 0 12px;
+  line-height: 1.55;
+}
+.settings-card-hint {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+}
+
+/* カード内の入力行（旧 setting-row 相当） */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-input {
+  padding: 6px 9px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.settings-input:focus { border-color: var(--blue); }
+
+/* スマホ：縦積みに */
+@media (max-width: 768px) {
+  .settings-layout { flex-direction: column; }
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 8px;
+    gap: 4px;
+  }
+  .settings-nav-item {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .settings-nav-label { display: none; }
+  .settings-nav-icon { font-size: 20px; }
+  .settings-nav-item.active .settings-nav-label { display: inline; }
+  .settings-content { padding: 16px; }
+}
+
+
+/* ========================================
+   v1.0.32: タスク ON/OFF ＋ カスタムタスク追加 UI
+   ======================================== */
+.task-edit-phase {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.task-edit-phase-head {
+  padding: 8px 12px;
+  background: var(--bg3);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+.task-edit-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+}
+.task-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.task-edit-row:last-child { border-bottom: none; }
+.task-edit-row.task-edit-custom {
+  background: rgba(55,138,221,.06);
+}
+.task-edit-icon {
+  font-size: 18px;
+  width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.task-edit-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.task-edit-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg3);
+  color: var(--text3);
+  font-weight: 600;
+}
+.task-edit-tag.custom {
+  background: rgba(55,138,221,.18);
+  color: var(--blue);
+}
+
+/* トグルスイッチ */
+.task-edit-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.task-edit-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.task-edit-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: 0.18s;
+}
+.task-edit-toggle-slider::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  width: 14px;
+  height: 14px;
+  background: var(--text2);
+  border-radius: 50%;
+  transition: 0.18s;
+}
+.task-edit-toggle input:checked + .task-edit-toggle-slider {
+  background: var(--green);
+  border-color: var(--green);
+}
+.task-edit-toggle input:checked + .task-edit-toggle-slider::before {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+/* v1.6.1: 詳細作成スイッチ + 編集ボタン */
+.task-edit-checklist-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg2, var(--bg1));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-right: 4px;
+}
+.task-edit-checklist-label {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.task-edit-toggle.task-edit-toggle-sm {
+  width: 28px;
+  height: 16px;
+}
+.task-edit-toggle.task-edit-toggle-sm .task-edit-toggle-slider::before {
+  width: 12px;
+  height: 12px;
+  left: 1px;
+  top: 1px;
+}
+.task-edit-toggle.task-edit-toggle-sm input:checked + .task-edit-toggle-slider::before {
+  transform: translateX(11px);
+}
+.task-edit-toggle.task-edit-toggle-sm input:disabled + .task-edit-toggle-slider {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.task-edit-tplbtn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border: 1px solid var(--accent, #378ADD);
+  background: var(--bg1);
+  color: var(--accent, #378ADD);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.12s;
+}
+.task-edit-tplbtn:hover {
+  background: var(--accent, #378ADD);
+  color: #fff;
+}
+
+/* モバイルではグループを縦積みにして崩れ防止 */
+@media (max-width: 768px) {
+  .task-edit-checklist-group {
+    flex-wrap: wrap;
+    width: 100%;
+    margin-top: 6px;
+    margin-right: 0;
+  }
+}
+
+.task-edit-del {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.task-edit-del:hover {
+  background: rgba(239,68,68,.12);
+  border-color: rgba(239,68,68,.4);
+  color: var(--red);
+}
+
+/* v1.8.13: タスク行末の ⋮ メニューボタン（編集・削除・詳細トグルを集約）*/
+.task-edit-menu-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  padding: 0;
+}
+.task-edit-menu-btn:hover {
+  background: var(--bg4);
+  border-color: var(--text3);
+  color: var(--text);
+}
+.task-edit-menu-btn:active {
+  transform: scale(0.94);
+}
+
+/* 追加フォーム */
+.task-edit-add {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+/* v1.7.36: タスクパターン一覧へのリンクボタン */
+.task-edit-templates-link {
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(55, 138, 221, .08);
+  border: 1px solid rgba(55, 138, 221, .35);
+  border-radius: 8px;
+  text-align: center;
+}
+.task-edit-add-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+.task-edit-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.task-edit-add-icon { width: 60px; text-align: center; font-size: 18px; }
+.task-edit-add-name { flex: 1; }
+.task-edit-add-phase-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.task-edit-add-phase-label {
+  font-size: 11px;
+  color: var(--text3);
+}
+.task-edit-add-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+}
+
+/* v1.0.33: タスクエディタの並び替えボタン・期日入力欄 */
+.task-edit-phase-deadline-hint {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+.task-edit-phase-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text1);
+  padding: 8px 4px 4px;
+}
+.task-edit-empty {
+  font-size: 11px;
+  color: var(--text3);
+  padding: 6px 4px;
+}
+.task-edit-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.task-edit-order-btn {
+  width: 22px;
+  height: 16px;
+  font-size: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg1);
+  color: var(--text2);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.task-edit-order-btn:hover:not(:disabled) {
+  background: var(--accent, #378ADD);
+  color: #fff;
+  border-color: var(--accent, #378ADD);
+}
+.task-edit-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.task-edit-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.task-edit-deadline-inp {
+  width: 50px;
+  padding: 4px 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12px;
+  text-align: right;
+}
+.task-edit-deadline-suffix {
+  font-size: 11px;
+  color: var(--text3);
+}
+.task-edit-tag.auto {
+  background: var(--orange, #f57c00);
+  color: #fff;
+  font-weight: 600;
+}

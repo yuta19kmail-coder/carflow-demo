@@ -1,0 +1,76 @@
+/* ========================================
+   components.css
+   共通部品（ボタン、チップ、ピル、プログレスバー、トースト）
+   ======================================== */
+
+/* 小さいボタン */
+.btn-sm{font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer}
+
+/* チップ（アラート表示） */
+.chip{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 11px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid transparent}
+.chip-red{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3);color:#fca5a5}
+.chip-orange{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:#fcd34d}
+.chip-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.chip-red .chip-dot{background:var(--red)}
+.chip-orange .chip-dot{background:var(--orange)}
+
+/* ピル（ステータスラベル） */
+.pill{font-size:11px;padding:3px 8px;border-radius:8px;font-weight:600;display:inline-block}
+.pill-blue{background:rgba(55,138,221,.2);color:#93c5fd}
+.pill-green{background:rgba(29,185,122,.2);color:#6ee7b7}
+.pill-orange{background:rgba(245,158,11,.2);color:#fcd34d}
+.pill-purple{background:rgba(139,92,246,.2);color:#c4b5fd}
+.pill-gray{background:rgba(156,163,175,.15);color:#9ca3af}
+
+/* プログレスバー */
+.pbar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.pfill{height:100%;background:var(--orange);border-radius:2px;transition:.3s}
+
+/* トグルスイッチ */
+.toggle{width:38px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;position:relative;transition:.2s;flex-shrink:0}
+.toggle.on{background:var(--green)}
+.toggle::after{content:'';width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s}
+.toggle.on::after{left:18px}
+
+/* 定休日チップ（設定画面） */
+.closed-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:16px;font-size:12px;color:var(--text2);margin:3px;cursor:pointer;background:var(--bg3);border:1px solid var(--border)}
+.closed-chip.active{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#fca5a5}
+
+/* トースト（通知メッセージ） */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 16px;font-size:13px;z-index:9999;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* ========================================
+   ボタン全種
+   ======================================== */
+/* プライマリボタン（更新する/登録する/決定など） */
+.btn-primary{
+  font-size:13px;font-weight:600;color:#fff;
+  background:linear-gradient(135deg,var(--green),var(--blue));
+  border:none;border-radius:var(--r);padding:8px 18px;cursor:pointer;
+  transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)
+}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* btn-sm の hover 強化（既存にhoverがなかったので追加） */
+.btn-sm:hover{color:var(--text);border-color:var(--text3);background:var(--bg3)}
+.btn-sm:disabled{opacity:.4;cursor:not-allowed}
+
+/* ========================================
+   v0.8.9 「その他」用ピル色＋登録モーダルのその他ボタン
+   ======================================== */
+.pill-other{background:rgba(138,143,168,.18);color:#c5cad8;border:1px solid rgba(138,143,168,.35)}
+
+/* 「その他として登録」ボタン：サブ系の控えめスタイル */
+.btn-other{
+  font-size:13px;font-weight:600;
+  background:rgba(138,143,168,.15);
+  color:#c5cad8;
+  border:1px solid rgba(138,143,168,.4);
+  border-radius:var(--r);
+  padding:8px 14px;
+  cursor:pointer;
+  transition:.15s;
+}
+.btn-other:hover{background:rgba(138,143,168,.25);color:var(--text);border-color:#a3a8c0}

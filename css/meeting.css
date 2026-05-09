@@ -1,0 +1,255 @@
+/* ========================================
+   meeting.css (v1.8.35)
+   β版 ミーティングビュー — 既存ビューを5セルで同時表示
+   v1.8.35: 致命的バグ修正！
+            meeting.js は innerHTML をコピーするので、クローン側に
+            .pv-grid / .ex-cols / .cal-countdown のラッパーが存在しない。
+            → これまで CSS が全く効いていなかった。
+            .meeting-zoom 自体を flex コンテナにして、その直下の
+            子要素（.pv-group / .ex-col / .countdown-card）をターゲットする。
+   ======================================== */
+
+#view-meeting {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.meeting-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr 1fr;
+  grid-template-areas:
+    "progress  calendar"
+    "progress  calendar"
+    "exhibit   warn"
+    "exhibit   actions";
+  gap: 1px;
+  background: var(--border);
+  min-height: 0;
+}
+
+.meeting-cell {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.meeting-cell-title {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  user-select: none;
+}
+
+.meeting-cell-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+/* デフォルトの meeting-zoom（カレンダー・要対応アクション用） */
+.meeting-zoom {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+/* meeting-cell 共通：不要要素を非表示 */
+.meeting-cell .pv-tabs,
+.meeting-cell .pv-toggle-btn { display: none !important; }
+
+/* ============================================================
+   進捗セル：meeting-zoom 自体を flex 横スクロールに
+   直下の .pv-group が「その他/販売前/納車準備」の各列
+   ============================================================ */
+#meeting-progress-body .meeting-zoom {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 8px !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+#meeting-progress-body .meeting-zoom > .pv-group {
+  flex: 0 0 240px !important;
+  width: 240px !important;
+  min-width: 240px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+  min-height: 0;
+}
+#meeting-progress-body .meeting-zoom > .pv-group > .pv-group-head {
+  flex: 0 0 auto !important;
+}
+#meeting-progress-body .meeting-zoom > .pv-group > .pv-group-body {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  gap: 8px !important;
+  padding-top: 8px !important;
+  min-height: 0;
+}
+#meeting-progress-body .meeting-zoom > .pv-group > .pv-group-body > * {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* ============================================================
+   カレンダーセル：通常レンダリング。カウントダウンと休業バーは隠す
+   ============================================================ */
+.meeting-cell .cal-grid { gap: 4px; }
+#meeting-calendar-body .cal-countdown,
+#meeting-calendar-body .holiday-bar { display: none !important; }
+
+/* ============================================================
+   警告セル：meeting-zoom 自体を flex 横スクロールに
+   直下の .countdown-card がカウントダウンカード
+   ============================================================ */
+#meeting-warn-body .meeting-zoom {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 8px !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+#meeting-warn-body .meeting-zoom > .countdown-card {
+  flex: 0 0 200px !important;
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
+  margin: 0 !important;
+  padding: 10px !important;
+  box-sizing: border-box !important;
+}
+
+/* ============================================================
+   展示セル：meeting-zoom 自体を flex 横スクロールに
+   直下の .ex-col がカテゴリ列
+   ============================================================ */
+#meeting-exhibit-body .meeting-zoom {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 8px !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+#meeting-exhibit-body .meeting-zoom > .ex-col {
+  flex: 0 0 240px !important;
+  width: 240px !important;
+  min-width: 240px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  min-height: 0;
+}
+#meeting-exhibit-body .meeting-zoom > .ex-col > .ex-col-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0;
+}
+
+/* ============================================================
+   要対応アクションセル：チップを wrap で縦スクロール
+   ============================================================ */
+#meeting-actions-body .meeting-zoom > .action-chip {
+  margin: 3px !important;
+}
+#meeting-actions-body .meeting-zoom {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-content: flex-start !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 6px !important;
+  gap: 5px !important;
+}
+
+/* ============================================================
+   4Kモニター（壁掛け）想定
+   ============================================================ */
+@media (min-width: 2400px) {
+  .meeting-cell-title { font-size: 18px; padding: 10px 18px; }
+  #meeting-progress-body .meeting-zoom > .pv-group {
+    flex-basis: 300px !important;
+    width: 300px !important;
+    min-width: 300px !important;
+  }
+  #meeting-warn-body .meeting-zoom > .countdown-card {
+    flex-basis: 240px !important;
+    width: 240px !important;
+    min-width: 240px !important;
+    max-width: 240px !important;
+  }
+  #meeting-exhibit-body .meeting-zoom > .ex-col {
+    flex-basis: 300px !important;
+    width: 300px !important;
+    min-width: 300px !important;
+  }
+}
+@media (min-width: 3200px) {
+  .meeting-cell-title { font-size: 22px; padding: 12px 22px; }
+}
+
+/* ============================================================
+   スマホ：1列に潰す。各セルが上下に並ぶ
+   ============================================================ */
+body.mobile .meeting-grid {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(5, minmax(220px, auto));
+  grid-template-areas:
+    "progress"
+    "calendar"
+    "exhibit"
+    "warn"
+    "actions";
+}
+body.mobile #meeting-progress-body .meeting-zoom > .pv-group {
+  flex-basis: 200px !important;
+  width: 200px !important;
+  min-width: 200px !important;
+}
+body.mobile #meeting-warn-body .meeting-zoom > .countdown-card {
+  flex-basis: 170px !important;
+  width: 170px !important;
+  min-width: 170px !important;
+  max-width: 170px !important;
+}
+body.mobile #meeting-exhibit-body .meeting-zoom > .ex-col {
+  flex-basis: 200px !important;
+  width: 200px !important;
+  min-width: 200px !important;
+}

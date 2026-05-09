@@ -1,0 +1,359 @@
+/* ========================================
+   mobile.css
+   v1.0.2: body.mobile クラス基準に変更（管理者モード切替対応）
+   現場モード = body.mobile が付いてる時に効く
+   管理者モード = body.mobile が外れて、PC版レイアウトに戻る
+   ======================================== */
+
+/* ========================================
+   現場モード（body.mobile）専用スタイル
+   ======================================== */
+
+body.mobile { font-size: 14px; }
+
+/* v1.7.9: タッチデバイスで :hover が残るのを防ぐ
+   （iOS Safari でタップ後に :hover が残って「選択中」っぽく見える既知のバグの対策） */
+@media (hover: none) {
+  .pv-card:hover,
+  .pv-card.is-compact:hover,
+  .pv-card.pv-card-other:hover {
+    border-color: var(--border) !important;
+    box-shadow: none !important;
+  }
+  .bn-card:hover {
+    transform: none !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10), 0 1px 0 rgba(255, 255, 255, 0.5) inset !important;
+  }
+}
+
+/* v1.7.3 / v1.7.4: スマホ限定タブ（管理者モード or PCでは非表示）
+   PC では .tab-mobile-only を非表示。スマホでは .tab-mobile-only と .tab-mobile-keep だけ表示 */
+.tab-mobile-only { display: none; }
+
+/* v1.8.2: Dynamic Island / ノッチ対応は layout.css の .topbar に共通化済み。
+   ここでは body.mobile 専用の見た目（padding 横を狭く・gap 詰める）だけ。
+   safe-area の padding-top / height +safe-area は layout.css 側で常時効いている。
+   v1.8.25: モバイルでは topbar 自体もコンパクトに（54→44px） */
+body.mobile {
+  --topbar: 44px;
+}
+body.mobile .topbar {
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
+  gap: 6px;
+}
+body.mobile .topbar-logo { font-size: 14px; width: auto; }
+body.mobile .topbar > span { font-size: 9px !important; padding: 1px 5px !important; }
+body.mobile .topbar .tb-btn,
+body.mobile .topbar .help-btn,
+body.mobile .topbar .av,
+body.mobile .topbar #u-name,
+body.mobile .tb-fontsize-group { display: none !important; }
+body.mobile .topbar .btn-sm { font-size: 11px; padding: 4px 9px; }
+
+/* v1.8.1: スマホは同期インジケータの「同期」文字を消してドットだけに */
+body.mobile .sync-indicator { padding: 4px 6px; }
+body.mobile .sync-indicator .sync-text { display: none; }
+
+/* サイドバー：完全に隠す */
+body.mobile .sidebar { display: none !important; }
+/* v1.8.2: #app が 100dvh + flex column なので、.body-row は flex:1 で残りスペースを取れば
+   topbar の safe-area を自動で考慮できる。固定 height 計算は不要に */
+body.mobile .body-row {
+  display: block !important;
+  flex: 1;
+  min-height: 0;
+}
+body.mobile .content { display: flex; flex-direction: column; height: 100%; }
+
+/* v1.7.4: スマホでは .tabs を見せる（重要タブ + 進捗タブだけ） */
+body.mobile .tabs {
+  display: flex !important;
+  padding: 4px 8px;
+  gap: 4px;
+  overflow-x: auto;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+body.mobile .tabs .tab { display: none !important; }
+body.mobile .tabs .tab-mobile-only,
+body.mobile .tabs .tab-mobile-keep {
+  display: inline-flex !important;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* 各種パネル隠す */
+body.mobile #panel-dashboard,
+body.mobile #panel-settings,
+body.mobile #panel-archive,
+body.mobile #panel-log,
+body.mobile #panel-members { display: none !important; }
+
+body.mobile #view-kanban,
+body.mobile #view-calendar,
+body.mobile #view-exhibit,
+body.mobile #view-table,
+body.mobile #view-inventory { display: none !important; }
+
+body.mobile .action-area { display: none !important; }
+
+/* v1.7.4: 進捗ビューと重要ビューはモバイルで表示可（タブ切替で出現） */
+body.mobile #view-progress,
+body.mobile #view-overview {
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
+  /* v1.7.7: フルメニュー切替時のチラつき/透明回避用に背景を明示 */
+  background: var(--bg1);
+}
+
+/* 進捗ビューのカード */
+body.mobile .pv-grid { display: block !important; }
+body.mobile .pv-group { margin-bottom: 18px; }
+body.mobile .pv-group-head {
+  padding: 6px 2px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+body.mobile .pv-group-title { font-size: 14px; }
+body.mobile .pv-group-sub { font-size: 10px; margin-left: 0; }
+
+body.mobile .pv-group-body {
+  grid-template-columns: 1fr !important;
+  gap: 10px;
+  padding-top: 10px;
+}
+body.mobile .pv-card { border-radius: 10px; }
+body.mobile .pv-head { padding: 11px; gap: 9px; }
+body.mobile .pv-thumb { width: 60px; height: 50px; font-size: 22px; }
+body.mobile .pv-body { padding: 11px; }
+body.mobile .pv-btn {
+  margin: 0 11px 11px;
+  padding: 11px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 詳細モーダルをフル画面に */
+body.mobile .overlay { padding: 0 !important; align-items: stretch !important; }
+body.mobile .modal {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+body.mobile .modal.modal-wide { width: 100vw !important; max-width: 100vw !important; }
+body.mobile .mhdr { padding: 12px 14px; position: sticky; top: 0; z-index: 5; background: var(--bg2); }
+body.mobile .mbody { padding: 14px; }
+
+body.mobile #detail-body button[onclick^="openCarModal"] { display: none !important; }
+/* v1.0.45: スマホでこそ写真変更したい（現場でカメラ撮影）。非表示ルール削除 */
+/* 旧: body.mobile .detail-photo-edit { display: none !important; } */
+
+/* 車両編集モーダル：開かせない */
+body.mobile #modal-car { display: none !important; }
+
+/* 確認ダイアログ */
+body.mobile .confirm-overlay { padding: 20px !important; align-items: center !important; }
+body.mobile .confirm-box {
+  width: 100% !important;
+  max-width: 360px !important;
+  height: auto !important;
+  max-height: 80vh !important;
+}
+
+/* ワークフロー画面 */
+body.mobile .wf-topbar { padding: 11px 12px; }
+body.mobile .wf-back { font-size: 13px; }
+body.mobile .wf-vehicle { padding: 10px 12px; }
+body.mobile .wf-body { padding: 14px; }
+body.mobile .wf-footer { padding: 12px; }
+body.mobile .wf-done-btn { font-size: 14px; padding: 14px; }
+
+/* ヘルプモーダル */
+body.mobile .help-overlay { padding: 0 !important; }
+body.mobile .help-modal {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  max-width: 100vw !important;
+  border-radius: 0 !important;
+}
+body.mobile .help-tab { padding: 11px 12px; font-size: 12px; }
+body.mobile .help-body { padding: 14px; }
+
+/* タッチ領域を大きく */
+body.mobile .work-memo-view {
+  min-height: 60px;
+  padding: 14px;
+  font-size: 14px;
+}
+body.mobile .work-memo-input {
+  font-size: 14px;
+  padding: 11px;
+}
+
+body.mobile .task-chk {
+  width: 28px !important;
+  height: 28px !important;
+}
+body.mobile .task-chk svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+body.mobile .task-item-name { font-size: 13px; }
+body.mobile .task-item-pct { font-size: 12px; }
+body.mobile .task-open-btn {
+  font-size: 12px;
+  padding: 7px 11px;
+}
+
+/* 現場モードヒント */
+body.mobile .topbar-logo::after {
+  content: " 📱現場";
+  font-size: 10px;
+  color: var(--text3);
+  margin-left: 6px;
+  font-weight: normal;
+}
+
+body.mobile .login-box { width: 90vw; max-width: 360px; }
+
+/* スマホ時はzoomを無効化 */
+body.mobile { zoom: 1 !important; }
+
+/* スマホ用：進捗ビューのグループ切替タブ */
+body.mobile .pv-tabs {
+  display: flex !important;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  margin: -12px -10px 6px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+body.mobile .pv-tab {
+  flex: 1;
+  padding: 9px 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.2;
+  font-family: inherit;
+}
+body.mobile .pv-tab:hover { background: var(--bg3); color: var(--text); }
+body.mobile .pv-tab.active {
+  background: rgba(55,138,221,.18);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+body.mobile .pv-tab-count {
+  font-size: 10px;
+  color: var(--text3);
+  font-weight: 600;
+}
+body.mobile .pv-tab.active .pv-tab-count { color: var(--blue); }
+
+body.mobile .pv-group { display: none !important; }
+body.mobile .pv-group.pv-active { display: block !important; }
+body.mobile .pv-group-head { display: none; }
+
+/* ========================================
+   v1.0.0 スマホ用「管理者モード」切替ボタン
+   ※ #mobile-admin-toggle / #mobile-back-mobile は JS で表示制御
+      （body.mobile クラスではなく refreshAdminToggleButtons() で管理）
+   ======================================== */
+
+/* 下部固定の「⚙️ 管理者モード」ボタン */
+#mobile-admin-toggle {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 50;
+  background: rgba(138,143,168,.20);
+  border: 1px solid rgba(138,143,168,.45);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 18px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  transition: .15s;
+}
+#mobile-admin-toggle:hover,
+#mobile-admin-toggle:active {
+  background: rgba(138,143,168,.30);
+  color: var(--text);
+}
+
+/* 上部固定の「📱 現場モードに戻る」ボタン */
+#mobile-back-mobile {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 18px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+  transition: .15s;
+}
+#mobile-back-mobile:hover,
+#mobile-back-mobile:active {
+  filter: brightness(1.1);
+}
+
+/* 管理者モード時（スマホ画面でPC版表示中）の調整：上部に余白を作って戻るボタンと被らないように */
+body:not(.mobile) #mobile-back-mobile ~ #app .topbar {
+  padding-top: 38px;
+}
+
+/* v1.0.19: スマホでは進捗ビューのDnDハンドルを非表示
+   （HTML5 DnD はタッチで動かないため。PC専用機能として隔離） */
+body.mobile .pv-drag {
+  display: none !important;
+}
+body.mobile .pv-head {
+  padding-right: 13px;
+}
+
+/* v1.0.45: スマホ用に写真変更ボタンを大きく押しやすく */
+body.mobile .detail-photo {
+  height: 220px !important;
+}
+body.mobile .detail-photo-edit {
+  bottom: 12px !important;
+  right: 12px !important;
+  font-size: 13px !important;
+  padding: 8px 14px !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  font-weight: 600 !important;
+}

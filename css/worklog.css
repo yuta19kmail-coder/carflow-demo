@@ -1,0 +1,286 @@
+/* ========================================
+ * worklog.css (v1.7.26)
+ * 作業実績ビュー — 終礼で5分・スマホ対応
+ * ======================================== */
+
+#view-worklog {
+  padding: 16px;
+  gap: 14px;
+}
+
+.worklog-header {
+  margin-bottom: 4px;
+}
+.worklog-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.worklog-sub {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+/* 期間切替ボタン */
+.worklog-period-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+.worklog-period-btn {
+  flex: 1 1 auto;
+  min-width: 64px;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.worklog-period-btn:hover { background: var(--bg4); }
+.worklog-period-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+/* 合計サマリー */
+.worklog-summary {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+.worklog-summary-title {
+  font-size: 12px;
+  color: var(--text3);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.worklog-summary-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.worklog-stat {
+  flex: 1 1 100px;
+  text-align: center;
+  padding: 10px 8px;
+  background: var(--bg3);
+  border-radius: 10px;
+}
+.worklog-stat-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.worklog-stat-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.worklog-stat-label {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+.worklog-stat-shine {
+  background: linear-gradient(135deg, rgba(245,158,11,.18), rgba(29,185,122,.18));
+  border: 1px solid rgba(245,158,11,.5);
+}
+.worklog-stat-shine .worklog-stat-num { color: var(--orange); }
+/* v1.7.27: 件数に応じた応援フレーズ */
+.worklog-cheer {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 8px;
+  background: linear-gradient(135deg, rgba(55,138,221,.10), rgba(29,185,122,.10));
+  border-radius: 8px;
+}
+/* 「あと一息！」バッジ */
+.worklog-car-onemore {
+  font-size: 12px;
+  color: var(--orange);
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* セクション見出し */
+.worklog-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 8px 0 6px;
+  padding-left: 4px;
+}
+
+/* v1.7.27: 個人別セクション（控えめに、ワイワイ感優先） */
+.worklog-section-title-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-top: 16px;
+}
+.worklog-mvp-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.worklog-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px 5px 10px;
+}
+.worklog-person-name {
+  font-size: 12px;
+  color: var(--text);
+}
+.worklog-person-count {
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.worklog-empty-sub {
+  font-size: 12px;
+  color: var(--text3);
+  font-style: italic;
+}
+
+/* 動きのあった車 リスト */
+.worklog-cars-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.worklog-car-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.worklog-car-row:hover {
+  background: var(--bg3);
+  border-color: var(--border2);
+}
+.worklog-car-main {
+  flex: 1;
+  min-width: 0;
+}
+.worklog-car-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.worklog-car-shine {
+  font-size: 12px;
+  color: var(--orange);
+  font-weight: 700;
+  margin-left: 4px;
+}
+.worklog-car-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.worklog-car-num {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.worklog-car-pct {
+  font-size: 12px;
+  color: var(--text2);
+}
+.worklog-car-pct.worklog-pct-up { color: var(--green); }
+.worklog-car-pct.worklog-pct-down { color: var(--red); }
+.worklog-pct-diff { font-weight: 700; }
+
+.worklog-car-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.worklog-car-count {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--blue);
+  line-height: 1;
+}
+.worklog-car-count-unit {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-left: 2px;
+}
+.worklog-car-users {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.worklog-car-user {
+  font-size: 10px;
+  background: var(--bg3);
+  color: var(--text2);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.worklog-car-user-more {
+  font-size: 10px;
+  color: var(--text3);
+  align-self: center;
+}
+
+.worklog-empty {
+  font-size: 13px;
+  color: var(--text3);
+  text-align: center;
+  padding: 20px;
+  background: var(--bg2);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+/* スマホ最適化 */
+body.mobile #view-worklog { padding: 12px; gap: 12px; }
+body.mobile .worklog-title { font-size: 16px; }
+body.mobile .worklog-mvp-card { padding: 10px 6px; }
+body.mobile .worklog-mvp-medal { font-size: 20px; }
+body.mobile .worklog-mvp-name { font-size: 12px; }
+body.mobile .worklog-mvp-count { font-size: 18px; }
+body.mobile .worklog-stat-num { font-size: 20px; }
+body.mobile .worklog-car-row { padding: 8px 10px; }
+body.mobile .worklog-car-name { font-size: 13px; }
+body.mobile .worklog-car-count { font-size: 16px; }

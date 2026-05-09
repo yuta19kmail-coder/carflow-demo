@@ -1,0 +1,609 @@
+/* ========================================
+   kanban.css
+   カンバンボード、車両カード、その他ビュー（展示、ガント、進捗、表、在庫）
+   ======================================== */
+
+/* カンバン全体 */
+.kanban-wrap{display:flex;gap:12px;min-width:max-content;height:100%;align-items:flex-start}
+
+/* v1.0.14: カンバン上部ツールバー */
+.kanban-toolbar{display:flex;align-items:center;gap:14px;padding:8px 4px 12px;flex-shrink:0;flex-wrap:wrap}
+.kt-sort-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kt-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.kt-sort-btn{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:6px 12px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text2);
+  cursor:pointer;
+  transition:.15s;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+.kt-sort-btn:hover{color:var(--text);background:var(--bg3);border-color:var(--border2)}
+.kt-sort-btn.active{color:#fff;background:var(--blue);border-color:var(--blue)}
+.kt-sort-btn .kt-arrow{font-size:10px;line-height:1}
+.kt-expand-btn{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:6px 14px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text2);
+  cursor:pointer;
+  transition:.15s;
+}
+.kt-expand-btn:hover{color:var(--text);background:var(--bg3);border-color:var(--border2)}
+.kt-expand-btn.active{color:#fff;background:var(--green);border-color:var(--green)}
+
+/* v1.0.14: 納車完了カードの日付表示 */
+.cc-bigday.cc-done-day{
+  background:rgba(107,114,128,.18);
+  color:var(--text2);
+  font-weight:700;
+  font-size:14px;
+  letter-spacing:.02em;
+}
+.cc-done-suffix{font-size:9px;font-weight:600;margin-left:3px;opacity:.85}
+
+/* カンバンの列 */
+.k-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);width:268px;flex-shrink:0;display:flex;flex-direction:column;max-height:100%}
+.k-col-hdr{padding:11px 13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.k-col-dot{width:8px;height:8px;border-radius:50%}
+.k-col-title{font-size:13px;font-weight:600;flex:1}
+.k-col-count{font-size:11px;color:var(--text3);background:var(--bg3);padding:2px 7px;border-radius:8px}
+.k-cards{padding:7px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;min-height:40px}
+.k-cards.drag-over{background:rgba(55,138,221,.07);border-radius:6px}
+
+/* 車両カード */
+.car-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:grab;transition:.15s;user-select:none;overflow:hidden;flex-shrink:0}
+.car-card:hover{border-color:var(--border2);box-shadow:0 3px 12px rgba(0,0,0,.35)}
+.car-card.dragging{opacity:.35}
+
+/* v1.7.25: サムネはフルサイズのとき 4:3 で固定 */
+.cc-thumb{width:100%;aspect-ratio:4/3;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:38px;overflow:hidden;flex-shrink:0}
+.cc-thumb img{width:100%;height:100%;object-fit:cover}
+
+.cc-body{padding:11px 12px 12px}
+
+/* 上段：左側にメーカー名・モデル・金額 / 右側に在庫日数+ボディサイズ+年式 */
+.cc-info-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}
+.cc-info-left{flex:1;min-width:0;display:flex;flex-direction:column}
+.cc-info-right{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.cc-maker{font-size:11px;color:var(--text3);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-model{font-size:16px;font-weight:700;line-height:1.2;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-price{font-size:18px;font-weight:700;color:var(--green);line-height:1.1}
+
+/* 右上の大きな在庫/売約日数 */
+.cc-bigday{font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px;white-space:nowrap;display:flex;align-items:baseline;gap:2px;line-height:1}
+.cc-bigday-num{font-size:19px;font-weight:800;margin:0 1px}
+
+/* タグ（ボディサイズ・年式） */
+.cc-tag{font-size:11px;color:var(--text3);background:var(--bg4);padding:2px 8px;border-radius:4px;white-space:nowrap}
+
+/* 中段：進捗% + ラベル + ドット */
+.cc-mid{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cc-pct-wrap{display:flex;align-items:baseline;gap:6px}
+.cc-pct{font-size:20px;font-weight:700}
+.cc-pct-label{font-size:10px;color:var(--text3)}
+.cc-dots{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.cc-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--border2)}
+.cc-dot.done{background:var(--orange);border-color:var(--orange)}
+.cc-dot.partial{background:var(--orange);border-color:var(--orange)}
+
+/* 在庫日数バッジの3段警告色 */
+.dg{color:var(--green);background:rgba(29,185,122,.15)}
+.dw{color:var(--orange);background:rgba(245,158,11,.15)}
+.dr{color:#fca5a5;background:rgba(239,68,68,.18)}
+.db{color:#93c5fd;background:rgba(55,138,221,.18)}
+
+/* 下段：横幅いっぱいの帯（仕入れからN日 / 納車までN日） */
+.cc-bottom-bar{
+  font-size:12px;font-weight:600;text-align:center;padding:7px 10px;
+  background:var(--bg4);color:var(--text2);border-top:1px solid var(--border)
+}
+.cc-bottom-bar.bb{background:rgba(55,138,221,.18);color:#93c5fd;border-top-color:rgba(55,138,221,.3)}
+.cc-bottom-bar.bw{background:rgba(245,158,11,.18);color:var(--orange);border-top-color:rgba(245,158,11,.35)}
+.cc-bottom-bar.br{background:rgba(239,68,68,.2);color:#fca5a5;border-top-color:rgba(239,68,68,.4);font-weight:700}
+
+/* ---- 小表示モード（列内4枚以上で自動適用） ---- */
+.car-card.compact{cursor:pointer}
+/* v1.7.25: 小表示は 4:3 ほどではないが、もう少し高さを出す（旧 44px → 80px） */
+.car-card.compact .cc-thumb{aspect-ratio:auto;height:80px;font-size:24px}
+.car-card.compact .cc-body{padding:7px 10px 8px}
+.car-card.compact .cc-maker{display:none}
+.car-card.compact .cc-model{font-size:13px;margin-bottom:3px}
+.car-card.compact .cc-price{font-size:14px}
+.car-card.compact .cc-bigday-num{font-size:14px}
+.car-card.compact .cc-bigday{font-size:10px;padding:2px 6px}
+.car-card.compact .cc-tag{display:none}
+.car-card.compact .cc-info-row{margin-bottom:5px}
+.car-card.compact .cc-mid{gap:6px}
+.car-card.compact .cc-pct{font-size:15px}
+.car-card.compact .cc-pct-label{display:none}
+.car-card.compact .cc-dot{width:7px;height:7px;border-width:1px}
+.car-card.compact .cc-bottom-bar{display:none}
+/* compact中に一時展開された1枚はフルサイズで見せる */
+/* v1.7.25: 展開時は 4:3 でフルサイズ表示 */
+.car-card.compact.expanded .cc-thumb{aspect-ratio:4/3;height:auto;font-size:38px}
+.car-card.compact.expanded .cc-body{padding:11px 12px 12px}
+.car-card.compact.expanded .cc-maker{display:block}
+.car-card.compact.expanded .cc-model{font-size:16px;margin-bottom:6px}
+.car-card.compact.expanded .cc-price{font-size:18px}
+.car-card.compact.expanded .cc-bigday-num{font-size:19px}
+.car-card.compact.expanded .cc-bigday{font-size:11px;padding:4px 9px}
+.car-card.compact.expanded .cc-tag{display:inline-block}
+.car-card.compact.expanded .cc-info-row{margin-bottom:9px}
+.car-card.compact.expanded .cc-pct{font-size:20px}
+.car-card.compact.expanded .cc-pct-label{display:inline}
+.car-card.compact.expanded .cc-dot{width:10px;height:10px;border-width:1.5px}
+.car-card.compact.expanded .cc-bottom-bar{display:block}
+
+/* 最下段の下の空きスペース（将来の新カンバン追加用） */
+.k-col-spacer{flex-shrink:0;height:80px;margin-top:4px;border:1px dashed transparent}
+
+/* ガントテーブル */
+.gtable{border-collapse:collapse;width:100%}
+.gtable th{background:var(--bg2);padding:8px 10px;font-size:11px;color:var(--text2);border:1px solid var(--border);white-space:nowrap;font-weight:600}
+.gtable td{border:1px solid var(--border);padding:7px 10px;font-size:12px;background:var(--bg2)}
+.gtable tr:hover td{background:var(--bg3);cursor:pointer}
+
+/* 進捗ビュー（カード一覧） */
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.pv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:transform .18s ease,opacity .15s,border-color .15s;position:relative}
+.pv-card:hover{border-color:var(--border2)}
+.pv-card.pv-dragging{opacity:.4;border-style:dashed;transform:scale(.98)}
+.pv-drag{position:absolute;top:6px;right:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:grab;user-select:none;z-index:2;letter-spacing:-1px;line-height:1}
+.pv-drag:hover{color:var(--text);background:var(--bg2);border-color:var(--border2)}
+.pv-drag:active{cursor:grabbing}
+.pv-head{padding:13px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding-right:36px}
+.pv-thumb{width:52px;height:42px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden}
+.pv-thumb img{width:100%;height:100%;object-fit:cover}
+.pv-body{padding:13px}
+.pv-btn{margin:0 13px 13px;padding:8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.25);border-radius:var(--r);color:var(--blue);font-size:12px;cursor:pointer;text-align:center}
+
+/* 全体一覧テーブル */
+.dtable{width:100%;border-collapse:collapse;min-width:800px}
+.dtable th{background:var(--bg2);padding:9px 11px;font-size:11px;color:var(--text2);border:1px solid var(--border);text-align:left;font-weight:600;white-space:nowrap}
+.dtable td{border:1px solid var(--border);padding:8px 11px;font-size:12px;background:var(--bg2);vertical-align:middle}
+.dtable tr:hover td{background:var(--bg3);cursor:pointer}
+
+/* 在庫日数グリッド（v0.8.8: グループ化に伴い、ラッパはブロック表示。
+   グリッド配置は .inv-group-body 内で行う） */
+.inv-grid{display:block}
+.inv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer}
+.inv-card:hover{border-color:var(--border2)}
+.inv-thumb{height:95px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:30px;position:relative;overflow:hidden}
+.inv-thumb img{width:100%;height:100%;object-fit:cover}
+.inv-badge{position:absolute;top:5px;right:5px;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700}
+.inv-body{padding:9px}
+.inv-row{display:flex;align-items:flex-start;gap:8px}
+.inv-info{flex:1;min-width:0}
+.inv-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-num{font-size:10px;color:var(--text3);margin-top:2px}
+.inv-day-big{flex-shrink:0;font-size:24px;font-weight:800;line-height:1;letter-spacing:-.02em;align-self:center;text-align:right}
+.inv-day-big .inv-day-unit{font-size:12px;font-weight:700;margin-left:1px;letter-spacing:0}
+.inv-group.is-empty{opacity:.55}
+.inv-empty{padding:18px 4px;text-align:center;color:var(--text3);font-size:12px;grid-column:1/-1}
+
+/* ========== 展示ビュー ========== */
+/* ツールバー（一括ソート） */
+.ex-toolbar{display:flex;align-items:center;gap:8px;padding:8px 4px 12px;flex-shrink:0;flex-wrap:wrap}
+.ex-toolbar-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.ex-sort-btn{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:6px 12px;
+  color:var(--text2);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.15s;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.ex-sort-btn:hover{background:var(--bg3);color:var(--text);border-color:var(--border2)}
+.ex-sort-btn.active{
+  background:var(--blue);
+  color:#fff;
+  border-color:var(--blue);
+}
+.ex-sort-btn .sort-arrow{display:inline-block;font-size:10px;line-height:1}
+.ex-toolbar-spacer{flex:1}
+.ex-total-label{font-size:11px;color:var(--text3)}
+
+/* 列群 */
+.ex-cols{display:flex;gap:10px;overflow-x:auto;flex:1;align-items:flex-start;padding-bottom:8px}
+
+/* 列 */
+.ex-col{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  min-width:200px;
+  width:200px;
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  max-height:100%;
+}
+/* v1.7.42: ストック列のハイライトは廃止。他の列と同じ見た目に揃える。 */
+.ex-col.stock{
+  /* （元あった青枠＋青グラデーション背景は削除） */
+}
+
+/* ヘッダー */
+.ex-col-hdr{
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.ex-col-name{
+  font-size:13px;
+  font-weight:700;
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.ex-col-name .ex-col-icon{font-size:14px}
+.ex-col-stats{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-top:2px;
+}
+.ex-col-count{
+  font-size:22px;
+  font-weight:800;
+  color:var(--text);
+  line-height:1;
+}
+.ex-col-count-unit{font-size:11px;color:var(--text3);font-weight:600}
+.ex-col-pct{
+  font-size:13px;
+  font-weight:700;
+  color:var(--blue);
+  margin-left:auto;
+}
+/* v1.7.42: ストック列だけ数字を青にしていたのも揃えて廃止 */
+/* .ex-col.stock .ex-col-count{color:var(--blue)} */
+
+/* 列本体（スクロール可） */
+.ex-col-body{
+  padding:7px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  overflow-y:auto;
+  flex:1;
+  min-height:60px;
+}
+.ex-col-empty{
+  padding:18px 8px;
+  text-align:center;
+  font-size:11px;
+  color:var(--text3);
+  font-style:italic;
+}
+
+/* カード（タスク管理 compact 風） */
+.ex-card{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  cursor:pointer;
+  display:flex;
+  gap:8px;
+  padding:6px;
+  transition:.15s;
+}
+.ex-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.ex-card-thumb{
+  width:54px;
+  height:54px;
+  border-radius:6px;
+  background:var(--bg2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  flex-shrink:0;
+  overflow:hidden;
+}
+.ex-card-thumb img{width:100%;height:100%;object-fit:cover}
+.ex-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ex-card-title{font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.ex-card-meta{font-size:10px;color:var(--text2);display:flex;flex-wrap:wrap;gap:6px;line-height:1.3}
+.ex-card-meta-item{white-space:nowrap}
+.ex-card-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.ex-card-price{font-size:11px;font-weight:700;color:var(--green)}
+.ex-card-inv{
+  font-size:10px;
+  font-weight:700;
+  padding:1px 6px;
+  border-radius:4px;
+}
+.ex-card-inv.dg{background:rgba(29,185,122,.18);color:#16a34a}
+.ex-card-inv.dw{background:rgba(245,158,11,.20);color:#d97706}
+.ex-card-inv.dr{background:rgba(239,68,68,.22);color:#dc2626}
+
+/* ========================================
+   v0.8.7 進捗ビュー：2枠グループ化
+   ======================================== */
+.pv-group{margin-bottom:18px}
+.pv-group:last-child{margin-bottom:0}
+.pv-group-head{display:flex;align-items:center;gap:10px;padding:8px 4px 10px;border-bottom:2px solid var(--border)}
+.pv-group-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;flex:1}
+.pv-group-count{font-size:11px;font-weight:600;color:var(--blue);background:rgba(55,138,221,.15);border:1px solid rgba(55,138,221,.3);border-radius:10px;padding:2px 9px}
+.pv-toggle-btn{font-size:12px;font-weight:600;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:5px 12px;cursor:pointer;flex-shrink:0;transition:.15s}
+.pv-toggle-btn:hover{color:var(--text);background:var(--bg3);border-color:var(--border2)}
+.pv-card.is-compact .pv-body{padding:11px 13px}
+.pv-card.is-compact .pv-btn{margin:0 13px 11px}
+.pv-card.is-compact:hover{border-color:var(--blue);box-shadow:0 0 0 1px rgba(55,138,221,.25)}
+.pv-group-sub{font-size:11px;color:var(--text3);margin-left:auto}
+.pv-group-body{padding-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.pv-group-empty{grid-column:1/-1;font-size:12px;color:var(--text3);padding:12px 4px}
+
+/* ========================================
+   v0.8.7 全体一覧：在庫日数グループ
+   ======================================== */
+.tbl-group{margin-bottom:16px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg2)}
+.tbl-group:last-child{margin-bottom:0}
+.tbl-group-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.tbl-group-icon{font-size:18px;flex-shrink:0}
+.tbl-group-name{font-size:14px;font-weight:700;color:var(--text);flex-shrink:0}
+.tbl-group-desc{font-size:11px;color:var(--text3);flex:1}
+.tbl-group-count{font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;flex-shrink:0}
+
+.tbl-group.g-ok .tbl-group-name{color:var(--green)}
+.tbl-group.g-ok .tbl-group-count{background:rgba(29,185,122,.15);color:var(--green);border:1px solid rgba(29,185,122,.35)}
+.tbl-group.g-ok{border-left:3px solid var(--green)}
+
+.tbl-group.g-warn .tbl-group-name{color:#fcd34d}
+.tbl-group.g-warn .tbl-group-count{background:rgba(245,210,59,.15);color:#fcd34d;border:1px solid rgba(245,210,59,.35)}
+.tbl-group.g-warn{border-left:3px solid #fcd34d}
+
+.tbl-group.g-action .tbl-group-name{color:#fb923c}
+.tbl-group.g-action .tbl-group-count{background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.4)}
+.tbl-group.g-action{border-left:3px solid #fb923c}
+
+.tbl-group.g-danger .tbl-group-name{color:var(--red)}
+.tbl-group.g-danger .tbl-group-count{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.tbl-group.g-danger{border-left:3px solid var(--red)}
+
+.tbl-group.g-done .tbl-group-name{color:var(--text3)}
+.tbl-group.g-done .tbl-group-count{background:var(--bg4);color:var(--text2);border:1px solid var(--border)}
+.tbl-group.g-done{border-left:3px solid var(--text3)}
+
+/* グループ内のテーブルは外枠なし（カード側で囲っている） */
+.tbl-group .dtable{min-width:auto;border-collapse:collapse}
+.tbl-group .dtable th{background:var(--bg2)}
+.tbl-group .dtable td{background:var(--bg2)}
+
+/* ========================================
+   v0.8.8 在庫日数ビュー：グループ表示
+   tbl-group の色分けクラス（g-ok / g-warn / g-action / g-danger）を流用
+   ======================================== */
+.inv-group{margin-bottom:18px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg2)}
+.inv-group:last-child{margin-bottom:0}
+.inv-group-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.inv-group-body{padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:9px}
+
+.inv-group.g-ok .tbl-group-name{color:var(--green)}
+.inv-group.g-ok .tbl-group-count{background:rgba(29,185,122,.15);color:var(--green);border:1px solid rgba(29,185,122,.35)}
+.inv-group.g-ok{border-left:3px solid var(--green)}
+
+.inv-group.g-warn .tbl-group-name{color:#fcd34d}
+.inv-group.g-warn .tbl-group-count{background:rgba(245,210,59,.15);color:#fcd34d;border:1px solid rgba(245,210,59,.35)}
+.inv-group.g-warn{border-left:3px solid #fcd34d}
+
+.inv-group.g-action .tbl-group-name{color:#fb923c}
+.inv-group.g-action .tbl-group-count{background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.4)}
+.inv-group.g-action{border-left:3px solid #fb923c}
+
+.inv-group.g-danger .tbl-group-name{color:var(--red)}
+.inv-group.g-danger .tbl-group-count{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.inv-group.g-danger{border-left:3px solid var(--red)}
+
+/* ========================================
+   v0.8.9 「その他」列・カード
+   ======================================== */
+/* カンバンの「その他」列ヘッダー：少し控えめな色味 */
+.k-col-other .k-col-hdr{background:rgba(138,143,168,.06)}
+
+/* 展示ビューの「その他」列：背景を控えめに */
+.ex-col.other{background:rgba(138,143,168,.04);border:1px solid rgba(138,143,168,.18)}
+
+/* その他カード（カンバン用：メモ中心の専用デザイン） */
+.car-card.cc-other{
+  display:block;
+  background:var(--bg2);
+  border:1px solid rgba(138,143,168,.35);
+  border-left:3px solid #8a8fa8;
+  border-radius:var(--r2);
+  padding:10px 12px;
+  margin-bottom:8px;
+  cursor:pointer;
+  transition:.15s;
+}
+.car-card.cc-other:hover{border-color:#a3a8c0}
+.car-card.cc-other.compact{padding:8px 10px}
+
+.cc-other-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px dashed var(--border)}
+.cc-other-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.cc-other-num{font-size:11px;color:var(--text3);font-weight:500}
+
+.cc-other-memo{margin-bottom:8px}
+.cc-other-memo:last-of-type{margin-bottom:6px}
+.cc-other-memo-label{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:3px;letter-spacing:.05em}
+.cc-other-memo-text{font-size:12px;color:var(--text);line-height:1.55;background:var(--bg3);border-radius:6px;padding:7px 9px;min-height:32px}
+.cc-other-empty{color:var(--text3);font-size:11px;font-style:italic}
+
+/* その他カードの下段帯はグレー固定 */
+.car-card.cc-other .cc-bottom-bar{background:rgba(138,143,168,.18);color:#c5cad8;font-weight:600;border-top:1px solid var(--border);padding:6px 10px;border-radius:0 0 var(--r2) var(--r2);margin:0 -12px -10px;font-size:11px;text-align:center}
+.car-card.cc-other.compact .cc-bottom-bar{margin:0 -10px -8px}
+
+/* 進捗ビューの「その他」カード（メモ重視） */
+.pv-card.pv-card-other{border-left:3px solid #8a8fa8}
+.pv-other-memo{margin-bottom:8px}
+.pv-other-memo-label{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:3px;letter-spacing:.05em}
+.pv-other-memo-text{font-size:12px;color:var(--text);line-height:1.55;background:var(--bg3);border-radius:6px;padding:8px 10px;min-height:34px}
+
+/* 詳細モーダルの「その他」用ヘッダ・ヒント */
+.detail-other-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:rgba(138,143,168,.08);border:1px solid rgba(138,143,168,.25);border-radius:var(--r)}
+.detail-other-hint{font-size:11px;color:var(--text3)}
+.detail-other-msg{font-size:11px;color:var(--text3);line-height:1.6;text-align:right}
+
+/* 詳細モーダル末尾：危険ゾーン（削除ボタン） */
+.detail-danger-zone{margin-top:24px;padding-top:14px;border-top:1px dashed rgba(239,68,68,.25);display:flex;justify-content:flex-end}
+.detail-delete-btn{
+  background:transparent;
+  border:1px solid rgba(239,68,68,.4);
+  color:#fca5a5;
+  font-size:12px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:var(--r);
+  cursor:pointer;
+  transition:.15s;
+}
+.detail-delete-btn:hover{background:rgba(239,68,68,.12);color:#fecaca;border-color:var(--red)}
+
+/* ========================================
+   v0.9.0 「その他」カードを既存カード踏襲レイアウトに刷新
+   左にグレーの太枠で売り物カードと区別、メモ2行打ち切り
+   ※ v0.8.9 の cc-other 系定義はこちらで上書き
+   ======================================== */
+.car-card.cc-other{
+  display:block;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-left:6px solid #8a8fa8;  /* グレーの太枠で識別 */
+  border-radius:var(--r);
+  padding:0;
+  margin-bottom:0;
+  cursor:grab;
+  overflow:hidden;
+  transition:.15s;
+}
+.car-card.cc-other:hover{border-color:var(--border2);box-shadow:0 3px 12px rgba(0,0,0,.35);border-left-color:#a3a8c0}
+
+/* 既存の cc-thumb / cc-body / cc-info-row はそのまま使う */
+/* その他バッジ（金額枠の代わり） */
+.cc-other-badge{
+  font-size:11px;font-weight:700;
+  background:rgba(138,143,168,.22);
+  color:#c5cad8;
+  padding:3px 9px;border-radius:5px;white-space:nowrap;
+  border:1px solid rgba(138,143,168,.35);
+}
+
+/* メモ2行ずつ打ち切り */
+.cc-other-memos{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.cc-other-memo-row{
+  display:flex;gap:6px;align-items:flex-start;
+  background:var(--bg4);border-radius:5px;padding:5px 8px;
+}
+.cc-other-memo-icon{font-size:11px;line-height:1.45;flex-shrink:0;opacity:.85}
+.cc-other-memo-body{
+  font-size:11px;line-height:1.45;color:var(--text);
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2;
+  overflow:hidden;
+  word-break:break-all;
+}
+.cc-other-memo-body.empty{color:var(--text3);font-style:italic}
+
+/* compact モードでは cc-tag が消えるので、その他バッジも控えめに */
+.car-card.cc-other.compact .cc-other-memos{display:none}
+.car-card.cc-other.compact .cc-other-badge{font-size:9px;padding:2px 6px}
+.car-card.cc-other.compact.expanded .cc-other-memos{display:flex}
+.car-card.cc-other.compact.expanded .cc-other-badge{font-size:11px;padding:3px 9px}
+
+/* 古い cc-other-* 系（v0.8.9 で導入したもの）は無効化 */
+.car-card.cc-other .cc-other-head,
+.car-card.cc-other .cc-other-title,
+.car-card.cc-other .cc-other-num,
+.car-card.cc-other .cc-other-memo,
+.car-card.cc-other .cc-other-memo-label,
+.car-card.cc-other .cc-other-memo-text{display:none}
+
+/* ========================================
+   v0.9.0 編集モーダル内の削除ボタン（危険ゾーン）
+   ======================================== */
+.edit-danger-zone{
+  margin-top:24px;padding:14px;
+  background:rgba(239,68,68,.05);
+  border:1px dashed rgba(239,68,68,.35);
+  border-radius:var(--r2);
+}
+.edit-danger-label{
+  font-size:11px;font-weight:700;color:#fca5a5;
+  letter-spacing:.05em;margin-bottom:9px;
+}
+.edit-danger-zone .detail-delete-btn{
+  width:100%;
+  background:transparent;
+  border:1px solid rgba(239,68,68,.5);
+  color:#fca5a5;
+  font-size:13px;font-weight:600;
+  padding:9px 14px;
+  border-radius:var(--r);
+  cursor:pointer;
+  transition:.15s;
+}
+.edit-danger-zone .detail-delete-btn:hover{background:rgba(239,68,68,.15);color:#fecaca;border-color:var(--red)}
+.edit-danger-hint{
+  font-size:10px;color:var(--text3);margin-top:6px;text-align:center;
+}
+
+/* ========================================
+   v0.9.1 その他カードの右上バッジ「仕入N日」
+   通常カードの cc-bigday と同じ位置・サイズ、グレー系の色
+   ======================================== */
+.cc-bigday.cc-other-day{
+  background:rgba(138,143,168,.22);
+  color:#c5cad8;
+  border:1px solid rgba(138,143,168,.35);
+}
+
+/* compact モードでも右上バッジは表示しておく（仕入日数だけは見せたい） */
+.car-card.cc-other.compact .cc-bigday.cc-other-day{
+  font-size:10px;padding:2px 6px;
+}
+.car-card.cc-other.compact .cc-bigday.cc-other-day .cc-bigday-num{font-size:14px}
+
+/* v0.9.0 の cc-other-badge は廃止 */
+.cc-other-badge{display:none !important}
+
+/* ========================================
+   v0.9.2 その他カードの左バー削除
+   ======================================== */
+.car-card.cc-other{border-left:1px solid var(--border) !important}
+.car-card.cc-other:hover{border-left-color:var(--border2) !important}
+.pv-card.pv-card-other{border-left:1px solid var(--border) !important}
+.pv-card.pv-card-other:hover{border-left-color:var(--border2) !important}
+
+/* ========================================
+   v0.9.5 進捗ビューのグループ切替タブ
+   PC：タブは非表示、3グループ縦並び全表示
+   スマホ：タブ表示、選択中のグループのみ表示
+   ======================================== */
+
+/* PCではタブを完全に隠す */
+.pv-tabs{display:none}
+
+/* PCでは全グループ表示（pv-active クラスは無視） */
+.pv-group{display:block}

@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CarFlow - 車両管理システム</title>
+
+<!-- ========== ファビコン（v1.5.10） ========== -->
+<link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+<link rel="apple-touch-icon" href="images/favicon.svg">
+<meta name="theme-color" content="#378ADD">
+
+<!-- v1.8.3: iOS Safari の env() が 0 を返す問題対策。CSS より先に html クラス付与 -->
+<script src="js/ios-safe-pad.js?v=273"></script>
+
+<!-- ========== CSS ========== -->
+<link rel="stylesheet" href="css/base.css?v=273">
+<link rel="stylesheet" href="css/login.css?v=273">
+<link rel="stylesheet" href="css/layout.css?v=273">
+<link rel="stylesheet" href="css/components.css?v=273">
+<link rel="stylesheet" href="css/panels.css?v=273">
+<link rel="stylesheet" href="css/kanban.css?v=273">
+<link rel="stylesheet" href="css/calendar.css?v=273">
+<link rel="stylesheet" href="css/modal.css?v=273">
+<link rel="stylesheet" href="css/celebrate.css?v=273">
+<link rel="stylesheet" href="css/help.css?v=273">
+<link rel="stylesheet" href="css/mobile.css?v=273">
+<link rel="stylesheet" href="css/deal.css?v=273">
+<link rel="stylesheet" href="css/worksheet.css?v=273">
+<!-- v1.6.0: ChecklistTemplate 編集UI -->
+<link rel="stylesheet" href="css/template-editor.css?v=273">
+<!-- v1.7.0: 全体タスク（付箋ボード） -->
+<link rel="stylesheet" href="css/board-notes.css?v=273">
+<!-- v1.7.42: 作業実績ビュー -->
+<link rel="stylesheet" href="css/worklog.css?v=273">
+<!-- v1.8.1: β版ミーティングビュー -->
+<link rel="stylesheet" href="css/meeting.css?v=273">
+
+<!-- ========== デモ版：Firebase SDK は読み込まない ========== -->
+<!-- 代わりに in-memory モックで動かす（demo-firestore-mock.js / demo-storage-mock.js / demo-init.js）-->
+<!-- v1.6.2: SheetJS（テンプレ Excel 取込/書き出し用） -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- ========== デモ版専用CSS ========== -->
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+
+<!-- ========== ログイン画面 ========== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+      <h1>CarFlow</h1><p>車両管理システム</p>
+    </div>
+    <!-- v1.5.10: Google サインインに置換（旧パスワード入力は廃止） -->
+    <div class="login-hint" style="margin:18px 0 14px;text-align:center;font-size:13px;line-height:1.6">
+      Google アカウントでログインしてください<br>
+      <span style="font-size:11px;color:var(--text3)">※会社の招待を受けたアカウントのみ利用可</span>
+    </div>
+    <!-- v1.7.42: 認証状態の初期確認が終わるまでボタンを出さない（自動ログイン中の二重ポップアップ防止） -->
+    <div class="login-loading" id="login-loading" style="text-align:center;padding:14px;font-size:13px;color:var(--text3)">
+      <span class="login-loading-dot"></span> 認証状態を確認中…
+    </div>
+    <!-- v1.8.11: アプリ内ブラウザ警告（LINE / Instagram など WebView では Google が OAuth をブロックする）-->
+    <div id="inapp-warning" style="display:none;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.4);border-radius:10px;padding:14px;margin:8px 0;font-size:12px;line-height:1.7;color:#fcd34d">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">⚠ このブラウザではログインできません</div>
+      <div style="color:var(--text2);margin-bottom:10px">
+        LINE・Instagram などの<strong style="color:#fcd34d">アプリ内ブラウザ</strong>からは、Google のセキュリティポリシーによりログインがブロックされます。
+      </div>
+      <div style="color:var(--text2);margin-bottom:10px;font-weight:600">📱 Safari で開いてください：</div>
+      <ol style="color:var(--text2);padding-left:18px;margin:0 0 10px 0">
+        <li style="margin-bottom:4px">画面右上の <strong style="color:var(--text)">「…」</strong>または <strong style="color:var(--text)">共有</strong>ボタン</li>
+        <li style="margin-bottom:4px"><strong style="color:var(--text)">「Safari で開く」</strong>または <strong style="color:var(--text)">「ブラウザで開く」</strong>を選ぶ</li>
+        <li>Safari で開き直してログイン</li>
+      </ol>
+      <button onclick="window.copyAppUrl && window.copyAppUrl(this)" style="width:100%;padding:9px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);border-radius:6px;color:#fcd34d;font-size:12px;font-weight:600;cursor:pointer">📋 このページのURLをコピー</button>
+    </div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()" style="display:none;align-items:center;justify-content:center;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border-radius:2px;padding:2px;box-sizing:content-box">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
+      </svg>
+      Google でログイン
+    </button>
+    <div class="login-ver">CarFlow v1.8.39 — デモ版</div>
+  </div>
+</div>
+
+<!-- ========== メインアプリ ========== -->
+<div id="app" style="display:none;flex-direction:column;height:100vh">
+  <!-- トップバー -->
+  <div class="topbar">
+    <!-- v1.5.10: サイドバー折りたたみトグル -->
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
+    <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.39</span>
+    <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
+    <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
+    <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
+      <button class="tb-fontsize-btn" data-fontsize="md" onclick="setFontSize('md')"><span style="font-size:10px;font-weight:600">A</span></button>
+      <button class="tb-fontsize-btn" data-fontsize="lg" onclick="setFontSize('lg')"><span style="font-size:14px;font-weight:700">A</span></button>
+      <button class="tb-fontsize-btn" data-fontsize="xl" onclick="setFontSize('xl')"><span style="font-size:19px;font-weight:800">A</span></button>
+    </div>
+    <div class="topbar-user">
+      <div class="av" id="u-av">YM</div>
+      <span style="font-size:13px;color:var(--text2)" id="u-name">山田</span>
+      <!-- v1.8.1: 同期インジケータをここに移動（右下フロートから）-->
+      <div id="sync-indicator" class="sync-indicator sync-online" title="他のスタッフの変更がリアルタイムで反映されます">
+        <span class="sync-dot"></span>
+        <span class="sync-text">同期</span>
+      </div>
+      <button class="help-btn" onclick="showPanel('help',document.getElementById('si-help'))" title="ヘルプを見る">？</button>
+      <button class="btn-sm" onclick="doLogout()">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="body-row">
+    <!-- サイドバー -->
+    <div class="sidebar">
+      <div style="padding:8px 6px 4px">
+        <div class="sb-sec">メイン</div>
+        <div class="sb-item active" id="si-dashboard" onclick="showPanel('dashboard',this)"><span class="sb-icon">🏠</span>ダッシュボード</div>
+        <div class="sb-item" onclick="openCarModal(null)"><span class="sb-icon">➕</span>新規車両登録</div>
+        <div class="sb-item" id="si-close" onclick="openCloseMonthDialog()"><span class="sb-icon">📦</span>月次集計締め</div>
+        <!-- v1.8.1: β版ミーティングビュー（壁掛け大型モニター用・打ち合わせ時に4枚同時表示） -->
+        <div class="sb-item" id="si-meeting" onclick="openMeetingFromSidebar(this)"><span class="sb-icon">📺</span>ミーティング<span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:5px;margin-left:4px">β</span></div>
+        <div class="sb-div"></div>
+        <div class="sb-sec">実績</div>
+        <div class="sb-item" id="si-archive" onclick="showPanel('archive',this)"><span class="sb-icon">📈</span>販売実績</div>
+        <!-- v1.7.42: 作業実績（モチベUP用・終礼でみんなで見るやつ） -->
+        <div class="sb-item" id="si-worklog" onclick="openWorklogFromSidebar(this)"><span class="sb-icon">🎯</span>作業実績</div>
+        <div class="sb-div"></div>
+        <div class="sb-sec">管理</div>
+        <div class="sb-item" id="si-log" onclick="showPanel('log',this)"><span class="sb-icon">📋</span>操作ログ<span class="sb-badge" id="log-badge"></span></div>
+        <div class="sb-item" id="si-members" onclick="showPanel('members',this)"><span class="sb-icon">👥</span>メンバー</div>
+        <div class="sb-sec">システム</div>
+        <div class="sb-item" id="si-settings" onclick="showPanel('settings',this)"><span class="sb-icon">⚙️</span>設定</div>
+        <!-- v1.6.1: 「テンプレ編集」サイドバーは廃止。設定 → タスク・進捗 → 詳細作成ON → 編集 から入る統一動線へ -->
+        <div class="sb-item sb-help" id="si-help" onclick="showPanel('help',this)"><span class="sb-icon">❓</span>ヘルプ</div>
+      </div>
+      <div class="sb-bottom">
+        <div class="sb-div"></div>
+        <div class="sb-user">
+          <div class="av" id="sb-av" style="width:30px;height:30px;font-size:11px">YM</div>
+          <div><div style="font-size:12px;font-weight:600" id="sb-name">山田</div><div style="font-size:10px;color:var(--text3)" id="sb-role">スタッフ</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div class="content">
+      <!-- タブ -->
+      <div class="tabs">
+        <!-- v1.7.2: 重要（全体タスク + 要対応アクションを一覧で見る）— v1.7.3 でスマホ限定に -->
+        <div class="tab tab-mobile-only" onclick="switchTab('overview',this)">📌 重要</div>
+        <div class="tab" onclick="switchTab('kanban',this)">📋 タスク管理</div>
+        <div class="tab" onclick="switchTab('calendar',this)">📅 納車カレンダー</div>
+        <div class="tab" onclick="switchTab('exhibit',this)">🏪 展示</div>
+        <div class="tab tab-mobile-keep" onclick="switchTab('progress',this)">⚡ 進捗</div>
+        <div class="tab" onclick="switchTab('table',this)">📑 全体一覧</div>
+        <div class="tab" onclick="switchTab('inventory',this)">📦 在庫日数</div>
+        <div class="tab" onclick="switchTab('deal',this)">💼 商談</div>
+        <!-- v1.7.42→v1.7.42: 作業実績タブ。PC ではサイドバーから入るのでタブは隠す（モバイル専用） -->
+        <div class="tab tab-mobile-only" onclick="switchTab('worklog',this)">🎯 作業実績</div>
+      </div>
+
+      <div class="views">
+        <!-- ダッシュボードパネル -->
+        <div id="panel-dashboard" class="side-panel open">
+          <div><div class="panel-title">ダッシュボード</div><div class="panel-sub">車両管理と販売実績の概要</div></div>
+          <div class="stat-grid" id="stat-grid"></div>
+
+          <!-- v1.7.0: 全体タスク（付箋ボード）— v1.7.2 で要対応アクションより上に -->
+          <div id="board-notes-area"></div>
+
+          <div class="panel-card"><h3>🚨 要対応アクション</h3><div id="dash-actions"></div></div>
+
+          <!-- 今月の着地予測 -->
+          <div class="panel-card" id="dash-landing-card">
+            <div class="dash-sec-title"><h3>🎯 今月の着地予測</h3>
+              <button class="dash-detail-btn" onclick="toggleDashDetail('landing')">詳細 ▾</button>
+            </div>
+            <div id="dash-landing"></div>
+            <div class="dash-detail" id="dash-detail-landing"></div>
+          </div>
+
+          <!-- 売上・在庫KPI -->
+          <div class="panel-card">
+            <div class="dash-sec-title"><h3>📊 販売・在庫サマリー</h3>
+              <button class="dash-detail-btn" onclick="toggleDashDetail('kpi')">詳細 ▾</button>
+            </div>
+            <div id="dash-kpi"></div>
+            <div class="dash-detail" id="dash-detail-kpi"></div>
+          </div>
+
+          <!-- 警告サマリー -->
+          <div class="panel-card">
+            <div class="dash-sec-title"><h3>⚠️ 警告サマリー</h3></div>
+            <div id="dash-warnings"></div>
+          </div>
+        </div>
+
+        <!-- 操作ログ -->
+        <div id="panel-log" class="side-panel">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div><div class="panel-title">操作ログ</div><div class="panel-sub">全車両への操作履歴</div></div>
+            <!-- v1.8.24: 操作ログ消去ボタン（admin/manager のみ表示） -->
+            <button class="btn-sm btn-danger" onclick="clearAuditLogsFromUI()" data-perm="canEditSettings" style="margin-top:4px">🗑 操作ログを消去</button>
+          </div>
+          <div class="panel-card"><h3>最新ログ</h3><div id="log-list"></div></div>
+        </div>
+
+        <!-- メンバー -->
+        <div id="panel-members" class="side-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div><div class="panel-title">メンバー</div><div class="panel-sub">登録スタッフと招待中のメンバー</div></div>
+            <button class="btn-primary" id="btn-invite-member" onclick="openInviteMemberModal()" style="display:none">＋ メンバーを招待</button>
+          </div>
+          <div class="panel-card"><h3>登録メンバー</h3><div id="member-list"></div></div>
+          <div class="panel-card" id="pending-invite-card" style="display:none">
+            <h3>📨 招待中</h3>
+            <div id="pending-invite-list" style="font-size:12px;color:var(--text2)"></div>
+          </div>
+        </div>
+
+        <!-- 設定（アコーディオン7枚） -->
+        <!-- v1.5.10: 設定パネル再構成（左メニュー＋右コンテンツのサイドバー型） -->
+        <div id="panel-settings" class="side-panel settings-v2">
+          <div class="settings-head">
+            <div class="panel-title">設定</div>
+            <div class="panel-sub">会社ごとの運用ルールをここで調整します</div>
+          </div>
+
+          <div class="settings-layout">
+            <!-- 左：項目メニュー -->
+            <nav class="settings-nav" id="settings-nav">
+              <button class="settings-nav-item active" data-section="profile">
+                <span class="settings-nav-icon">👤</span><span class="settings-nav-label">プロフィール</span>
+              </button>
+              <button class="settings-nav-item" data-section="display">
+                <span class="settings-nav-icon">🎨</span><span class="settings-nav-label">表示</span>
+              </button>
+              <button class="settings-nav-item" data-section="vehicle">
+                <span class="settings-nav-icon">🚗</span><span class="settings-nav-label">車両・販売</span>
+              </button>
+              <!-- v1.6.1: タスク・進捗を独立セクションに -->
+              <button class="settings-nav-item" data-section="tasks">
+                <span class="settings-nav-icon">🧩</span><span class="settings-nav-label">タスク・進捗</span>
+              </button>
+              <button class="settings-nav-item" data-section="store">
+                <span class="settings-nav-icon">🏪</span><span class="settings-nav-label">店舗運営</span>
+              </button>
+              <button class="settings-nav-item" data-section="alert">
+                <span class="settings-nav-icon">🚦</span><span class="settings-nav-label">アラート</span>
+              </button>
+              <!-- v1.8.19: LINE等の通知連携 -->
+              <button class="settings-nav-item" data-section="notify" data-perm="canEditSettings">
+                <span class="settings-nav-icon">🔔</span><span class="settings-nav-label">通知連携</span>
+              </button>
+              <button class="settings-nav-item" data-section="data">
+                <span class="settings-nav-icon">💾</span><span class="settings-nav-label">データ</span>
+              </button>
+            </nav>
+
+            <!-- 右：選択中セクションだけ表示 -->
+            <div class="settings-content">
+
+              <!-- 👤 プロフィール（v1.5.10） -->
+              <section class="settings-section active" data-section="profile">
+                <h2 class="settings-section-title">👤 プロフィール</h2>
+                <p class="settings-section-desc">CarFlow 内で使う表示名とアイコンを設定できます。Google アカウントの値が初期値です</p>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">アイコン</h3>
+                  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div id="profile-avatar-preview" class="av" style="width:64px;height:64px;font-size:22px;background-size:cover;background-position:center"></div>
+                    <div style="flex:1;min-width:200px">
+                      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">推奨：正方形・最大2MB（自動でリサイズされます）</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn-sm" onclick="document.getElementById('profile-avatar-file').click()">📷 画像を選択</button>
+                        <button class="btn-sm" onclick="resetProfilePhoto()">Google のアイコンに戻す</button>
+                      </div>
+                      <input type="file" id="profile-avatar-file" accept="image/*" style="display:none" onchange="onProfilePhotoPick(this)">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">表示名</h3>
+                  <div class="settings-row">
+                    <input type="text" id="profile-displayname-inp" class="settings-input" placeholder="（Google の displayName）" style="flex:1" maxlength="30">
+                    <button class="btn-sm" onclick="saveProfileDisplayName()">保存</button>
+                    <button class="btn-sm" onclick="resetProfileDisplayName()" style="color:var(--text3)">Google に戻す</button>
+                  </div>
+                  <div class="settings-card-hint" id="profile-displayname-hint" style="margin-top:6px"></div>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">アカウント情報</h3>
+                  <div style="font-size:12px;color:var(--text2);line-height:1.8">
+                    <div>📧 <span id="profile-email">—</span></div>
+                    <div>🔑 ロール：<span id="profile-role">—</span></div>
+                    <div>🆔 UID：<code id="profile-uid" style="font-size:10px;color:var(--text3)">—</code></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 🎨 表示 -->
+              <section class="settings-section" data-section="display">
+                <h2 class="settings-section-title">🎨 表示設定</h2>
+                <p class="settings-section-desc">画面の見え方を調整できます。設定はこのブラウザに保存されます</p>
+                <div class="settings-card">
+                  <h3 class="settings-card-title">テーマ</h3>
+                  <div class="theme-picker" id="theme-picker">
+                    <button class="theme-btn" data-theme="dark"  onclick="setTheme('dark')">🌙 ダーク</button>
+                    <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀️ ライト</button>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <h3 class="settings-card-title">フォントサイズ <span class="settings-card-hint">（PC表示時のみ）</span></h3>
+                  <div class="fontsize-picker" id="fontsize-picker">
+                    <button class="fontsize-btn" data-fontsize="md" onclick="setFontSize('md')">標準</button>
+                    <button class="fontsize-btn" data-fontsize="lg" onclick="setFontSize('lg')">大</button>
+                    <button class="fontsize-btn" data-fontsize="xl" onclick="setFontSize('xl')">特大</button>
+                  </div>
+                  <div class="settings-card-hint">大きくすると一部のレイアウトが崩れる場合があります</div>
+                </div>
+
+                <!-- v1.7.0: 付箋ボードの色ラベル（会社共通） -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📌 付箋ボードの色ラベル</h3>
+                  <p class="settings-card-desc">ダッシュボードの「全体タスク」で使う色ごとのラベル名を会社で共通設定できます。例：赤=緊急 / 橙=営業へ / 黄=今日中 など、自由にカテゴライズしてください</p>
+                  <div id="board-labels-editor"></div>
+                  <div style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;border-radius:4px;font-size:11px;line-height:1.6;color:var(--text2)">
+                    💡 <strong style="color:#fca5a5">赤色の付箋は新規作成時にLINE社内グループへ自動通知</strong>されます。<br>
+                    本当に重要な事項（事故・クレーム・即対応必要など）に紐付ける運用がおすすめです。
+                  </div>
+                </div>
+              </section>
+
+              <!-- 🚗 車両・販売 -->
+              <section class="settings-section" data-section="vehicle">
+                <h2 class="settings-section-title">🚗 車両・販売</h2>
+                <p class="settings-section-desc">車両登録時の選択肢や、販売フローのデフォルト値</p>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">ボディサイズ選択肢</h3>
+                  <p class="settings-card-desc">車両登録・編集で使う区分名を自社の呼び方に変更できます</p>
+                  <div id="size-editor"></div>
+                  <div class="settings-row" style="margin-top:10px">
+                    <input type="text" id="size-add-inp" placeholder="例：ハイエース枠" class="settings-input" style="flex:1">
+                    <button class="btn-sm" onclick="addSizeOption()">＋追加</button>
+                    <button class="btn-sm" onclick="resetSizeOptions()" style="color:var(--text3)">初期値に戻す</button>
+                  </div>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">📅 デフォルト納車日（リードタイム）</h3>
+                  <p class="settings-card-desc">売約動作をした時に自動入力される納車予定日の日数。<strong>着地予測の「準備リードタイム」</strong>としても同じ値が使われます</p>
+                  <div class="settings-row">
+                    <div style="flex:1">
+                      <div style="font-size:13px">今日から何日後？</div>
+                      <div class="settings-card-hint">売約日=今日、納車予定日=今日+この日数 で仮入力</div>
+                    </div>
+                    <input type="number" min="1" max="90" id="lead-days-inp" value="14" oninput="onLeadDaysChange(this)" class="settings-input" style="width:72px;text-align:right">
+                    <span style="font-size:12px;color:var(--text3)">日</span>
+                  </div>
+                </div>
+
+              </section>
+
+              <!-- v1.6.1: タスク・進捗（独立セクション） -->
+              <section class="settings-section" data-section="tasks">
+                <h2 class="settings-section-title">🧩 タスク・進捗</h2>
+                <p class="settings-section-desc">使わないタスクは OFF。チェック型は追加可能。「📝 詳細作成」をONにすると項目チェックリストの編集画面に入れます</p>
+
+                <!-- v1.8.15: 管理者向け詳細マニュアル PDF -->
+                <div class="settings-card" style="border:1px solid rgba(55,138,221,.4);background:rgba(55,138,221,.06)">
+                  <h3 class="settings-card-title">📄 管理者マニュアル（PDF）</h3>
+                  <p class="settings-card-desc">タスク・進捗・小タスク・タブ／アコーディオン・パターン・Excel一括編集など、複雑な仕組みを詳しく解説した管理者・Web担当者向けマニュアル。約20ページ。</p>
+                  <a href="manuals/task-manual-v5.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none">📥 PDFをダウンロード</a>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">タスク一覧</h3>
+                  <p class="settings-card-desc">各タスクの ON/OFF・期日・並び替え・詳細チェックリストの作成と編集ができます</p>
+                  <div id="tasks-editor"></div>
+                </div>
+              </section>
+
+              <!-- 🏪 店舗運営 -->
+              <section class="settings-section" data-section="store">
+                <h2 class="settings-section-title">🏪 店舗運営</h2>
+                <p class="settings-section-desc">定休日や売上目標など、店舗の基本ルール</p>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">🗓️ 定休日ルール</h3>
+                  <p class="settings-card-desc">毎週の基本定休日。<strong>＋追加</strong>で隔週・第◯週ルールを重ねられます</p>
+                  <div id="closed-days-picker"></div>
+                  <div id="closed-rules-list" style="margin-top:12px"></div>
+                  <button class="btn-sm" onclick="openClosedRuleForm()" style="margin-top:10px">＋ 休業ルールを追加</button>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">🎯 店舗目標・売上計上モード</h3>
+                  <div id="goals-editor"></div>
+                </div>
+              </section>
+
+              <!-- 🚦 アラート -->
+              <section class="settings-section" data-section="alert">
+                <h2 class="settings-section-title">🚦 アラート・警告</h2>
+                <p class="settings-section-desc">在庫・納車・通知の警告色や閾値</p>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">⚠️ 在庫日数の警告</h3>
+                  <p class="settings-card-desc">日数を超えた車両に色付けされます。不要な段階はOFFにできます</p>
+                  <div id="inv-warn-editor"></div>
+                  <!-- v1.7.42: デフォルトに戻すボタン -->
+                  <div class="settings-reset-row">
+                    <button class="btn-sm" onclick="resetInvWarnDefaults()">↺ デフォルトに戻す</button>
+                  </div>
+                </div>
+
+                <div class="settings-card">
+                  <h3 class="settings-card-title">🚦 納車残日数の警告</h3>
+                  <p class="settings-card-desc">納車予定までの残日数がこの日数以下になったら警告します</p>
+                  <div id="del-warn-editor"></div>
+                  <!-- v1.7.42: デフォルトに戻すボタン -->
+                  <div class="settings-reset-row">
+                    <button class="btn-sm" onclick="resetDelWarnDefaults()">↺ デフォルトに戻す</button>
+                  </div>
+                </div>
+
+              </section>
+
+              <!-- 🔔 通知連携（v1.8.19〜） -->
+              <section class="settings-section" data-section="notify" data-perm="canEditSettings">
+                <h2 class="settings-section-title">🔔 通知連携</h2>
+                <p class="settings-section-desc">LINEなど外部サービスへの自動通知</p>
+
+                <div class="settings-card" data-perm="canEditSettings" style="border:1px solid rgba(0,182,76,.35)">
+                  <h3 class="settings-card-title" style="display:flex;align-items:center;gap:8px">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#00B900;color:#fff;border-radius:5px;font-size:12px;font-weight:700">L</span>
+                    LINE 通知（社内グループ向け）
+                  </h3>
+                  <p class="settings-card-desc">
+                    社内LINEグループに自動通知を送るための設定です。<br>
+                    送信は Cloud Functions 経由で行うのでアクセストークンはブラウザに残りません。
+                  </p>
+
+                  <!-- 有効/無効スイッチ -->
+                  <div class="setting-row" style="margin-bottom:12px">
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:600">LINE通知を有効化</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">OFFのときは自動通知もテスト送信もブロック</div>
+                    </div>
+                    <div class="toggle" id="line-enabled-toggle" onclick="toggleLineEnabled()"></div>
+                  </div>
+
+                  <!-- チャネルアクセストークン -->
+                  <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">チャネルアクセストークン（長期）</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <input type="password" id="line-token-inp" placeholder="eyJhbGciOi..." style="flex:1;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:monospace">
+                      <button class="btn-sm" onclick="toggleLineTokenVisibility()" id="line-token-eye" title="表示切替">👁</button>
+                    </div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:4px">
+                      LINE Developers Console → Messaging API設定 で発行した200文字程度の文字列
+                    </div>
+                  </div>
+
+                  <!-- グループID -->
+                  <div style="margin-bottom:14px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">グループID</label>
+                    <input type="text" id="line-group-inp" placeholder="C..." style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:monospace">
+                    <div style="font-size:11px;color:var(--text3);margin-top:4px">
+                      公式LINEを社内グループに招待 → メッセージ受信時のWebhookから取得した <code style="font-size:10px">C</code> 始まりの33文字
+                    </div>
+                  </div>
+
+                  <!-- 保存・接続テストボタン -->
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+                    <button class="btn-sm" onclick="saveLineConfig()">💾 保存</button>
+                    <button class="btn-sm" onclick="sendLineTest()" id="line-test-btn">📤 接続テスト送信</button>
+                    <span id="line-config-status" style="font-size:11px;color:var(--text3)"></span>
+                  </div>
+                </div>
+
+                <!-- v1.8.20: 通知トリガー個別設定 -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📅 日報通知（毎日夕方）</h3>
+                  <p class="settings-card-desc">
+                    指定時刻に「明日の予定 / 明日の納車予定 / 月次売上 / 在庫リミット車両」をまとめて社内グループへ通知。
+                  </p>
+
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:600">日報通知を有効化</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">OFFのとき、自動送信もテストもブロック</div>
+                    </div>
+                    <div class="toggle" id="line-trig-daily-toggle" onclick="toggleLineTrigger('dailyReport')"></div>
+                  </div>
+
+                  <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">送信時刻</label>
+                    <input type="time" id="line-daily-time" onchange="onDailyTimeChange()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+                    <span style="font-size:11px;color:var(--text3);margin-left:8px">（5分単位で指定。日本時間）</span>
+                  </div>
+
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:600">休業日にも送信する</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">OFFなら定休日・カスタム休業日には日報を送らない</div>
+                    </div>
+                    <div class="toggle" id="line-daily-closed-toggle" onclick="toggleDailyClosed()"></div>
+                  </div>
+
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🚨 赤付箋通知（即時）</h3>
+                  <p class="settings-card-desc">
+                    付箋ボードに新しい <strong style="color:#ef4444">赤色</strong> 付箋が作成された瞬間に LINE 通知。<br>
+                    タイトル / 内容 / 作成者 / 担当者を送ります。
+                  </p>
+
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:600">赤付箋通知を有効化</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">既存付箋を赤に変えた場合は発火しません（新規作成時のみ）</div>
+                    </div>
+                    <div class="toggle" id="line-trig-redboard-toggle" onclick="toggleLineTrigger('redBoardNote')"></div>
+                  </div>
+
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🎉 大タスク完了通知（即時）</h3>
+                  <p class="settings-card-desc">
+                    大タスクが完了した瞬間に「○○さんが○○を完了しました！」と通知。<br>
+                    再生フェーズ・納車準備フェーズの全完了時はお祝い文言で通知します。
+                  </p>
+
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:600">大タスク完了通知を有効化</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">頻度の調整は下のモード設定で</div>
+                    </div>
+                    <div class="toggle" id="line-trig-task-toggle" onclick="toggleLineTrigger('taskComplete')"></div>
+                  </div>
+
+                  <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">頻度モード</label>
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--bg3);border-radius:8px">
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                        <input type="radio" name="line-task-mode" value="all" onchange="onTaskModeChange(this)">
+                        <span><strong>全部送る</strong>（がんばり共有重視・初期値）</span>
+                      </label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                        <input type="radio" name="line-task-mode" value="once_per_day_per_person" onchange="onTaskModeChange(this)">
+                        <span><strong>1人1日1回まで</strong>（最初の完了時のみ）</span>
+                      </label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                        <input type="radio" name="line-task-mode" value="phase_only" onchange="onTaskModeChange(this)">
+                        <span><strong>フェーズ完了時のみ</strong>（再生／納車準備の終わりだけ）</span>
+                      </label>
+                    </div>
+                  </div>
+
+                </div>
+              </section>
+
+              <!-- 💾 データ -->
+              <section class="settings-section" data-section="data">
+                <h2 class="settings-section-title">💾 データ管理</h2>
+                <p class="settings-section-desc">バックアップ・一括編集・初期化</p>
+
+                <!-- v1.8.21: 完全バックアップ（JSON） -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📦 完全バックアップ（JSON）</h3>
+                  <p class="settings-card-desc">
+                    在庫車・販売実績・付箋・設定・テンプレを丸ごとJSONで書き出し／取り込みできます。<br>
+                    <strong>万一に備えたバックアップ用途</strong>。LINE設定とスタッフは含みません。<br>
+                    ※ 写真本体（Storage）はバックアップ対象外です（URL/参照のみ含まれます）
+                  </p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button class="btn-sm" onclick="exportFullBackup()">📤 書き出し</button>
+                    <button class="btn-sm" onclick="importFullBackup()">📥 取り込み（全置換）</button>
+                  </div>
+                </div>
+
+                <!-- v1.8.21: 車両一括編集（Excel） -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📊 車両一括編集（Excel）</h3>
+                  <p class="settings-card-desc">
+                    在庫車を Excel で書き出し、編集してから取り込み直せます。<br>
+                    <strong>編集対象</strong>：管理番号 / メーカー / モデル / 年式 / 色 / サイズ / 走行距離 / 価格 / 仕入日 / 納車予定日 / 状態 / お客様名 / メモ / 作業メモ<br>
+                    <strong>状態の選択肢</strong>：その他 / 仕入れ / 再生中 / 展示中 / 納車準備 / 納車完了<br>
+                    <strong>触らない</strong>：チェック状況・装備品・写真・操作ログ（既存のまま保持）<br>
+                    ID列は編集禁止。空欄行は新規登録扱いになります。
+                  </p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button class="btn-sm" onclick="exportCarsExcel()">📤 Excelで書き出し</button>
+                    <button class="btn-sm" onclick="importCarsExcel()">📥 Excelで取り込み</button>
+                  </div>
+                </div>
+
+                <!-- v1.8.21: 全消去 -->
+                <div class="settings-card" data-perm="canEditSettings" style="border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.03)">
+                  <h3 class="settings-card-title" style="color:#fca5a5">🗑 全消去</h3>
+                  <p class="settings-card-desc">
+                    車両・販売実績・付箋ボードを全て削除します（設定・テンプレ・スタッフ・LINE連携は残ります）。<br>
+                    <strong style="color:#fca5a5">⚠️ この操作は元に戻せません。</strong>事前にバックアップを取ってから実行してください。
+                  </p>
+                  <button class="btn-sm btn-danger" onclick="clearAllData()">🗑 全データを消去</button>
+                </div>
+
+                <!-- v1.8.22: プロミネントなステータスバナー -->
+                <div id="data-io-banner" role="status" aria-live="polite" style="display:none;align-items:center;gap:12px;padding:14px 18px;margin:14px 0 4px;border-radius:10px;border:2px solid;font-size:15px;font-weight:600;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,.10);position:sticky;top:8px;z-index:5">
+                  <span id="data-io-banner-icon" style="font-size:24px;flex-shrink:0"></span>
+                  <span id="data-io-banner-text" style="flex:1;color:var(--text)"></span>
+                </div>
+
+                <!-- v1.5.12: data:URL → Storage 一括移行 -->
+                <div class="settings-card" id="settings-card-migrate-photos" data-perm="canEditTemplates">
+                  <h3 class="settings-card-title">📦 写真の Storage 移行</h3>
+                  <p class="settings-card-desc">v1.5.10 より前にアップロードされた data:URL 形式の写真／アイコンを Firebase Storage に一括移行します。Firestore の容量を節約できます。</p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button class="btn-sm" onclick="dryRunMigratePhotos()">対象を確認（dry-run）</button>
+                    <button class="btn-sm btn-danger" onclick="runMigratePhotos()">本番実行</button>
+                    <span id="migrate-photos-status" style="font-size:12px;color:var(--text3)"></span>
+                  </div>
+                </div>
+
+              </section>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- 販売実績パネル -->
+        <div id="panel-archive" class="side-panel">
+          <div><div class="panel-title">販売実績</div><div class="panel-sub">月次で締めた販売履歴・目標達成率</div></div>
+          <div id="archive-summary"></div>
+          <div id="archive-list"></div>
+        </div>
+
+
+        <!-- v1.6.0: ChecklistTemplate 編集パネル -->
+        <div id="panel-templates" class="side-panel">
+          <div>
+            <div class="panel-title">📋 チェックリスト編集</div>
+            <div class="panel-sub">作業項目テンプレートの追加・並び替え・編集（管理者限定）</div>
+          </div>
+          <div id="tpl-editor-body"></div>
+        </div>
+
+        <!-- v1.7.42: ヘルプパネル本体は下のヘルプセクションを id="help-content-host" 経由で動的にここへマウントする想定だったが、
+             現状は body の末尾に置いてある。表示位置を主領域に持ってくるためここに「マウント先のプレースホルダ」を置き、
+             help.js 側で初期化時にここへ <div id="panel-help"> ごと移す。 -->
+        <div id="help-mount"></div>
+
+        <!-- 各ビュー -->
+        <!-- v1.7.2: 重要ビュー（全体タスク + 要対応アクション） -->
+        <div id="view-overview" class="view" style="flex-direction:column;align-items:stretch;overflow:auto;padding:14px 16px 60px">
+          <div style="margin-bottom:6px">
+            <div style="font-size:18px;font-weight:700;color:var(--text1)">📌 重要</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">今すぐ気にしておきたいこと</div>
+          </div>
+          <!-- 全体タスク（付箋ボード）— 上 -->
+          <div id="overview-board-notes-area"></div>
+          <!-- 要対応アクション — 下 -->
+          <div class="panel-card" style="margin-top:14px"><h3>🚨 要対応アクション</h3><div id="overview-actions"></div></div>
+        </div>
+
+        <div id="view-kanban" class="view" style="flex-direction:column;align-items:stretch;overflow:hidden">
+          <div class="kanban-toolbar" id="kanban-toolbar">
+            <button class="kt-expand-btn" id="kt-expand-btn" onclick="toggleKanbanExpandAll()">▼ すべてのカードを開く</button>
+            <div class="kt-sort-group">
+              <span class="kt-label">並び替え</span>
+              <button class="kt-sort-btn" data-key="num"      onclick="setKanbanSort('num')">管理番号</button>
+              <button class="kt-sort-btn" data-key="price"    onclick="setKanbanSort('price')">金額</button>
+              <button class="kt-sort-btn" data-key="progress" onclick="setKanbanSort('progress')">進捗</button>
+              <button class="kt-sort-btn" data-key="date"     onclick="setKanbanSort('date')">日付</button>
+            </div>
+          </div>
+          <div class="kanban-scroll" style="flex:1;min-height:0;overflow:auto">
+            <div class="kanban-wrap" id="kanban-wrap"></div>
+          </div>
+        </div>
+        <div id="view-calendar" class="view">
+          <div class="cal-hdr">
+            <button class="cal-nav-btn" onclick="calPrev()">◀</button>
+            <div class="cal-month-title" id="cal-title"></div>
+            <button class="cal-nav-btn" onclick="calNext()">▶</button>
+            <button class="cal-today-btn" onclick="calToday()">今月</button>
+            <button class="cal-add-btn" onclick="toggleHolidayForm()">＋ 休業日を追加</button>
+          </div>
+          <div class="cal-holiday-form" id="cal-holiday-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">休業日を追加</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px">
+              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">開始日</div><input type="date" id="h-start" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
+              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">終了日（省略可）</div><input type="date" id="h-end" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
+              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">名称</div><input type="text" id="h-name" placeholder="例：夏季休暇" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
+              <button onclick="saveHolidayRange()" style="padding:8px 16px;background:var(--green);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;cursor:pointer">追加</button>
+            </div>
+            <div id="holiday-mini-list"></div>
+          </div>
+          <div class="cal-countdown" id="cal-countdown"></div>
+          <div class="cal-wrap">
+            <div class="cal-grid" id="cal-grid"></div>
+          </div>
+        </div>
+        <div id="view-exhibit" class="view">
+          <div class="ex-toolbar">
+            <div class="ex-toolbar-label">並び替え</div>
+            <button class="ex-sort-btn" data-key="price"      onclick="setExhibitSort('price')">💰 金額</button>
+            <button class="ex-sort-btn" data-key="invDays"    onclick="setExhibitSort('invDays')">📦 在庫日数</button>
+            <button class="ex-sort-btn" data-key="year"       onclick="setExhibitSort('year')">📅 年式</button>
+            <div class="ex-toolbar-spacer"></div>
+            <div class="ex-total-label" id="ex-total-label"></div>
+          </div>
+          <div class="ex-cols" id="ex-cols"></div>
+        </div>
+        <div id="view-progress" class="view">
+          <div class="pv-grid" id="pv-grid"></div>
+        </div>
+        <div id="view-table" class="view">
+          <div class="ex-toolbar" id="table-toolbar"></div>
+          <div id="table-body-wrap"></div>
+        </div>
+        <div id="view-inventory" class="view">
+          <div class="inv-grid" id="inv-grid"></div>
+        </div>
+
+        <!-- v1.7.42→v1.7.42: 作業実績ビュー（チーム優先で並び替え／ワイワイ感アップ） -->
+        <div id="view-worklog" class="view" style="flex-direction:column;align-items:stretch;overflow-y:auto">
+          <div class="worklog-header">
+            <div class="worklog-title">🎯 みんなの作業実績</div>
+            <div class="worklog-sub">🍵 お疲れさま！今日どれだけ進んだか、みんなでチェック</div>
+          </div>
+          <!-- 期間切替 -->
+          <div class="worklog-period-row" id="worklog-period-row">
+            <button class="worklog-period-btn active" data-period="today" onclick="switchWorklogPeriod('today')">📅 今日</button>
+            <button class="worklog-period-btn" data-period="3day" onclick="switchWorklogPeriod('3day')">3日</button>
+            <button class="worklog-period-btn" data-period="week" onclick="switchWorklogPeriod('week')">1週間</button>
+            <button class="worklog-period-btn" data-period="month" onclick="switchWorklogPeriod('month')">1か月</button>
+          </div>
+          <!-- (1) チーム合計サマリー（一番上） -->
+          <div class="worklog-summary" id="worklog-summary"></div>
+          <!-- (2) 動きのあった車（中段、終礼の主役） -->
+          <div class="worklog-section-title">🚗 動きのあった車たち</div>
+          <div class="worklog-cars-list" id="worklog-cars-list"></div>
+          <!-- (3) 個人別（一番下、控えめに） -->
+          <div class="worklog-section-title worklog-section-title-sub">👏 ありがとう！</div>
+          <div class="worklog-mvp-list" id="worklog-mvp-list"></div>
+        </div>
+
+        <!-- v1.8.1: β版ミーティングビュー（4分割壁掛けモード） -->
+        <div id="view-meeting" class="view">
+          <div class="meeting-grid">
+            <div class="meeting-cell" id="meeting-cell-progress" style="grid-area:progress">
+              <div class="meeting-cell-title">⚡ 進捗（在庫車）</div>
+              <div class="meeting-cell-body" id="meeting-progress-body"></div>
+            </div>
+            <div class="meeting-cell" id="meeting-cell-calendar" style="grid-area:calendar">
+              <div class="meeting-cell-title">📅 今月の納車予定</div>
+              <div class="meeting-cell-body" id="meeting-calendar-body"></div>
+            </div>
+            <div class="meeting-cell" id="meeting-cell-exhibit" style="grid-area:exhibit">
+              <div class="meeting-cell-title">🏪 展示中</div>
+              <div class="meeting-cell-body" id="meeting-exhibit-body"></div>
+            </div>
+            <!-- v1.8.29: 警告ブロック（カレンダー上のカウントダウン） -->
+            <div class="meeting-cell" id="meeting-cell-warn" style="grid-area:warn">
+              <div class="meeting-cell-title">⏳ 納車前カウントダウン</div>
+              <div class="meeting-cell-body" id="meeting-warn-body"></div>
+            </div>
+            <div class="meeting-cell" id="meeting-cell-actions" style="grid-area:actions">
+              <div class="meeting-cell-title">🚨 要対応アクション</div>
+              <div class="meeting-cell-body" id="meeting-actions-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- v1.5.10: 商談ビュー（顧客と話すときのアテ用、キオスク的UI） -->
+        <div id="view-deal" class="view">
+          <button class="deal-exit-btn" onclick="askExitDealMode()" title="商談モードを終了">✕ 終了</button>
+          <div class="ex-toolbar">
+            <div class="ex-toolbar-label">並び替え</div>
+            <button class="ex-sort-btn" data-key="price"   onclick="setExhibitSort('price')">💰 金額</button>
+            <button class="ex-sort-btn" data-key="invDays" onclick="setExhibitSort('invDays')">📦 在庫日数</button>
+            <button class="ex-sort-btn" data-key="year"    onclick="setExhibitSort('year')">📅 年式</button>
+          </div>
+          <div class="deal-cols" id="deal-cols"></div>
+        </div>
+      </div>
+
+      <div class="action-area">
+        <div class="action-label">⚠ 要確認</div>
+        <div class="action-chips" id="action-chips"></div>
+        <!-- v1.7.42: 一時的にエリアを格納するボタン（次のビュー切替などで自動再表示） -->
+        <button class="action-area-collapse-btn" onclick="document.body.classList.add('action-area-collapsed')" title="このビューでは一時的に非表示にする（ビュー切替で自動復帰）">▼</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== ワークフロー画面 ========== -->
+<div id="wf-page">
+  <div class="wf-topbar">
+    <div class="wf-back" onclick="closeWorkflow()">← ボードに戻る</div>
+    <div style="font-size:15px;font-weight:600;flex:1" id="wf-title">作業ワークフロー</div>
+  </div>
+  <div class="wf-vehicle" id="wf-vehicle"></div>
+  <div class="wf-body" id="wf-body"></div>
+  <div class="wf-footer"><button class="wf-done-btn" id="wf-done-btn" onclick="finishWorkflow()">この作業を完了にして戻る</button></div>
+</div>
+
+<!-- ========== 作業管理票 画面 (v1.5.10〜) — 再生 / 納車時 共用 ========== -->
+<div id="ws-page">
+  <div class="ws-topbar">
+    <button class="ws-back" onclick="closeWorksheet()">← 戻る</button>
+    <div class="ws-title" id="ws-title">作業管理票</div>
+    <div class="ws-progress-badge" id="ws-progress-badge">0/0</div>
+  </div>
+  <div class="ws-vehicle">
+    <div class="ws-thumb" id="ws-vehicle-thumb"></div>
+    <div class="ws-vehicle-info">
+      <div class="ws-vehicle-name" id="ws-vehicle-name"></div>
+      <div class="ws-vehicle-sub" id="ws-vehicle-sub"></div>
+    </div>
+  </div>
+  <div class="ws-progress-bar"><div class="ws-progress-fill" id="ws-progress-fill"></div></div>
+  <div class="ws-tabs" id="ws-tabs"></div>
+  <div class="ws-body"><div id="ws-body-inner"></div></div>
+  <div class="ws-footer">
+    <button class="ws-nav-btn" id="ws-prev-btn" onclick="wsPrevTab()">← 前のセクション</button>
+    <button class="ws-nav-btn" id="ws-next-btn" onclick="wsNextTab()">次のセクション →</button>
+    <button class="ws-complete-btn disabled" id="ws-complete-btn" disabled onclick="markWorksheetComplete()">完了する</button>
+  </div>
+</div>
+
+<!-- ========== モーダル群 ========== -->
+<!-- v1.6.2: チェックリストプレビューモーダル -->
+<div class="overlay" id="modal-tpl-preview">
+  <div class="modal modal-wide">
+    <div class="mhdr">
+      <div>
+        <div class="mhdr-title" id="tpl-preview-title">プレビュー</div>
+        <div id="tpl-preview-meta" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button class="mclose" onclick="closeTemplatePreview()">✕</button>
+    </div>
+    <div class="mbody" id="tpl-preview-body" style="padding:14px 18px;max-height:70vh;overflow:auto"></div>
+    <div class="mfoot" style="display:flex;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border)">
+      <button class="btn-sm" onclick="closeTemplatePreview()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.7.8: 付箋ボード アクションシート（下から出るスマホUI） -->
+<div class="overlay" id="modal-bn-actions" onclick="closeBoardNoteActions()">
+  <div class="bn-actionsheet" onclick="event.stopPropagation()">
+    <div class="bn-actionsheet-title" id="bn-actionsheet-title">付箋メニュー</div>
+    <button class="bn-actionsheet-btn" onclick="bnActionEdit()">✏️ 編集</button>
+    <button class="bn-actionsheet-btn" onclick="bnActionDone()">✅ 済にする</button>
+    <button class="bn-actionsheet-btn bn-actionsheet-danger" onclick="bnActionDelete()">🗑 消去</button>
+    <button class="bn-actionsheet-btn bn-actionsheet-cancel" onclick="closeBoardNoteActions()">キャンセル</button>
+  </div>
+</div>
+
+<!-- v1.8.13: タスク行の⋮メニュー（設定→タスク・進捗）-->
+<div class="overlay" id="modal-task-actions" onclick="closeTaskActions()">
+  <div class="bn-actionsheet" onclick="event.stopPropagation()">
+    <div class="bn-actionsheet-title" id="task-actionsheet-title">タスク操作</div>
+    <div id="task-actionsheet-body"></div>
+    <button class="bn-actionsheet-btn bn-actionsheet-cancel" onclick="closeTaskActions()">キャンセル</button>
+  </div>
+</div>
+
+<!-- v1.7.0: 付箋ボード 編集モーダル -->
+<div class="overlay" id="modal-board-note">
+  <div class="modal" style="max-width:560px">
+    <div class="mhdr">
+      <div class="mhdr-title" id="bn-modal-title">付箋を追加</div>
+      <button class="mclose" onclick="closeBoardNoteModal()">✕</button>
+    </div>
+    <div class="mbody bn-modal-body">
+      <div>
+        <label>タイトル</label>
+        <input type="text" id="bn-inp-title" maxlength="60" placeholder="例：KM0354 急ぎ洗車">
+      </div>
+      <div>
+        <label>本文</label>
+        <textarea id="bn-inp-body" rows="3" maxlength="600" placeholder="例：来店予定あり、本日午後までに洗ってほしいです"></textarea>
+      </div>
+      <div>
+        <label>色</label>
+        <div class="bn-color-picker">
+          <label><input type="radio" name="bn-color" id="bn-color-red"><span class="bn-color-swatch bn-sw-red"></span><span class="bn-color-pick-label">赤</span></label>
+          <label><input type="radio" name="bn-color" id="bn-color-orange"><span class="bn-color-swatch bn-sw-orange"></span><span class="bn-color-pick-label">橙</span></label>
+          <label><input type="radio" name="bn-color" id="bn-color-yellow" checked><span class="bn-color-swatch bn-sw-yellow"></span><span class="bn-color-pick-label">黄</span></label>
+          <label><input type="radio" name="bn-color" id="bn-color-green"><span class="bn-color-swatch bn-sw-green"></span><span class="bn-color-pick-label">緑</span></label>
+          <label><input type="radio" name="bn-color" id="bn-color-blue"><span class="bn-color-swatch bn-sw-blue"></span><span class="bn-color-pick-label">青</span></label>
+        </div>
+      </div>
+      <div>
+        <label>期限（任意）</label>
+        <input type="date" id="bn-inp-deadline">
+      </div>
+      <div>
+        <label>担当メンバー（任意・複数選択可）</label>
+        <div id="bn-inp-members" class="bn-member-list"></div>
+      </div>
+      <div>
+        <label>画像（任意）</label>
+        <input type="file" accept="image/*" onchange="bnOnPhotoChange(this)" style="font-size:12px">
+        <div id="bn-inp-photo-preview" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
+      <button class="btn-sm" onclick="closeBoardNoteModal()">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveBoardNoteFromModal()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.7.0: 画像プレビューモーダル -->
+<div class="overlay" id="modal-image-preview" onclick="closeImagePreview()">
+  <button class="image-preview-close" onclick="closeImagePreview()">✕</button>
+  <div class="modal" onclick="event.stopPropagation()">
+    <img id="image-preview-img" src="" alt="" onclick="closeImagePreview()">
+  </div>
+</div>
+
+<!-- v1.6.0: チェックリスト項目編集モーダル -->
+<div class="overlay" id="modal-tpl-item">
+  <div class="modal" style="max-width:560px">
+    <div class="mhdr">
+      <div class="mhdr-title">項目を編集</div>
+      <button class="mclose" onclick="closeTemplateItemEditor()">✕</button>
+    </div>
+    <div class="mbody modal-body">
+      <div class="tpl-modal-meta">
+        <span><strong>項目ID</strong>: <span id="tpl-item-id" style="font-family:monospace"></span></span>
+        <span><strong>由来</strong>: <span id="tpl-item-source"></span></span>
+      </div>
+      <!-- v1.7.14: 入力タイプ選択（check/tri/status/select/text） -->
+      <div class="tpl-modal-row">
+        <label>入力タイプ</label>
+        <select id="tpl-item-input-type-sel" class="tpl-modal-select" onchange="onTemplateItemInputTypeChange(this.value)">
+          <option value="check">チェック（✓ だけ）</option>
+          <option value="tri">あり/なし/未（装備の有無）</option>
+          <option value="status">OK/NG/未確認（状態判定）</option>
+          <option value="select">選択肢（自由に複数候補）</option>
+          <option value="text">テキスト記入（自由記入欄）</option>
+        </select>
+        <div class="tpl-modal-hint">小タスク詳細ページでスタッフが何を入力するかを決めます。</div>
+      </div>
+      <!-- 「select」を選んだ時だけ表示する選択肢入力 -->
+      <div class="tpl-modal-row" id="tpl-item-select-options-row" style="display:none">
+        <label>選択肢（1行に1つ）</label>
+        <textarea id="tpl-item-select-options" rows="4" placeholder="例：&#10;HDD&#10;SSD/メモリ&#10;DVD&#10;なし/不明"></textarea>
+        <div class="tpl-modal-hint">空行は無視されます。並び順がそのまま画面に出ます。</div>
+      </div>
+      <div class="tpl-modal-row">
+        <label>項目名 <span style="color:#c62828">*</span></label>
+        <input type="text" id="tpl-item-name" maxlength="80" placeholder="例：ボディ全周チェック">
+      </div>
+      <div class="tpl-modal-row">
+        <label>サブ（短い説明）</label>
+        <input type="text" id="tpl-item-sub" maxlength="100" placeholder="例：傷・へこみ・錆">
+        <div class="tpl-modal-hint">画面上で項目名の下に表示される短文</div>
+      </div>
+      <div class="tpl-modal-row">
+        <label>詳細（長い説明）</label>
+        <textarea id="tpl-item-detail" rows="3" maxlength="500" placeholder="例：ボディ全周を目視確認し板金カルテに記入します"></textarea>
+      </div>
+      <div class="tpl-modal-row">
+        <label>注意点（1行に1つ）</label>
+        <textarea id="tpl-item-points" rows="4" placeholder="例：&#10;ルーフ・ピラーも確認&#10;フレーム歪みの有無"></textarea>
+        <div class="tpl-modal-hint">空行は無視されます。順序はそのまま表示されます。</div>
+      </div>
+
+      <!-- v1.7.12: 写真・動画 (media) 編集セクション -->
+      <div class="tpl-modal-row tpl-media-section">
+        <label>📷 写真・動画</label>
+        <div class="tpl-modal-hint">小タスク詳細ページのℹボタン展開時に表示されます。順序は登録順。</div>
+        <div id="tpl-item-media-list" class="tpl-media-list"></div>
+        <div class="tpl-media-add">
+          <div class="tpl-media-add-row">
+            <input type="text" id="tpl-media-add-yt" class="tpl-media-add-inp" placeholder="YouTube URL または videoId（例：KntVP1lA0MU）">
+            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaYoutube()">▶️ YouTube追加</button>
+          </div>
+          <div class="tpl-media-add-row">
+            <input type="text" id="tpl-media-add-img" class="tpl-media-add-inp" placeholder="画像URL（https://… で始まるURL）">
+            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaImage()">📷 写真追加</button>
+          </div>
+          <!-- v1.7.14: 端末から直接画像ファイルをアップロード -->
+          <div class="tpl-media-add-row">
+            <input type="file" id="tpl-media-add-file" accept="image/*" style="display:none" onchange="addTemplateItemMediaFile(this.files[0]); this.value=''">
+            <label for="tpl-media-add-file" class="btn-sm tpl-media-add-btn tpl-media-file-label">📂 ファイルから写真を追加</label>
+            <span class="tpl-modal-hint" id="tpl-media-upload-hint" style="margin:0 0 0 8px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
+      <button class="btn-sm" onclick="closeTemplateItemEditor()">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveTemplateItem()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 車両詳細 -->
+<div class="overlay" id="modal-detail">
+  <div class="modal modal-wide">
+    <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><button class="mclose" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="mbody" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- v1.5.10: 商談用ポップアップ（シンプル版） -->
+<div class="overlay deal-overlay" id="modal-deal">
+  <div class="deal-popup">
+    <button class="deal-popup-close" onclick="closeModal('modal-deal')">✕</button>
+    <div class="deal-popup-body" id="deal-popup-body"></div>
+  </div>
+</div>
+
+<!-- v1.5.10: 商談モード終了確認（危険系のトーンで顧客が反射的に押さない） -->
+<div class="overlay" id="confirm-exit-deal">
+  <div class="modal" style="max-width:420px">
+    <div class="mhdr"><div class="mhdr-title" style="color:var(--red)">⚠️ 管理画面に戻りますか？</div></div>
+    <div class="mbody">
+      <div style="font-size:13px;line-height:1.7;color:var(--text2);padding:6px 0 14px">
+        商談モードを終了して、管理画面（在庫情報や設定）に戻ります。<br>
+        お客様にお見せする画面ではないため、お客様の前では操作しないでください。
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-cancel" onclick="closeModal('confirm-exit-deal')" style="flex:1;font-size:14px;padding:11px">キャンセル</button>
+        <button onclick="confirmExitDealMode()" style="font-size:13px;padding:11px 14px;background:var(--red);color:#fff;border:1px solid var(--red);border-radius:var(--r);cursor:pointer;font-weight:600">終了する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 車両登録/編集モーダル -->
+<div class="overlay" id="modal-car">
+  <div class="modal">
+    <div class="mhdr"><div class="mhdr-title" id="car-modal-title">新規車両登録</div><button class="mclose" onclick="closeModal('modal-car')">✕</button></div>
+    <!-- v1.5.10: ヘッダー風写真プレビュー（モーダル最上部・SNSヘッダー風） -->
+    <div class="photo-hero-wrap">
+      <div class="photo-hero" id="inp-photo-hero">
+        <div class="hero-empty">📷<br><span>写真未設定</span></div>
+      </div>
+      <div class="photo-hero-actions">
+        <button type="button" class="photo-hero-btn" onclick="triggerFormPhotoPick()">📷 写真を選択／変更</button>
+        <button type="button" class="photo-hero-btn ghost" onclick="clearFormPhoto()">クリア</button>
+      </div>
+      <input type="file" id="inp-photo-file" accept="image/*" style="display:none" onchange="onFormPhoto(this)">
+    </div>
+    <div class="mbody">
+      <div class="fsec" style="border-top:none;padding-top:0">基本情報</div>
+      <div class="frow">
+        <div class="fg"><label>管理番号 <span style="color:var(--text3);font-weight:400">（任意）</span></label><input type="text" id="inp-num" placeholder="KM0000（空欄OK）"></div>
+        <div class="fg"><label>メーカー <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-maker" placeholder="トヨタ"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>車種・グレード <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-model" placeholder="プリウス Z"></div>
+        <div class="fg"><label>年式</label>
+          <input type="text" id="inp-year" list="dl-year" placeholder="例：令和5｜2023" onblur="onYearBlur(this)">
+          <datalist id="dl-year"></datalist>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>車体色</label><input type="text" id="inp-color" placeholder="パールホワイト"></div>
+        <div class="fg"><label>ボディサイズ</label>
+          <select id="inp-size"></select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>走行距離 (km)</label>
+          <input type="text" id="inp-km" list="dl-km" placeholder="例：35000 または候補から選択" onblur="onKmBlur(this)">
+          <datalist id="dl-km"></datalist>
+        </div>
+        <div class="fg"><label>仕入れ日</label><input type="date" id="inp-purchase"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>販売金額 (円)</label><input type="text" id="inp-price" placeholder="1480000"></div>
+        <div class="fg"></div>
+      </div>
+
+      <div class="fsec">販売情報</div>
+      <div class="sell-block">
+        <div class="sell-switch-row">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:2px">売約スイッチ</div>
+            <div id="sell-switch-hint" style="font-size:11px;color:var(--text3)">OFF：未成約（売約日・納車予定日は編集できません）</div>
+          </div>
+          <div id="sell-switch" class="sell-switch" onclick="onSellSwitchClick()"><div class="sell-switch-knob"></div></div>
+        </div>
+        <div class="frow" style="margin-top:12px">
+          <div class="fg"><label>売約日</label><input type="date" id="inp-contract-date" disabled></div>
+          <div class="fg"><label>納車予定日</label><input type="date" id="inp-delivery" disabled></div>
+        </div>
+      </div>
+
+      <!-- v1.5.10: 写真UIはモーダル最上部に移動。ここはメモのみ -->
+      <div class="fsec">メモ</div>
+      <div class="fg">
+        <textarea id="inp-memo" rows="3" placeholder="自由記入（コアメモ：車両情報・特記事項。フェーズが変わっても残ります）" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none;resize:vertical;font-family:inherit"></textarea>
+      </div>
+
+      <!-- v1.5.10: 編集時のみ表示される危険ゾーン（車両削除） -->
+      <div class="edit-danger-zone" id="edit-danger-zone" style="display:none">
+        <div class="edit-danger-label">⚠️ 危険な操作</div>
+        <button class="detail-delete-btn" id="edit-delete-btn" onclick="onEditDeleteClick()">🗑️ この車両を削除</button>
+        <div class="edit-danger-hint">この車両のデータを完全に削除します。復元できません。</div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap" id="car-modal-footer">
+        <button class="btn-sm" onclick="closeModal('modal-car')">キャンセル</button>
+        <!-- 新規登録時：2ボタン -->
+        <button class="btn-other" id="car-save-other-btn" onclick="saveCarModal('other')">📝 その他として登録</button>
+        <button class="btn-primary" id="car-save-btn" onclick="saveCarModal('purchase')">仕入れ車として登録</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 確認ダイアログ ========== -->
+<!-- 売約確認（カンバンドラッグ時） -->
+<div class="confirm-overlay" id="confirm-sell">
+  <div class="confirm-box">
+    <div class="confirm-icon">🤝</div>
+    <div class="confirm-title">この車両を「売約」にしますか？</div>
+    <div class="confirm-sub">納車予定日を入力してください。<br>売約日は本日の日付で記録されます。</div>
+    <div class="confirm-date-row">
+      <label>納車予定日</label>
+      <input type="date" id="sell-date">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeSellConfirm(false)">キャンセル</button>
+      <button class="btn-primary" onclick="closeSellConfirm(true)">売約にする</button>
+    </div>
+  </div>
+</div>
+
+<!-- 売約キャンセル確認（納車準備/納車完了 → それより前の列） -->
+<div class="confirm-overlay" id="confirm-uncontract">
+  <div class="confirm-box">
+    <div class="confirm-icon">↩️</div>
+    <div class="confirm-title">この車両の売約をキャンセルしますか？</div>
+    <div class="confirm-sub" id="uncontract-sub">売約日・納車予定日・納車準備の進捗もすべてリセットされます。</div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeUncontractConfirm(false)">いいえ</button>
+      <button class="btn-primary" style="background:#dc2626" onclick="closeUncontractConfirm(true)">売約をキャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 納車完了確認（納車準備 → 納車完了） -->
+<div class="confirm-overlay" id="confirm-deliver">
+  <div class="confirm-box">
+    <div class="confirm-icon">🚗</div>
+    <div class="confirm-title">この車両を「納車完了」にしますか？</div>
+    <div class="confirm-sub">お客様への納車が完了したことを記録します。</div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeDeliverConfirm(false)">キャンセル</button>
+      <button class="btn-primary" onclick="closeDeliverConfirm(true)">納車完了にする</button>
+    </div>
+  </div>
+</div>
+
+<!-- 祝福演出（紙吹雪＋センターモーダル） -->
+<div id="celebrate-overlay">
+  <div id="celebrate-confetti"></div>
+  <div id="celebrate-card">
+    <div class="celebrate-emoji">🎉</div>
+    <div class="celebrate-title">納車完了！</div>
+    <div class="celebrate-sub">おつかれさまでした！</div>
+    <div class="celebrate-car" id="celebrate-car"></div>
+  </div>
+</div>
+
+<!-- 納車完了取り消し確認（納車完了 → 納車準備） -->
+<div class="confirm-overlay" id="confirm-undeliver">
+  <div class="confirm-box">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title">納車完了を取り消しますか？</div>
+    <div class="confirm-sub">この車両を「納車準備」に戻します。売約情報は保持されます。</div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeUndeliverConfirm(false)">いいえ</button>
+      <button class="btn-primary" onclick="closeUndeliverConfirm(true)">納車完了を取り消す</button>
+    </div>
+  </div>
+</div>
+
+<!-- 早期売約確認（モーダル経由で売約スイッチON） -->
+<div class="confirm-overlay" id="confirm-early-sell">
+  <div class="confirm-box">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title">作業中ですが売約にしますか？</div>
+    <div class="confirm-sub" id="early-sell-sub"></div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeEarlySellConfirm(false)">キャンセル</button>
+      <button class="btn-primary" onclick="closeEarlySellConfirm(true)">売約にする</button>
+    </div>
+  </div>
+</div>
+
+<!-- 月次集計締め -->
+<div class="confirm-overlay" id="confirm-close-month">
+  <div class="confirm-box" style="width:440px">
+    <div class="confirm-icon">📦</div>
+    <div class="confirm-title">月次集計を締める</div>
+    <div class="confirm-sub">対象月の納車済み車両を販売実績にアーカイブします。</div>
+    <div class="confirm-date-row" style="display:flex;gap:10px">
+      <div style="flex:1">
+        <label>年</label>
+        <select id="close-month-year" onchange="updateClosePreview()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none"></select>
+      </div>
+      <div style="flex:1">
+        <label>月</label>
+        <select id="close-month-month" onchange="updateClosePreview()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none"></select>
+      </div>
+    </div>
+    <div id="close-month-preview" style="text-align:left;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:12px;line-height:1.7;max-height:160px;overflow-y:auto"></div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeCloseMonth()">キャンセル</button>
+      <button class="btn-primary" onclick="executeCloseMonth()">この月を締める</button>
+    </div>
+  </div>
+</div>
+
+<!-- 定休日ルール追加 -->
+<div class="confirm-overlay" id="confirm-closed-rule">
+  <div class="confirm-box" style="width:440px">
+    <div class="confirm-icon">🗓️</div>
+    <div class="confirm-title">休業ルールを追加</div>
+    <div class="confirm-sub">隔週・第◯週などの繰り返しルールを追加します。</div>
+    <div class="confirm-date-row">
+      <label>パターン</label>
+      <select id="cr-pattern" onchange="onClosedRulePatternChange()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
+        <option value="weekly">毎週</option>
+        <option value="biweekly">隔週</option>
+        <option value="nth">第◯週</option>
+      </select>
+    </div>
+    <div class="confirm-date-row">
+      <label>曜日</label>
+      <select id="cr-dow" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
+        <option value="0">日曜</option>
+        <option value="1">月曜</option>
+        <option value="2">火曜</option>
+        <option value="3">水曜</option>
+        <option value="4">木曜</option>
+        <option value="5">金曜</option>
+        <option value="6">土曜</option>
+      </select>
+    </div>
+    <div class="confirm-date-row" id="cr-nth-row" style="display:none">
+      <label>第何週</label>
+      <select id="cr-nth" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
+        <option value="1">第1週</option>
+        <option value="2">第2週</option>
+        <option value="3">第3週</option>
+        <option value="4">第4週</option>
+        <option value="5">第5週</option>
+      </select>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeClosedRuleForm()">キャンセル</button>
+      <button class="btn-primary" onclick="saveClosedRule()">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.5.10: メンバー招待モーダル -->
+<div class="confirm-overlay" id="confirm-invite-member">
+  <div class="confirm-box" style="width:460px">
+    <div class="confirm-icon">📨</div>
+    <div class="confirm-title">メンバーを招待する</div>
+    <div class="confirm-sub">メールアドレスを登録すると、そのアカウントで初回ログインした時に自動的にメンバーになります。</div>
+    <div class="confirm-date-row">
+      <label>メールアドレス</label>
+      <input type="email" id="invite-email-inp" placeholder="example@gmail.com">
+    </div>
+    <div class="confirm-date-row">
+      <label>権限</label>
+      <select id="invite-role-sel" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
+        <option value="staff">スタッフ（車両管理＋作業すべて可）</option>
+        <option value="worker">作業員（チェック作業のみ・車両情報は触れない）</option>
+        <option value="manager">マネージャ（管理者と同等）</option>
+        <option value="admin">管理者（全権限）</option>
+        <option value="viewer">閲覧のみ（経理・パート向け）</option>
+      </select>
+    </div>
+    <div class="confirm-date-row">
+      <label>メモ（任意）</label>
+      <input type="text" id="invite-note-inp" placeholder="例：洗車スタッフ" maxlength="40">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeInviteMemberModal()">キャンセル</button>
+      <button class="btn-primary" onclick="submitInviteMember()">招待を作成</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.7.42: 管理者によるメンバー編集（表示名・写真の上書き） -->
+<div class="confirm-overlay" id="confirm-edit-member">
+  <div class="confirm-box" style="width:460px">
+    <div class="confirm-icon">✏️</div>
+    <div class="confirm-title">メンバーのプロフィール編集</div>
+    <div class="confirm-sub" id="edit-member-target">—</div>
+    <div style="display:flex;gap:14px;align-items:center;margin:14px 0 4px">
+      <div class="m-av" id="edit-member-av-preview" style="width:64px;height:64px;font-size:18px">??</div>
+      <div style="flex:1">
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">📷 写真</label>
+        <input type="file" id="edit-member-photo-inp" accept="image/*" onchange="onEditMemberPhotoPick(this)" style="font-size:12px">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn-sm" onclick="resetEditMemberPhoto()" style="font-size:11px">↺ Googleの写真に戻す</button>
+        </div>
+      </div>
+    </div>
+    <div class="confirm-date-row">
+      <label>表示名</label>
+      <input type="text" id="edit-member-name-inp" placeholder="表示名" maxlength="40">
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:-6px">
+      <button class="btn-sm" onclick="resetEditMemberName()" style="font-size:11px">↺ Googleの名前に戻す</button>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeEditMemberModal()">キャンセル</button>
+      <button class="btn-primary" onclick="saveEditMemberProfile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.5.10: 車両削除確認（編集モーダルの危険ゾーンから呼び出し） -->
+<div class="confirm-overlay" id="confirm-delete-car">
+  <div class="confirm-box" style="width:420px">
+    <div class="confirm-icon">🗑️</div>
+    <div class="confirm-title">この車両を削除しますか？</div>
+    <div class="confirm-sub" id="confirm-delete-sub">このデータは復元できません。本当に削除しますか？</div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeDeleteCarConfirm(false)">キャンセル</button>
+      <button class="btn-primary" style="background:#dc2626" onclick="closeDeleteCarConfirm(true)">削除する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 一括目標入力 -->
+<div class="confirm-overlay" id="confirm-bulk-goal">
+  <div class="confirm-box" style="width:400px">
+    <div class="confirm-icon">🎯</div>
+    <div class="confirm-title">月次目標を一括入力</div>
+    <div class="confirm-sub">未設定の月にこの値をまとめて適用します。</div>
+    <div class="confirm-date-row">
+      <label>台数（台/月）</label>
+      <input type="number" id="bulk-count" min="0" placeholder="例：10">
+    </div>
+    <div class="confirm-date-row">
+      <label>売上（万円/月）</label>
+      <input type="number" id="bulk-sales" min="0" placeholder="例：1500">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeBulkGoal()">キャンセル</button>
+      <button class="btn-primary" onclick="applyBulkGoal()">一括適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- v1.5.10: スマホ用「フルメニュー」切替ボタン（下部固定）と「クイックメニューに戻る」（上部固定） -->
+<button id="mobile-admin-toggle" onclick="enterAdminMode()" style="display:none">🗂️ フルメニュー</button>
+<button id="mobile-back-mobile" onclick="exitAdminMode()" style="display:none">⚡ クイックメニューに戻る</button>
+
+<!-- ========== ヘルプパネル（v1.7.42：モーダルから固定パネルへ変更） ========== -->
+<!-- v1.7.28: 左サイドバー型レイアウト → v1.7.42: 設定と同じ side-panel に -->
+<div class="side-panel" id="panel-help">
+  <div class="help-modal-v2 help-panel-mode">
+    <div class="help-hdr">
+      <div class="help-hdr-title">❓ CarFlow ヘルプ</div>
+      <!-- スマホ用：サイドバー開閉トグル -->
+      <button class="help-mobile-toggle" onclick="toggleHelpSidebar()" title="目次を開閉">☰</button>
+    </div>
+    <div class="help-body-wrap">
+      <!-- 左：目次 -->
+      <aside class="help-sidebar" id="help-sidebar">
+        <div class="help-sb-search-wrap">
+          <input type="text" class="help-sb-search" id="help-sb-search" placeholder="🔍 ヘルプ内を検索…" oninput="onHelpSearch(this.value)">
+        </div>
+
+        <div class="help-sb-cat">📘 基本編（毎日使う）</div>
+        <div class="help-sb-item active" data-section="basic-overview" onclick="showHelpSection('basic-overview')">アプリ全体の見方</div>
+        <div class="help-sb-item" data-section="basic-register" onclick="showHelpSection('basic-register')">新しい車を登録する</div>
+        <div class="help-sb-item" data-section="basic-cardmove" onclick="showHelpSection('basic-cardmove')">車の状態を進める（カード移動）</div>
+        <div class="help-sb-item" data-section="basic-detail" onclick="showHelpSection('basic-detail')">車の詳細を見る・編集する</div>
+        <div class="help-sb-item" data-section="basic-photo" onclick="showHelpSection('basic-photo')">カードの写真を変える</div>
+
+        <div class="help-sb-cat">🔧 作業編（現場の人向け）</div>
+        <div class="help-sb-item" data-section="work-equipment" onclick="showHelpSection('work-equipment')">装備品チェックの使い方</div>
+        <div class="help-sb-item" data-section="work-regen" onclick="showHelpSection('work-regen')">再生整備の小タスク詳細</div>
+        <div class="help-sb-item" data-section="work-delivery" onclick="showHelpSection('work-delivery')">展示・納車整備の小タスク詳細</div>
+        <div class="help-sb-item" data-section="work-input-types" onclick="showHelpSection('work-input-types')">入力タイプ5種類の使い方</div>
+        <div class="help-sb-item" data-section="work-media" onclick="showHelpSection('work-media')">写真・動画を見る</div>
+
+        <div class="help-sb-cat">📑 画面の見方</div>
+        <div class="help-sb-item" data-section="view-kanban" onclick="showHelpSection('view-kanban')">タスク管理画面</div>
+        <div class="help-sb-item" data-section="view-calendar" onclick="showHelpSection('view-calendar')">納車カレンダー</div>
+        <div class="help-sb-item" data-section="view-exhibit" onclick="showHelpSection('view-exhibit')">展示ビュー</div>
+        <div class="help-sb-item" data-section="view-progress" onclick="showHelpSection('view-progress')">進捗ビュー</div>
+        <div class="help-sb-item" data-section="view-inventory" onclick="showHelpSection('view-inventory')">在庫日数ビュー</div>
+        <div class="help-sb-item" data-section="view-deal" onclick="showHelpSection('view-deal')">商談モード</div>
+        <div class="help-sb-item" data-section="view-table" onclick="showHelpSection('view-table')">全体一覧</div>
+        <div class="help-sb-item" data-section="view-meeting" onclick="showHelpSection('view-meeting')">📺 ミーティングビュー</div>
+
+        <div class="help-sb-cat">🤝 チーム編</div>
+        <div class="help-sb-item" data-section="team-board" onclick="showHelpSection('team-board')">全体タスク（付箋ボード）</div>
+        <div class="help-sb-item" data-section="team-worklog" onclick="showHelpSection('team-worklog')">作業実績（終礼で見る）</div>
+        <div class="help-sb-item" data-section="team-members" onclick="showHelpSection('team-members')">メンバー</div>
+        <div class="help-sb-item" data-section="team-sync" onclick="showHelpSection('team-sync')">🟢 リアルタイム同期</div>
+
+        <div class="help-sb-cat">📱 スマホで使う</div>
+        <div class="help-sb-item" data-section="mobile-quick" onclick="showHelpSection('mobile-quick')">クイックメニュー</div>
+        <div class="help-sb-item" data-section="mobile-progress" onclick="showHelpSection('mobile-progress')">進捗ビューでチェック</div>
+        <div class="help-sb-item" data-section="mobile-overview" onclick="showHelpSection('mobile-overview')">重要タブで付箋を見る</div>
+
+        <div class="help-sb-cat">📚 用語と FAQ</div>
+        <div class="help-sb-item" data-section="terms" onclick="showHelpSection('terms')">用語集</div>
+        <div class="help-sb-item" data-section="faq" onclick="showHelpSection('faq')">よくある質問</div>
+
+        <div class="help-sb-cat help-sb-cat-adv">⚙️ 上級者向け（管理者・設定担当）</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-alerts" onclick="showHelpSection('adv-alerts')">アラート・警告の調整</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-monthly" onclick="showHelpSection('adv-monthly')">月次集計締め</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-goals" onclick="showHelpSection('adv-goals')">目標・売上計上モード</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-closed" onclick="showHelpSection('adv-closed')">定休日・休業日ルール</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-templates" onclick="showHelpSection('adv-templates')">小タスク詳細のテンプレ編集</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-staff" onclick="showHelpSection('adv-staff')">メンバー管理・権限</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-line" onclick="showHelpSection('adv-line')">🔔 LINE通知連携</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-data" onclick="showHelpSection('adv-data')">💾 データ管理（バックアップ／一括編集／全消去）</div>
+      </aside>
+
+      <!-- 右：本文 -->
+      <main class="help-content" id="help-content">
+        <!-- セクション本文は help-content.html 相当のテンプレで埋められる。
+             現状は本ファイル内に直書き。後でセクションを増やすときは <section data-section="..."> を追加するだけ。 -->
+        <!-- 内容は v1.7.42 で初期版を執筆。各セクションは別途追加。 -->
+        <section class="help-sec" data-section="basic-overview"></section>
+        <section class="help-sec" data-section="basic-register"></section>
+        <section class="help-sec" data-section="basic-cardmove"></section>
+        <section class="help-sec" data-section="basic-detail"></section>
+        <section class="help-sec" data-section="basic-photo"></section>
+        <section class="help-sec" data-section="work-equipment"></section>
+        <section class="help-sec" data-section="work-regen"></section>
+        <section class="help-sec" data-section="work-delivery"></section>
+        <section class="help-sec" data-section="work-input-types"></section>
+        <section class="help-sec" data-section="work-media"></section>
+        <section class="help-sec" data-section="view-kanban"></section>
+        <section class="help-sec" data-section="view-calendar"></section>
+        <section class="help-sec" data-section="view-exhibit"></section>
+        <section class="help-sec" data-section="view-progress"></section>
+        <section class="help-sec" data-section="view-inventory"></section>
+        <section class="help-sec" data-section="view-deal"></section>
+        <section class="help-sec" data-section="view-table"></section>
+        <section class="help-sec" data-section="view-meeting"></section>
+        <section class="help-sec" data-section="team-board"></section>
+        <section class="help-sec" data-section="team-worklog"></section>
+        <section class="help-sec" data-section="team-members"></section>
+        <section class="help-sec" data-section="team-sync"></section>
+        <section class="help-sec" data-section="mobile-quick"></section>
+        <section class="help-sec" data-section="mobile-progress"></section>
+        <section class="help-sec" data-section="mobile-overview"></section>
+        <section class="help-sec" data-section="terms"></section>
+        <section class="help-sec" data-section="faq"></section>
+        <section class="help-sec" data-section="adv-alerts"></section>
+        <section class="help-sec" data-section="adv-monthly"></section>
+        <section class="help-sec" data-section="adv-goals"></section>
+        <section class="help-sec" data-section="adv-closed"></section>
+        <section class="help-sec" data-section="adv-templates"></section>
+        <section class="help-sec" data-section="adv-staff"></section>
+        <section class="help-sec" data-section="adv-line"></section>
+        <section class="help-sec" data-section="adv-data"></section>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============= scripts ============= -->
+<!-- 0a. Firebase 初期化（v1.5.0〜） -->
+<!-- ========== デモ版：Firebase 系を全部モックに置き換え ========== -->
+<script src="js/demo-firestore-mock.js"></script>
+<script src="js/demo-storage-mock.js"></script>
+<script src="js/demo-init.js"></script>
+<script src="js/demo-sample-data.js"></script>
+<script src="js/demo-line-toast.js"></script>
+<!-- 0b. cars DB wrapper（v1.5.1〜） -->
+<script src="js/db-cars.js?v=273"></script>
+<!-- 0b. settings DB wrapper（v1.5.2〜） -->
+<script src="js/db-settings.js?v=273"></script>
+<!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
+<script src="js/db-archive.js?v=273"></script>
+<!-- 0d. auditLogs DB wrapper（v1.5.4〜） -->
+<script src="js/db-audit.js?v=273"></script>
+<!-- 0e. staff DB wrapper（v1.5.5〜） -->
+<script src="js/db-staff.js?v=273"></script>
+<!-- 0f. role-guard（v1.5.10〜） -->
+<script src="js/role-guard.js?v=273"></script>
+<!-- 0g. Storage wrapper（v1.5.10〜） -->
+<script src="js/db-storage.js?v=273"></script>
+<!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
+<script src="js/migrate-data-urls.js?v=273"></script>
+<!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
+<script src="js/db-board-notes.js?v=273"></script>
+<!-- 0j. LINE通知連携（v1.8.19〜）DB読み書き＋Cloud Functions呼び出し -->
+<!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み（上で読み込み） -->
+<!-- 0k. データ管理（v1.8.21〜）：JSONバックアップ / Excel一括編集 / 全消去 -->
+<script src="js/data-io.js?v=273"></script>
+
+<!-- 1. 設定・定数 -->
+<script src="js/config.js?v=273"></script>
+<script src="js/tasks-def.js?v=273"></script>
+<script src="js/equipment-def.js?v=273"></script>
+<script src="js/checklist-templates.js?v=273"></script>
+<!-- v1.5.11: ChecklistTemplates をDB化 -->
+<script src="js/db-templates.js?v=273"></script>
+
+<!-- 2. 状態 -->
+<script src="js/state.js?v=273"></script>
+
+<!-- 3. ユーティリティ -->
+<script src="js/helpers.js?v=273"></script>
+<script src="js/progress.js?v=273"></script>
+
+<!-- 4. サンプル -->
+<script src="js/sample-data.js?v=273"></script>
+
+<!-- 5. 認証・ナビ・コア -->
+<script src="js/holidays.js?v=273"></script>
+<!-- デモ版：auth.js を demo-auth-mock.js に置き換え -->
+<script src="js/demo-auth-mock.js"></script>
+<script src="js/navigation.js?v=273"></script>
+<script src="js/archive.js?v=273"></script>
+<script src="js/settings.js?v=273"></script>
+
+<!-- 6. ダッシュボード・各ビュー -->
+<script src="js/dashboard.js?v=273"></script>
+<script src="js/members.js?v=273"></script>
+<script src="js/kanban.js?v=273"></script>
+<script src="js/car-detail.js?v=273"></script>
+<script src="js/car-modal.js?v=273"></script>
+<script src="js/workflow.js?v=273"></script>
+<script src="js/worksheet.js?v=273"></script>
+<script src="js/calendar.js?v=273"></script>
+<script src="js/views.js?v=273"></script>
+<!-- v1.7.42: ヘルプの本文（HELP_CONTENTS）を別ファイル化。help.js より先に読み込む -->
+<script src="js/help-content.js?v=273"></script>
+<script src="js/help.js?v=273"></script>
+<script src="js/theme.js?v=273"></script>
+
+<!-- v1.6.0: ChecklistTemplate 編集 -->
+<script src="js/template-editor.js?v=273"></script>
+
+<!-- v1.7.0: 全体タスク（付箋ボード） -->
+<script src="js/board-notes.js?v=273"></script>
+
+<!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
+<script src="js/worklog.js?v=273"></script>
+
+<!-- v1.8.1: β版ミーティングビュー -->
+<script src="js/meeting.js?v=273"></script>
+
+
+<!-- 7. ディスパッチャ -->
+<script src="js/main.js?v=273"></script>
+
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  

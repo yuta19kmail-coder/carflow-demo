@@ -1,0 +1,203 @@
+/* ========================================
+   calendar.css
+   納車カレンダー画面（白テーマ）とカウントダウンカード
+   ======================================== */
+
+/* view-calendar 全体：縦スクロール許可 */
+#view-calendar{display:none;flex-direction:column;overflow:auto;padding:14px}
+#view-calendar.active{display:flex}
+
+/* ヘッダー */
+.cal-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-shrink:0}
+.cal-nav-btn{background:#fff;border:1px solid #ddd;border-radius:var(--r);padding:6px 12px;cursor:pointer;color:#333;font-size:14px;font-weight:600;transition:.15s}
+.cal-nav-btn:hover{background:#f5f5f5;border-color:#bbb}
+
+/* 年月見出し：ダークグレー塗り＋白字 */
+.cal-month-title{
+  font-size:20px;
+  font-weight:700;
+  color:#fff;
+  background:#4a4a4a;
+  padding:6px 18px;
+  border-radius:6px;
+  letter-spacing:.02em;
+  min-width:220px;
+  text-align:center;
+}
+
+.cal-today-btn{padding:6px 14px;background:#fff;border:1px solid #ddd;border-radius:var(--r);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.cal-today-btn:hover{background:#f5f5f5;border-color:#bbb}
+.cal-add-btn{margin-left:auto;padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:12px;cursor:pointer}
+
+/* 休業日追加フォーム */
+.cal-holiday-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:14px;display:none;flex-shrink:0}
+
+/* 月セクション（2か月表示用ラッパ） */
+.cal-month-section{margin-bottom:18px;flex-shrink:0}
+.cal-month-section:last-child{margin-bottom:0}
+/* v1.0.41: テーマ変数を使ってダーク時は白め、ライト時は濃いめに自動対応 */
+.cal-section-label{
+  font-size:14px;
+  font-weight:700;
+  color:var(--text);
+  margin-bottom:8px;
+  padding-left:4px;
+  border-left:4px solid var(--blue);
+  padding:4px 0 4px 10px;
+}
+.cal-section-label.next{border-left-color:var(--text3);color:var(--text2)}
+
+/* カレンダーグリッド */
+.cal-wrap{background:#fff;border-radius:var(--r2);overflow:hidden;border:1px solid #ddd;flex-shrink:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #ddd;border-top:1px solid #ddd}
+.cal-dl{background:#f8f8f8;padding:8px 6px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid #ddd;border-bottom:1px solid #ddd}
+.cal-dl.sun{color:#e53935}
+.cal-dl.sat{color:#1565c0}
+.cal-dl.wkd{color:#555}
+
+/* セル */
+.cal-cell{background:#fff;min-height:104px;padding:3px 0 4px;border-right:1px solid #ddd;border-bottom:1px solid #ddd;position:relative;overflow:hidden}
+.cal-cell.today{background:#fffde7}
+.cal-cell.hol-day{background:#fff8f8}
+
+/* 定休日：斜線オーバーレイ（祝日と被っても両方視認できる） */
+.cal-cell.closed-day{
+  background:#fafafa;
+}
+.cal-cell.closed-day::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 8px,
+    rgba(120,120,120,.18) 8px,
+    rgba(120,120,120,.18) 10px
+  );
+  pointer-events:none;
+  z-index:0;
+}
+/* 祝日と定休日の両方が当たっているケース */
+.cal-cell.hol-day.closed-day{background:#fff8f8}
+.cal-cell.hol-day.closed-day::before{
+  background-image:repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 8px,
+    rgba(198,40,40,.18) 8px,
+    rgba(198,40,40,.18) 10px
+  );
+}
+.cal-cell.drag-target{outline:2px solid var(--green);outline-offset:-2px;z-index:2}
+
+/* セル内のヘッダーやイベント行は斜線より前面に */
+.cal-cell-header,.cal-ev-row{position:relative;z-index:1}
+
+.cal-cell-header{display:flex;align-items:center;gap:4px;padding:3px 5px 2px;min-height:22px}
+.cal-cell-num{font-size:12px;font-weight:600}
+.cal-cell-num.sun-col,.cal-cell-num.hol-col{color:#e53935}
+.cal-cell-num.sat-col{color:#1565c0}
+.cal-cell-num.nor-col{color:#333}
+
+.cal-cell-tag{font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap}
+.cal-cell-tag.hol-tag{background:#ffebee;color:#c62828}
+.cal-cell-tag.closed-tag{background:rgba(120,120,120,.15);color:#666;font-weight:600}
+
+/* イベントバー（1本化バー） */
+.cal-ev-row{height:18px;margin-bottom:2px;padding:0;position:relative}
+.cal-ev-bar{
+  position:absolute;
+  top:1px;
+  height:16px;
+  display:flex;
+  align-items:center;
+  padding:0 6px;
+  font-size:10px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  cursor:pointer;
+  transition:.1s;
+  text-shadow:0 1px 1px rgba(0,0,0,.15);
+}
+.cal-ev-bar:hover{filter:brightness(.92)}
+/* 完了済みマイルストーン区間：打ち消し線 */
+.cal-ev-bar.done{
+  text-decoration:line-through;
+  text-decoration-thickness:1.5px;
+  text-decoration-color:rgba(255,255,255,.85);
+  opacity:.78;
+}
+
+/* v1.0.13: バーのハイライト挙動
+   フォーカス中はそれ以外のバー＋名前ラベルを薄く、選択車両は光らせる */
+.cal-wrap.cal-focused .cal-ev-bar{opacity:.22;filter:grayscale(.4)}
+.cal-wrap.cal-focused .cal-ev-name{opacity:.3}
+.cal-wrap.cal-focused .cal-ev-bar.cal-bar-active{
+  opacity:1;
+  filter:none;
+  box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--blue), 0 4px 14px rgba(55,138,221,.45);
+  z-index:5;
+}
+.cal-wrap.cal-focused .cal-ev-bar.cal-bar-active.done{opacity:.95}
+/* フォーカス中、選択車両の名前ラベルは強調 */
+.cal-wrap.cal-focused .cal-ev-name[data-car-id].cal-name-active{opacity:1;color:var(--blue)}
+
+/* カウントダウンカード（カレンダー上部に配置） */
+.cal-countdown{margin-bottom:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;flex-shrink:0}
+.countdown-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;cursor:pointer;transition:.15s}
+.countdown-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.countdown-num{font-size:28px;font-weight:700;line-height:1}
+.countdown-label{font-size:11px;color:var(--text3);margin-top:2px}
+.countdown-car{font-size:12px;font-weight:600;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.countdown-type{font-size:10px;color:var(--text2);margin-top:2px}
+
+
+/* v1.0.37: カウントダウンカードに「本日期限タスク N件」バッジ */
+.countdown-today-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--red);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+
+/* v1.0.40〜41: 1本のバー上に複数ラベル — 全部並べてテキスト個別省略
+   v1.0.41: 背景色を削除しバーの色そのまま、素直にテキストが乗るだけに */
+.cal-ev-label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  color: #fff;
+  /* 個別チップは伸縮させて、はみ出る分は中の name に ellipsis */
+  flex: 1 1 auto;
+  min-width: 28px;
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.cal-ev-label-chip.done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.cal-ev-label-icon {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+}
+.cal-ev-label-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

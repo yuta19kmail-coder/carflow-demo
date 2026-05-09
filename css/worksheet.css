@@ -1,0 +1,872 @@
+/* ============================================================
+   worksheet.css (v1.3.0)
+   中古車作業管理票（再生 / 納車時）専用画面
+   v1.2.1: 「タイトル+概要+ⓘ展開 / 右に○」レイアウトへ変更
+   v1.2.3: 3層構造（常時：sub+detail / 展開：points + 将来figure）
+   v1.3.0: 展開エリアにメディアギャラリー（写真・YouTube動画）＋ライトボックス
+           クラスは cl-* プレフィックス（v1.3.3 で equipment側でも再利用予定）
+   ============================================================ */
+
+#ws-page {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 220;
+  flex-direction: column;
+}
+#ws-page.open { display: flex; }
+
+.ws-topbar {
+  /* v1.8.3: --safe-top 共通変数 */
+  height: calc(var(--topbar) + var(--safe-top, env(safe-area-inset-top)));
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  padding-top: var(--safe-top, env(safe-area-inset-top));
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  gap: 10px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.ws-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: none;
+  font-family: inherit;
+}
+.ws-back:hover { color: var(--text); }
+.ws-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.ws-progress-badge {
+  font-size: 12px;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.ws-vehicle {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.ws-thumb {
+  width: 54px;
+  height: 42px;
+  border-radius: 7px;
+  background: var(--bg3) center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.ws-vehicle-info { flex: 1; min-width: 0; }
+.ws-vehicle-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-vehicle-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.ws-progress-bar {
+  height: 3px;
+  background: var(--bg4);
+  flex-shrink: 0;
+}
+.ws-progress-fill {
+  height: 100%;
+  background: var(--orange);
+  width: 0;
+  transition: width .3s;
+}
+
+.ws-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+.ws-tab {
+  flex: 1 0 auto;
+  min-width: 110px;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: inherit;
+  transition: .15s;
+}
+.ws-tab:hover { background: var(--bg4); color: var(--text); }
+.ws-tab.active {
+  background: rgba(55, 138, 221, 0.18);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.ws-tab-label { font-size: 12px; white-space: nowrap; }
+.ws-tab-count {
+  font-size: 10px;
+  color: var(--text3);
+  font-weight: 700;
+}
+.ws-tab.active .ws-tab-count { color: var(--blue); }
+
+.ws-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+#ws-body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============================================================
+   1項目カード（v1.2.1: タイトル+概要+ⓘ / 右に○）
+   ============================================================ */
+.ws-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  transition: .15s;
+}
+.ws-item.done {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.ws-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+}
+
+.ws-item-body {
+  flex: 1;
+  min-width: 0;
+}
+.ws-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+/* v1.7.18: 完了状態の打ち消し線は廃止（緑枠だけで十分との判断）。
+   テキスト色のトーンダウン（var(--text2)）は残してメリハリを確保。 */
+.ws-item.done .ws-item-name {
+  color: var(--text2);
+}
+.ws-item-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* ⓘボタン（詳細展開） */
+.ws-info-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: .15s;
+}
+.ws-info-btn:hover {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.ws-info-btn.open {
+  background: rgba(55, 138, 221, 0.18);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* チェック○ボタン（最右・大きめ） */
+.ws-item-chk-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ws-item-chk {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  background: var(--bg3);
+  transition: .2s;
+}
+.ws-item.done .ws-item-chk {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+/* 詳細（展開時のみ表示） */
+.ws-item-detail {
+  display: none;
+  border-top: 1px dashed var(--border);
+  padding: 12px 16px 14px 16px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.ws-item-detail.open { display: block; }
+.ws-item-detail p {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.65;
+  margin: 0 0 8px 0;
+}
+.ws-item-detail ul {
+  list-style: none;
+  margin: 6px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-item-detail li {
+  font-size: 12px;
+  color: var(--text3);
+  padding-left: 14px;
+  position: relative;
+  line-height: 1.5;
+}
+.ws-item-detail li::before {
+  content: "•";
+  color: var(--orange);
+  position: absolute;
+  left: 4px;
+  top: 0;
+}
+/* 将来 detail 内に画像を入れる用の枠スタイル */
+.ws-item-detail figure {
+  margin: 10px 0 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-item-detail figure img {
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.ws-item-detail figcaption {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* フッター */
+.ws-footer {
+  padding: 12px 14px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ws-nav-btn {
+  padding: 11px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.ws-nav-btn:hover:not(:disabled) {
+  background: var(--bg4);
+  color: var(--text);
+}
+.ws-nav-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+.ws-complete-btn {
+  flex: 1;
+  padding: 13px 14px;
+  background: var(--green);
+  border: none;
+  border-radius: var(--r);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: .15s;
+}
+.ws-complete-btn:hover:not(.disabled) { filter: brightness(1.1); }
+.ws-complete-btn.disabled,
+.ws-complete-btn:disabled {
+  background: var(--bg4);
+  color: var(--text3);
+  cursor: not-allowed;
+}
+
+/* スマホ用調整 */
+body.mobile .ws-topbar { padding: 0 11px; }
+body.mobile .ws-title { font-size: 13px; }
+body.mobile .ws-vehicle { padding: 9px 12px; gap: 10px; }
+body.mobile .ws-tab { min-width: 100px; padding: 8px 10px; }
+body.mobile .ws-body { padding: 10px; }
+body.mobile .ws-item-row { padding: 12px 10px 12px 12px; gap: 8px; }
+body.mobile .ws-item-name { font-size: 14px; }
+body.mobile .ws-info-btn { width: 28px; height: 28px; font-size: 13px; }
+body.mobile .ws-item-chk { width: 38px; height: 38px; font-size: 19px; }
+body.mobile .ws-item-detail { padding: 12px 14px 14px 14px; }
+body.mobile .ws-footer { padding: 11px; gap: 6px; }
+body.mobile .ws-nav-btn { padding: 11px 12px; font-size: 12px; }
+body.mobile .ws-complete-btn { font-size: 14px; padding: 13px; }
+
+
+/* ============================================================
+   v1.2.3: 3層構造のスタイル
+   常時表示：sub + detail-summary
+   展開時：expand（points + 将来の画像）
+   ============================================================ */
+.ws-item-detail-summary {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.55;
+  margin-top: 6px;
+  padding-right: 4px;
+}
+.ws-item.done .ws-item-detail-summary {
+  color: var(--text3);
+}
+
+/* 展開エリア（注意点・画像など） */
+.ws-item-expand {
+  display: none;
+  border-top: 1px dashed var(--border);
+  padding: 12px 16px 14px 16px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.ws-item-expand.open { display: block; }
+.ws-item-points-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--orange);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.ws-item-expand ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-item-expand li {
+  font-size: 12px;
+  color: var(--text2);
+  padding-left: 14px;
+  position: relative;
+  line-height: 1.55;
+}
+.ws-item-expand li::before {
+  content: "•";
+  color: var(--orange);
+  position: absolute;
+  left: 4px;
+  top: 0;
+}
+/* 将来の画像枠 */
+.ws-item-expand figure {
+  margin: 12px 0 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-item-expand figure img {
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.ws-item-expand figcaption {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* スマホ調整 */
+body.mobile .ws-item-detail-summary { font-size: 12px; }
+body.mobile .ws-item-expand { padding: 12px 14px 14px 14px; }
+
+
+/* ============================================================
+   v1.3.0: メディアギャラリー（写真・動画）
+   クラス cl-* は worksheet と equipment で共通利用予定（v1.3.3〜）
+   ============================================================ */
+.cl-media {
+  margin-top: 14px;
+}
+.cl-media-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--blue);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.cl-media-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+body.mobile .cl-media-gallery {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cl-media-tile {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  cursor: pointer;
+  transition: .15s;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+}
+.cl-media-tile:hover {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(55, 138, 221, 0.18);
+}
+
+.cl-media-thumb {
+  aspect-ratio: 16 / 10;
+  background: var(--bg4) center/cover no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+.cl-media-thumb.thumb-image {
+  background-size: cover;
+  background-position: center;
+}
+.cl-media-thumb.thumb-video {
+  background-size: cover;
+  background-position: center;
+}
+.cl-media-thumb.thumb-video::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.10) 60%, rgba(0,0,0,.55));
+}
+.cl-media-thumb .play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,.95);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.cl-media-thumb .play-icon::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 10px solid #1a1d27;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  margin-left: 3px;
+}
+.cl-media-thumb .duration {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0,0,0,.78);
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+.cl-media-thumb .yt-badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: #ff0033;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: .5px;
+}
+
+.cl-media-caption {
+  padding: 7px 9px 9px;
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.45;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+/* ============================================================
+   v1.3.0: ライトボックス（worksheet / equipment 共通）
+   ============================================================ */
+/* v1.3.9: equipment画面(z-index:5000)/詳細モーダル等より確実に上に出すため
+   z-index を 9500 に。toast/celebrate(9999) より下なので通知は読める。 */
+.cl-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: rgba(0, 0, 0, .92);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  flex-direction: column;
+}
+.cl-lightbox.open {
+  display: flex;
+}
+.cl-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,.15);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+.cl-lightbox-close:hover {
+  background: rgba(255,255,255,.25);
+}
+.cl-lightbox-content {
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* v1.3.5: ウィンドウサイズに合わせて大きく表示するレスポンシブ仕様
+   wrap divを ビューポートに合わせた箱として用意し、img は object-fit:contain で
+   箱の中に納める。aspect-ratio は保持される。 */
+.cl-lb-img-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(92vw, 1400px);
+  height: min(82vh, 900px);
+}
+.cl-lb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+  background: #1a1d27;
+}
+.cl-lb-yt {
+  width: min(92vw, 1280px);
+  aspect-ratio: 16 / 9;
+  max-height: 82vh;
+}
+.cl-lb-yt iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+}
+.cl-lb-video {
+  max-width: 90vw;
+  max-height: 80vh;
+  border-radius: 8px;
+  background: #000;
+}
+.cl-lightbox-caption {
+  color: #fff;
+  font-size: 14px;
+  margin-top: 16px;
+  max-width: 90vw;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* スマホ調整 */
+body.mobile .cl-lightbox { padding: 12px; }
+body.mobile .cl-lightbox-caption { font-size: 13px; margin-top: 12px; }
+body.mobile .cl-media-label { font-size: 10px; }
+
+/* ========================================
+ * v1.7.19: 大カテゴリ（タブ）が 1 種類以下のときは #ws-tabs を非表示。
+ *   data-tabs="0" のとき = タブ非表示
+ *   data-tabs="1" のとき = タブ表示（既存スタイル）
+ * ======================================== */
+#ws-page[data-tabs="0"] #ws-tabs {
+  display: none;
+}
+.ws-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.ws-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg3);
+  user-select: none;
+}
+.ws-section-accordion .ws-section-head {
+  cursor: pointer;
+}
+.ws-section-accordion .ws-section-head:active {
+  transform: scale(0.99);
+}
+.ws-section-flat .ws-section-head {
+  cursor: default;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.ws-section-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  font-family: monospace;
+  letter-spacing: .04em;
+}
+.ws-section-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ws-section-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-section-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.ws-section-toggle {
+  font-size: 12px;
+  color: var(--text3);
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+.ws-section-body {
+  padding: 8px 12px 14px;
+}
+.ws-section[data-open="0"] .ws-section-body {
+  display: none;
+}
+.ws-empty {
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+  padding: 30px 14px;
+}
+
+/* ========================================
+ * v1.7.14: 入力タイプ別コントロール（tri / status / select / text）
+ * 装備品チェック (.eq-tri / .eq-status / .eq-select-btn / .eq-text-input) と
+ * 同じ視覚言語を踏襲しつつ、ws-page スコープ用に新規定義する。
+ * ======================================== */
+.ws-item.ws-item-vertical .ws-item-row {
+  align-items: flex-start;
+}
+
+/* tri (なし/あり/未) */
+.ws-tri {
+  display: inline-flex;
+  border-radius: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.ws-tri-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  border-right: 1px solid var(--border);
+  transition: background 0.12s, color 0.12s;
+  pointer-events: none;
+}
+.ws-tri-btn:last-child { border-right: 0; }
+.ws-tri-btn[data-active="1"][data-state="on"] { background: var(--green); color: #fff; }
+.ws-tri-btn[data-active="1"][data-state="off"] { background: var(--red); color: #fff; }
+.ws-tri-btn[data-active="1"][data-state="none"] { background: var(--bg4); color: var(--text2); }
+
+/* status (未確認/OK/NG) */
+.ws-status {
+  display: inline-flex;
+  border-radius: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.ws-status-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  border-right: 1px solid var(--border);
+  pointer-events: none;
+}
+.ws-status-btn:last-child { border-right: 0; }
+.ws-status-btn[data-active="1"][data-state="ok"] { background: var(--green); color: #fff; }
+.ws-status-btn[data-active="1"][data-state="ng"] { background: #ef4444; color: #fff; }
+.ws-status-btn[data-active="1"][data-state="none"] { background: var(--bg4); color: var(--text2); }
+
+/* select (選択肢ボタン) — v1.7.18: 他の操作系と同様に行の右にインライン表示 */
+.ws-select-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 60%;
+}
+.ws-select-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ws-select-btn:hover {
+  background: var(--bg4);
+  border-color: var(--border2);
+}
+.ws-select-btn[data-active="1"] {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+/* text (自由記入) — v1.7.18: 行の右に一行テキストボックスとして表示 */
+.ws-text-row {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.ws-text-input {
+  width: 160px;
+  max-width: 50vw;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.ws-text-input:focus {
+  outline: none;
+  border-color: var(--blue);
+}

@@ -1,0 +1,227 @@
+/* ========================================
+   layout.css
+   全体レイアウト（topbar、sidebar、tabs、action area）
+   ======================================== */
+
+/* v1.8.2: 100vh を dvh に切替（iOS Safari のアドレスバー切替で高さが変動するのを止める）*/
+#app{display:none;height:100vh;height:100dvh;flex-direction:column}
+
+/* v1.8.3: Dynamic Island / ノッチ クリアランス CSS 変数
+   v1.8.25: iOS フロアを 47px → 20px に縮小。
+   iOS Safari は URL バーが上にあって、その下に env() が効くため、
+   実は 47px もハードコードする必要がほぼ無かった。状態バーを避ける 20px で十分。
+   フルスクリーンPWA や URL バー隠れた状態では env() の値が効くので問題なし。 */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+/* iOS デバイス（ios-safe-pad.js が html / body に付与）では、
+   ブラウザ Safari で env が 0 を返してきても 20px は確保する */
+html.ios-safe-pad,
+body.ios-safe-pad {
+  --safe-top: max(env(safe-area-inset-top, 0px), 20px);
+}
+
+/* トップバー */
+.topbar{
+  height:calc(var(--topbar) + var(--safe-top));
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;
+  padding-top:var(--safe-top);
+  padding-left:max(14px, env(safe-area-inset-left));
+  padding-right:max(14px, env(safe-area-inset-right));
+  gap:10px;flex-shrink:0;
+  box-sizing:border-box;
+}
+.topbar-logo{font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px;width:calc(var(--sidebar) - 14px);flex-shrink:0}
+.logo-dot{width:7px;height:7px;background:var(--green);border-radius:50%}
+.topbar-user{display:flex;align-items:center;gap:8px;margin-left:auto}
+.av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+
+/* body-row：サイドバー + コンテンツ */
+.body-row{flex:1;display:flex;overflow:hidden}
+
+/* サイドバー */
+.sidebar{width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sb-sec{padding:10px 12px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 11px;margin:1px 6px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);transition:.15s}
+.sb-item:hover{background:var(--bg3);color:var(--text)}
+.sb-item.active{background:rgba(55,138,221,.15);color:var(--blue)}
+.sb-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sb-badge{margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-weight:700;display:none}
+.sb-div{height:1px;background:var(--border);margin:6px 10px}
+.sb-bottom{margin-top:auto;padding-bottom:12px}
+.sb-user{margin:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;display:flex;align-items:center;gap:8px}
+
+/* メインコンテンツエリア */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* タブ */
+.tabs{height:var(--tabs);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 10px;flex-shrink:0;overflow-x:auto}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:0 14px;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* ビュー表示エリア */
+.views{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.view{display:none;flex:1;overflow:auto;padding:14px;flex-direction:column}
+.view.active{display:flex}
+
+/* アクションエリア（下部）
+   v1.2.6: 「2行までは縦に積む → それ以上は2行を維持して横方向に追加（横スクロール）」
+   方針：
+     外側 .action-chips … overflow-x:auto / overflow-y:hidden（横スクロール枠）
+     内側 .action-chips-inner … flex-direction:column + flex-wrap:wrap + max-height で
+       縦方向に2行ぶん埋まると次の列にwrapする＝横方向に列が増える
+*/
+.action-area{
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 14px;
+  flex-shrink:0;
+  min-height:var(--action);
+  max-height:88px;
+  /* v1.7.42: タブビュー時のみ表示。それ以外（パネル選択時）は非表示。 */
+  display:none;
+}
+body.tab-view-active .action-area{ display:flex; }
+/* v1.7.42: ユーザーが「格納」ボタンを押した時 */
+body.action-area-collapsed .action-area{ display:none !important; }
+.action-label{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.action-chips{
+  flex:1;
+  min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:2px 0;
+}
+.action-chips::-webkit-scrollbar{height:4px}
+.action-chips::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* 内側ラッパ：column + wrap で 2行詰めの横スクロール */
+.action-chips-inner{
+  display:flex;
+  flex-direction:column;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  gap:6px 7px;
+  height:74px;            /* 2行ぶん（chip≈32px×2 + gap） */
+  /* 縦が埋まると次の列にwrap。column+wrap は内容に応じて幅が広がる */
+}
+/* チップ自体は折り返さない */
+.action-chips .chip{white-space:nowrap;flex:0 0 auto}
+
+/* v1.2.1: ダッシュボード表示中は下部アクションエリアを非表示（C と被るため） */
+/* v1.7.42: 上の display:none デフォルト + tab-view-active 切替に統合 */
+body.panel-dashboard-active .action-area{display:none !important;}
+
+/* v1.7.42: action-area の「格納」ボタン */
+.action-area-collapse-btn{
+  flex-shrink:0;
+  width:24px;
+  height:24px;
+  padding:0;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:4px;
+  color:var(--text2);
+  font-size:11px;
+  cursor:pointer;
+  font-family:inherit;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.action-area-collapse-btn:hover{
+  background:var(--bg4);
+  color:var(--text);
+}
+
+/* ========================================
+   v1.8.1 リアルタイム同期インジケータ（トップバー内）
+   ======================================== */
+.sync-indicator{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 8px;
+  border-radius:10px;
+  font-size:10px;
+  font-weight:600;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  color:var(--text2);
+  user-select:none;
+  transition:background .25s,color .25s,border-color .25s;
+  white-space:nowrap;
+}
+.sync-indicator .sync-dot{
+  display:inline-block;
+  width:7px;height:7px;border-radius:50%;
+  background:#22c55e;
+  animation:syncPulse 2.4s infinite;
+}
+.sync-indicator.sync-offline{
+  background:rgba(239,68,68,.14);
+  border-color:rgba(239,68,68,.4);
+  color:#fca5a5;
+}
+.sync-indicator.sync-offline .sync-dot{
+  background:#ef4444;
+  animation:none;
+}
+.sync-indicator.sync-cache{
+  background:rgba(245,158,11,.14);
+  border-color:rgba(245,158,11,.4);
+  color:#fcd34d;
+}
+.sync-indicator.sync-cache .sync-dot{
+  background:#f59e0b;
+  animation:none;
+}
+@keyframes syncPulse{
+  0%   { box-shadow:0 0 0 0 rgba(34,197,94,.5); }
+  70%  { box-shadow:0 0 0 5px rgba(34,197,94,0); }
+  100% { box-shadow:0 0 0 0 rgba(34,197,94,0); }
+}
+/* ログイン中は非表示 */
+body:not(.app-active) #sync-indicator{ display:none; }
+/* 商談モードは非表示 */
+body.deal-mode #sync-indicator{ display:none; }
+
+/* ========================================
+   v1.0.3 サイドバー折りたたみトグル
+   ======================================== */
+.sidebar-toggle{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text2);
+  font-size:16px;
+  width:34px;
+  height:34px;
+  border-radius:var(--r);
+  cursor:pointer;
+  margin-right:6px;
+  transition:.15s;
+  font-family:inherit;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.sidebar-toggle:hover{
+  background:var(--bg3);
+  color:var(--text);
+  border-color:var(--text3);
+}
+
+/* 折りたたみ時：サイドバーを非表示 */
+body.sidebar-collapsed .sidebar{
+  display:none !important;
+}
+
+/* スマホクイックモード時はトグルボタン自体を隠す（mobile.css側で制御） */
+body.mobile .sidebar-toggle{
+  display:none !important;
+}
