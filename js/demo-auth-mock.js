@@ -13,14 +13,14 @@
   const DEMO_USER = {
     uid: 'demo-user-001',
     email: 'demo@carflow.local',
-    displayName: 'ゆうた（デモ）',
+    displayName: '山田太郎',
     photoURL: null,
   };
   const DEMO_STAFF = {
     uid: 'demo-user-001',
-    name: 'ゆうた（デモ）',
-    displayName: 'ゆうた（デモ）',
-    customDisplayName: 'ゆうた（デモ）',
+    name: '山田太郎',
+    displayName: '山田太郎',
+    customDisplayName: '山田太郎',
     role: 'admin',
     active: true,
     permissions: {
