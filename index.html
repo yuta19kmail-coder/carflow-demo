@@ -27,6 +27,8 @@
 <link rel="stylesheet" href="css/mobile.css?v=273">
 <link rel="stylesheet" href="css/deal.css?v=273">
 <link rel="stylesheet" href="css/worksheet.css?v=273">
+<!-- v1.8.40: 装備詳細 閲覧ビュー（カタログ風） -->
+<link rel="stylesheet" href="css/equipment-view.css?v=273">
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
 <link rel="stylesheet" href="css/template-editor.css?v=273">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
@@ -85,7 +87,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v1.8.39 — デモ版</div>
+    <div class="login-ver">CarFlow v1.8.40 — デモ版</div>
   </div>
 </div>
 
@@ -96,7 +98,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.39</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.40</span>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
     <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
     <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
@@ -1575,6 +1577,8 @@
 <script src="js/car-modal.js?v=273"></script>
 <script src="js/workflow.js?v=273"></script>
 <script src="js/worksheet.js?v=273"></script>
+<!-- v1.8.40: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
+<script src="js/equipment-view.js?v=273"></script>
 <script src="js/calendar.js?v=273"></script>
 <script src="js/views.js?v=273"></script>
 <!-- v1.7.42: ヘルプの本文（HELP_CONTENTS）を別ファイル化。help.js より先に読み込む -->

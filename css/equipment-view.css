@@ -1,0 +1,172 @@
+/* ========================================
+   equipment-view.css (v1.8.27〜)
+   装備詳細 閲覧ビュー（カタログ風）
+   旧 equipment.css の閲覧ビュー部分のみを抽出。
+   入力ビュー（チェックページ）は新ワークシート方式へ移行済みのため対象外。
+   ======================================== */
+
+/* ============ カード詳細の「装備詳細を見る」ボタン ============ */
+.detail-eq-btn {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(55,138,221,.12);
+  border: 1px solid rgba(55,138,221,.30);
+  border-radius: var(--r);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.detail-eq-btn:hover { background: rgba(55,138,221,.20); }
+.detail-eq-btn .detail-eq-btn-label {
+  flex: 1;
+  text-align: center;
+}
+.detail-eq-btn .detail-eq-btn-arrow {
+  font-size: 11px;
+  transition: transform 0.2s;
+  opacity: 0.85;
+}
+.detail-eq-btn[data-open="1"] .detail-eq-btn-arrow {
+  transform: rotate(180deg);
+}
+.detail-eq-btn:active { transform: scale(0.98); }
+.detail-eq-btn-empty {
+  background: var(--bg3);
+  color: var(--text3);
+  border-color: var(--border);
+}
+
+/* ============ アコーディオン本体 ============ */
+.detail-eq-accordion {
+  display: none;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--r) var(--r);
+  padding: 10px 12px 12px;
+  margin-bottom: 14px;
+  margin-top: -2px;
+}
+.detail-eq-accordion[data-open="1"] {
+  display: block;
+}
+/* 閉じてる時：四隅すべて角丸を維持、下マージンを確保 */
+.detail-eq-btn[data-open="0"] {
+  border-radius: var(--r);
+  margin-bottom: 14px;
+}
+/* 開いてる時：下角を flat にしてアコーディオンと繋げる */
+.detail-eq-btn[data-open="1"] {
+  border-radius: var(--r) var(--r) 0 0;
+  margin-bottom: 0;
+}
+
+/* ============ カタログ風 閲覧レイアウト ============ */
+.eq-view {
+  padding: 4px 0;
+}
+.eq-view-cat {
+  margin-bottom: 14px;
+}
+.eq-view-cat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  padding: 6px 4px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.eq-view-cat-head .icon { font-size: 16px; }
+.eq-view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 12px;
+}
+.eq-view-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 4px;
+  font-size: 13px;
+  border-bottom: 1px dashed var(--border);
+}
+.eq-view-row .label {
+  color: var(--text2);
+  flex: 1;
+  min-width: 0;
+}
+.eq-view-row .val {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.eq-view-row .val.on   { color: #16a34a; }
+.eq-view-row .val.off  { color: #dc2626; }
+.eq-view-row .val.ok   { color: #16a34a; }
+.eq-view-row .val.ng   { color: #dc2626; }
+.eq-view-row .val.sel  { color: #3b82f6; }
+.eq-view-row .val.txt  { color: var(--text); font-weight: 500; font-size: 12px; white-space: normal; word-break: break-word; }
+.eq-view-row .val.none { color: var(--text3); font-weight: 500; }
+
+/* 未入力プレースホルダ */
+.eq-view-empty {
+  padding: 30px 10px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+  background: var(--bg3);
+  border-radius: 10px;
+}
+.eq-view-empty .big { font-size: 28px; margin-bottom: 8px; }
+
+/* スマホでは1カラムに */
+@media (max-width: 480px) {
+  .eq-view-grid { grid-template-columns: 1fr; }
+}
+
+/* ============ 商談モードの装備詳細（モーフ表示） ============ */
+.deal-popup-body[data-eq-mode="1"] .deal-main { display: none; }
+.deal-popup-body[data-eq-mode="0"] .deal-eq-panel { display: none; }
+.deal-eq-panel {
+  padding: 8px 4px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.deal-eq-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
+  user-select: none;
+  border: 1px solid var(--border);
+}
+.deal-eq-back:hover { background: var(--bg4); color: var(--text); }
+
+.deal-eq-trigger {
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px;
+  background: rgba(55,138,221,.12);
+  border: 1px solid rgba(55,138,221,.30);
+  border-radius: var(--r);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.deal-eq-trigger:hover { background: rgba(55,138,221,.20); }
