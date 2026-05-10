@@ -54,6 +54,14 @@ body.demo-mode .confirm-overlay {
   top: 36px !important;
   height: calc(100vh - 36px) !important;
 }
+/* v1.8.41: フルスクリーンページ（チェック詳細 / ワークフロー）もバナーぶん下げる
+   #ws-page・#wf-page は position:fixed; inset:0 で全画面を覆うため、
+   バナー（z-index:99999）の下に潜って戻るボタンが押せなくなっていた。 */
+body.demo-mode #ws-page,
+body.demo-mode #wf-page {
+  top: 36px !important;
+  height: calc(100vh - 36px) !important;
+}
 
 /* ===== デモログインボタン ===== */
 .demo-login-btn {
@@ -233,6 +241,12 @@ body.demo-mode .confirm-overlay {
   }
   body.demo-mode .overlay,
   body.demo-mode .confirm-overlay {
+    top: 32px !important;
+    height: calc(100vh - 32px) !important;
+  }
+  /* v1.8.41: モバイルでもフルスクリーンページにバナー分のオフセットを付ける */
+  body.demo-mode #ws-page,
+  body.demo-mode #wf-page {
     top: 32px !important;
     height: calc(100vh - 32px) !important;
   }
