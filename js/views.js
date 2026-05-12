@@ -59,14 +59,30 @@ function _makeExhibitCard(car) {
     <div class="ex-card-body">
       <div class="ex-card-title">${car.maker} ${car.model}</div>
       <div class="ex-card-meta">
-        <span class="ex-card-meta-item">${car.color || '—'}</span>
+        <span class="ex-card-meta-item ex-card-color" title="${(car.color || '').replace(/"/g,'&quot;')}">${car.color || '—'}</span>
         <span class="ex-card-meta-item">${yr}</span>
       </div>
-      <div class="ex-card-meta">
-        <span class="ex-card-meta-item">${km}km</span>
+      <div class="ex-card-meta ex-card-meta-km-row">
+        <span class="ex-card-meta-item ex-card-km">${km}km</span>
       </div>
       <div class="ex-card-bottom">
-        <span class="ex-card-price">${fmtPrice(car.price)}</span>
+        ${(() => {
+          // v1.8.68: 展示ビューはシンプルに1金額のみ（緑字）。
+          //   設定 priceTax.exhibitSource で「総額」or「本体価格」を選択。
+          //   選んだ側が未入力なら、もう一方にフォールバック。
+          const ps  = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
+          const pref = (ps.exhibitSource === 'body') ? 'body' : 'total';
+          const pt = fmtPriceTwo(car.totalPrice, car.price);
+          let amount = '';
+          if (pref === 'total') {
+            amount = pt.hasTotal ? pt.totalDisp : (pt.hasBody ? pt.bodyDisp : '');
+          } else {
+            amount = pt.hasBody ? pt.bodyDisp : (pt.hasTotal ? pt.totalDisp : '');
+          }
+          return amount
+            ? `<span class="ex-card-price">${amount}</span>`
+            : `<span class="ex-card-price ex-card-price-empty">価格未設定</span>`;
+        })()}
         <span class="ex-card-inv ${invCls}">${inv}日</span>
       </div>
     </div>`;
@@ -123,12 +139,15 @@ function renderExhibit() {
   cols.innerHTML = '';
 
   const otherCars = cars.filter(c => c.col === 'other');
-  const stockCars = cars.filter(c => c.col === 'purchase' || c.col === 'regen');
-  const exhibitCars = cars.filter(c => c.col === 'exhibit');
+  // v1.8.72: オーダー車両はストック・展示中 列に出さず、別の専用列にまとめる
+  const stockCars = cars.filter(c => (c.col === 'purchase' || c.col === 'regen') && !c.isOrder);
+  const exhibitCars = cars.filter(c => c.col === 'exhibit' && !c.isOrder);
+  const orderCars = cars.filter(c => c.isOrder && c.col !== 'done');
 
   const sorter = _exhibitSorter();
   otherCars.sort(sorter);
   stockCars.sort(sorter);
+  orderCars.sort(sorter);
   const exhibitTotal = exhibitCars.length;
 
   const otherCol = _makeExhibitColumn({
@@ -154,9 +173,19 @@ function renderExhibit() {
     cols.appendChild(col);
   });
 
+  // v1.8.72: オーダー車両の専用列（一番右）
+  if (orderCars.length > 0) {
+    const orderCol = _makeExhibitColumn({
+      key: 'order', name: 'オーダー車両', icon: '📦',
+      isStock: true, count: orderCars.length, pct: 0, cars: orderCars,
+    });
+    orderCol.classList.add('order');
+    cols.appendChild(orderCol);
+  }
+
   const totalLabel = document.getElementById('ex-total-label');
   if (totalLabel) {
-    totalLabel.textContent = `その他 ${otherCars.length}台 / ストック ${stockCars.length}台 / 展示中 ${exhibitTotal}台`;
+    totalLabel.textContent = `その他 ${otherCars.length}台 / ストック ${stockCars.length}台 / 展示中 ${exhibitTotal}台${orderCars.length?' / オーダー '+orderCars.length+'台':''}`;
   }
   _refreshExhibitSortBtns();
 }
@@ -189,7 +218,22 @@ function _makeDealCard(car) {
           <div class="deal-stat-lbl">走行距離</div>
         </div>
       </div>
-      <div class="deal-card-price">${fmtPrice(car.price)}</div>
+      ${(() => {
+        // v1.8.63: 商談ビューもW金額表示
+        const tlb = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+        const tlt = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
+        const shortB = (tlb === '税抜') ? '抜' : '込';
+        const shortT = (tlt === '税抜') ? '抜' : '込';
+        const pt = fmtPriceTwo(car.totalPrice, car.price);
+        if (pt.hasTotal && pt.hasBody) {
+          return `<div class="deal-card-price">総額 ${pt.totalDisp} <span class="deal-card-tax">${shortT}</span><div class="deal-card-price-sub">本体 ${pt.bodyDisp} <span class="deal-card-tax-sub">${shortB}</span></div></div>`;
+        } else if (pt.hasTotal) {
+          return `<div class="deal-card-price">総額 ${pt.totalDisp} <span class="deal-card-tax">${shortT}</span></div>`;
+        } else if (pt.hasBody) {
+          return `<div class="deal-card-price">本体 ${pt.bodyDisp} <span class="deal-card-tax">${shortB}</span></div>`;
+        }
+        return `<div class="deal-card-price">価格未設定</div>`;
+      })()}
     </div>`;
   card.onclick = () => openDealPopup(car);
   return card;
@@ -214,8 +258,9 @@ function renderDeal() {
   cols.innerHTML = '';
 
   // ストック車両（仕入れ・再生中）→ 「展示前」と表記
-  const stockCars = cars.filter(c => c.col === 'purchase' || c.col === 'regen');
-  const exhibitCars = cars.filter(c => c.col === 'exhibit');
+  // v1.8.72: オーダー車両は商談ビューから除外（既にお客がついてるため）
+  const stockCars = cars.filter(c => (c.col === 'purchase' || c.col === 'regen') && !c.isOrder);
+  const exhibitCars = cars.filter(c => c.col === 'exhibit' && !c.isOrder);
 
   const sorter = _exhibitSorter();
   stockCars.sort(sorter);
@@ -270,7 +315,22 @@ function openDealPopup(car) {
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">ボディ</div><div class="deal-popup-stat-val">${car.size || '—'}</div></div>
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">色</div><div class="deal-popup-stat-val">${car.color || '—'}</div></div>
         </div>
-        <div class="deal-popup-price">${fmtPrice(car.price)}</div>
+        ${(() => {
+          // v1.8.63: 商談ポップアップもW金額表示
+          const tlb = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+          const tlt = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
+          const shortB = (tlb === '税抜') ? '抜' : '込';
+          const shortT = (tlt === '税抜') ? '抜' : '込';
+          const pt = fmtPriceTwo(car.totalPrice, car.price);
+          if (pt.hasTotal && pt.hasBody) {
+            return `<div class="deal-popup-price">総額 ${pt.totalDisp} <span class="deal-card-tax">${shortT}</span><div class="deal-popup-price-sub">本体 ${pt.bodyDisp} <span class="deal-card-tax-sub">${shortB}</span></div></div>`;
+          } else if (pt.hasTotal) {
+            return `<div class="deal-popup-price">総額 ${pt.totalDisp} <span class="deal-card-tax">${shortT}</span></div>`;
+          } else if (pt.hasBody) {
+            return `<div class="deal-popup-price">本体 ${pt.bodyDisp} <span class="deal-card-tax">${shortB}</span></div>`;
+          }
+          return `<div class="deal-popup-price">価格未設定</div>`;
+        })()}
         ${eqBtnHtml}
       </div>
     </div>
@@ -335,7 +395,7 @@ function _makeProgressCardOther(car, compact) {
 function _makeProgressCard(car, compact) {
   if (car.col === 'other') return _makeProgressCardOther(car, compact);
   const isD = car.col === 'delivery';
-  const tasks = (isD ? getActiveDeliveryTasks() : getActiveRegenTasks());
+  const tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
   const prog = calcProg(car);
   const colLabel = COLS.find(c => c.id === car.col)?.label || car.col;
   const card = document.createElement('div');
@@ -584,13 +644,20 @@ function renderTable() {
     const invHtml = car.purchaseDate
       ? `<span class="ex-card-inv ${invCls}" style="font-size:11px">${inv}日</span>`
       : '—';
+    // v1.8.63: 総額/本体の2列表示
+    const pt = (typeof fmtPriceTwo === 'function')
+      ? fmtPriceTwo(car.totalPrice, car.price)
+      : { totalDisp:'', bodyDisp: car.price?fmtPrice(car.price):'', hasTotal:false, hasBody:!!car.price };
+    const totalCell = pt.hasTotal ? pt.totalDisp : '—';
+    const bodyCell  = pt.hasBody  ? pt.bodyDisp  : '—';
     rows += `<tr onclick="openDetail('${car.id}')" style="cursor:pointer">
       <td style="font-weight:600;color:var(--blue)">${car.num}</td>
-      <td>${car.maker} ${car.model}</td>
+      <td>${car.maker} ${car.model}${car.grade?' '+car.grade:''}</td>
       <td>${fmtYearDisplay(parseYearInput(car.year)||car.year)}</td>
       <td>${car.size||'—'}</td>
       <td>${Number(car.km||0).toLocaleString()}km</td>
-      <td style="color:var(--green);font-weight:600">${fmtPrice(car.price)}</td>
+      <td style="color:var(--green);font-weight:600">${totalCell}</td>
+      <td style="color:var(--text2);font-weight:500">${bodyCell}</td>
       <td>${car.purchaseDate?fmtDate(car.purchaseDate):'—'}</td>
       <td>${invHtml}</td>
       <td><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></td>
@@ -599,10 +666,13 @@ function renderTable() {
       <td><div style="display:flex;align-items:center;gap:5px"><div class="pbar" style="width:56px"><div class="pfill" style="width:${prog.pct}%"></div></div><span style="font-size:11px;color:var(--text3)">${prog.pct}%</span></div></td>
     </tr>`;
   });
+  // v1.8.63: 見出しに税ラベル表記を入れる
+  const tlbH = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+  const tltH = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
   wrap.innerHTML = `<div style="overflow-x:auto"><table class="dtable">
     <thead><tr>
       <th>管理番号</th><th>メーカー/車種</th><th>年式</th><th>ボディ</th>
-      <th>走行距離</th><th>販売金額</th><th>仕入日</th><th>在庫日数</th>
+      <th>走行距離</th><th>総額<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tltH}）</span></th><th>本体<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tlbH}）</span></th><th>仕入日</th><th>在庫日数</th>
       <th>ステータス</th><th>成約</th><th>納車予定</th><th>進捗</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -651,8 +721,9 @@ function renderInventory() {
   const grid = document.getElementById('inv-grid');
   if (!grid) return;
   grid.innerHTML = '';
+  // v1.8.72: 在庫日数ビューはオーダー車両を除外（在庫ではない）
   const list = cars
-    .filter(c => c.col !== 'done' && c.col !== 'other' && c.col !== 'delivery')
+    .filter(c => c.col !== 'done' && c.col !== 'other' && c.col !== 'delivery' && !c.isOrder)
     .slice()
     .sort((a,b) => daysSince(b.purchaseDate) - daysSince(a.purchaseDate));
   const onTiers = (appSettings?.invWarn || [])
@@ -703,4 +774,3 @@ function renderInventory() {
     grid.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:20px 4px">在庫車両がありません</div>';
   }
 }
-

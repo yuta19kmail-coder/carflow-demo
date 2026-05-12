@@ -9,7 +9,7 @@
 const COLS = [
   {id:'other',    label:'その他',   color:'#8a8fa8'},
   {id:'purchase', label:'仕入れ',   color:'#8b5cf6'},
-  {id:'regen',    label:'再生中',   color:'#f59e0b'},
+  {id:'regen',    label:'展示準備中', color:'#f59e0b'},
   {id:'exhibit',  label:'展示中',   color:'#378ADD'},
   {id:'delivery', label:'納車準備', color:'#1db97a'},
   {id:'done',     label:'納車完了', color:'#6b7280'},

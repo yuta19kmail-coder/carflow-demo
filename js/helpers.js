@@ -66,6 +66,108 @@ const fmtPrice = p => {
   return `${(Number(p)/10000).toFixed(1)}万円`;
 };
 
+// v1.8.46: 「総額（本体）」のW表示用。
+//   - 総額あり・本体あり → 両方の整形済み文字列を返す（呼び元で組み立てる）
+//   - 総額のみ           → totalDisp のみ
+//   - 本体のみ           → bodyDisp のみ（旧データ互換）
+// 戻り値: { totalDisp, bodyDisp, hasTotal, hasBody }
+const fmtPriceTwo = (totalP, bodyP) => {
+  const hasTotal = !!totalP && Number(totalP) > 0;
+  const hasBody  = !!bodyP  && Number(bodyP)  > 0;
+  return {
+    totalDisp: hasTotal ? `${(Number(totalP)/10000).toFixed(1)}万円` : '',
+    bodyDisp:  hasBody  ? `${(Number(bodyP) /10000).toFixed(1)}万円` : '',
+    hasTotal, hasBody,
+  };
+};
+
+// v1.8.59: 各金額フィールドの税扱いラベル（「税込」「税抜」）を返す
+//   field: 'body'（本体価格）/ 'total'（総額）/ 'dashboard'（ダッシュボード金額）
+//   appSettings.priceTax[field] が 'excl' なら「税抜」、それ以外は「税込」
+function getTaxLabel(field) {
+  try {
+    const ps = (typeof appSettings !== 'undefined' && appSettings && appSettings.priceTax) || {};
+    return (ps[field] === 'excl') ? '税抜' : '税込';
+  } catch (e) {
+    return '税込';
+  }
+}
+
+// v1.8.67: 消費税率を 0.10 形式で返す（appSettings.priceTax.rate が % 単位、デフォルト10）
+function getTaxRate() {
+  try {
+    const ps = (typeof appSettings !== 'undefined' && appSettings && appSettings.priceTax) || {};
+    const r = Number(ps.rate);
+    if (Number.isFinite(r) && r >= 0 && r <= 100) return r / 100;
+  } catch (e) {}
+  return 0.10;
+}
+
+// v1.8.67: 金額を税モード間で換算（10% 等の比率は getTaxRate を使用）
+//   fromMode / toMode は 'incl'（税込）/ 'excl'（税抜）
+function convertTax(amount, fromMode, toMode) {
+  const n = Number(amount) || 0;
+  if (!n) return 0;
+  if (fromMode === toMode) return n;
+  const r = getTaxRate();
+  if (fromMode === 'excl' && toMode === 'incl') return n * (1 + r);
+  if (fromMode === 'incl' && toMode === 'excl') return n / (1 + r);
+  return n;
+}
+
+// v1.8.71: 納車完了時に「その時の税設定」をスナップショットとして固定。
+//   過去の販売実績は、設定を後から変えても当時の税扱いで集計・表示できる。
+// ★デモ版：呼び出し側（kanban.js）でコメントアウト済み。関数定義は互換性のため残す。
+function snapshotPriceTax() {
+  const ps = (typeof appSettings !== 'undefined' && appSettings && appSettings.priceTax) || {};
+  return {
+    body: (ps.body === 'excl') ? 'excl' : 'incl',
+    total: (ps.total === 'excl') ? 'excl' : 'incl',
+    rate: (typeof ps.rate === 'number' && ps.rate >= 0 && ps.rate <= 100) ? ps.rate : 10,
+    capturedAt: (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0,10),
+  };
+}
+
+// v1.8.71: 車に紐づく税スナップショットを取得。
+//   スナップショットあり → それ
+//   スナップショットなし（旧データ）→ 現在の appSettings から組み立てる（旧挙動互換）
+function getCarPriceTax(car) {
+  if (car && car.priceTaxSnapshot && typeof car.priceTaxSnapshot === 'object') {
+    return car.priceTaxSnapshot;
+  }
+  const ps = (typeof appSettings !== 'undefined' && appSettings && appSettings.priceTax) || {};
+  return {
+    body: (ps.body === 'excl') ? 'excl' : 'incl',
+    total: (ps.total === 'excl') ? 'excl' : 'incl',
+    rate: (typeof ps.rate === 'number') ? ps.rate : 10,
+    capturedAt: null,
+  };
+}
+
+// v1.8.71: 車1台あたりの金額を取得（販売実績用）。
+//   - 集計の元データ（dashboardSource）に従って本体 or 総額を選ぶ
+//   - 元データの税モードは「その車のスナップショット」を参照
+//   - 表示モード（dashboardMode）に変換する
+//   税率も「その車のスナップショット」の rate を使う（換算式は内製）
+function _amountFromCarWithSnapshot(car, dashboardSource, dashboardMode) {
+  if (!car) return 0;
+  const snap = getCarPriceTax(car);
+  const r = (Number(snap.rate) || 10) / 100;
+  let amount, fromMode;
+  if (dashboardSource === 'total' && Number(car.totalPrice) > 0) {
+    amount = Number(car.totalPrice);
+    fromMode = snap.total;
+  } else {
+    amount = Number(car.price) || 0;
+    fromMode = snap.body;
+  }
+  if (!amount) return 0;
+  if (fromMode === dashboardMode) return amount;
+  if (fromMode === 'excl' && dashboardMode === 'incl') return amount * (1 + r);
+  if (fromMode === 'incl' && dashboardMode === 'excl') return amount / (1 + r);
+  return amount;
+}
+
 // トースト通知
 const showToast = msg => {
   const t = document.getElementById('toast');
@@ -273,9 +375,10 @@ function recogDateAny(car) {
 function _isTaskDoneForOverdue(car, task, isDelivery) {
   if (typeof _isTaskComplete === 'function') {
     const phase = isDelivery ? 'delivery' : 'regen';
+    // v1.8.51: car を渡して選択制タスクのopt-in判定も加味
     const tasks = (phase === 'delivery'
-      ? (typeof getActiveDeliveryTasks === 'function' ? getActiveDeliveryTasks() : [])
-      : (typeof getActiveRegenTasks === 'function' ? getActiveRegenTasks() : [])
+      ? (typeof getActiveDeliveryTasks === 'function' ? getActiveDeliveryTasks(car) : [])
+      : (typeof getActiveRegenTasks === 'function' ? getActiveRegenTasks(car) : [])
     );
     return _isTaskComplete(car, task, tasks);
   }
@@ -309,7 +412,7 @@ function getOverdueTasks(car) {
   // 在庫扱い（delivery 列以外）かつ regen 期日が設定されているタスクを評価
   if (car.col !== 'delivery') {
     const inv = (typeof daysSince === 'function') ? daysSince(car.purchaseDate) : 0;
-    const regenTasks = (typeof getActiveRegenTasks === 'function') ? getActiveRegenTasks() : [];
+    const regenTasks = (typeof getActiveRegenTasks === 'function') ? getActiveRegenTasks(car) : [];
     regenTasks.forEach(t => {
       const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'regen') : null;
       if (dl == null) return;
@@ -328,7 +431,7 @@ function getOverdueTasks(car) {
   if (car.col === 'delivery' && car.deliveryDate) {
     const remain = (typeof daysDiff === 'function') ? daysDiff(car.deliveryDate) : null;
     if (remain != null) {
-      const delTasks = (typeof getActiveDeliveryTasks === 'function') ? getActiveDeliveryTasks() : [];
+      const delTasks = (typeof getActiveDeliveryTasks === 'function') ? getActiveDeliveryTasks(car) : [];
       delTasks.forEach(t => {
         const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'delivery') : null;
         if (dl == null) return;
@@ -378,7 +481,7 @@ function _isAllOtherTasksDone(car, phase, selfTaskId) {
   const getActive = (phase === 'delivery')
     ? (typeof getActiveDeliveryTasks === 'function' ? getActiveDeliveryTasks : null)
     : (typeof getActiveRegenTasks === 'function' ? getActiveRegenTasks : null);
-  const tasks = getActive ? getActive() : [];
+  const tasks = getActive ? getActive(car) : [];
   const others = tasks.filter(t => t.id !== selfTaskId);
   if (!others.length) return false;
   return others.every(t => {

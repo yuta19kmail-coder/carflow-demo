@@ -153,8 +153,8 @@ function _makeOtherCard(car, isCompact) {
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker">${car.maker} · ${car.num}</div>
-          <div class="cc-model">${car.model}</div>
+          <div class="cc-maker">${car.maker}</div>
+          <div class="cc-model">${car.model}${car.grade ? ' ' + car.grade : ''}</div>
         </div>
         <div class="cc-info-right">
           <div class="cc-bigday cc-other-day">仕入<span class="cc-bigday-num">${inv}</span>日</div>
@@ -182,7 +182,7 @@ function _makeOtherCard(car, isCompact) {
 function makeCarCard(car, isCompact) {
   if (car.col === 'other') return _makeOtherCard(car, isCompact);
   const isD = car.col === 'delivery' || car.col === 'done';
-  const tasks = (isD ? getActiveDeliveryTasks() : getActiveRegenTasks());
+  const tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
   const prog = calcProg(car);
   const inv = daysSince(car.purchaseDate);
   const dots = tasks.map(t => {
@@ -198,6 +198,9 @@ function makeCarCard(car, isCompact) {
     const d = new Date(car.deliveryDate);
     const md = `${d.getMonth() + 1}/${d.getDate()}`;
     topDayTag = `<div class="cc-bigday cc-done-day">${md}<span class="cc-done-suffix">納車</span></div>`;
+  } else if (car.isOrder) {
+    // v1.8.72: オーダー車両は在庫扱いせず「オーダー車両」固定表示
+    topDayTag = `<div class="cc-bigday cc-order-day" title="オーダー車両：在庫日数にカウントしない">📦 オーダー</div>`;
   } else if (car.contract) {
     topDayTag = `<div class="cc-bigday db">売約<span class="cc-bigday-num">${contractedDays}</span>日</div>`;
   } else {
@@ -231,18 +234,35 @@ function makeCarCard(car, isCompact) {
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker">${car.maker} · ${car.num}</div>
-          <div class="cc-model">${car.model}</div>
-          <div class="cc-price">${fmtPrice(car.price)}</div>
+          <div class="cc-maker">${car.maker}</div>
+          <div class="cc-model">${car.model}${car.grade ? ' ' + car.grade : ''}</div>
+          ${(() => {
+            // v1.8.61: 両方ありの時は1行にまとめる（総額ラベル小・本体は括弧内）。
+            //   片方のみ → そちらが緑として表示、税ラベルも緑。
+            const tlb = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+            const tlt = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
+            const shortB = (tlb === '税抜') ? '抜' : '込';
+            const shortT = (tlt === '税抜') ? '抜' : '込';
+            const pt = fmtPriceTwo(car.totalPrice, car.price);
+            if (pt.hasTotal && pt.hasBody) {
+              return `<div class="cc-price-wrap cc-price-wrap-both"><span class="cc-price-mini-lbl">総額</span><span class="cc-price-total">${pt.totalDisp}</span><span class="cc-price-tax-total">${shortT}</span><span class="cc-price-body-inline"><span class="cc-price-body-amt">${pt.bodyDisp}</span><span class="cc-price-tax-body">${shortB}</span></span></div>`;
+            } else if (pt.hasTotal) {
+              return `<div class="cc-price-wrap"><span class="cc-price-mini-lbl">総額</span><span class="cc-price-total">${pt.totalDisp}</span><span class="cc-price-tax-total">${shortT}</span></div>`;
+            } else if (pt.hasBody) {
+              return `<div class="cc-price-wrap"><span class="cc-price-mini-lbl">本体</span><span class="cc-price-total">${pt.bodyDisp}</span><span class="cc-price-tax-total">${shortB}</span></div>`;
+            }
+            return `<div class="cc-price-wrap"><span class="cc-price cc-price-empty">価格未設定</span></div>`;
+          })()}
         </div>
         <div class="cc-info-right">
           ${topDayTag}
+          <div class="cc-num-tag">${car.num || ''}</div>
           <div class="cc-tag">${car.size}</div>
           <div class="cc-tag">${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div>
         </div>
       </div>
       <div class="cc-mid">
-        <div class="cc-pct-wrap"><span class="cc-pct">${prog.pct}%</span><span class="cc-pct-label">${isD?'納車準備':'再生'}進捗</span></div>
+        <div class="cc-pct-wrap"><span class="cc-pct">${prog.pct}%</span><span class="cc-pct-label">全体進捗</span></div>
         <div class="cc-dots">${dots}</div>
       </div>
     </div>
@@ -280,6 +300,7 @@ function handleKanbanMove(car, targetCol) {
     pendingTargetCol = targetCol;
     const lead = (typeof appSettings !== 'undefined' && appSettings.deliveryLeadDays) || 14;
     document.getElementById('sell-date').value = car.deliveryDate || dateAddDays(todayStr(), lead);
+    _renderSellOptionalTaskPickers(car); // v1.8.57
     document.getElementById('confirm-sell').classList.add('open');
     return;
   }
@@ -289,6 +310,7 @@ function handleKanbanMove(car, targetCol) {
     pendingTargetCol = targetCol;
     const lead = (typeof appSettings !== 'undefined' && appSettings.deliveryLeadDays) || 14;
     document.getElementById('sell-date').value = car.deliveryDate || dateAddDays(todayStr(), lead);
+    _renderSellOptionalTaskPickers(car); // v1.8.57
     document.getElementById('confirm-sell').classList.add('open');
     return;
   }
@@ -347,9 +369,16 @@ function closeSellConfirm(sell) {
   if (!car.contractDate) car.contractDate = todayStr();
   car.deliveryDate = document.getElementById('sell-date').value || '';
   car.workMemo = '';
+  // v1.8.57: ポップアップで選択された選択制タスクを保存
+  _saveSellOptionalTaskSelection(car);
   const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;
   const toLabel = COLS.find(c => c.id === target)?.label || target;
   car.col = target;
+  // v1.8.71: 納車完了（done）にする時、その時の税設定をスナップショット保存
+  // ★デモ版：priceTaxSnapshot 機能は除外（Firestore保存しないため）
+  // if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
+  //   car.priceTaxSnapshot = snapshotPriceTax();
+  // }
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   if (target === 'done') {
     addLog(car.id, `売約＆納車完了：${fromLabel}→${toLabel}（特例）`);
@@ -374,6 +403,11 @@ function closeDeliverConfirm(deliver) {
     return;
   }
   car.col = target;
+  // v1.8.71: 納車完了 → 税設定スナップショット保存
+  // ★デモ版：priceTaxSnapshot 機能は除外（Firestore保存しないため）
+  // if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
+  //   car.priceTaxSnapshot = snapshotPriceTax();
+  // }
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, '納車完了：納車準備→納車完了');
   renderAll();
@@ -430,7 +464,7 @@ function celebrateDelivery(car) {
   if (!overlay) return;
   const conf = document.getElementById('celebrate-confetti');
   const carEl = document.getElementById('celebrate-car');
-  if (carEl) carEl.textContent = `${car.maker} ${car.model}（${car.num}）`;
+  if (carEl) carEl.textContent = `${car.maker} ${car.model}(${car.num})`;
   if (conf) conf.innerHTML = '';
   const colors = ['#fcd34d','#fb923c','#f87171','#60a5fa','#34d399','#a78bfa','#f472b6','#facc15'];
   const count = 120;
@@ -464,4 +498,53 @@ function celebrateDelivery(car) {
       if (conf) conf.innerHTML = '';
     }, 500);
   }, 3000);
+}
+
+// ====================================================================
+// v1.8.57: 売約確認ポップアップ内の「選択制タスク」チェックUI
+// ====================================================================
+//   納車準備フェーズの選択制タスクを取得して、車両既存の selectedTasks 状態を
+//   反映したチェックボックスを描画。なければセクション自体を非表示。
+function _renderSellOptionalTaskPickers(car) {
+  const head = document.getElementById('sell-optional-tasks-head');
+  const body = document.getElementById('sell-optional-tasks-body');
+  if (!head || !body) return;
+  const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI('delivery') : [];
+  const optTasks = tasks.filter(t => t.enabled && t.optional);
+  if (optTasks.length === 0) {
+    head.style.display = 'none';
+    body.style.display = 'none';
+    body.innerHTML = '';
+    return;
+  }
+  const sel = (car && car.selectedTasks && car.selectedTasks.delivery) || {};
+  let html = '';
+  optTasks.forEach(t => {
+    const checked = sel[t.id] === true;
+    html += `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;border-bottom:1px dashed var(--border)">
+        <input type="checkbox" data-task-id="${(t.id || '').replace(/"/g,'&quot;')}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
+        <span style="font-size:14px">${t.icon || '📋'}</span>
+        <span>${(t.name || '').replace(/</g,'&lt;')}</span>
+      </label>`;
+  });
+  head.style.display = '';
+  body.style.display = '';
+  body.innerHTML = html + '<div style="font-size:11px;color:var(--text3);margin-top:4px">※ あとからカード詳細→「✏️ 車両情報を編集」でも変更できます</div>';
+}
+
+function _saveSellOptionalTaskSelection(car) {
+  if (!car) return;
+  const body = document.getElementById('sell-optional-tasks-body');
+  if (!body) return;
+  if (!car.selectedTasks) car.selectedTasks = { regen: {}, delivery: {} };
+  if (!car.selectedTasks.delivery) car.selectedTasks.delivery = {};
+  // delivery 側だけリセットして上書き
+  car.selectedTasks.delivery = {};
+  const checks = body.querySelectorAll('input[type=checkbox][data-task-id]');
+  checks.forEach(chk => {
+    const tid = chk.getAttribute('data-task-id');
+    if (!tid) return;
+    if (chk.checked) car.selectedTasks.delivery[tid] = true;
+  });
 }

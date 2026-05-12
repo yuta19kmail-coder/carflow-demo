@@ -11,32 +11,32 @@
 <meta name="theme-color" content="#378ADD">
 
 <!-- v1.8.3: iOS Safari の env() が 0 を返す問題対策。CSS より先に html クラス付与 -->
-<script src="js/ios-safe-pad.js?v=273"></script>
+<script src="js/ios-safe-pad.js?v=284"></script>
 
 <!-- ========== CSS ========== -->
-<link rel="stylesheet" href="css/base.css?v=273">
-<link rel="stylesheet" href="css/login.css?v=273">
-<link rel="stylesheet" href="css/layout.css?v=273">
-<link rel="stylesheet" href="css/components.css?v=273">
-<link rel="stylesheet" href="css/panels.css?v=273">
-<link rel="stylesheet" href="css/kanban.css?v=273">
-<link rel="stylesheet" href="css/calendar.css?v=273">
-<link rel="stylesheet" href="css/modal.css?v=273">
-<link rel="stylesheet" href="css/celebrate.css?v=273">
-<link rel="stylesheet" href="css/help.css?v=273">
-<link rel="stylesheet" href="css/mobile.css?v=273">
-<link rel="stylesheet" href="css/deal.css?v=273">
-<link rel="stylesheet" href="css/worksheet.css?v=273">
-<!-- v1.8.40: 装備詳細 閲覧ビュー（カタログ風） -->
-<link rel="stylesheet" href="css/equipment-view.css?v=273">
+<link rel="stylesheet" href="css/base.css?v=284">
+<link rel="stylesheet" href="css/login.css?v=284">
+<link rel="stylesheet" href="css/layout.css?v=284">
+<link rel="stylesheet" href="css/components.css?v=284">
+<link rel="stylesheet" href="css/panels.css?v=284">
+<link rel="stylesheet" href="css/kanban.css?v=305">
+<link rel="stylesheet" href="css/calendar.css?v=284">
+<link rel="stylesheet" href="css/modal.css?v=313">
+<link rel="stylesheet" href="css/celebrate.css?v=284">
+<link rel="stylesheet" href="css/help.css?v=284">
+<link rel="stylesheet" href="css/mobile.css?v=284">
+<link rel="stylesheet" href="css/deal.css?v=293">
+<link rel="stylesheet" href="css/worksheet.css?v=284">
+<!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風） -->
+<link rel="stylesheet" href="css/equipment-view.css?v=310">
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
-<link rel="stylesheet" href="css/template-editor.css?v=273">
+<link rel="stylesheet" href="css/template-editor.css?v=284">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<link rel="stylesheet" href="css/board-notes.css?v=273">
+<link rel="stylesheet" href="css/board-notes.css?v=284">
 <!-- v1.7.42: 作業実績ビュー -->
-<link rel="stylesheet" href="css/worklog.css?v=273">
+<link rel="stylesheet" href="css/worklog.css?v=284">
 <!-- v1.8.1: β版ミーティングビュー -->
-<link rel="stylesheet" href="css/meeting.css?v=273">
+<link rel="stylesheet" href="css/meeting.css?v=284">
 
 <!-- ========== デモ版：Firebase SDK は読み込まない ========== -->
 <!-- 代わりに in-memory モックで動かす（demo-firestore-mock.js / demo-storage-mock.js / demo-init.js）-->
@@ -87,7 +87,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v1.8.41 — デモ版</div>
+    <div class="login-ver">CarFlow v1.8.79 — デモ版</div>
   </div>
 </div>
 
@@ -98,7 +98,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.41</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.79</span>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
     <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
     <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
@@ -359,6 +359,97 @@
                   </div>
                 </div>
 
+                <!-- v1.8.59: 金額の税扱い設定 -->
+                <div class="settings-card">
+                  <h3 class="settings-card-title">💴 金額の税扱い（表示ラベル）</h3>
+                  <p class="settings-card-desc">入力された金額が「税込」か「税抜」かを各フィールド独立で指定。カード／詳細／印刷シート／ダッシュボードの表示に反映されます</p>
+                  <div class="settings-row" style="margin-bottom:8px">
+                    <div style="flex:1">
+                      <div style="font-size:13px">本体価格</div>
+                      <div class="settings-card-hint">車両登録の「本体価格」フィールドの扱い</div>
+                    </div>
+                    <select id="price-tax-body" onchange="onPriceTaxChange('body',this.value)" class="settings-input" style="width:120px">
+                      <option value="incl">税込</option>
+                      <option value="excl">税抜</option>
+                    </select>
+                  </div>
+                  <div class="settings-row" style="margin-bottom:8px">
+                    <div style="flex:1">
+                      <div style="font-size:13px">総額</div>
+                      <div class="settings-card-hint">車両登録の「総額」フィールドの扱い</div>
+                    </div>
+                    <select id="price-tax-total" onchange="onPriceTaxChange('total',this.value)" class="settings-input" style="width:120px">
+                      <option value="incl">税込</option>
+                      <option value="excl">税抜</option>
+                    </select>
+                  </div>
+                  <div class="settings-row">
+                    <div style="flex:1">
+                      <div style="font-size:13px">ダッシュボード金額</div>
+                      <div class="settings-card-hint">売上見込み・在庫評価額などの合計金額の扱い</div>
+                    </div>
+                    <select id="price-tax-dashboard" onchange="onPriceTaxChange('dashboard',this.value)" class="settings-input" style="width:120px">
+                      <option value="incl">税込</option>
+                      <option value="excl">税抜</option>
+                    </select>
+                  </div>
+                  <div class="settings-row" style="margin-top:8px">
+                    <div style="flex:1">
+                      <div style="font-size:13px">ダッシュボード集計の元データ</div>
+                      <div class="settings-card-hint">売上合計に使う金額。「総額」を選んだ場合、総額が未入力の車は本体価格にフォールバック</div>
+                    </div>
+                    <select id="price-tax-source" onchange="onPriceTaxChange('dashboardSource',this.value)" class="settings-input" style="width:120px">
+                      <option value="body">本体価格</option>
+                      <option value="total">総額</option>
+                    </select>
+                  </div>
+                  <div class="settings-row" style="margin-top:8px">
+                    <div style="flex:1">
+                      <div style="font-size:13px">展示ビュー金額</div>
+                      <div class="settings-card-hint">展示ビューのカードに表示する1金額。「総額」を選んだ場合、総額が未入力の車は本体価格にフォールバック</div>
+                    </div>
+                    <select id="price-tax-exhibit-source" onchange="onPriceTaxChange('exhibitSource',this.value)" class="settings-input" style="width:120px">
+                      <option value="body">本体価格</option>
+                      <option value="total">総額</option>
+                    </select>
+                  </div>
+                  <div class="settings-row" style="margin-top:8px">
+                    <div style="flex:1">
+                      <div style="font-size:13px">消費税率</div>
+                      <div class="settings-card-hint">逆入力ボタンとダッシュボード換算で使う税率。デフォルト10%</div>
+                    </div>
+                    <input type="number" id="price-tax-rate" min="0" max="100" step="0.1" onchange="onTaxRateChange(this.value)" class="settings-input" style="width:80px;text-align:right">
+                    <span style="font-size:12px;color:var(--text3);margin-left:4px">%</span>
+                  </div>
+                </div>
+
+                <!-- v1.8.75: 店舗情報（装備品印刷シートに反映） -->
+                <div class="settings-card">
+                  <h3 class="settings-card-title">🏪 店舗情報</h3>
+                  <p class="settings-card-desc">装備品の印刷シート（お客様用）のヘッダー／フッターに反映されます</p>
+                  <div class="settings-row" style="align-items:flex-start;gap:14px;margin-bottom:10px">
+                    <div>
+                      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ロゴ画像</div>
+                      <div id="company-logo-preview" style="width:100px;height:100px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:11px;color:var(--text3);text-align:center;padding:6px">未設定</div>
+                      <div style="display:flex;gap:4px;margin-top:6px">
+                        <input type="file" id="company-logo-file" accept="image/*" style="display:none" onchange="onCompanyLogoPick(this)">
+                        <button class="btn-sm" onclick="document.getElementById('company-logo-file').click()" style="font-size:11px">📁 選択</button>
+                        <button class="btn-sm" onclick="clearCompanyLogo()" style="font-size:11px;color:var(--text3)">クリア</button>
+                      </div>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                      <input type="text" id="inp-company-name" placeholder="店舗名（例：小林モータース）" class="settings-input" onchange="onCompanyInfoChange('name',this.value)">
+                      <input type="text" id="inp-company-address" placeholder="住所" class="settings-input" onchange="onCompanyInfoChange('address',this.value)">
+                      <div style="display:flex;gap:8px">
+                        <input type="text" id="inp-company-phone" placeholder="電話番号" class="settings-input" style="flex:1" onchange="onCompanyInfoChange('phone',this.value)">
+                        <input type="text" id="inp-company-email" placeholder="メール（任意）" class="settings-input" style="flex:1" onchange="onCompanyInfoChange('email',this.value)">
+                      </div>
+                      <input type="text" id="inp-company-url" placeholder="URL（任意）" class="settings-input" onchange="onCompanyInfoChange('url',this.value)">
+                      <input type="text" id="inp-company-note" placeholder="メモ（営業時間・定休日など、任意）" class="settings-input" onchange="onCompanyInfoChange('note',this.value)">
+                    </div>
+                  </div>
+                </div>
+
                 <div class="settings-card">
                   <h3 class="settings-card-title">📅 デフォルト納車日（リードタイム）</h3>
                   <p class="settings-card-desc">売約動作をした時に自動入力される納車予定日の日数。<strong>着地予測の「準備リードタイム」</strong>としても同じ値が使われます</p>
@@ -521,10 +612,6 @@
                     <div class="toggle" id="line-daily-closed-toggle" onclick="toggleDailyClosed()"></div>
                   </div>
 
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
-                    <span style="font-size:11px;color:var(--text3);margin-right:4px">🧪 デモ：</span>
-                    <button class="btn-sm" onclick="window.demoTriggerDailyReport()">日報通知を見る</button>
-                  </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -542,10 +629,6 @@
                     <div class="toggle" id="line-trig-redboard-toggle" onclick="toggleLineTrigger('redBoardNote')"></div>
                   </div>
 
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
-                    <span style="font-size:11px;color:var(--text3);margin-right:4px">🧪 デモ：</span>
-                    <button class="btn-sm" onclick="window.demoTriggerRedBoardNote({title:'エンジン異音', body:'朝一の試運転で点灯。OBDで読んだら触媒系。詳細確認要。'})">赤付箋通知を見る</button>
-                  </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -581,12 +664,6 @@
                     </div>
                   </div>
 
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px dashed var(--border);margin-top:10px">
-                    <span style="font-size:11px;color:var(--text3);margin-right:4px;width:100%">🧪 デモ：</span>
-                    <button class="btn-sm" onclick="window.demoTriggerTaskComplete('商品撮影', 'KM-D004', 'トヨタ ヴォクシー')">A文面（個別タスク完了）</button>
-                    <button class="btn-sm" onclick="window.demoShowLineToast('🎊 KM-D004 トヨタ ヴォクシー の再生フェーズが完了しました！\n\n皆さんお疲れさまでした✨\n早く売れるといいね✨', { label: '再生フェーズ完了' })">B文面（再生フェーズ完了）</button>
-                    <button class="btn-sm" onclick="window.demoShowLineToast('🎊 KM-D004 トヨタ ヴォクシー の納車準備フェーズが完了しました！\n\n皆さんお疲れさまでした✨\n納車が楽しみです✨', { label: '納車準備フェーズ完了' })">B文面（納車準備フェーズ完了）</button>
-                  </div>
                 </div>
               </section>
 
@@ -1035,7 +1112,7 @@
 </div>
 
 <!-- 車両詳細 -->
-<div class="overlay" id="modal-detail">
+<div class="overlay" id="modal-detail" onclick="if(event.target===this)closeModal('modal-detail')">
   <div class="modal modal-wide">
     <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><button class="mclose" onclick="closeModal('modal-detail')">✕</button></div>
     <div class="mbody" id="detail-body"></div>
@@ -1089,11 +1166,15 @@
         <div class="fg"><label>メーカー <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-maker" placeholder="トヨタ"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>車種・グレード <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-model" placeholder="プリウス Z"></div>
+        <div class="fg"><label>車種 <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-model" placeholder="プリウス"></div>
+        <div class="fg"><label>グレード</label><input type="text" id="inp-grade" placeholder="Z（任意・半角全角自由）"></div>
+      </div>
+      <div class="frow">
         <div class="fg"><label>年式</label>
           <input type="text" id="inp-year" list="dl-year" placeholder="例：令和5｜2023" onblur="onYearBlur(this)">
           <datalist id="dl-year"></datalist>
         </div>
+        <div class="fg"></div>
       </div>
       <div class="frow">
         <div class="fg"><label>車体色</label><input type="text" id="inp-color" placeholder="パールホワイト"></div>
@@ -1109,8 +1190,20 @@
         <div class="fg"><label>仕入れ日</label><input type="date" id="inp-purchase"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>販売金額 (円)</label><input type="text" id="inp-price" placeholder="1480000"></div>
-        <div class="fg"></div>
+        <div class="fg">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
+            <label id="lbl-price" style="margin:0">本体価格 (税込・円)</label>
+            <button type="button" id="btn-alt-price" class="btn-alt-price" onclick="promptAltPrice('body')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税込で逆入力 ⇄</button>
+          </div>
+          <input type="text" id="inp-price" placeholder="990000">
+        </div>
+        <div class="fg">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
+            <label id="lbl-total-price" style="margin:0">総額 (税込・円)</label>
+            <button type="button" id="btn-alt-total-price" class="btn-alt-price" onclick="promptAltPrice('total')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税抜で逆入力 ⇄</button>
+          </div>
+          <input type="text" id="inp-total-price" placeholder="1190000">
+        </div>
       </div>
 
       <div class="fsec">販売情報</div>
@@ -1128,6 +1221,10 @@
         </div>
       </div>
 
+      <!-- v1.8.51: 選択制タスクのチェックUI（Phase B）。空のときは表示されない（car-modal.js で制御） -->
+      <div class="fsec" id="inp-optional-tasks-head" style="display:none">使う大タスクを選ぶ <span style="color:var(--text3);font-weight:400">（選択制タスク）</span></div>
+      <div id="inp-optional-tasks-body" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px"></div>
+
       <!-- v1.5.10: 写真UIはモーダル最上部に移動。ここはメモのみ -->
       <div class="fsec">メモ</div>
       <div class="fg">
@@ -1141,12 +1238,68 @@
         <div class="edit-danger-hint">この車両のデータを完全に削除します。復元できません。</div>
       </div>
 
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap" id="car-modal-footer">
-        <button class="btn-sm" onclick="closeModal('modal-car')">キャンセル</button>
-        <!-- 新規登録時：2ボタン -->
-        <button class="btn-other" id="car-save-other-btn" onclick="saveCarModal('other')">📝 その他として登録</button>
-        <button class="btn-primary" id="car-save-btn" onclick="saveCarModal('purchase')">仕入れ車として登録</button>
+      <!-- v1.8.73: 新規登録時のみ表示。登録区分を3カードで選択→1ボタンで登録 -->
+      <div id="register-type-row" style="margin-top:14px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px">登録区分</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" id="register-type-options">
+          <label class="reg-type-card" data-value="purchase">
+            <input type="radio" name="register-type" value="purchase" checked style="display:none">
+            <div class="reg-type-icon">🛒</div>
+            <div class="reg-type-label">通常仕入</div>
+            <div class="reg-type-desc">普通の在庫車として登録</div>
+          </label>
+          <label class="reg-type-card" data-value="order">
+            <input type="radio" name="register-type" value="order" style="display:none">
+            <div class="reg-type-icon">📦</div>
+            <div class="reg-type-label">オーダー</div>
+            <div class="reg-type-desc">注文受けて仕入れる<br>在庫日数カウント無し</div>
+          </label>
+          <label class="reg-type-card" data-value="other">
+            <input type="radio" name="register-type" value="other" style="display:none">
+            <div class="reg-type-icon">📝</div>
+            <div class="reg-type-label">その他</div>
+            <div class="reg-type-desc">保留車両など<br>タスク対象外</div>
+          </label>
+        </div>
       </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap" id="car-modal-footer">
+        <button class="btn-sm" onclick="closeModal('modal-car')">キャンセル</button>
+        <button class="btn-primary" id="car-save-btn" onclick="saveCarModal()">登録</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v1.8.76: アバター画像クロッパー（円形トリミング） -->
+<div class="overlay" id="modal-avatar-crop" onclick="if(event.target===this)closeAvatarCrop()">
+  <div class="modal" style="width:380px;max-width:96vw">
+    <div class="mhdr">
+      <div class="mhdr-title">アイコンを調整</div>
+      <button class="mclose" onclick="closeAvatarCrop()">✕</button>
+    </div>
+    <div class="mbody" style="padding:18px">
+      <div class="avatar-crop-area" id="avatar-crop-area">
+        <img id="avatar-crop-img" alt="" draggable="false">
+        <svg class="avatar-crop-svg" viewBox="0 0 300 300" preserveAspectRatio="none">
+          <defs>
+            <mask id="avatarCircleMask">
+              <rect width="300" height="300" fill="white"/>
+              <circle cx="150" cy="150" r="120" fill="black"/>
+            </mask>
+          </defs>
+          <rect width="300" height="300" fill="rgba(0,0,0,0.6)" mask="url(#avatarCircleMask)"/>
+          <circle cx="150" cy="150" r="120" fill="none" stroke="white" stroke-width="2"/>
+        </svg>
+      </div>
+      <div style="margin-top:14px">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">🔍 拡大／縮小</div>
+        <input type="range" id="avatar-crop-zoom" min="0.5" max="4" step="0.01" value="1" oninput="onAvatarCropZoom(this.value)" style="width:100%">
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:10px;text-align:center;line-height:1.5">画像をドラッグして位置調整<br>スライダーで拡大縮小</div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-cancel" onclick="closeAvatarCrop()">キャンセル</button>
+      <button class="btn-save" onclick="applyAvatarCrop()">適用する</button>
     </div>
   </div>
 </div>
@@ -1154,14 +1307,17 @@
 <!-- ========== 確認ダイアログ ========== -->
 <!-- 売約確認（カンバンドラッグ時） -->
 <div class="confirm-overlay" id="confirm-sell">
-  <div class="confirm-box">
-    <div class="confirm-icon">🤝</div>
+  <div class="confirm-box" style="text-align:left;width:480px;max-width:96vw">
+    <div style="text-align:center"><div class="confirm-icon">🤝</div>
     <div class="confirm-title">この車両を「売約」にしますか？</div>
-    <div class="confirm-sub">納車予定日を入力してください。<br>売約日は本日の日付で記録されます。</div>
-    <div class="confirm-date-row">
+    <div class="confirm-sub">納車予定日を入力してください。<br>売約日は本日の日付で記録されます。</div></div>
+    <div class="confirm-date-row" style="margin:14px 0 6px">
       <label>納車予定日</label>
       <input type="date" id="sell-date">
     </div>
+    <!-- v1.8.57: 売約と同時に「納車準備で使う大タスク」を選択（選択制タスクのみ） -->
+    <div id="sell-optional-tasks-head" style="display:none;font-size:11px;font-weight:700;color:var(--text2);margin:10px 0 4px">納車準備で使う大タスクを選ぶ <span style="color:var(--text3);font-weight:400">（選択制タスク）</span></div>
+    <div id="sell-optional-tasks-body" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
     <div class="confirm-btns">
       <button class="btn-sm" onclick="closeSellConfirm(false)">キャンセル</button>
       <button class="btn-primary" onclick="closeSellConfirm(true)">売約にする</button>
@@ -1510,98 +1666,104 @@
 </div>
 
 <!-- ============= scripts ============= -->
-<!-- 0a. Firebase 初期化（v1.5.0〜） -->
-<!-- ========== デモ版：Firebase 系を全部モックに置き換え ========== -->
+<!-- ========== デモ版：mock スクリプト群（本物の Firebase の代替） ==========
+     これらが先に走ることで window.fb / window.dbCars / window.dbStorage 等が
+     in-memory モックとして用意される。本番 wrapper（db-cars.js 等）は
+     その mock を見て動作する。 -->
 <script src="js/demo-firestore-mock.js"></script>
 <script src="js/demo-storage-mock.js"></script>
 <script src="js/demo-init.js"></script>
 <script src="js/demo-sample-data.js"></script>
 <script src="js/demo-line-toast.js"></script>
+
+<!-- 0a. Firebase 初期化（v1.5.0〜） -->
+<!-- デモ版：firebase-init.js は読み込まない（demo-firestore-mock.js が代替） -->
+<!-- <script src="js/firebase-init.js?v=284"></script> -->
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
-<script src="js/db-cars.js?v=273"></script>
+<script src="js/db-cars.js?v=288"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
-<script src="js/db-settings.js?v=273"></script>
+<script src="js/db-settings.js?v=310"></script>
 <!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
-<script src="js/db-archive.js?v=273"></script>
+<script src="js/db-archive.js?v=284"></script>
 <!-- 0d. auditLogs DB wrapper（v1.5.4〜） -->
-<script src="js/db-audit.js?v=273"></script>
+<script src="js/db-audit.js?v=284"></script>
 <!-- 0e. staff DB wrapper（v1.5.5〜） -->
-<script src="js/db-staff.js?v=273"></script>
+<script src="js/db-staff.js?v=284"></script>
 <!-- 0f. role-guard（v1.5.10〜） -->
-<script src="js/role-guard.js?v=273"></script>
+<script src="js/role-guard.js?v=284"></script>
 <!-- 0g. Storage wrapper（v1.5.10〜） -->
-<script src="js/db-storage.js?v=273"></script>
+<script src="js/db-storage.js?v=284"></script>
 <!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
-<script src="js/migrate-data-urls.js?v=273"></script>
+<script src="js/migrate-data-urls.js?v=284"></script>
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
-<script src="js/db-board-notes.js?v=273"></script>
+<script src="js/db-board-notes.js?v=284"></script>
 <!-- 0j. LINE通知連携（v1.8.19〜）DB読み書き＋Cloud Functions呼び出し -->
 <!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み（上で読み込み） -->
+<!-- <script src="js/line-notify.js?v=284"></script> -->
 <!-- 0k. データ管理（v1.8.21〜）：JSONバックアップ / Excel一括編集 / 全消去 -->
-<script src="js/data-io.js?v=273"></script>
+<script src="js/data-io.js?v=284"></script>
 
 <!-- 1. 設定・定数 -->
-<script src="js/config.js?v=273"></script>
-<script src="js/tasks-def.js?v=273"></script>
-<script src="js/equipment-def.js?v=273"></script>
-<script src="js/checklist-templates.js?v=273"></script>
+<script src="js/config.js?v=284"></script>
+<script src="js/tasks-def.js?v=284"></script>
+<script src="js/equipment-def.js?v=284"></script>
+<script src="js/checklist-templates.js?v=284"></script>
 <!-- v1.5.11: ChecklistTemplates をDB化 -->
-<script src="js/db-templates.js?v=273"></script>
+<script src="js/db-templates.js?v=284"></script>
 
 <!-- 2. 状態 -->
-<script src="js/state.js?v=273"></script>
+<script src="js/state.js?v=310"></script>
 
 <!-- 3. ユーティリティ -->
-<script src="js/helpers.js?v=273"></script>
-<script src="js/progress.js?v=273"></script>
+<script src="js/helpers.js?v=301"></script>
+<script src="js/progress.js?v=284"></script>
 
 <!-- 4. サンプル -->
-<script src="js/sample-data.js?v=273"></script>
+<script src="js/sample-data.js?v=284"></script>
 
 <!-- 5. 認証・ナビ・コア -->
-<script src="js/holidays.js?v=273"></script>
+<script src="js/holidays.js?v=284"></script>
 <!-- デモ版：auth.js は読み込むが、Firebase auth は mock 済み（onAuthStateChanged 発火しない）-->
 <!-- ヘルパー関数（_refreshHeaderAvatars 等）は他モジュールから参照されるため必要 -->
-<script src="js/auth.js?v=273"></script>
+<script src="js/auth.js?v=284"></script>
 <!-- デモ版：本番 auth.js を読んだ後、ログインUIを差し替え -->
 <script src="js/demo-auth-mock.js"></script>
-<script src="js/navigation.js?v=273"></script>
-<script src="js/archive.js?v=273"></script>
-<script src="js/settings.js?v=273"></script>
+<script src="js/navigation.js?v=310"></script>
+<script src="js/archive.js?v=305"></script>
+<script src="js/settings.js?v=312"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
-<script src="js/dashboard.js?v=273"></script>
-<script src="js/members.js?v=273"></script>
-<script src="js/kanban.js?v=273"></script>
-<script src="js/car-detail.js?v=273"></script>
-<script src="js/car-modal.js?v=273"></script>
-<script src="js/workflow.js?v=273"></script>
-<script src="js/worksheet.js?v=273"></script>
-<!-- v1.8.40: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
-<script src="js/equipment-view.js?v=273"></script>
-<script src="js/calendar.js?v=273"></script>
-<script src="js/views.js?v=273"></script>
+<script src="js/dashboard.js?v=305"></script>
+<script src="js/members.js?v=312"></script>
+<script src="js/kanban.js?v=305"></script>
+<script src="js/car-detail.js?v=305"></script>
+<script src="js/car-modal.js?v=307"></script>
+<script src="js/workflow.js?v=284"></script>
+<script src="js/worksheet.js?v=284"></script>
+<!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
+<script src="js/equipment-view.js?v=310"></script>
+<script src="js/calendar.js?v=284"></script>
+<script src="js/views.js?v=305"></script>
 <!-- v1.7.42: ヘルプの本文（HELP_CONTENTS）を別ファイル化。help.js より先に読み込む -->
-<script src="js/help-content.js?v=273"></script>
-<script src="js/help.js?v=273"></script>
-<script src="js/theme.js?v=273"></script>
+<script src="js/help-content.js?v=284"></script>
+<script src="js/help.js?v=284"></script>
+<script src="js/theme.js?v=284"></script>
 
 <!-- v1.6.0: ChecklistTemplate 編集 -->
-<script src="js/template-editor.js?v=273"></script>
+<script src="js/template-editor.js?v=284"></script>
 
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<script src="js/board-notes.js?v=273"></script>
+<script src="js/board-notes.js?v=284"></script>
 
 <!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
-<script src="js/worklog.js?v=273"></script>
+<script src="js/worklog.js?v=284"></script>
 
 <!-- v1.8.1: β版ミーティングビュー -->
-<script src="js/meeting.js?v=273"></script>
+<script src="js/meeting.js?v=284"></script>
 
 
 <!-- 7. ディスパッチャ -->
-<script src="js/main.js?v=273"></script>
+<script src="js/main.js?v=284"></script>
 
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  

@@ -122,6 +122,116 @@ function refreshLeadDaysUI() {
   if (el) el.value = appSettings.deliveryLeadDays;
 }
 
+// v1.8.59: 金額の税扱い設定（本体/総額/ダッシュボード）
+// v1.8.67: dashboardSource ('body'/'total') と rate (%) も同じハンドラで扱う
+function onPriceTaxChange(field, value) {
+  if (!appSettings.priceTax) {
+    appSettings.priceTax = { body:'incl', total:'incl', dashboard:'incl', dashboardSource:'body', rate:10, exhibitSource:'total' };
+  }
+  if (field === 'dashboardSource' || field === 'exhibitSource') {
+    appSettings.priceTax[field] = (value === 'total') ? 'total' : 'body';
+  } else {
+    // body / total / dashboard — 'incl' or 'excl'
+    appSettings.priceTax[field] = (value === 'excl') ? 'excl' : 'incl';
+  }
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (window.saveSettings) saveSettings();
+}
+window.onPriceTaxChange = onPriceTaxChange;
+
+// v1.8.67: 消費税率の変更
+function onTaxRateChange(value) {
+  if (!appSettings.priceTax) {
+    appSettings.priceTax = { body:'incl', total:'incl', dashboard:'incl', dashboardSource:'body', rate:10 };
+  }
+  let r = Number(value);
+  if (!Number.isFinite(r) || r < 0) r = 0;
+  if (r > 100) r = 100;
+  appSettings.priceTax.rate = r;
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (window.saveSettings) saveSettings();
+}
+window.onTaxRateChange = onTaxRateChange;
+
+// v1.8.75: 店舗情報の変更ハンドラ
+function onCompanyInfoChange(field, value) {
+  if (!appSettings.companyInfo) appSettings.companyInfo = { name:'', address:'', phone:'', email:'', url:'', logo:'', note:'' };
+  appSettings.companyInfo[field] = String(value || '').trim();
+  if (window.saveSettings) saveSettings();
+  if (typeof showToast === 'function') showToast('店舗情報を保存しました');
+}
+window.onCompanyInfoChange = onCompanyInfoChange;
+
+function onCompanyLogoPick(inp) {
+  if (!inp || !inp.files || !inp.files[0]) return;
+  const file = inp.files[0];
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const dataUrl = e.target.result;
+    if (!appSettings.companyInfo) appSettings.companyInfo = { name:'', address:'', phone:'', email:'', url:'', logo:'', note:'' };
+    appSettings.companyInfo.logo = dataUrl;
+    _refreshCompanyLogoPreview();
+    if (window.saveSettings) saveSettings();
+    if (typeof showToast === 'function') showToast('ロゴを設定しました');
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+window.onCompanyLogoPick = onCompanyLogoPick;
+
+function clearCompanyLogo() {
+  if (!appSettings.companyInfo) return;
+  appSettings.companyInfo.logo = '';
+  _refreshCompanyLogoPreview();
+  if (window.saveSettings) saveSettings();
+  if (typeof showToast === 'function') showToast('ロゴをクリアしました');
+}
+window.clearCompanyLogo = clearCompanyLogo;
+
+function _refreshCompanyLogoPreview() {
+  const el = document.getElementById('company-logo-preview');
+  if (!el) return;
+  const logo = (appSettings.companyInfo && appSettings.companyInfo.logo) || '';
+  if (logo) {
+    el.innerHTML = `<img src="${logo}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+  } else {
+    el.innerHTML = '未設定';
+  }
+}
+
+function refreshCompanyInfoUI() {
+  const ci = (appSettings && appSettings.companyInfo) || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  setVal('inp-company-name', ci.name);
+  setVal('inp-company-address', ci.address);
+  setVal('inp-company-phone', ci.phone);
+  setVal('inp-company-email', ci.email);
+  setVal('inp-company-url', ci.url);
+  setVal('inp-company-note', ci.note);
+  _refreshCompanyLogoPreview();
+}
+window.refreshCompanyInfoUI = refreshCompanyInfoUI;
+
+function refreshPriceTaxUI() {
+  const ps = (appSettings && appSettings.priceTax) || {};
+  ['body','total','dashboard'].forEach(f => {
+    const el = document.getElementById('price-tax-' + f);
+    if (el) el.value = (ps[f] === 'excl') ? 'excl' : 'incl';
+  });
+  const srcEl = document.getElementById('price-tax-source');
+  if (srcEl) srcEl.value = (ps.dashboardSource === 'total') ? 'total' : 'body';
+  const exhEl = document.getElementById('price-tax-exhibit-source');
+  if (exhEl) exhEl.value = (ps.exhibitSource === 'body') ? 'body' : 'total';
+  const rateEl = document.getElementById('price-tax-rate');
+  if (rateEl) {
+    const r = Number(ps.rate);
+    rateEl.value = (Number.isFinite(r) && r >= 0) ? r : 10;
+  }
+}
+window.refreshPriceTaxUI = refreshPriceTaxUI;
+
 // ========================================
 // 通知設定エディタ
 // ========================================
@@ -387,30 +497,18 @@ function renderTasksEditor() {
   if (!root) return;
 
   const phases = [
-    { key: 'regen',    label: '🔧 再生フェーズ', deadlineHint: '仕入れから', deadlineSuffix: '日以内' },
+    { key: 'regen',    label: '🔧 展示準備フェーズ', deadlineHint: '仕入れから', deadlineSuffix: '日以内' },
     { key: 'delivery', label: '📦 納車フェーズ', deadlineHint: '納車まで',   deadlineSuffix: '日前' },
   ];
 
   let html = '';
   phases.forEach(ph => {
     const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI(ph.key) : [];
-    // v1.8.12: ウエイト合計を計算（自動完了タスク t_complete / d_complete は対象外）
-    const wTargets = tasks.filter(t => t.enabled && t.id !== 't_complete' && t.id !== 't_complete' && t.id !== 'd_complete');
-    const weightMap = (typeof appTaskWeight !== 'undefined' && appTaskWeight[ph.key]) || {};
-    const weightSum = wTargets.reduce((s, t) => s + (Number(weightMap[t.id]) || 0), 0);
-    const weightOk = weightSum === 100;
-    const sumColor = weightOk ? 'var(--green)' : '#fca5a5';
-    const sumIcon  = weightOk ? '✓' : '⚠';
+    // v1.8.51: 進捗ウエイト機能は廃止 → 均等割り + 小タスク按分に統一（Phase B）。
+    //          旧 appTaskWeight 設定は Firestore に残してても害なし（読まないだけ）。
     html += `<div class="task-edit-phase">
       <div class="task-edit-phase-head">${ph.label}</div>
-      <div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（空欄なら期限なし）</div>
-      <!-- v1.8.12: 進捗ウエイト合計バー -->
-      <div class="task-edit-weight-summary" style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin:6px 0;font-size:12px">
-        <span style="color:var(--text2);font-weight:600">📊 進捗ウエイト合計：</span>
-        <span style="color:${sumColor};font-weight:700;font-size:14px">${sumIcon} ${weightSum}%</span>
-        ${weightOk ? '' : `<span style="color:#fca5a5;font-size:11px">合計を100%にしてください</span>`}
-        <button class="btn-sm" onclick="resetTaskWeights('${ph.key}')" style="margin-left:auto;font-size:11px">均等にリセット</button>
-      </div>`;
+      <div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（空欄なら期限なし）<br><span style="color:var(--text3);font-size:11px">※ 進捗は有効タスクの均等割り＋小タスク按分で自動計算（v1.8.51）</span></div>`;
     if (!tasks.length) {
       html += '<div class="task-edit-empty">タスクが定義されていません</div>';
     } else {
@@ -435,6 +533,7 @@ function renderTasksEditor() {
             <span class="task-edit-name">${escapeHtml(t.name)}</span>
             ${t.builtin ? '' : '<span class="task-edit-tag custom">追加</span>'}
             ${(t.id === 'd_complete' || t.id === 't_complete') ? '<span class="task-edit-tag auto" title="他のタスク全完了で自動ON">自動</span>' : ''}
+            ${t.optional ? '<span class="task-edit-tag" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.35)" title="選択制：車両ごとに使うかどうかをチェックで指定">選択</span>' : ''}
             <div class="task-edit-deadline">
               <input type="number" min="1" max="365" value="${dlVal}"
                      placeholder="—"
@@ -443,22 +542,6 @@ function renderTasksEditor() {
                      title="${ph.deadlineHint} N ${ph.deadlineSuffix}">
               <span class="task-edit-deadline-suffix">${ph.deadlineSuffix.replace(/日.*/,'日')}</span>
             </div>
-            <!-- v1.8.12: 進捗ウエイト（%）-->
-            ${(t.id === 't_complete' || t.id === 'd_complete') ? `
-              <div class="task-edit-weight" title="自動判定タスクは進捗計算の対象外">
-                <span class="task-edit-weight-suffix" style="color:var(--text3);font-size:11px">対象外</span>
-              </div>
-            ` : `
-              <div class="task-edit-weight" title="進捗バーへの貢献度（％）。フェーズ内合計で100にする">
-                <span class="task-edit-weight-label" style="font-size:10px;color:var(--text3);margin-right:3px">重み</span>
-                <input type="number" min="0" max="100" value="${Number((appTaskWeight[ph.key] || {})[t.id]) || 0}"
-                       onchange="setTaskWeight('${escapeHtml(t.id)}', '${ph.key}', this.value)"
-                       class="task-edit-deadline-inp"
-                       style="width:48px"
-                       title="進捗ウエイト（％）">
-                <span class="task-edit-weight-suffix" style="font-size:11px;color:var(--text3)">%</span>
-              </div>
-            `}
             <!-- v1.8.13: 詳細チェックリスト/編集/削除を ⋮ メニューに集約。
                  ON/OFFトグルだけ常時表示（よく使う操作）。これで全行のレイアウトが揃う。 -->
             <label class="task-edit-toggle" title="このタスクを表示する">
@@ -476,9 +559,9 @@ function renderTasksEditor() {
   // 追加フォーム
   html += `
     <div class="task-edit-add">
-      <div class="task-edit-add-title">＋ チェック型タスクを追加</div>
+      <div class="task-edit-add-title">＋ チェック型タスクを追加 <span style="font-size:10px;color:var(--text3);font-weight:400">（アイコン欄でフォーカス → Win+. または Win+; で絵文字パレットが開きます）</span></div>
       <div class="task-edit-add-row">
-        <input type="text" id="new-task-icon" class="settings-input task-edit-add-icon" placeholder="🔧" maxlength="4">
+        <input type="text" id="new-task-icon" class="settings-input task-edit-add-icon" placeholder="🔧" maxlength="4" title="絵文字を入力。Win+. または Win+; でWindowsの絵文字パレットが開きます">
         <input type="text" id="new-task-name" class="settings-input task-edit-add-name" placeholder="タスク名（例：鈑金見積）" maxlength="20">
       </div>
       <div class="task-edit-add-phase-row">
@@ -570,6 +653,29 @@ window.openTaskMenu = function (taskId, phase) {
       closeTaskActions();
       if (typeof toggleTaskChecklist === 'function') {
         toggleTaskChecklist(taskId, phase, false);
+      }
+    });
+  }
+
+  // v1.8.46: 名前変更（カスタムタスクのみ）
+  if (!t.builtin) {
+    _addBtn('✏️ 名前・アイコンを変更', function () {
+      closeTaskActions();
+      if (typeof renameCustomTask === 'function') renameCustomTask(taskId);
+    });
+  }
+
+  // v1.8.51: 選択制トグル（自動判定タスク以外は全部対象）
+  if (taskId !== 't_complete' && taskId !== 'd_complete') {
+    const isOpt = (typeof isTaskOptional === 'function') && isTaskOptional(taskId, phase);
+    const label = isOpt ? '◉ 選択制をやめる（常時表示に戻す）' : '◉ この大タスクを選択制にする';
+    _addBtn(label, function () {
+      closeTaskActions();
+      if (typeof setTaskOptional === 'function') {
+        setTaskOptional(taskId, phase, !isOpt);
+        if (typeof renderTasksEditor === 'function') renderTasksEditor();
+        if (typeof renderAll === 'function') renderAll();
+        if (typeof showToast === 'function') showToast(isOpt ? '選択制を解除しました' : '選択制に変更しました');
       }
     });
   }
@@ -758,12 +864,98 @@ function addCustomTask() {
   if (window.saveSettings) saveSettings(); // v1.5.2
 }
 
+// v1.8.46: カスタムタスクの名前を変更
+// v1.8.56: prompt() → HTML inputs を持つカスタムモーダルへ刷新。
+//   HTML <input> にフォーカスしている時は Win+. / Win+; で Windows 絵文字パレットが開く。
+//   prompt() ではこのショートカットが効かないため。
+function renameCustomTask(taskId) {
+  const t = appCustomTasks.find(x => x.id === taskId);
+  if (!t) return;
+
+  // 既存モーダル要素を再利用、無ければ作成
+  let overlay = document.getElementById('rename-task-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'rename-task-overlay';
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="modal" style="width:420px;max-width:94vw">
+        <div class="mhdr">
+          <div class="mhdr-title">タスクの名前・アイコンを変更</div>
+          <button class="mclose" onclick="_closeRenameTaskModal(false)">✕</button>
+        </div>
+        <div class="mbody" style="padding:18px 20px">
+          <div class="fg">
+            <label>アイコン（絵文字）<span style="color:var(--text3);font-weight:400;font-size:10px;margin-left:6px">入力欄をクリック → Win+. または Win+; で絵文字パレット</span></label>
+            <input type="text" id="rename-task-icon" maxlength="4" style="width:90px;text-align:center;font-size:22px;padding:8px">
+          </div>
+          <div class="fg">
+            <label>タスク名</label>
+            <input type="text" id="rename-task-name" maxlength="20">
+          </div>
+        </div>
+        <div class="mfooter">
+          <button class="btn-cancel" onclick="_closeRenameTaskModal(false)">キャンセル</button>
+          <button class="btn-save" onclick="_closeRenameTaskModal(true)">保存</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    // オーバーレイ外クリックで閉じる
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) _closeRenameTaskModal(false);
+    });
+  }
+
+  // 値を反映
+  document.getElementById('rename-task-icon').value = t.icon || '📋';
+  document.getElementById('rename-task-name').value = t.name || '';
+  overlay.dataset.taskId = taskId;
+  overlay.classList.add('open');
+  // 名前にフォーカス（絵文字側にフォーカスしたい場合はユーザーがクリックする）
+  setTimeout(() => {
+    const nameEl = document.getElementById('rename-task-name');
+    if (nameEl) { nameEl.focus(); nameEl.select(); }
+  }, 50);
+}
+window.renameCustomTask = renameCustomTask;
+
+function _closeRenameTaskModal(save) {
+  const overlay = document.getElementById('rename-task-overlay');
+  if (!overlay) return;
+  if (!save) {
+    overlay.classList.remove('open');
+    return;
+  }
+  const taskId = overlay.dataset.taskId;
+  const t = appCustomTasks.find(x => x.id === taskId);
+  if (!t) { overlay.classList.remove('open'); return; }
+  const newName = (document.getElementById('rename-task-name').value || '').trim();
+  const newIcon = (document.getElementById('rename-task-icon').value || '').trim();
+  if (!newName) { showToast('タスク名が空です'); return; }
+  const nameChanged = newName !== t.name;
+  const iconChanged = !!newIcon && newIcon !== t.icon;
+  t.name = newName;
+  if (newIcon) t.icon = newIcon;
+  overlay.classList.remove('open');
+  renderTasksEditor();
+  if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
+  if (typeof renderAll === 'function') renderAll();
+  const msg = (nameChanged && iconChanged) ? 'タスク名とアイコンを変更しました'
+            : iconChanged ? 'アイコンを変更しました'
+            : nameChanged ? 'タスク名を変更しました'
+            : '変更はありません';
+  showToast(msg);
+  if (window.saveSettings) saveSettings();
+}
+window._closeRenameTaskModal = _closeRenameTaskModal;
+
 // カスタムタスク削除
 function deleteCustomTask(taskId) {
   const t = appCustomTasks.find(x => x.id === taskId);
   if (!t) return;
   if (!confirm(`「${t.name}」を削除しますか？\n（既に進捗が入っていても消えます）`)) return;
-  appCustomTasks = appCustomTasks.filter(x => x.id !== taskId);
+  const __idx = appCustomTasks.findIndex(x => x.id === taskId);
+  if (__idx >= 0) appCustomTasks.splice(__idx, 1);
   cars.forEach(c => {
     if (c.regenTasks)    delete c.regenTasks[taskId];
     if (c.deliveryTasks) delete c.deliveryTasks[taskId];
@@ -862,6 +1054,7 @@ function renderProfileSection() {
 }
 
 // v1.5.10: 画像選択 → Storage アップロード → URL を staff.customPhotoURL に保存
+// v1.8.76: 写真選択時はそのまま保存せず、クロッパーモーダルを開く
 async function onProfilePhotoPick(input) {
   if (!input || !input.files || !input.files[0]) return;
   const file = input.files[0];
@@ -870,28 +1063,181 @@ async function onProfilePhotoPick(input) {
     input.value = '';
     return;
   }
-  const uid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
-  if (!uid) { showToast('未ログインです'); input.value = ''; return; }
-  try {
-    showToast('アイコンをアップロード中...');
-    let url;
-    if (window.dbStorage && window.dbStorage.uploadProfilePhoto) {
-      url = await window.dbStorage.uploadProfilePhoto(uid, file);
-    } else {
-      // フォールバック：旧 data:URL 方式
-      url = await _resizeImageToDataUrl(file, 256, 0.85);
-    }
-    await window.dbStaff.saveMyProfile({ customPhotoURL: url });
-    showToast('アイコンを更新しました');
-    renderProfileSection();
-    if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
-    if (typeof renderMembers === 'function') renderMembers();
-  } catch (err) {
-    console.error('[profile] photo error:', err);
-    showToast('アイコンの保存に失敗しました');
-  }
+  // クロッパーを開く
+  openAvatarCrop(file);
   input.value = '';
 }
+
+// ====================================================================
+// v1.8.76: アバター画像クロッパー（円形トリミング + 拡大縮小 + ドラッグ）
+// ====================================================================
+const _avatarCropState = {
+  imgWidth: 0, imgHeight: 0,
+  offsetX: 0, offsetY: 0, scale: 1,
+  isDragging: false, dragStartX: 0, dragStartY: 0,
+  startOffsetX: 0, startOffsetY: 0,
+  originalFile: null,
+};
+const AVATAR_CROP_SIZE = 240; // 円の直径（px、SVG座標）
+
+// v1.8.77: callback(blob, dataUrl) を渡すと、適用時にそちらに委譲する。
+//   省略時は従来通り「自分のプロフィール写真」として Firestore に直接保存。
+function openAvatarCrop(file, onApply) {
+  _avatarCropState.originalFile = file;
+  _avatarCropState.onApply = (typeof onApply === 'function') ? onApply : null;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = document.getElementById('avatar-crop-img');
+    if (!img) return;
+    img.onload = function () {
+      _avatarCropState.imgWidth = img.naturalWidth;
+      _avatarCropState.imgHeight = img.naturalHeight;
+      // 初期スケール：短い辺が円（240px）にぴったり収まる
+      const fit = Math.max(AVATAR_CROP_SIZE / img.naturalWidth, AVATAR_CROP_SIZE / img.naturalHeight);
+      _avatarCropState.scale = fit;
+      _avatarCropState.offsetX = 0;
+      _avatarCropState.offsetY = 0;
+      const slider = document.getElementById('avatar-crop-zoom');
+      if (slider) {
+        slider.min = String(fit);
+        slider.max = String(fit * 4);
+        slider.value = String(fit);
+      }
+      _avatarCropApplyTransform();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('modal-avatar-crop').classList.add('open');
+  _setupAvatarCropDrag();
+}
+window.openAvatarCrop = openAvatarCrop;
+
+function _avatarCropApplyTransform() {
+  const img = document.getElementById('avatar-crop-img');
+  if (!img) return;
+  const s = _avatarCropState;
+  img.style.width = s.imgWidth + 'px';
+  img.style.height = 'auto';
+  img.style.transform = `translate(-50%, -50%) translate(${s.offsetX}px, ${s.offsetY}px) scale(${s.scale})`;
+}
+
+function onAvatarCropZoom(v) {
+  _avatarCropState.scale = Number(v);
+  _avatarCropApplyTransform();
+}
+window.onAvatarCropZoom = onAvatarCropZoom;
+
+function closeAvatarCrop() {
+  const m = document.getElementById('modal-avatar-crop');
+  if (m) m.classList.remove('open');
+}
+window.closeAvatarCrop = closeAvatarCrop;
+
+function _setupAvatarCropDrag() {
+  const area = document.getElementById('avatar-crop-area');
+  if (!area || area.dataset.cropBound === '1') return;
+  area.dataset.cropBound = '1';
+  const onDown = (clientX, clientY) => {
+    _avatarCropState.isDragging = true;
+    _avatarCropState.dragStartX = clientX;
+    _avatarCropState.dragStartY = clientY;
+    _avatarCropState.startOffsetX = _avatarCropState.offsetX;
+    _avatarCropState.startOffsetY = _avatarCropState.offsetY;
+    area.classList.add('dragging');
+  };
+  const onMove = (clientX, clientY) => {
+    if (!_avatarCropState.isDragging) return;
+    const dx = clientX - _avatarCropState.dragStartX;
+    const dy = clientY - _avatarCropState.dragStartY;
+    _avatarCropState.offsetX = _avatarCropState.startOffsetX + dx;
+    _avatarCropState.offsetY = _avatarCropState.startOffsetY + dy;
+    _avatarCropApplyTransform();
+  };
+  const onUp = () => {
+    _avatarCropState.isDragging = false;
+    area.classList.remove('dragging');
+  };
+  area.addEventListener('mousedown', e => { e.preventDefault(); onDown(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  document.addEventListener('mouseup', onUp);
+  area.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) onDown(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  area.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+  area.addEventListener('touchend', onUp);
+}
+
+async function applyAvatarCrop() {
+  const s = _avatarCropState;
+  if (!s.imgWidth || !s.imgHeight) { showToast('画像が読み込めていません'); return; }
+  const img = document.getElementById('avatar-crop-img');
+  if (!img) return;
+  // 円（240px in SVG/CSS座標）の中身を出力サイズ256×256に書き出す
+  const OUT = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = OUT; canvas.height = OUT;
+  const ctx = canvas.getContext('2d');
+  // 円形クリップ
+  ctx.beginPath();
+  ctx.arc(OUT/2, OUT/2, OUT/2, 0, Math.PI*2);
+  ctx.clip();
+  // ソース矩形の計算：画面上 240px の正方形に対応する画像内領域
+  const sw = AVATAR_CROP_SIZE / s.scale;
+  const sh = AVATAR_CROP_SIZE / s.scale;
+  const sx = (s.imgWidth  / 2) - (s.offsetX / s.scale) - sw / 2;
+  const sy = (s.imgHeight / 2) - (s.offsetY / s.scale) - sh / 2;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, OUT, OUT);
+  // v1.8.77: コールバックが指定されていればそちらに委譲（メンバー編集等）
+  if (typeof _avatarCropState.onApply === 'function') {
+    canvas.toBlob((blob) => {
+      if (!blob) { showToast('画像処理に失敗しました'); return; }
+      const dataUrl = canvas.toDataURL('image/png');
+      try {
+        _avatarCropState.onApply(blob, dataUrl);
+      } catch (err) {
+        console.error('[avatar-crop] callback error:', err);
+      }
+      closeAvatarCrop();
+    }, 'image/png');
+    return;
+  }
+  // Blob → upload（自分のプロフィール写真：従来挙動）
+  canvas.toBlob(async (blob) => {
+    if (!blob) { showToast('画像処理に失敗しました'); return; }
+    const uid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
+    if (!uid) { showToast('未ログイン'); return; }
+    try {
+      showToast('アイコンを保存中...');
+      let url;
+      if (window.dbStorage && window.dbStorage.uploadProfilePhoto) {
+        const f = new File([blob], 'avatar.png', { type: 'image/png' });
+        url = await window.dbStorage.uploadProfilePhoto(uid, f);
+      } else {
+        url = await new Promise(r => {
+          const reader = new FileReader();
+          reader.onload = () => r(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
+      await window.dbStaff.saveMyProfile({ customPhotoURL: url });
+      showToast('アイコンを更新しました');
+      renderProfileSection();
+      if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
+      if (typeof renderMembers === 'function') renderMembers();
+      closeAvatarCrop();
+    } catch (err) {
+      console.error('[avatar-crop] save error:', err);
+      showToast('保存に失敗しました');
+    }
+  }, 'image/png');
+}
+window.applyAvatarCrop = applyAvatarCrop;
 
 // 画像をリサイズして data:URL（jpeg）にする
 function _resizeImageToDataUrl(file, maxSize, quality) {

@@ -1,52 +1,163 @@
 // ========================================
 // dashboard.js
 // ダッシュボード：サマリーカード／要対応アクション／着地予測／販売KPI／警告
+// v1.8.67: 集計を税モード対応に。
+//   - 元データ: appSettings.priceTax.dashboardSource ('body' or 'total')
+//   - 表示モード: appSettings.priceTax.dashboard ('incl' or 'excl')
+//   - 元データのモードと表示モードが違う場合は convertTax で換算
 // ========================================
 
-// --- サマリー4カード＋要対応アクション ---
+// 集計用の1台あたり金額を返す（設定考慮済み）
+// v1.8.71: 納車完了済み（priceTaxSnapshot あり）の車は、その時点の税設定で計算。
+//   進行中の車は現在の appSettings の税設定で計算。
+function _dashAmount(car) {
+  if (!car) return 0;
+  const ps = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
+  const dashMode = (ps.dashboard === 'excl') ? 'excl' : 'incl';
+  const source   = (ps.dashboardSource === 'total') ? 'total' : 'body';
+  // スナップショットを持つ車（納車完了済み）は当時の税扱いで換算
+  if (car.priceTaxSnapshot && typeof _amountFromCarWithSnapshot === 'function') {
+    return _amountFromCarWithSnapshot(car, source, dashMode);
+  }
+  // 進行中の車：現在の設定で換算
+  let amount, fromMode;
+  if (source === 'total' && Number(car.totalPrice) > 0) {
+    amount   = Number(car.totalPrice);
+    fromMode = (ps.total === 'excl') ? 'excl' : 'incl';
+  } else {
+    amount   = Number(car.price) || 0;
+    fromMode = (ps.body === 'excl') ? 'excl' : 'incl';
+  }
+  return (typeof convertTax === 'function') ? convertTax(amount, fromMode, dashMode) : amount;
+}
+
+// v1.8.79: サマリー6カード — 全体像→管理中→売約／オーダー→今月着地→累計 のフロー
 function renderSummaryCards() {
   const total = cars.length;
   const active = cars.filter(c => c.col !== 'done').length;
-  const contracted = cars.filter(c => c.contract).length;
+  const contracted = cars.filter(c => c.contract && c.col !== 'done').length;
+  const order = cars.filter(c => c.isOrder && c.col !== 'done').length;
   const done = cars.filter(c => c.col === 'done').length;
+
+  // 今月納車予定（売約済 × 当月納車予定 × まだ done でない）
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const deliverThisMonth = cars.filter(c =>
+    c.col !== 'done' && c.contract && c.deliveryDate && c.deliveryDate.startsWith(ym)
+  ).length;
+
   document.getElementById('stat-grid').innerHTML = `
     <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">総車両数</div></div>
     <div class="stat-box"><div class="stat-num" style="color:var(--orange)">${active}</div><div class="stat-label">管理中</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${contracted}</div><div class="stat-label">成約済み</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${contracted}</div><div class="stat-label">売約済</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#c4b5fd">${order}</div><div class="stat-label">📦 オーダー車両</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#6ee7b7">${deliverThisMonth}</div><div class="stat-label">今月納車予定</div></div>
     <div class="stat-box"><div class="stat-num" style="color:var(--text3)">${done}</div><div class="stat-label">納車完了</div></div>`;
 }
 
-// v1.2.4: 共通関数。要対応アクションのチップHTML配列を返す。
-// ダッシュボードC と 下部要対応エリア両方から使う。
+// v1.8.79: 在庫日数警告 — appSettings.invWarn の tier ごとに「○日以上 N台」を1チップずつ集計表示
+function _buildInventoryWarningChips() {
+  const tiers = (appSettings.invWarn || []).filter(t => t.on);
+  if (!tiers.length) return [];
+  // 対象車両：未納車・未売約・オーダー車両以外（純粋な在庫）
+  const stockCars = cars.filter(c => c.col !== 'done' && !c.contract && !c.isOrder);
+  const chips = [];
+  tiers.forEach(t => {
+    const list = stockCars.filter(c => {
+      const inv = (typeof daysSince === 'function') ? daysSince(c.purchaseDate) : 0;
+      return inv >= t.days;
+    });
+    if (list.length === 0) return;
+    const style = `background:${t.bg};border:1px solid ${t.color};color:${t.color}`;
+    chips.push(`<div class="chip-count" style="${style}" title="${t.label} — 在庫${t.days}日以上">📦 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
+  });
+  return chips;
+}
+
+// v1.8.79: 車両ごとに「最も期限が近いタスク」を1チップにまとめる
+// 期限1日前=黄／当日=橙／1日以上超過=赤
+function _buildTaskUrgencyChips() {
+  const out = [];
+  if (typeof cars === 'undefined' || !Array.isArray(cars)) return out;
+  cars.forEach(car => {
+    if (!car || car.col === 'done' || car.col === 'other') return;
+    const candidates = [];
+
+    // 再生フェーズ
+    if (car.col !== 'delivery') {
+      const inv = (typeof daysSince === 'function') ? daysSince(car.purchaseDate) : 0;
+      const regenTasks = (typeof getActiveRegenTasks === 'function') ? getActiveRegenTasks(car) : [];
+      regenTasks.forEach(t => {
+        const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'regen') : null;
+        if (dl == null) return;
+        const overdue = inv - dl; // >0 超過 / =0 当日 / <0 余裕
+        if (overdue < -1) return; // 2日以上余裕は対象外
+        if (typeof _isTaskDoneForOverdue === 'function' && _isTaskDoneForOverdue(car, t, false)) return;
+        candidates.push({ name: t.name, icon: t.icon || '📋', overdue });
+      });
+    }
+
+    // 納車フェーズ
+    if (car.col === 'delivery' && car.deliveryDate) {
+      const remain = (typeof daysDiff === 'function') ? daysDiff(car.deliveryDate) : null;
+      if (remain != null) {
+        const delTasks = (typeof getActiveDeliveryTasks === 'function') ? getActiveDeliveryTasks(car) : [];
+        delTasks.forEach(t => {
+          const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'delivery') : null;
+          if (dl == null) return;
+          const overdue = dl - remain;
+          if (overdue < -1) return;
+          if (typeof _isTaskDoneForOverdue === 'function' && _isTaskDoneForOverdue(car, t, true)) return;
+          candidates.push({ name: t.name, icon: t.icon || '📋', overdue });
+        });
+      }
+    }
+
+    if (!candidates.length) return;
+    // 一番切迫した（overdue最大）タスクを選ぶ
+    candidates.sort((a, b) => b.overdue - a.overdue);
+    const top = candidates[0];
+    let cls, msg;
+    if (top.overdue > 0) {
+      cls = 'chip-red';
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} が期日越え（${top.overdue}日超過）`;
+    } else if (top.overdue === 0) {
+      cls = 'chip-orange';
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 本日が期限`;
+    } else {
+      cls = 'chip-yellow';
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 期限まであと1日`;
+    }
+    out.push(`<div class="chip ${cls}" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${msg}</div>`);
+  });
+  return out;
+}
+
+// v1.2.4 / v1.8.79: 共通関数。要対応アクションのチップHTML配列を返す。
+// 並び順：在庫日数集計（tier別）→ 納車直前（車別）→ タスク期日（車別）
 function _buildActionChipsHtml() {
   const chips = [];
-  const notif = appSettings.notif;
-  cars.forEach(car => {
-    if (car.col === 'done') return;
-    // 納車直前
-    if (notif.pre.on && car.contract && car.deliveryDate) {
+  const notif = appSettings.notif || { pre:{on:false}, stock:{on:false} };
+
+  // 1) 在庫日数 — tier別集計チップ
+  const invChips = _buildInventoryWarningChips();
+  if (invChips.length) chips.push(...invChips);
+
+  // 2) 納車直前 — 車両ごと
+  if (notif.pre && notif.pre.on) {
+    cars.forEach(car => {
+      if (car.col === 'done') return;
+      if (!car.contract || !car.deliveryDate) return;
       const d = daysDiff(car.deliveryDate);
       if (d !== null && d <= notif.pre.days && d >= 0) {
         chips.push(`<div class="chip chip-red" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>🚨 ${car.maker} ${car.model} 納車${d===0?'本日':d+'日後'}</div>`);
       }
-    }
-    // 長期在庫
-    if (notif.stock.on) {
-      const inv = daysSince(car.purchaseDate);
-      if (inv >= notif.stock.days) {
-        chips.push(`<div class="chip chip-orange" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>📦 ${car.maker} ${car.model} 在庫${inv}日</div>`);
-      }
-    }
-    // v1.0.35: タスク期限超過（粒度2 — 車両ごとに集約）
-    if (typeof getOverdueTasks === 'function') {
-      const overdue = getOverdueTasks(car);
-      if (overdue.length > 0) {
-        const phase = overdue[0].kind === 'delivery' ? '納車' : '再生';
-        const cnt = overdue.length;
-        chips.push(`<div class="chip chip-red" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>⚠ ${car.maker} ${car.model} ${phase}期限超過 ${cnt}件</div>`);
-      }
-    }
-  });
+    });
+  }
+
+  // 3) タスク期日 — 車両ごとに最重要タスク1件（黄/橙/赤）
+  chips.push(..._buildTaskUrgencyChips());
+
   return chips;
 }
 
@@ -98,7 +209,7 @@ function calcLanding() {
       return c.contractDate && c.contractDate >= firstOfMonth && c.contractDate <= lastOfMonth;
     });
     const fixedCount = thisMonthContracted.length;
-    const fixedSales = thisMonthContracted.reduce((s, c) => s + (Number(c.price)||0), 0);
+    const fixedSales = thisMonthContracted.reduce((s, c) => s + _dashAmount(c), 0);
     const pace = fixedCount / Math.max(1, dayOfMonth);
     const addMax = Math.round(pace * daysLeft);
     return {
@@ -116,12 +227,12 @@ function calcLanding() {
   // ① 確定：col==='done' かつ deliveryDate が当月
   const fixedCars = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= firstOfMonth && c.deliveryDate <= lastOfMonth);
   const fixedCount = fixedCars.length;
-  const fixedSales = fixedCars.reduce((s, c) => s + (Number(c.price)||0), 0);
+  const fixedSales = fixedCars.reduce((s, c) => s + _dashAmount(c), 0);
 
   // ② 見込み：col in {'delivery','regen','exhibit','purchase'} かつ contract かつ deliveryDate が当月、かつ done ではない
   const likelyCars = cars.filter(c => c.col !== 'done' && c.contract && c.deliveryDate && c.deliveryDate >= firstOfMonth && c.deliveryDate <= lastOfMonth);
   const likelyCount = likelyCars.length;
-  const likelySales = likelyCars.reduce((s, c) => s + (Number(c.price)||0), 0);
+  const likelySales = likelyCars.reduce((s, c) => s + _dashAmount(c), 0);
 
   // ③ 追加余地：残日数 − リードタイム = 今からまだ売約→納車に間に合う余地
   // 追加枠 (台)：過去実績の日次売約→納車ペースから概算。ここでは直近90日の納車済み台数/90 × (daysLeft - lead) とする
@@ -134,17 +245,19 @@ function calcLanding() {
     const recent = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= sinceStr);
     const dailyPace = recent.length / 90;
     possibleCount = Math.round(dailyPace * addSlots);
-    const avgPrice = recent.length ? recent.reduce((s, c) => s + (Number(c.price)||0), 0) / recent.length : 0;
+    const avgPrice = recent.length ? recent.reduce((s, c) => s + _dashAmount(c), 0) / recent.length : 0;
     possibleSales = Math.round(avgPrice * possibleCount);
   }
+  // v1.8.41: 「追加余地」表記を「実績予測」に統一。実体のある車両ではなく
+  //          過去の納車ペースから算出する予測値であることを明示する説明文を追記。
   const note = addSlots > 0
-    ? `月末まで残${daysLeft}日 − 準備リードタイム${lead}日 ＝ 追加売約余地${addSlots}日`
+    ? `月末まで残${daysLeft}日 − 準備リードタイム${lead}日 ＝ 追加売約余地${addSlots}日<br><span style="color:var(--text3)">※実績予測：直近90日の納車ペースから「今月あと売れそうな目安台数」を試算した数値（実車両ではありません）</span>`
     : `月末まで残${daysLeft}日 ≤ 準備リードタイム${lead}日。新規売約は来月スライドの可能性が高いです`;
   return {
     mode, goal, daysLeft, dayOfMonth, daysInMonth,
     fixed: {count: fixedCount, sales: fixedSales, label:'確定（納車完了）'},
     likely: {count: likelyCount, sales: likelySales, label:'見込み（売約済×当月納車予定）'},
-    possible: {count: possibleCount, sales: possibleSales, label:'追加余地（営業努力枠）'},
+    possible: {count: possibleCount, sales: possibleSales, label:'実績予測（過去ペースから算出）'},
     paceNote: note,
     predictLow: fixedCount + likelyCount,            // 見込みまで実現しても動かない
     predictHigh: fixedCount + likelyCount + possibleCount,
@@ -167,10 +280,12 @@ function renderLanding() {
 
   const remainToGoal = Math.max(0, totalGoalCount - L.predictLow);
   const remainSalesToGoal = Math.max(0, totalGoalSales - (L.fixed.sales + L.likely.sales));
+  // v1.8.59: ダッシュボード金額の税扱いラベル
+  const dashTax = (typeof getTaxLabel === 'function') ? getTaxLabel('dashboard') : '税込';
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div style="font-size:12px;color:var(--text2)">目標 ${totalGoalCount}台 / ${(totalGoalSales/10000).toFixed(0)}万円</div>
+      <div style="font-size:12px;color:var(--text2)">目標 ${totalGoalCount}台 / ${(totalGoalSales/10000).toFixed(0)}万円<span style="font-size:10px;color:var(--text3);margin-left:4px">（${dashTax}）</span></div>
       <div style="font-size:11px;color:var(--text3)">${L.mode==='contract'?'売約時計上':'納車完了計上'}</div>
     </div>
     <div class="land-bar">
@@ -182,12 +297,12 @@ function renderLanding() {
     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin-bottom:10px">
       <span><span style="display:inline-block;width:10px;height:10px;background:#1db97a;border-radius:2px;vertical-align:middle;margin-right:4px"></span>確定 ${L.fixed.count}台</span>
       <span><span style="display:inline-block;width:10px;height:10px;background:#378ADD;border-radius:2px;vertical-align:middle;margin-right:4px"></span>見込み ${L.likely.count}台</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>追加余地 ${L.possible.count}台</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>実績予測 ${L.possible.count}台</span>
     </div>
     <div class="kpi-grid">
       <div class="kpi-box"><div class="kpi-label">着地予測（レンジ）</div><div class="kpi-value">${L.predictLow}〜${L.predictHigh}<span style="font-size:12px;color:var(--text3)">台</span></div>
         <div class="kpi-sub">目標達成まで<strong style="color:${remainToGoal===0?'#6ee7b7':'#fcd34d'}">${remainToGoal}台</strong></div></div>
-      <div class="kpi-box"><div class="kpi-label">売上見込み</div><div class="kpi-value">${((L.fixed.sales+L.likely.sales)/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
+      <div class="kpi-box"><div class="kpi-label">売上見込み <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div><div class="kpi-value">${((L.fixed.sales+L.likely.sales)/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
         <div class="kpi-sub">目標まで ${(remainSalesToGoal/10000).toFixed(0)}万円</div></div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">${L.paceNote}</div>
@@ -246,18 +361,21 @@ function renderKPIs() {
   const lastYear = [...cars, ...archivedCars].filter(c => inPeriod(c, yf, yt));
 
   // 現在の在庫（未納車）
-  const inv = cars.filter(c => c.col !== 'done');
-  const invAvgPrice = inv.length ? sumBy(inv, c => Number(c.price)||0) / inv.length : 0;
+  // v1.8.72: 在庫評価から「オーダー車両」を除外（在庫ではないため）
+  const inv = cars.filter(c => c.col !== 'done' && !c.isOrder);
+  const invAvgPrice = inv.length ? sumBy(inv, c => _dashAmount(c)) / inv.length : 0;
 
   // 全アーカイブ平均販売価格
   const allSold = [...archivedCars, ...cars.filter(c => c.col === 'done')];
-  const avgSoldPrice = allSold.length ? sumBy(allSold, c => Number(c.price)||0) / allSold.length : 0;
+  const avgSoldPrice = allSold.length ? sumBy(allSold, c => _dashAmount(c)) / allSold.length : 0;
 
   // 平均在庫日数（売れた車基準）
-  const avgInvDays = allSold.length ? sumBy(allSold, c => {
+  // v1.8.72: オーダー車両は「在庫」ではないので分母から除外して計算
+  const invDaysSrc = allSold.filter(c => !c.isOrder);
+  const avgInvDays = invDaysSrc.length ? sumBy(invDaysSrc, c => {
     if (!c.purchaseDate || !c.deliveryDate) return 0;
     return Math.max(0, Math.floor((new Date(c.deliveryDate) - new Date(c.purchaseDate))/86400000));
-  }) / allSold.length : 0;
+  }) / invDaysSrc.length : 0;
 
   // 月次平均販売台数（アーカイブの年月ユニーク数で割る）
   const monthsSeen = new Set([...archivedCars.map(c => c._archivedYM || (c.deliveryDate?ymKey(c.deliveryDate):''))].filter(Boolean));
@@ -270,18 +388,20 @@ function renderKPIs() {
   const pctLabel = v => v == null ? '—' : `${v>=0?'+':''}${v}%`;
   const pctClass = v => v == null ? '' : (v>=0 ? 'kpi-positive' : 'kpi-negative');
 
-  const thisSales = sumBy(thisMonth, c => Number(c.price)||0);
-  const lastSales = sumBy(lastMonth, c => Number(c.price)||0);
-  const yearSales = sumBy(lastYear, c => Number(c.price)||0);
+  const thisSales = sumBy(thisMonth, c => _dashAmount(c));
+  const lastSales = sumBy(lastMonth, c => _dashAmount(c));
+  const yearSales = sumBy(lastYear, c => _dashAmount(c));
   const yoySales = yearSales ? Math.round((thisSales - yearSales)/yearSales*100) : null;
   const momSales = lastSales ? Math.round((thisSales - lastSales)/lastSales*100) : null;
 
+  // v1.8.59: ダッシュボード金額の税扱いラベル
+  const dashTax = (typeof getTaxLabel === 'function') ? getTaxLabel('dashboard') : '税込';
   document.getElementById('dash-kpi').innerHTML = `
     <div class="kpi-grid">
       <div class="kpi-box">
         <div class="kpi-label">今月の販売台数</div>
         <div class="kpi-value">${thisMonth.length}<span style="font-size:12px;color:var(--text3)">台</span></div>
-        <div class="kpi-sub">売上 ${(thisSales/10000).toFixed(0)}万円</div>
+        <div class="kpi-sub">売上 ${(thisSales/10000).toFixed(0)}万円<span style="font-size:9px;color:var(--text3);margin-left:3px">（${dashTax}）</span></div>
       </div>
       <div class="kpi-box">
         <div class="kpi-label">先月比</div>
@@ -299,12 +419,12 @@ function renderKPIs() {
         <div class="kpi-sub">アーカイブ累計から算出</div>
       </div>
       <div class="kpi-box">
-        <div class="kpi-label">在庫平均価格</div>
+        <div class="kpi-label">在庫平均価格 <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div>
         <div class="kpi-value">${(invAvgPrice/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
         <div class="kpi-sub">現在${inv.length}台</div>
       </div>
       <div class="kpi-box">
-        <div class="kpi-label">売約平均価格</div>
+        <div class="kpi-label">売約平均価格 <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div>
         <div class="kpi-value">${(avgSoldPrice/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
         <div class="kpi-sub">累計${allSold.length}台から算出</div>
       </div>
@@ -327,7 +447,7 @@ function renderKPIs() {
     const k = c.size || '—';
     if (!sizeBreakdown[k]) sizeBreakdown[k] = {count:0, sales:0};
     sizeBreakdown[k].count++;
-    sizeBreakdown[k].sales += (Number(c.price)||0);
+    sizeBreakdown[k].sales += _dashAmount(c);
   });
   const priceBands = [
     {label:'〜100万', min:0, max:1000000},
@@ -336,7 +456,7 @@ function renderKPIs() {
     {label:'300万〜', min:3000000, max:Infinity},
   ];
   const bandStat = priceBands.map(b => {
-    const list = allSold.filter(c => (Number(c.price)||0) >= b.min && (Number(c.price)||0) < b.max);
+    const list = allSold.filter(c => _dashAmount(c) >= b.min && _dashAmount(c) < b.max);
     return {...b, count: list.length};
   });
   const maxBand = Math.max(1, ...bandStat.map(b => b.count));

@@ -32,6 +32,10 @@
       out[k] = v;
     }
     if (!out.updatedAt) out.updatedAt = window.fb.serverTimestamp();
+    // v1.8.58: LINE通知で「誰が更新したか」を出すため updatedBy を必ず付ける
+    if (window.fb.currentUser && window.fb.currentUser.uid) {
+      out.updatedBy = window.fb.currentUser.uid;
+    }
     return out;
   }
 
@@ -93,10 +97,20 @@
       const v = (value === null || value === undefined)
         ? FieldValue.delete()
         : value;
-      await col.doc(String(carId)).update(
-        fp, v,
-        new FieldPath('updatedAt'), window.fb.serverTimestamp()
-      );
+      // v1.8.58: LINE通知のために updatedBy も同時に更新
+      const myUid = (window.fb.currentUser && window.fb.currentUser.uid) || null;
+      if (myUid) {
+        await col.doc(String(carId)).update(
+          fp, v,
+          new FieldPath('updatedAt'), window.fb.serverTimestamp(),
+          new FieldPath('updatedBy'), myUid
+        );
+      } else {
+        await col.doc(String(carId)).update(
+          fp, v,
+          new FieldPath('updatedAt'), window.fb.serverTimestamp()
+        );
+      }
     } catch (err) {
       console.error('[db-cars] saveCarField error:', err, carId, path);
       if (typeof showToast === 'function') showToast('保存に失敗しました');
@@ -104,13 +118,38 @@
     }
   }
 
+  // v1.8.40: 削除直後の onSnapshot 競合で「削除済みのはずの車両が
+  //          ダッシュボード見込み等に残る」現象を防ぐためのペンディングセット。
+  //          deleteCar 開始時に追加 → applyRealtimeCars で除外 → snapshot から
+  //          消えたことを確認してクリア（保険として 10 秒後に強制クリア）。
+  const _pendingDeletes = new Set();
+  function _markPendingDelete(carId) {
+    if (!carId) return;
+    const sid = String(carId);
+    _pendingDeletes.add(sid);
+    // 保険：10秒後に強制解除（snapshot がいつまでも追いつかない場合の漏れ防止）
+    setTimeout(() => { _pendingDeletes.delete(sid); }, 10000);
+  }
+  function _confirmPendingDelete(carId) {
+    if (!carId) return;
+    _pendingDeletes.delete(String(carId));
+  }
+  function isCarPendingDelete(carId) {
+    return _pendingDeletes.has(String(carId));
+  }
+
   async function deleteCar(carId) {
     if (!carId) return;
     const col = _carsCol();
     if (!col) return;
+    // v1.8.40: 楽観的に「削除中」マークを付ける。realtime 同期で再生成されないように。
+    _markPendingDelete(carId);
     try {
       await col.doc(String(carId)).delete();
+      // 削除自体は成功。snapshot 反映後、applyRealtimeCars 側で _confirmPendingDelete される
     } catch (err) {
+      // 失敗時は再生成を許容するためマークを外す
+      _confirmPendingDelete(carId);
       console.error('[db-cars] deleteCar error:', err);
       if (typeof showToast === 'function') showToast('削除に失敗しました');
       throw err;
@@ -221,6 +260,9 @@
     seedSampleCarsIfEmpty: seedSampleCarsIfEmpty,
     refreshCars: refreshCars,
     subscribeCars: subscribeCars,
+    // v1.8.40: realtime 同期側で削除中車両をスキップするためのフック
+    isCarPendingDelete: isCarPendingDelete,
+    _confirmPendingDelete: _confirmPendingDelete,
   };
 
   console.log('[db-cars] ready');

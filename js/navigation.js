@@ -36,6 +36,8 @@ function showPanel(name, el) {
     renderClosedRulesList();
     renderGoalsEditor();
     refreshLeadDaysUI();
+    if (typeof refreshPriceTaxUI === 'function') refreshPriceTaxUI();
+    if (typeof refreshCompanyInfoUI === 'function') refreshCompanyInfoUI();
     if (typeof refreshThemePickerUI === 'function') refreshThemePickerUI();
     if (typeof refreshFontSizePickerUI === 'function') refreshFontSizePickerUI();
     if (typeof renderTasksEditor === 'function') renderTasksEditor();

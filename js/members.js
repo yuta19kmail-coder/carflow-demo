@@ -382,7 +382,7 @@ function _refreshEditMemberAvatar(staffOrNull) {
   }
 }
 
-// ファイル選択 → プレビュー（実アップロードは保存時）
+// v1.8.77: ファイル選択 → クロッパーを開いて円形トリミング → 適用結果を pending に保存
 async function onEditMemberPhotoPick(input) {
   if (!input || !input.files || !input.files[0]) return;
   const file = input.files[0];
@@ -391,15 +391,25 @@ async function onEditMemberPhotoPick(input) {
     input.value = '';
     return;
   }
-  _editMemberPendingPhotoBlob = file;
-  _editMemberClearPhoto = false;
-  // プレビュー用の data:URL
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    _editMemberPendingPhotoPreview = e.target.result;
-    _refreshEditMemberAvatar(null);
-  };
-  reader.readAsDataURL(file);
+  if (typeof openAvatarCrop === 'function') {
+    openAvatarCrop(file, (croppedBlob, dataUrl) => {
+      _editMemberPendingPhotoBlob = croppedBlob;
+      _editMemberPendingPhotoPreview = dataUrl;
+      _editMemberClearPhoto = false;
+      _refreshEditMemberAvatar(null);
+    });
+  } else {
+    // フォールバック（旧挙動：クロッパーなしで生ファイル保持）
+    _editMemberPendingPhotoBlob = file;
+    _editMemberClearPhoto = false;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      _editMemberPendingPhotoPreview = e.target.result;
+      _refreshEditMemberAvatar(null);
+    };
+    reader.readAsDataURL(file);
+  }
+  input.value = '';
 }
 window.onEditMemberPhotoPick = onEditMemberPhotoPick;
 

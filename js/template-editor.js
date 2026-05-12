@@ -126,7 +126,7 @@
     const sourceLabel = { worksheet: '作業管理票', equipment: '装備品', custom: 'カスタム' };
 
     const cardsHtml = list.map(t => {
-      const phase = t.sourcePhase ? `<span class="tpl-phase tpl-phase-${t.sourcePhase}">${t.sourcePhase === 'regen' ? '再生' : '納車'}</span>` : '';
+      const phase = t.sourcePhase ? `<span class="tpl-phase tpl-phase-${t.sourcePhase}">${t.sourcePhase === 'regen' ? '展示準備' : '納車準備'}</span>` : '';
       // v1.7.34: variants を必ず1個以上持つよう整える（旧データの自動移行）
       if (!Array.isArray(t.variants) || t.variants.length === 0) {
         const sec = Array.isArray(t.sections) ? t.sections : [];

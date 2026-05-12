@@ -25,7 +25,7 @@
   const COL_LABELS = {
     other:    'その他',
     purchase: '仕入れ',
-    regen:    '再生中',
+    regen:    '展示準備中',
     exhibit:  '展示中',
     delivery: '納車準備',
     done:     '納車完了',

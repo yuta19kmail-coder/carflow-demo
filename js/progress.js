@@ -48,26 +48,20 @@ function _isTaskComplete(car, task, tasks) {
 //   トグル系は引き続き 0/100 の二値（変化なし）。
 function calcProg(car) {
   const isD = car.col === 'delivery' || car.col === 'done';
-  const phase = isD ? 'delivery' : 'regen';
   // v1.0.32: 有効なタスクだけで全体進捗を計算（無効化タスクはカウントしない）
-  const tasks = isD ? getActiveDeliveryTasks() : getActiveRegenTasks();
+  // v1.8.51: car を渡して「選択制かつ未opt-in」のタスクも除外（Phase B）
+  //          進捗ウエイト(appTaskWeight)は廃止。全タスク均等割りで partial credit を加味。
+  const tasks = isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car);
   // 自動判定タスクは分母から除外
   const targets = tasks.filter(t => t.id !== 't_complete' && t.id !== 'd_complete');
-  // 重み取得
-  const weights = (typeof appTaskWeight !== 'undefined' && appTaskWeight && appTaskWeight[phase])
-    ? appTaskWeight[phase] : {};
-  // 重みが1個でも有効値（>0）あれば「重み付き」モード、なければ均等
-  const hasAnyWeight = targets.some(t => Number(weights[t.id]) > 0);
 
-  // v1.8.26: pct 計算（partial credit）と done/total（X/Y 表示用 整数カウント）を分離
-  let totalUnits = 0, doneUnits = 0;   // pct 計算用（小数）
-  let totalCount = 0, doneCount = 0;   // 表示用（タスク全完了数の整数カウント）
+  let totalCount = 0, doneCount = 0;        // 表示用：タスク全完了数（整数）
+  let totalUnits = 0, doneUnits = 0;        // pct 計算用：partial credit
   targets.forEach(t => {
-    const w = hasAnyWeight ? (Number(weights[t.id]) || 0) : 1;
-    totalUnits += w;
+    totalUnits += 1;
     const sp = calcSingleProg(car, t.id, tasks);
     const ratio = Math.max(0, Math.min(100, sp.pct || 0)) / 100;
-    doneUnits += w * ratio;
+    doneUnits += ratio;
     totalCount += 1;
     if (ratio >= 1) doneCount += 1;
   });

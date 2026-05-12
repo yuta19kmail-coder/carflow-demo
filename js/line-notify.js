@@ -1,382 +1,141 @@
 // ========================================
-// line-notify.js (v1.8.19 → v1.8.20)
-// LINE通知連携：設定UI＋Cloud Functions経由のテスト送信
-// ----------------------------------------
-// Firestoreパス：companies/{cid}/integrations/line
-//   {
-//     channelAccessToken, groupId, enabled,
-//     triggers: {
-//       dailyReport: { enabled, time:'HH:MM', skipClosedDays:bool },
-//       redBoardNote: { enabled },
-//       taskComplete: { enabled, mode:'all'|'once_per_day_per_person'|'phase_only' },
-//     },
-//     dedupKeys: { ... },
-//     updatedAt, updatedBy
-//   }
-//
-// 設計方針：
-//   ・チャネルアクセストークンは絶対にブラウザのコンソール／LocalStorage に出さない
-//   ・送信は Cloud Functions 経由（asia-northeast1）
-//   ・SaaS化想定：Cloud Function側で companyId を受け取り、その会社のtoken/groupIdで送信
-//   ・admin/manager のみ閲覧・編集可（Firestoreルールで二重ガード）
+// state.js
+// アプリの状態（グローバル変数）
+// 現在ログイン中のユーザー、編集中の車両ID、
+// ドラッグ中のオブジェクトなどを保持
 // ========================================
 
-(function () {
-  'use strict';
+let currentUser = '';              // ログインユーザー名
+// v1.5.1〜: cars はここで空配列で初期化。ログイン後 db-cars.loadCars() で Firestore から取得して上書き
+let cars = [];
+let formPhotoData = null;          // 車両登録フォームで選択中の写真
+let editingCarId = null;           // 編集中の車両ID
+let calYear, calMonth;             // カレンダー表示中の年月
+let dragCard = null;               // ドラッグ中の車両カード
+let dragDeliveryCarId = null;      // カレンダーで納車バーをドラッグ中の車両ID
+let pendingDragCar = null;         // 売却確認ダイアログで保留中の車両
+let pendingTargetCol = null;       // 同上の移動先列
+let globalLogs = [];               // 全操作ログ
+let activeDetailCarId = null;      // 現在詳細モーダル表示中の車両ID
+let wfState = {carId:null, taskId:null, isDelivery:false}; // ワークフロー状態
+let closedDays = [3];              // 定休日の曜日（初期：水曜） ※互換用（毎週のみ）
+let closedRules = [                // 定休日ルール（拡張版）
+  // id, pattern:'weekly'|'biweekly'|'nth', dow:0-6, nth?:1-5, anchorYM?:'YYYY-MM'
+  {id:'r-default', pattern:'weekly', dow:3}
+];
+let customHolidays = [];           // カスタム休業日リスト
+let jpHolidays = {};               // 日本の祝日（APIから取得）
+let archivedCars = [];             // 月次集計締めでアーカイブされた車両
 
-  // ----------------------------------------
-  // メモリ上の現在値
-  // ----------------------------------------
-  function _defaultConfig() {
-    return {
-      channelAccessToken: '',
-      groupId: '',
-      enabled: false,
-      triggers: {
-        dailyReport:  { enabled: false, time: '17:00', skipClosedDays: true },
-        redBoardNote: { enabled: false },
-        taskComplete: { enabled: false, mode: 'all' },
-      },
-    };
+// v1.7.0: 全体タスク（付箋ボード）
+let boardNotes = [];               // 付箋ボードの全件（order asc）
+let boardLabels = {                // 色ごとのラベル（会社共通）。設定→表示で編集可
+  red:    '緊急',
+  orange: '今日中',
+  yellow: '今週中',
+  green:  '連絡',
+  blue:   '余裕',
+};
+let dragBoardNoteId = null;        // 付箋 DnD 中の id
+
+// 展示ビューのソート設定（key: 'price'|'invDays'|'year'、dir: 'asc'|'desc'）
+let exhibitSort = { key: 'invDays', dir: 'desc' };
+
+// 全体一覧ビューのソート設定（v0.8.7）
+// key: 'num'|'purchaseDate'|'status'|'progress'|'deliveryDate'、dir: 'asc'|'desc'
+let tableSort = { key: 'purchaseDate', dir: 'desc' };
+
+// 進捗ビューの枠ごとの展開状態（v1.0.11）
+// 4枚以上で自動的に縮小、ユーザーが「すべて展開」を押すと true になりトグルで保持
+let progressExpanded = { other:false, before:false, delivery:false };
+
+// カンバン全列のソート設定（v1.0.14）
+// key: null|'num'|'price'|'progress'|'date'|'status'、dir: 'asc'|'desc'
+// 'date' は売約済みなら売約日数、未売約なら在庫日数で自動判定
+// 納車完了列（done）は対象外
+let kanbanSort = { key: null, dir: 'desc' };
+
+// 「すべてのカードを開く」フラグ。true の間は4台以上でも縮小せず通常表示
+// 何かの操作（並び替え変更／カード移動／新規登録など）があると false に戻る
+let kanbanForceExpand = false;
+
+// ========== 会社ごとの設定 ==========
+let appSettings = {
+  // 在庫警告3段階（日数・ON/OFF）
+  invWarn: [
+    {days:15, on:true,  color:'#fcd34d', bg:'rgba(245,210,59,.18)', label:'注意'},
+    {days:30, on:true,  color:'#fb923c', bg:'rgba(251,146,60,.20)', label:'要対応'},
+    {days:45, on:true,  color:'#fca5a5', bg:'rgba(239,68,68,.22)',  label:'危険'},
+  ],
+  // 納車残日数警告3段階（日数・ON/OFF）
+  delWarn: [
+    {days:7, on:true,  color:'#93c5fd', bg:'rgba(55,138,221,.20)',  label:'準備'},
+    {days:3, on:true,  color:'#fcd34d', bg:'rgba(245,210,59,.20)',  label:'直前'},
+    {days:0, on:true,  color:'#fca5a5', bg:'rgba(239,68,68,.22)',   label:'当日'},
+  ],
+  // デフォルト納車日＝今日+N日（=リードタイム日数）
+  deliveryLeadDays: 14,
+  // 通知設定（日数とON/OFF、説明）
+  notif: {
+    pre: {on:true, days:3, desc:'納車予定のN日前からダッシュボードと下部チップに表示'},
+    stock: {on:true, days:45, desc:'N日以上在庫している車両をアラート'},
+    stall: {on:true, days:7, desc:'同一ステータスでN日以上動きが無い車両を検出'},
+  },
+  // 店舗目標
+  goals: {
+    yearStart: 1,           // 年度開始月（1=1月始まり、4=4月始まり、など）
+    revRecog: 'delivery',   // 'contract' | 'delivery'  売上計上タイミング
+    monthly: {              // 月別目標。keyは"YYYY-MM"
+    },
+    annual: {               // 年度別目標
+    },
+    default: {sales: 3.0e7, count: 15}
+  },
+  // v1.8.45: 装備品「お客様用に印刷」シートの表示項目トグル（全部デフォルトON）
+  //   印刷シート上部の「⚙️ 表示項目」から個別に切替できる。
+  //   descriptions = 装備項目に登録された短い説明（item.sub）/長い説明（item.detail）を
+  //   行の下にリード文として表示する。
+  // v1.8.75: 総額/本体/税表記/グレード/自社情報トグルを追加
+  printEquipment: {
+    photo: true,
+    maker: true,
+    grade: true,
+    year: true,
+    km: true,
+    color: true,
+    size: true,
+    num: true,
+    price: true,           // 価格セクションを出すか（false にすると総額/本体/税どれも出ない）
+    totalPrice: true,      // 総額
+    bodyPrice: true,       // 本体価格
+    taxLabel: true,        // 税表記
+    descriptions: true,
+    companyInfo: true,     // 店舗ロゴ/店舗名/住所/電話 等の自社情報
+  },
+  // v1.8.75: 店舗情報（印刷シートに出す）
+  companyInfo: {
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    url: '',
+    logo: '',  // data:URL or Firebase Storage URL
+    note: '',  // 任意のメモ（例：定休日／営業時間 など）
+  },
+  // v1.8.59: 金額表示の税扱い設定。各フィールド独立に「税込」or「税抜」で表記する。
+  //   - body: 本体価格（car.price）の表示ラベル
+  //   - total: 総額（car.totalPrice）の表示ラベル
+  //   - dashboard: ダッシュボードの合計金額（売上見込み・在庫評価額など）の表示ラベル
+  //   値は 'incl'（税込）または 'excl'（税抜）。デフォルトは全て 'incl'。
+  priceTax: {
+    body: 'incl',
+    total: 'incl',
+    dashboard: 'incl',
+    // v1.8.67: ダッシュボード集計の元データ。'body'＝本体価格、'total'＝総額（無ければ本体にフォールバック）
+    dashboardSource: 'body',
+    // v1.8.67: 消費税率（％）。逆入力ボタンとダッシュボード自動換算の両方で使う。
+    rate: 10,
+    // v1.8.68: 展示ビューカードで表示する金額。'body'＝本体価格、'total'＝総額（無ければ本体にフォールバック）
+    exhibitSource: 'total',
   }
-
-  let _lineConfig = _defaultConfig();
-  let _tokenMasked = true;
-
-  // ----------------------------------------
-  // Firestore参照
-  // ----------------------------------------
-  function _lineDoc() {
-    if (!window.fb || !window.fb.db || !window.fb.currentCompanyId) return null;
-    return window.fb.db
-      .collection('companies').doc(window.fb.currentCompanyId)
-      .collection('integrations').doc('line');
-  }
-
-  // ----------------------------------------
-  // Cloud Functions
-  // ----------------------------------------
-  function _functions() {
-    if (typeof firebase === 'undefined' || !firebase.functions) return null;
-    return firebase.app().functions('asia-northeast1');
-  }
-
-  // ----------------------------------------
-  // 読み込み
-  // ----------------------------------------
-  async function loadLineConfig() {
-    const ref = _lineDoc();
-    if (!ref) return;
-    try {
-      const snap = await ref.get();
-      const def = _defaultConfig();
-      if (!snap.exists) {
-        _lineConfig = def;
-      } else {
-        const d = snap.data() || {};
-        _lineConfig = {
-          channelAccessToken: typeof d.channelAccessToken === 'string' ? d.channelAccessToken : '',
-          groupId: typeof d.groupId === 'string' ? d.groupId : '',
-          enabled: !!d.enabled,
-          triggers: {
-            dailyReport: Object.assign({}, def.triggers.dailyReport, (d.triggers && d.triggers.dailyReport) || {}),
-            redBoardNote: Object.assign({}, def.triggers.redBoardNote, (d.triggers && d.triggers.redBoardNote) || {}),
-            taskComplete: Object.assign({}, def.triggers.taskComplete, (d.triggers && d.triggers.taskComplete) || {}),
-          },
-        };
-      }
-      _tokenMasked = !!_lineConfig.channelAccessToken;
-      _renderLineUI();
-      console.log('[line-notify] config loaded');
-    } catch (err) {
-      console.error('[line-notify] loadLineConfig error', err);
-      _setStatus('読み込みに失敗しました', 'err');
-    }
-  }
-
-  // ----------------------------------------
-  // UIに値を流し込む
-  // ----------------------------------------
-  function _renderLineUI() {
-    const tokenInp = document.getElementById('line-token-inp');
-    const groupInp = document.getElementById('line-group-inp');
-    const toggleEnabled = document.getElementById('line-enabled-toggle');
-
-    if (tokenInp) {
-      if (_tokenMasked && _lineConfig.channelAccessToken) {
-        tokenInp.value = _lineConfig.channelAccessToken.slice(0, 6) + '●●●●●●●●●●';
-        tokenInp.type = 'password';
-        tokenInp.dataset.masked = '1';
-      } else {
-        tokenInp.value = _lineConfig.channelAccessToken;
-        tokenInp.type = 'password';
-        tokenInp.dataset.masked = '0';
-      }
-    }
-    if (groupInp) groupInp.value = _lineConfig.groupId;
-    if (toggleEnabled) toggleEnabled.classList.toggle('on', !!_lineConfig.enabled);
-
-    // トリガー個別
-    const tDaily = document.getElementById('line-trig-daily-toggle');
-    const tRed = document.getElementById('line-trig-redboard-toggle');
-    const tTask = document.getElementById('line-trig-task-toggle');
-    if (tDaily) tDaily.classList.toggle('on', !!_lineConfig.triggers.dailyReport.enabled);
-    if (tRed) tRed.classList.toggle('on', !!_lineConfig.triggers.redBoardNote.enabled);
-    if (tTask) tTask.classList.toggle('on', !!_lineConfig.triggers.taskComplete.enabled);
-
-    // 日報時刻
-    const dailyTime = document.getElementById('line-daily-time');
-    if (dailyTime) dailyTime.value = _lineConfig.triggers.dailyReport.time || '17:00';
-
-    // 休業日も送る
-    const dailyClosed = document.getElementById('line-daily-closed-toggle');
-    if (dailyClosed) {
-      // skipClosedDays が true → 「休業日にも送る」スイッチは OFF
-      const skip = !!_lineConfig.triggers.dailyReport.skipClosedDays;
-      dailyClosed.classList.toggle('on', !skip);
-    }
-
-    // タスクモードラジオ
-    const mode = _lineConfig.triggers.taskComplete.mode || 'all';
-    document.querySelectorAll('input[name="line-task-mode"]').forEach(r => {
-      r.checked = (r.value === mode);
-    });
-  }
-
-  // ----------------------------------------
-  // ハンドラ群
-  // ----------------------------------------
-  function toggleLineEnabled() {
-    _lineConfig.enabled = !_lineConfig.enabled;
-    const t = document.getElementById('line-enabled-toggle');
-    if (t) t.classList.toggle('on', _lineConfig.enabled);
-  }
-
-  function toggleLineTrigger(key) {
-    if (!_lineConfig.triggers[key]) return;
-    _lineConfig.triggers[key].enabled = !_lineConfig.triggers[key].enabled;
-    const id = ({
-      dailyReport:  'line-trig-daily-toggle',
-      redBoardNote: 'line-trig-redboard-toggle',
-      taskComplete: 'line-trig-task-toggle',
-    })[key];
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('on', !!_lineConfig.triggers[key].enabled);
-  }
-
-  function onDailyTimeChange() {
-    const inp = document.getElementById('line-daily-time');
-    if (!inp) return;
-    let v = inp.value || '17:00';
-    // HH:MM 形式の検証＋5分単位に丸め
-    const m = /^(\d{1,2}):(\d{2})$/.exec(v);
-    if (!m) { v = '17:00'; }
-    else {
-      const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, '0');
-      let mm = parseInt(m[2], 10);
-      mm = Math.round(mm / 5) * 5;
-      if (mm >= 60) mm = 55;
-      v = `${hh}:${String(mm).padStart(2, '0')}`;
-    }
-    inp.value = v;
-    _lineConfig.triggers.dailyReport.time = v;
-  }
-
-  function toggleDailyClosed() {
-    const cur = !!_lineConfig.triggers.dailyReport.skipClosedDays;
-    _lineConfig.triggers.dailyReport.skipClosedDays = !cur;
-    const el = document.getElementById('line-daily-closed-toggle');
-    if (el) el.classList.toggle('on', !_lineConfig.triggers.dailyReport.skipClosedDays);
-  }
-
-  function onTaskModeChange(radio) {
-    if (!radio || !radio.value) return;
-    _lineConfig.triggers.taskComplete.mode = radio.value;
-  }
-
-  function toggleLineTokenVisibility() {
-    const inp = document.getElementById('line-token-inp');
-    if (!inp) return;
-    if (inp.dataset.masked === '1') {
-      // 伏字 → 平文（既存トークンを表示）
-      inp.value = _lineConfig.channelAccessToken;
-      inp.type = 'text';
-      inp.dataset.masked = '0';
-      _tokenMasked = false;
-    } else {
-      // 平文 → 伏字（メモリ値ベースで再描画）
-      inp.type = 'password';
-      _tokenMasked = true;
-      _renderLineUI();
-    }
-  }
-
-  // ----------------------------------------
-  // 保存
-  // ----------------------------------------
-  async function saveLineConfig() {
-    const ref = _lineDoc();
-    if (!ref) { _setStatus('会社情報がまだ読み込まれていません', 'err'); return; }
-
-    const tokenInp = document.getElementById('line-token-inp');
-    const groupInp = document.getElementById('line-group-inp');
-
-    let token = _lineConfig.channelAccessToken;
-    if (tokenInp && tokenInp.dataset.masked === '0') {
-      token = tokenInp.value.trim();
-    }
-    const groupId = (groupInp ? groupInp.value : '').trim();
-
-    if (_lineConfig.enabled) {
-      if (!token) { _setStatus('トークンが空です（有効化するなら必須）', 'err'); return; }
-      if (!groupId) { _setStatus('グループIDが空です（有効化するなら必須）', 'err'); return; }
-      if (!/^C[a-z0-9]{32}$/i.test(groupId)) {
-        _setStatus('グループIDの形式がおかしいです（C始まりの33文字）', 'err'); return;
-      }
-    }
-
-    const payload = {
-      channelAccessToken: token,
-      groupId: groupId,
-      enabled: !!_lineConfig.enabled,
-      triggers: {
-        dailyReport: Object.assign({}, _lineConfig.triggers.dailyReport),
-        redBoardNote: Object.assign({}, _lineConfig.triggers.redBoardNote),
-        taskComplete: Object.assign({}, _lineConfig.triggers.taskComplete),
-      },
-      updatedAt: window.fb.serverTimestamp(),
-      updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
-    };
-
-    try {
-      _setStatus('保存中…', '');
-      await ref.set(payload, { merge: true });
-      _lineConfig.channelAccessToken = token;
-      _lineConfig.groupId = groupId;
-      _tokenMasked = true;
-      _renderLineUI();
-      _setStatus('✅ 保存しました', 'ok');
-      if (typeof showToast === 'function') showToast('LINE連携設定を保存しました');
-    } catch (err) {
-      console.error('[line-notify] save error', err);
-      _setStatus('保存に失敗：' + (err.message || err.code), 'err');
-    }
-  }
-
-  // ----------------------------------------
-  // 接続テスト送信（v1.8.19既存）
-  // ----------------------------------------
-  async function sendLineTest() {
-    if (!window.fb || !window.fb.currentCompanyId) {
-      _setStatus('会社情報がまだ読み込まれていません', 'err'); return;
-    }
-    if (!_lineConfig.enabled) {
-      _setStatus('「LINE通知を有効化」がOFFです', 'err'); return;
-    }
-    const fns = _functions();
-    if (!fns) { _setStatus('Functions SDKが読み込まれていません', 'err'); return; }
-
-    const btn = document.getElementById('line-test-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '送信中…'; }
-    _setStatus('テスト送信中…', '');
-
-    try {
-      const callable = fns.httpsCallable('sendLineNotification');
-      const senderName = _myDisplayName();
-      const stamp = _formatNow();
-      const message = `🚗 CarFlow からの接続テストです。\n送信日時：${stamp}\n送信者：${senderName}`;
-
-      await callable({
-        companyId: window.fb.currentCompanyId,
-        message: message,
-        kind: 'test',
-      });
-      _setStatus('✅ 接続テストOK（LINEグループを確認）', 'ok');
-      if (typeof showToast === 'function') showToast('LINEに接続テストを送信しました');
-    } catch (err) {
-      console.error('[line-notify] test send error', err);
-      _setStatus('❌ 送信失敗：' + _explainErr(err), 'err');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '📤 接続テスト送信'; }
-    }
-  }
-
-  // ----------------------------------------
-  // 共通：送信前チェック
-  // ----------------------------------------
-  function _assertReady() {
-    if (!window.fb || !window.fb.currentCompanyId) {
-      _setStatus('会社情報がまだ読み込まれていません', 'err'); return false;
-    }
-    if (!_lineConfig.enabled) {
-      _setStatus('「LINE通知を有効化」がOFFです', 'err'); return false;
-    }
-    return true;
-  }
-
-  // ----------------------------------------
-  // ユーティリティ
-  // ----------------------------------------
-  function _myDisplayName() {
-    return (window.fb.currentStaff && (window.fb.currentStaff.customDisplayName || window.fb.currentStaff.displayName))
-      || (window.fb.currentUser && window.fb.currentUser.displayName)
-      || 'CarFlow ユーザー';
-  }
-
-  function _formatNow() {
-    const n = new Date();
-    return `${n.getFullYear()}/${String(n.getMonth()+1).padStart(2,'0')}/${String(n.getDate()).padStart(2,'0')} ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-  }
-
-  function _explainErr(err) {
-    let msg = err.message || err.code || 'unknown';
-    if (err.code === 'unauthenticated') msg = 'ログインが必要です';
-    if (err.code === 'permission-denied') msg = '権限がありません（admin/manager のみ）';
-    if (err.code === 'failed-precondition') msg = msg || '設定が未完了です';
-    return msg;
-  }
-
-  function _setStatus(text, kind) {
-    const el = document.getElementById('line-config-status');
-    if (!el) return;
-    el.textContent = text || '';
-    el.style.color =
-      kind === 'ok' ? 'var(--green, #22c55e)' :
-      kind === 'err' ? 'var(--red, #ef4444)' :
-      'var(--text3)';
-  }
-
-  // ----------------------------------------
-  // 設定画面のタブ切替時に loadLineConfig を呼ぶ
-  // ----------------------------------------
-  function _hookNavSwitch() {
-    const nav = document.getElementById('settings-nav');
-    if (!nav) return;
-    nav.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('[data-section="notify"]');
-      if (btn) setTimeout(() => { loadLineConfig(); }, 50);
-    });
-  }
-
-  // ----------------------------------------
-  // 公開
-  // ----------------------------------------
-  window.toggleLineEnabled = toggleLineEnabled;
-  window.toggleLineTrigger = toggleLineTrigger;
-  window.onDailyTimeChange = onDailyTimeChange;
-  window.toggleDailyClosed = toggleDailyClosed;
-  window.onTaskModeChange = onTaskModeChange;
-  window.toggleLineTokenVisibility = toggleLineTokenVisibility;
-  window.saveLineConfig = saveLineConfig;
-  window.sendLineTest = sendLineTest;
-  window.loadLineConfig = loadLineConfig;
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _hookNavSwitch);
-  } else {
-    _hookNavSwitch();
-  }
-
-  console.log('[line-notify] v1.8.20 ready');
-})();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+};

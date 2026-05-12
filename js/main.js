@@ -46,11 +46,25 @@ function applyRealtimeCars(list, meta) {
   const wsId = (typeof window.getWsActiveCarId === 'function')
     ? window.getWsActiveCarId() : null;
   if (wsId) protectedIds.add(String(wsId));
+  // v1.8.50: カード詳細モーダルが開いてる車も保護。
+  //   詳細内で大タスクをトグルした直後に snapshot のキャッシュ反映で
+  //   旧 state が戻り、kanban のドット色が反映されない不具合を防ぐ。
+  if (typeof activeDetailCarId !== 'undefined' && activeDetailCarId) {
+    protectedIds.add(String(activeDetailCarId));
+  }
 
   const localById = {};
   for (let i = 0; i < cars.length; i++) {
     if (cars[i] && cars[i].id) localById[String(cars[i].id)] = cars[i];
   }
+
+  // v1.8.40: 「直前にローカルで削除した車両」は snapshot のキャッシュ反映前だと
+  //          まだ list に残っていることがあり、再生成されてダッシュボード見込み等に
+  //          数字が残る不具合があった（特に納車準備→削除の流れ）。
+  //          db-cars.isCarPendingDelete でフィルタして混入を防ぐ。
+  const isPendingDelete = (sid) => !!(window.dbCars
+    && typeof window.dbCars.isCarPendingDelete === 'function'
+    && window.dbCars.isCarPendingDelete(sid));
 
   const next = [];
   const seen = new Set();
@@ -58,6 +72,8 @@ function applyRealtimeCars(list, meta) {
     const c = list[i];
     if (!c || !c.id) continue;
     const sid = String(c.id);
+    // v1.8.40: 削除中の車両は snapshot に残っていてもスキップ
+    if (isPendingDelete(sid)) continue;
     seen.add(sid);
     if (protectedIds.has(sid) && localById[sid]) {
       next.push(localById[sid]);
@@ -65,7 +81,22 @@ function applyRealtimeCars(list, meta) {
       next.push(c);
     }
   }
+  // v1.8.40: snapshot から消えたことを確認できた = 削除完了。pending を解除する。
+  if (window.dbCars && typeof window.dbCars._confirmPendingDelete === 'function') {
+    const sidsInSnap = new Set();
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id) sidsInSnap.add(String(list[i].id));
+    }
+    // localById には残っていない & snapshot にも残っていない ID は削除確定
+    Object.keys(localById).forEach(lid => {
+      if (!sidsInSnap.has(lid) && isPendingDelete(lid)) {
+        window.dbCars._confirmPendingDelete(lid);
+      }
+    });
+  }
   protectedIds.forEach(pid => {
+    // v1.8.40: 削除予約中の ID は protect 対象としても復活させない
+    if (isPendingDelete(pid)) return;
     if (!seen.has(pid) && localById[pid]) next.push(localById[pid]);
   });
 

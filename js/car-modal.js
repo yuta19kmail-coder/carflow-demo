@@ -194,11 +194,29 @@ function openCarModal(carId) {
   document.getElementById('inp-num').value      = car?.num || '';
   document.getElementById('inp-maker').value    = car?.maker || '';
   document.getElementById('inp-model').value    = car?.model || '';
+  const gradeEl = document.getElementById('inp-grade');
+  if (gradeEl) gradeEl.value = car?.grade || '';
   document.getElementById('inp-year').value     = car?.year ? normalizeYear(car.year) : '';
   document.getElementById('inp-color').value    = car?.color || '';
   document.getElementById('inp-size').value     = car?.size || SIZES[0] || 'コンパクト';
   document.getElementById('inp-km').value       = car?.km || '';
   document.getElementById('inp-price').value    = car?.price || '';
+  const totalEl = document.getElementById('inp-total-price');
+  if (totalEl) totalEl.value = car?.totalPrice || '';
+  // v1.8.59: 税ラベルをフォームのラベルに動的反映
+  // v1.8.66: ボタン文言「税込で逆入力」「税抜で逆入力」も動的に
+  const tlb = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+  const tlt = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
+  const lblP = document.getElementById('lbl-price');
+  const lblT = document.getElementById('lbl-total-price');
+  if (lblP) lblP.textContent = `本体価格 (${tlb}・円)`;
+  if (lblT) lblT.textContent = `総額 (${tlt}・円)`;
+  const btnP = document.getElementById('btn-alt-price');
+  const btnT = document.getElementById('btn-alt-total-price');
+  if (btnP) btnP.textContent = (tlb === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄');
+  if (btnT) btnT.textContent = (tlt === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄');
+  // v1.8.51: 選択制タスクのチェックUI（Phase B）
+  _renderOptionalTaskPickers(car);
   document.getElementById('inp-purchase').value = car?.purchaseDate || todayStr();
   document.getElementById('inp-contract-date').value = car?.contractDate || '';
   document.getElementById('inp-delivery').value = car?.deliveryDate || '';
@@ -215,24 +233,34 @@ function openCarModal(carId) {
   const isEdit = !!carId;
   document.getElementById('car-modal-title').textContent = isEdit ? '車両情報を編集' : '新規車両登録';
 
-  // 新規登録時は2ボタン、編集時は更新ボタン1つ＋削除ボタン
+  // v1.8.73: 新規登録は「登録区分カード3つ＋登録ボタン1つ」、編集時は更新ボタン1つ＋削除ボタン
+  // v1.8.74: 編集時も区分カードを表示（オーダー⇔通常仕入⇔その他 を切替可能に）
   const saveBtn = document.getElementById('car-save-btn');
-  const otherBtn = document.getElementById('car-save-other-btn');
   const dangerZone = document.getElementById('edit-danger-zone');
+  const regTypeRow = document.getElementById('register-type-row');
+  const regTypeLabel = regTypeRow ? regTypeRow.querySelector('div') : null;
   if (isEdit) {
     if (saveBtn) {
       saveBtn.textContent = '更新する';
-      saveBtn.setAttribute('onclick', `saveCarModal('__edit__')`);
+      saveBtn.setAttribute('onclick', `saveCarModal()`);
     }
-    // v1.8.9: 「その他として登録」は新規登録専用。編集中は確実に隠す（!important で念入り）
-    if (otherBtn) otherBtn.style.setProperty('display', 'none', 'important');
+    if (regTypeRow) regTypeRow.style.display = '';
+    if (regTypeLabel) regTypeLabel.textContent = '登録区分（変更すると分類が切り替わります）';
+    // 現在の状態から初期選択を決定
+    let initType = 'purchase';
+    if (car && car.col === 'other') initType = 'other';
+    else if (car && car.isOrder) initType = 'order';
+    _selectRegisterType(initType);
     if (dangerZone) dangerZone.style.display = '';
   } else {
     if (saveBtn) {
-      saveBtn.textContent = '仕入れ車として登録';
-      saveBtn.setAttribute('onclick', `saveCarModal('purchase')`);
+      saveBtn.textContent = '登録';
+      saveBtn.setAttribute('onclick', `saveCarModal()`);
     }
-    if (otherBtn) otherBtn.style.removeProperty('display');
+    if (regTypeRow) regTypeRow.style.display = '';
+    if (regTypeLabel) regTypeLabel.textContent = '登録区分';
+    // 区分は「通常仕入」をデフォルト選択にリセット
+    _selectRegisterType('purchase');
     if (dangerZone) dangerZone.style.display = 'none';
   }
   document.getElementById('modal-car').classList.add('open');
@@ -291,13 +319,48 @@ function clearFormPhoto() {
   _updateFormPhotoPreview(null);
 }
 
+// v1.8.73: 登録区分カードのクリックハンドラ
+function _selectRegisterType(value) {
+  document.querySelectorAll('#register-type-options .reg-type-card').forEach(card => {
+    const v = card.getAttribute('data-value');
+    if (v === value) {
+      card.classList.add('selected');
+      const r = card.querySelector('input[type=radio]');
+      if (r) r.checked = true;
+    } else {
+      card.classList.remove('selected');
+    }
+  });
+}
+window._selectRegisterType = _selectRegisterType;
+
+// クリックでカードを選択（ラジオの代わり）
+document.addEventListener('click', function (e) {
+  const card = e.target.closest('#register-type-options .reg-type-card');
+  if (!card) return;
+  const v = card.getAttribute('data-value');
+  if (v) _selectRegisterType(v);
+});
+
+function _getSelectedRegisterType() {
+  const checked = document.querySelector('#register-type-options input[name=register-type]:checked');
+  return (checked && checked.value) || 'purchase';
+}
+
 async function saveCarModal(initialCol) {
-  // 新規登録時は initialCol で 'purchase' か 'other' を指定。編集時は無視。
+  // v1.8.73: 引数省略時は登録区分カードから選択値を読む（新規登録）
+  if (!initialCol) {
+    initialCol = editingCarId ? '__edit__' : _getSelectedRegisterType();
+  }
   // v1.0.43: 管理番号は必須を解除（空欄でもOK）
   // v1.0.44: 自動採番もやめ、空欄なら空欄のまま保存
   const num = document.getElementById('inp-num').value.trim();
   const maker = document.getElementById('inp-maker').value.trim();
   const model = document.getElementById('inp-model').value.trim();
+  const gradeInp = document.getElementById('inp-grade');
+  const grade = gradeInp ? gradeInp.value.trim() : '';
+  const totalInp = document.getElementById('inp-total-price');
+  const totalPrice = totalInp ? totalInp.value.trim() : '';
   if (!maker || !model) {
     showToast('メーカー・車種は必須です');
     return;
@@ -312,11 +375,28 @@ async function saveCarModal(initialCol) {
     const car = cars.find(c => c.id === editingCarId);
     if (!car) return;
     car.num = num; car.maker = maker; car.model = model;
+    car.grade = grade;
+    // v1.8.51: 選択制タスクのopt-in状態を保存
+    car.selectedTasks = _readOptionalTaskSelection();
+    // v1.8.74: 編集時の区分変更（カード）を反映
+    const newType = _getSelectedRegisterType();
+    if (newType === 'other') {
+      car.col = 'other';
+      car.isOrder = false;
+    } else if (newType === 'order') {
+      if (car.col === 'other') car.col = 'purchase';
+      car.isOrder = true;
+    } else {
+      // 'purchase' = 通常仕入
+      if (car.col === 'other') car.col = 'purchase';
+      car.isOrder = false;
+    }
     car.year         = yearNorm || car.year;
     car.color        = document.getElementById('inp-color').value    || car.color;
     car.size         = document.getElementById('inp-size').value;
     car.km           = kmInp || car.km;
     car.price        = document.getElementById('inp-price').value    || '';
+    car.totalPrice   = totalPrice;
     car.purchaseDate = document.getElementById('inp-purchase').value || car.purchaseDate;
     car.contract     = sellOn ? 1 : 0;
     car.contractDate = contractDate;
@@ -344,6 +424,8 @@ async function saveCarModal(initialCol) {
     closeModal('modal-car');
     if (document.getElementById('modal-detail').classList.contains('open')) renderDetailBody(car);
   } else {
+    // v1.8.72: 'order' は購入列スタート＋ isOrder=true。売約フラグは自動セットしない（手動）。
+    const isOrder = (initialCol === 'order');
     const startCol = (initialCol === 'other') ? 'other' : 'purchase';
     const newId = uid();
     let photoUrl = formPhotoData;
@@ -357,24 +439,29 @@ async function saveCarModal(initialCol) {
       }
     }
     const car = {
-      id: newId, num, maker, model,
+      id: newId, num, maker, model, grade,
       year : yearNorm || '—',
       color: document.getElementById('inp-color').value    || '—',
       size : document.getElementById('inp-size').value,
       km   : kmInp || '0',
       price: document.getElementById('inp-price').value    || '',
+      totalPrice,
       purchaseDate: document.getElementById('inp-purchase').value || todayStr(),
       contract: sellOn ? 1 : 0,
       contractDate,
       deliveryDate,
       memo : document.getElementById('inp-memo').value,
       photo: photoUrl,
+      isOrder: isOrder, // v1.8.72: オーダー車両フラグ
       col: startCol,
       regenTasks: mkTaskState(REGEN_TASKS),
       deliveryTasks: mkTaskState(DELIVERY_TASKS),
+      // v1.8.51: 選択制タスクのopt-in（Phase B）
+      selectedTasks: _readOptionalTaskSelection(),
       logs: []
     };
-    addLog(car.id, `新規登録（${startCol === 'other' ? 'その他' : '仕入れ'}として）`);
+    const regKind = isOrder ? 'オーダー車両' : (startCol === 'other' ? 'その他' : '仕入れ');
+    addLog(car.id, `新規登録（${regKind}として）`);
     cars.push(car);
     if (window.dbCars) {
       window.dbCars.saveCar(car).catch(e => console.error('[car-modal] save failed', e));
@@ -385,6 +472,107 @@ async function saveCarModal(initialCol) {
   renderAll();
   const okMsg = editingCarId
     ? '情報を更新しました'
-    : (initialCol === 'other' ? `${maker} ${model} を「その他」として登録しました` : `${maker} ${model} を仕入れ車として登録しました`);
+    : (initialCol === 'other' ? `${maker} ${model} を「その他」として登録しました`
+       : initialCol === 'order' ? `${maker} ${model} を「オーダー車両」として登録しました`
+       : `${maker} ${model} を仕入れ車として登録しました`);
   showToast(okMsg);
+}
+
+// ====================================================================
+// v1.8.66: 価格欄の「逆入力」ボタン
+//   その欄が税抜設定なら → 税込金額を入れて自動で税抜に換算
+//   その欄が税込設定なら → 税抜金額を入れて自動で税込に換算
+//   消費税率は 10%（固定）。後で変えたい場合は TAX_RATE を変更。
+// ====================================================================
+function promptAltPrice(which) {
+  // v1.8.67: 税率は設定 (appSettings.priceTax.rate %) から取得
+  const TAX_RATE = (typeof getTaxRate === 'function') ? getTaxRate() : 0.10;
+  const setting = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
+  const fieldMode = (setting[which] === 'excl') ? 'excl' : 'incl';   // 現在の欄の扱い
+  const fieldLabel = fieldMode === 'excl' ? '税抜' : '税込';
+  const altLabel   = fieldMode === 'excl' ? '税込' : '税抜';
+  const fieldName  = which === 'body' ? '本体価格' : '総額';
+  const inputId    = which === 'body' ? 'inp-price' : 'inp-total-price';
+
+  const raw = prompt(`${fieldName} の ${altLabel} 金額を入力してください\n（消費税10%で自動換算して ${fieldLabel} の値を入れます）`, '');
+  if (raw == null) return;
+  const cleaned = String(raw).replace(/[,\s]/g, '').replace(/円$/, '');
+  const n = parseInt(cleaned, 10);
+  if (!Number.isFinite(n) || n <= 0) {
+    if (typeof showToast === 'function') showToast('数値を入力してください');
+    return;
+  }
+  let converted;
+  if (fieldMode === 'excl') {
+    // 税込 → 税抜
+    converted = Math.round(n / (1 + TAX_RATE));
+  } else {
+    // 税抜 → 税込
+    converted = Math.round(n * (1 + TAX_RATE));
+  }
+  const el = document.getElementById(inputId);
+  if (el) el.value = String(converted);
+  if (typeof showToast === 'function') {
+    showToast(`${altLabel} ${n.toLocaleString()}円 → ${fieldLabel} ${converted.toLocaleString()}円 で入力しました`);
+  }
+}
+window.promptAltPrice = promptAltPrice;
+
+// ====================================================================
+// v1.8.51: 選択制タスクのチェックUI（Phase B）
+// 編集時は既存 car.selectedTasks をチェック反映。新規時は全部OFF。
+// ====================================================================
+function _renderOptionalTaskPickers(car) {
+  const head = document.getElementById('inp-optional-tasks-head');
+  const body = document.getElementById('inp-optional-tasks-body');
+  if (!head || !body) return;
+
+  const phases = [
+    { key: 'regen',    label: '🔧 展示準備フェーズ' },
+    { key: 'delivery', label: '📦 納車準備フェーズ' },
+  ];
+  const sel = (car && car.selectedTasks) || {};
+  let html = '';
+  let anyOptional = false;
+  phases.forEach(ph => {
+    const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI(ph.key) : [];
+    const optTasks = tasks.filter(t => t.enabled && t.optional);
+    if (optTasks.length === 0) return;
+    anyOptional = true;
+    html += `<div style="font-size:11px;color:var(--text3);font-weight:700;margin:6px 0 4px">${ph.label}</div>`;
+    optTasks.forEach(t => {
+      const carSel = (sel[ph.key] && sel[ph.key][t.id] === true);
+      html += `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:13px;border-bottom:1px dashed var(--border)">
+          <input type="checkbox" data-phase="${ph.key}" data-task-id="${t.id.replace(/"/g,'&quot;')}" ${carSel ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
+          <span style="font-size:14px">${t.icon || '📋'}</span>
+          <span>${(t.name || '').replace(/</g,'&lt;')}</span>
+        </label>`;
+    });
+  });
+
+  if (!anyOptional) {
+    head.style.display = 'none';
+    body.style.display = 'none';
+    body.innerHTML = '';
+    return;
+  }
+  head.style.display = '';
+  body.style.display = '';
+  body.innerHTML = html + '<div style="font-size:11px;color:var(--text3);margin-top:6px">※ チェックを入れた大タスクだけが、この車両のリストに表示されます</div>';
+}
+
+// モーダルの状態を読み取って selectedTasks 形式に変換する
+function _readOptionalTaskSelection() {
+  const body = document.getElementById('inp-optional-tasks-body');
+  const out = { regen: {}, delivery: {} };
+  if (!body) return out;
+  body.querySelectorAll('input[type="checkbox"][data-phase]').forEach(inp => {
+    const ph = inp.getAttribute('data-phase');
+    const id = inp.getAttribute('data-task-id');
+    if (!ph || !id) return;
+    if (!out[ph]) out[ph] = {};
+    if (inp.checked) out[ph][id] = true;
+  });
+  return out;
 }

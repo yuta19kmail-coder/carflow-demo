@@ -191,7 +191,7 @@ const REGEN_TASKS = [
   ]},
 
   // v1.7.17: 再生フェーズの完全完了（自動判定）。d_complete（納車側）と対称構造
-  {id:'t_complete', name:'再生完了', icon:'✅', type:'toggle'},
+  {id:'t_complete', name:'完全完了', icon:'✅', type:'toggle'},
 ];
 
 // 納車準備工程のタスク定義
@@ -375,6 +375,12 @@ const DELIVERY_TASKS = [
 let appTaskEnabled = { regen: {}, delivery: {} };
 let appCustomTasks = [];
 let appTaskOrder = { regen: [], delivery: [] };
+// v1.8.51: 大タスクを「選択制」にできる仕組み（Phase B）
+//   appTaskOptional[phase][taskId] = true なら、その大タスクは選択制扱い。
+//   選択制の大タスクは新規車両登録／編集／売約確定時のチェックUIで
+//   個別に car.selectedTasks[phase][taskId] = true を立てた車だけに表示される。
+//   既存（=非選択制）の大タスクはそのまま全車に表示。
+let appTaskOptional = { regen: {}, delivery: {} };
 // v1.6.1: 各タスクが「詳細チェックリスト」を持つかどうか
 //   true  → ChecklistTemplate (tpl_${phase}_${taskId}) と紐づき、編集UIから項目を編集
 //   false → 単純トグル（旧来通り）
@@ -409,6 +415,34 @@ function isTaskActive(taskId, phase) {
   return true;
 }
 
+// v1.8.51: タスクが「選択制」かどうか
+function isTaskOptional(taskId, phase) {
+  // 自動判定タスクは選択制対象外（常に通常タスク）
+  if (taskId === 't_complete' || taskId === 'd_complete') return false;
+  const map = (appTaskOptional && appTaskOptional[phase]) || {};
+  return !!map[taskId];
+}
+
+// v1.8.51: その車でこの選択制タスクが選ばれているかどうか
+//   - 非選択制タスク → 常に true（全車表示対象）
+//   - 選択制タスク → car.selectedTasks[phase][taskId] === true なら true
+function isTaskOptedInForCar(car, taskId, phase) {
+  if (!isTaskOptional(taskId, phase)) return true;
+  if (!car || !car.selectedTasks || !car.selectedTasks[phase]) return false;
+  return car.selectedTasks[phase][taskId] === true;
+}
+
+// v1.8.51: 設定→「選択制にする」トグル
+function setTaskOptional(taskId, phase, optional) {
+  if (!appTaskOptional[phase]) appTaskOptional[phase] = {};
+  if (optional) appTaskOptional[phase][taskId] = true;
+  else delete appTaskOptional[phase][taskId];
+  if (window.saveSettings) saveSettings();
+}
+window.isTaskOptional = isTaskOptional;
+window.isTaskOptedInForCar = isTaskOptedInForCar;
+window.setTaskOptional = setTaskOptional;
+
 function getTaskDeadline(taskId, phase) {
   const map = (appTaskDeadline && appTaskDeadline[phase]) || {};
   const v = map[taskId];
@@ -438,12 +472,22 @@ function _allTasksForPhase(phase) {
   return _sortByTaskOrder(builtin.concat(custom), phase);
 }
 
-function getActiveRegenTasks() {
-  return _allTasksForPhase('regen').filter(t => isTaskActive(t.id, 'regen'));
+// v1.8.51: car を渡すと、選択制かつ未opt-in のタスクが除外される。
+//          car 省略時は「非選択制タスクのみ」を返す（設定UI等で安全に列挙する用途）。
+function getActiveRegenTasks(car) {
+  return _allTasksForPhase('regen').filter(t => {
+    if (!isTaskActive(t.id, 'regen')) return false;
+    if (isTaskOptional(t.id, 'regen') && !isTaskOptedInForCar(car, t.id, 'regen')) return false;
+    return true;
+  });
 }
 
-function getActiveDeliveryTasks() {
-  return _allTasksForPhase('delivery').filter(t => isTaskActive(t.id, 'delivery'));
+function getActiveDeliveryTasks(car) {
+  return _allTasksForPhase('delivery').filter(t => {
+    if (!isTaskActive(t.id, 'delivery')) return false;
+    if (isTaskOptional(t.id, 'delivery') && !isTaskOptedInForCar(car, t.id, 'delivery')) return false;
+    return true;
+  });
 }
 
 function getAllTasksForUI(phase) {
@@ -456,6 +500,8 @@ function getAllTasksForUI(phase) {
     hasChecklist: hasTaskChecklist(t.id, phase),
     // 詳細作成の切替が許可されているか（worksheet系・自動判定系は固定）
     canToggleChecklist: canToggleTaskChecklist(t.id, phase),
+    // v1.8.51: 選択制かどうか
+    optional: isTaskOptional(t.id, phase),
   }));
 }
 

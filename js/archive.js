@@ -122,31 +122,40 @@ function renderArchive() {
     byYear[y][m].push(c);
   });
 
+  // v1.8.71: 各車のスナップショットを使って表示モードに換算して集計
+  const ps = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
+  const dashMode   = (ps.dashboard === 'excl') ? 'excl' : 'incl';
+  const dashSource = (ps.dashboardSource === 'total') ? 'total' : 'body';
+  const dashTaxLbl = (dashMode === 'excl') ? '税抜' : '税込';
+  const sumCar = c => (typeof _amountFromCarWithSnapshot === 'function')
+    ? _amountFromCarWithSnapshot(c, dashSource, dashMode)
+    : (Number(c.price) || 0);
+
   // サマリー（全期間）
   const totalCars = archivedCars.length;
-  const totalSales = archivedCars.reduce((s, c) => s + (Number(c.price) || 0), 0);
+  const totalSales = archivedCars.reduce((s, c) => s + sumCar(c), 0);
   const avgInv = archivedCars.reduce((s, c) => {
     if (!c.purchaseDate || !c.deliveryDate) return s;
     return s + Math.max(0, Math.floor((new Date(c.deliveryDate) - new Date(c.purchaseDate))/86400000));
   }, 0) / (totalCars || 1);
-  sum.innerHTML = `<div class="panel-card"><h3>累計サマリー</h3>
+  sum.innerHTML = `<div class="panel-card"><h3>累計サマリー <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">金額は全て${dashTaxLbl}換算（${dashSource==='total'?'総額':'本体価格'}ベース／各車の販売時税率で計算）</span></h3>
     <div class="kpi-grid">
       <div class="kpi-box"><div class="kpi-label">累計販売台数</div><div class="kpi-value">${totalCars}<span style="font-size:12px;color:var(--text3)">台</span></div></div>
-      <div class="kpi-box"><div class="kpi-label">累計売上</div><div class="kpi-value">${(totalSales/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div></div>
-      <div class="kpi-box"><div class="kpi-label">平均販売価格</div><div class="kpi-value">${(totalSales/totalCars/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div></div>
+      <div class="kpi-box"><div class="kpi-label">累計売上 <span style="font-size:9px;color:var(--text3)">（${dashTaxLbl}）</span></div><div class="kpi-value">${(totalSales/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div></div>
+      <div class="kpi-box"><div class="kpi-label">平均販売価格 <span style="font-size:9px;color:var(--text3)">（${dashTaxLbl}）</span></div><div class="kpi-value">${(totalSales/totalCars/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div></div>
       <div class="kpi-box"><div class="kpi-label">平均在庫日数</div><div class="kpi-value">${Math.round(avgInv)}<span style="font-size:12px;color:var(--text3)">日</span></div></div>
     </div>
   </div>`;
 
-  // 年→月
+  // 年→月（v1.8.71: スナップショット考慮の sumCar を使う）
   const years = Object.keys(byYear).sort().reverse();
   list.innerHTML = years.map(y => {
     const months = Object.keys(byYear[y]).sort().reverse();
-    const yearTotal = months.reduce((s, m) => s + byYear[y][m].reduce((ss, c) => ss + (Number(c.price)||0), 0), 0);
+    const yearTotal = months.reduce((s, m) => s + byYear[y][m].reduce((ss, c) => ss + sumCar(c), 0), 0);
     const yearCount = months.reduce((s, m) => s + byYear[y][m].length, 0);
     const monthsHtml = months.map(m => {
       const list = byYear[y][m];
-      const sales = list.reduce((s, c) => s + (Number(c.price)||0), 0);
+      const sales = list.reduce((s, c) => s + sumCar(c), 0);
       const goal = monthlyGoal(parseInt(y,10), parseInt(m,10));
       const salesPct = goal.sales ? Math.round(sales / goal.sales * 100) : 0;
       const countPct = goal.count ? Math.round(list.length / goal.count * 100) : 0;
@@ -154,13 +163,24 @@ function renderArchive() {
       const countHit = countPct >= 100;
       const carRows = list.sort((a,b) => (b.deliveryDate||'').localeCompare(a.deliveryDate||'')).map(c => {
         const inv = (c.purchaseDate && c.deliveryDate) ? Math.max(0, Math.floor((new Date(c.deliveryDate) - new Date(c.purchaseDate))/86400000)) : '—';
+        // v1.8.71: 表示モードへ換算した金額。当時のスナップショット税率で算出。
+        const conv = sumCar(c);
+        const snap = (typeof getCarPriceTax === 'function') ? getCarPriceTax(c) : null;
+        const snapNote = snap
+          ? `<span style="font-size:9px;color:var(--text3);margin-left:4px" title="販売時の税扱い：${dashSource==='total'?'総額':'本体'}=${(dashSource==='total'?snap.total:snap.body)==='excl'?'税抜':'税込'}／税率${snap.rate}%${snap.capturedAt?'／'+snap.capturedAt:''}">📋</span>`
+          : '';
+        // v1.8.72: オーダー車両は在庫日数欄に「オーダー車両」表記
+        const invDisp = c.isOrder
+          ? `<span style="color:#c084fc;font-weight:600" title="オーダー車両：在庫としてカウントしない">📦 オーダー</span>`
+          : `在庫${inv}日`;
+        const orderMark = c.isOrder ? '<span style="font-size:9px;color:#c084fc;margin-left:4px" title="オーダー車両">📦</span>' : '';
         return `<div class="arc-car-row">
-          <span class="mono">${c.num}</span>
-          <span style="color:var(--text)">${c.maker} ${c.model}</span>
+          <span class="mono">${c.num}${orderMark}</span>
+          <span style="color:var(--text)">${c.maker} ${c.model}${c.grade?' '+c.grade:''}</span>
           <span>${c.size||'—'}</span>
           <span>${Number(c.km||0).toLocaleString()}km</span>
-          <span>${fmtPrice(c.price)}</span>
-          <span style="text-align:right">在庫${inv}日</span>
+          <span>${(conv/10000).toFixed(1)}万円${snapNote}</span>
+          <span style="text-align:right">${invDisp}</span>
         </div>`;
       }).join('');
       return `<div class="arc-month" data-month-open="0">
@@ -176,7 +196,7 @@ function renderArchive() {
         </div>
         <div class="arc-cars" style="display:none">
           <div class="arc-car-row" style="color:var(--text3);font-weight:600;font-size:10px;border-bottom:1px solid var(--border)">
-            <span>管理番号</span><span>車両</span><span>ボディ</span><span>走行距離</span><span>販売価格</span><span style="text-align:right">在庫日数</span>
+            <span>管理番号</span><span>車両</span><span>ボディ</span><span>走行距離</span><span>販売価格（${dashTaxLbl}換算）</span><span style="text-align:right">在庫日数</span>
           </div>
           ${carRows}
         </div>

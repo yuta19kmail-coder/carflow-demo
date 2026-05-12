@@ -132,6 +132,139 @@
   .eq-view-grid { grid-template-columns: 1fr; }
 }
 
+/* v1.8.43: 印刷ボタン（お客様用 装備品一覧シート） */
+.eq-print-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 12px;
+}
+.eq-print-btn {
+  background: rgba(34,197,94,.12);
+  border: 1px solid rgba(34,197,94,.35);
+  color: #15803d;
+  padding: 7px 14px;
+  border-radius: var(--r);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.eq-print-btn:hover { background: rgba(34,197,94,.20); }
+.eq-print-btn:active { transform: scale(0.98); }
+
+/* ============ 印刷シート（CarFlow本体上のオーバーレイ） ============ */
+.ps-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  color: #1a1a1a;
+  z-index: 100000;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+}
+.ps-overlay.open { display: block; }
+.ps-toolbar {
+  position: sticky;
+  top: 0;
+  background: #f5f5f7;
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+.ps-btn { background: #6b7280; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.ps-btn:hover { background: #4b5563; }
+.ps-btn-print { background: #2563eb; }
+.ps-btn-print:hover { background: #1d4ed8; }
+.ps-btn-options { background: #fff; color: #1a1a1a; border: 1px solid #ccc; }
+.ps-btn-options:hover { background: #f0f0f0; }
+.ps-toolbar-spacer { flex: 1; }
+
+.ps-options {
+  background: #fafafa;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  display: none;
+}
+.ps-options.open { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.ps-options label {
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ps-options label input { cursor: pointer; }
+
+.ps-content { padding: 24px; max-width: 800px; margin: 0 auto; color: #1a1a1a; }
+.ps-header { display: flex; gap: 22px; align-items: stretch; padding-bottom: 18px; border-bottom: 2px solid #1a1a1a; margin-bottom: 22px; }
+.ps-photo { width: 260px; height: 180px; flex-shrink: 0; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.ps-photo img { width: 100%; height: 100%; object-fit: cover; }
+.ps-photo-fallback { font-size: 80px; color: #ccc; }
+.ps-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ps-title { font-size: 22pt; font-weight: 700; line-height: 1.2; margin-bottom: 6px; word-break: break-word; }
+.ps-num { font-size: 10pt; color: #888; margin-bottom: 10px; }
+.ps-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 11pt; margin-bottom: 12px; }
+.ps-stat { display: flex; gap: 6px; }
+.ps-stat-lbl { color: #888; min-width: 56px; }
+.ps-stat-val { color: #1a1a1a; font-weight: 500; }
+.ps-price { margin-top: auto; font-size: 22pt; font-weight: 700; color: #d97706; letter-spacing: -0.5px; }
+.ps-section-head { font-size: 15pt; font-weight: 700; text-align: center; margin: 16px 0 18px; padding: 10px 0; border-top: 2px solid #1a1a1a; border-bottom: 2px solid #1a1a1a; letter-spacing: 6px; position: relative; }
+.ps-section-head::before { content: ""; display: block; height: 4px; background: linear-gradient(90deg, transparent 0%, #16a34a 50%, transparent 100%); position: absolute; left: 30%; right: 30%; top: -3px; }
+
+/* v1.8.75: 自社情報ヘッダー（リッチ化） */
+.ps-company-hdr { display: flex; gap: 16px; align-items: center; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 3px double #1a1a1a; }
+.ps-company-logo { flex-shrink: 0; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; }
+.ps-company-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ps-company-info { flex: 1; min-width: 0; }
+.ps-company-name { font-size: 16pt; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; letter-spacing: 1px; }
+.ps-company-line { font-size: 10pt; color: #555; line-height: 1.6; }
+
+/* v1.8.75: 価格ボックス（強調） */
+.ps-price-box { margin-top: auto; display: inline-block; border: 2px solid #d97706; background: rgba(217,119,6,.05); padding: 10px 18px; border-radius: 8px; }
+.ps-price-main { font-size: 22pt; font-weight: 700; color: #d97706; letter-spacing: -0.5px; line-height: 1.1; }
+.ps-price-sub { font-size: 12pt; font-weight: 500; color: #888; margin-top: 4px; }
+.ps-price-tax { font-size: 11pt; font-weight: 500; color: #888; margin-left: 4px; }
+
+/* v1.8.75: フッター強化 */
+.ps-footer-co { font-weight: 600; color: #555; }
+.ps-cat { margin-bottom: 16px; break-inside: avoid; page-break-inside: avoid; }
+.ps-cat-head { font-size: 12pt; font-weight: 700; color: #1a1a1a; padding: 4px 0; border-bottom: 1.5px solid #1a1a1a; margin-bottom: 8px; }
+.ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; }
+.ps-row { padding: 4px 0; font-size: 11pt; border-bottom: 1px dotted #ddd; break-inside: avoid; page-break-inside: avoid; }
+.ps-row-main { display: flex; gap: 6px; align-items: baseline; }
+.ps-check { color: #16a34a; font-weight: 700; flex-shrink: 0; }
+.ps-name { flex: 1; }
+.ps-val { color: #1f4dd1; font-weight: 600; }
+.ps-desc { font-size: 9.5pt; color: #555; margin-top: 2px; padding-left: 18px; line-height: 1.45; }
+.ps-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 9pt; color: #888; display: flex; justify-content: space-between; }
+.ps-empty { text-align: center; padding: 40px; color: #888; font-size: 13pt; }
+
+@media (max-width: 600px) {
+  .ps-header { flex-direction: column; gap: 14px; }
+  .ps-photo { width: 100%; height: 220px; }
+  .ps-grid { grid-template-columns: 1fr; }
+  .ps-content { padding: 14px; }
+}
+
+/* 印刷時：CarFlow本体UIを隠し、シートだけ印刷 */
+@media print {
+  body { background: #fff !important; }
+  body > *:not(.ps-overlay) { display: none !important; }
+  .ps-overlay { position: static !important; overflow: visible !important; height: auto !important; background: #fff !important; }
+  .ps-overlay.open { display: block !important; }
+  .ps-toolbar, .ps-options, .no-print { display: none !important; }
+  .ps-content { padding: 0 !important; max-width: none !important; }
+  @page { size: A4; margin: 14mm; }
+}
+
 /* ============ 商談モードの装備詳細（モーフ表示） ============ */
 .deal-popup-body[data-eq-mode="1"] .deal-main { display: none; }
 .deal-popup-body[data-eq-mode="0"] .deal-eq-panel { display: none; }

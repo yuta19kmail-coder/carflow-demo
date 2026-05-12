@@ -700,6 +700,8 @@ function onWsTextInput(itemId, value) {
     _wsRefreshSectionCounts(car, taskDef);
     _wsUpdateProgressBadge();
     _refreshWsCompleteBtn(car, taskDef);
+    // v1.8.49: kanban 側もデバウンス完了タイミングで更新
+    if (typeof renderAll === 'function') renderAll();
     delete _wsTextSaveTimers[itemId];
   }, 400);
 }
@@ -744,6 +746,8 @@ function _wsSetItemValue(itemId, updater) {
   _wsRefreshSectionCounts(car, taskDef);
   _wsUpdateProgressBadge();
   _refreshWsCompleteBtn(car, taskDef);
+  // v1.8.49: 背面の kanban / 進捗% / dot もリアルタイムに更新（閉じる時の renderAll を待たない）
+  if (typeof renderAll === 'function') renderAll();
 }
 
 function _wsFindItem(taskDef, itemId) {

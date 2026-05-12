@@ -90,5 +90,52 @@ let appSettings = {
     annual: {               // 年度別目標
     },
     default: {sales: 3.0e7, count: 15}
+  },
+  // v1.8.45: 装備品「お客様用に印刷」シートの表示項目トグル（全部デフォルトON）
+  //   印刷シート上部の「⚙️ 表示項目」から個別に切替できる。
+  //   descriptions = 装備項目に登録された短い説明（item.sub）/長い説明（item.detail）を
+  //   行の下にリード文として表示する。
+  // v1.8.75: 総額/本体/税表記/グレード/自社情報トグルを追加
+  printEquipment: {
+    photo: true,
+    maker: true,
+    grade: true,
+    year: true,
+    km: true,
+    color: true,
+    size: true,
+    num: true,
+    price: true,           // 価格セクションを出すか（false にすると総額/本体/税どれも出ない）
+    totalPrice: true,      // 総額
+    bodyPrice: true,       // 本体価格
+    taxLabel: true,        // 税表記
+    descriptions: true,
+    companyInfo: true,     // 店舗ロゴ/店舗名/住所/電話 等の自社情報
+  },
+  // v1.8.75: 店舗情報（印刷シートに出す）
+  companyInfo: {
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    url: '',
+    logo: '',  // data:URL or Firebase Storage URL
+    note: '',  // 任意のメモ（例：定休日／営業時間 など）
+  },
+  // v1.8.59: 金額表示の税扱い設定。各フィールド独立に「税込」or「税抜」で表記する。
+  //   - body: 本体価格（car.price）の表示ラベル
+  //   - total: 総額（car.totalPrice）の表示ラベル
+  //   - dashboard: ダッシュボードの合計金額（売上見込み・在庫評価額など）の表示ラベル
+  //   値は 'incl'（税込）または 'excl'（税抜）。デフォルトは全て 'incl'。
+  priceTax: {
+    body: 'incl',
+    total: 'incl',
+    dashboard: 'incl',
+    // v1.8.67: ダッシュボード集計の元データ。'body'＝本体価格、'total'＝総額（無ければ本体にフォールバック）
+    dashboardSource: 'body',
+    // v1.8.67: 消費税率（％）。逆入力ボタンとダッシュボード自動換算の両方で使う。
+    rate: 10,
+    // v1.8.68: 展示ビューカードで表示する金額。'body'＝本体価格、'total'＝総額（無ければ本体にフォールバック）
+    exhibitSource: 'total',
   }
 };

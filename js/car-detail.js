@@ -126,13 +126,21 @@ function renderDetailBody(car) {
   if (car.col === 'other') return _renderDetailBodyOther(car);
 
   const isD = car.col === 'delivery' || car.col === 'done';
-  const tasks = (isD ? getActiveDeliveryTasks() : getActiveRegenTasks());
+  const tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
   const prog = calcProg(car);
   const inv = daysSince(car.purchaseDate);
   const contractedDays = daysSinceContract(car);
   const delDiff = car.deliveryDate ? daysDiff(car.deliveryDate) : null;
   let dayBlock = '';
-  if (car.contract) {
+  if (car.isOrder) {
+    // v1.8.72: オーダー車両の表示（在庫日数の代わりに「オーダー車両」バッジ）
+    dayBlock = `
+      <div class="detail-days-box" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4)">
+        <div class="detail-days-num" style="font-size:18px">📦</div>
+        <div class="detail-days-label">オーダー車両</div>
+        <div class="detail-days-sub" style="color:#c084fc;opacity:.85">在庫日数カウントなし</div>
+      </div>`;
+  } else if (car.contract) {
     const wt = delWarnTier(delDiff);
     const delLabel = (delDiff != null) ? (delDiff === 0 ? '納車本日' : delDiff > 0 ? `納車まで${delDiff}日` : `納車超過${-delDiff}日`) : '';
     dayBlock = `
@@ -172,7 +180,20 @@ function renderDetailBody(car) {
         ${dayBlock}
       </div>
       <div class="detail-head-right">
-        ${car.price ? `<div class="detail-price">${fmtPrice(car.price)}</div>` : ''}
+        ${(() => {
+          // v1.8.63: 緑（総額メイン）側の税ラベルは緑に。本体（サブ）はグレーのまま。
+          const tlb = (typeof getTaxLabel === 'function') ? getTaxLabel('body')  : '税込';
+          const tlt = (typeof getTaxLabel === 'function') ? getTaxLabel('total') : '税込';
+          const pt = fmtPriceTwo(car.totalPrice, car.price);
+          if (pt.hasTotal && pt.hasBody) {
+            return `<div class="detail-price-wrap"><div class="detail-price">総額 ${pt.totalDisp}<span class="detail-price-tax-green">（${tlt}）</span></div><div class="detail-price-body">本体 ${pt.bodyDisp}<span class="detail-price-tax">（${tlb}）</span></div></div>`;
+          } else if (pt.hasTotal) {
+            return `<div class="detail-price">総額 ${pt.totalDisp}<span class="detail-price-tax-green">（${tlt}）</span></div>`;
+          } else if (pt.hasBody) {
+            return `<div class="detail-price">本体 ${pt.bodyDisp}<span class="detail-price-tax-green">（${tlb}）</span></div>`;
+          }
+          return '';
+        })()}
         ${car.deliveryDate ? `<div class="detail-deldate">納車予定: ${fmtDate(car.deliveryDate)}</div>` : ''}
       </div>
     </div>
@@ -453,6 +474,15 @@ function closeDeleteCarConfirm(doDelete) {
   // v1.5.10: Storage の写真も削除（fire-and-forget）
   if (window.dbStorage && window.dbStorage.deleteCarPhoto) {
     window.dbStorage.deleteCarPhoto(removed.id);
+  }
+  // v1.8.40: 編集中／詳細表示中の車両IDが削除済みの ID を指したままだと、
+  //          以降の realtime 同期で「保護対象」と誤判定されて再生成される恐れがある。
+  //          念のため両方クリアしておく（納車準備→削除でダッシュボード見込みが残る不具合の対策）。
+  if (typeof editingCarId !== 'undefined' && String(editingCarId) === String(removed.id)) {
+    editingCarId = null;
+  }
+  if (typeof activeDetailCarId !== 'undefined' && String(activeDetailCarId) === String(removed.id)) {
+    activeDetailCarId = null;
   }
   // 開いているモーダルを両方閉じる
   closeModal('modal-car');
