@@ -346,6 +346,9 @@ function applyKanbanMove(car, targetCol) {
   const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;
   const toLabel = COLS.find(c => c.id === targetCol)?.label || targetCol;
   if (targetCol === 'delivery' && car.col !== 'delivery') car.workMemo = '';
+  // v1.8.83: 展示開始日の自動セット/クリア（裏方データ）
+  const _fromColAK = car.col;
+  if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColAK, targetCol);
   car.col = targetCol;
   addLog(car.id, `ステータス変更: ${fromLabel}→${toLabel}`);
   kanbanForceExpand = false; // v1.0.14: 何かを触ったら元のルールに戻る
@@ -373,12 +376,14 @@ function closeSellConfirm(sell) {
   _saveSellOptionalTaskSelection(car);
   const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;
   const toLabel = COLS.find(c => c.id === target)?.label || target;
+  // v1.8.83: 展示開始日の自動セット/クリア（裏方データ）
+  const _fromColSC = car.col;
+  if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColSC, target);
   car.col = target;
   // v1.8.71: 納車完了（done）にする時、その時の税設定をスナップショット保存
-  // ★デモ版：priceTaxSnapshot 機能は除外（Firestore保存しないため）
-  // if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
-  //   car.priceTaxSnapshot = snapshotPriceTax();
-  // }
+  if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
+    car.priceTaxSnapshot = snapshotPriceTax();
+  }
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   if (target === 'done') {
     addLog(car.id, `売約＆納車完了：${fromLabel}→${toLabel}（特例）`);
@@ -404,10 +409,9 @@ function closeDeliverConfirm(deliver) {
   }
   car.col = target;
   // v1.8.71: 納車完了 → 税設定スナップショット保存
-  // ★デモ版：priceTaxSnapshot 機能は除外（Firestore保存しないため）
-  // if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
-  //   car.priceTaxSnapshot = snapshotPriceTax();
-  // }
+  if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
+    car.priceTaxSnapshot = snapshotPriceTax();
+  }
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, '納車完了：納車準備→納車完了');
   renderAll();
@@ -434,6 +438,9 @@ function closeUncontractConfirm(uncontract) {
   }
   const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;
   const toLabel = COLS.find(c => c.id === target)?.label || target;
+  // v1.8.83: 展示開始日の自動セット/クリア（裏方データ）
+  const _fromColUC = car.col;
+  if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColUC, target);
   car.col = target;
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, `売約キャンセル：${fromLabel}→${toLabel}（売約・納車準備データをリセット）`);
@@ -452,6 +459,9 @@ function closeUndeliverConfirm(undeliver) {
     showToast('キャンセルしました');
     return;
   }
+  // v1.8.83: 展示開始日の自動セット/クリア（裏方データ）
+  const _fromColUD = car.col;
+  if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColUD, target);
   car.col = target;
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, '納車完了を取り消し：納車完了→納車準備');
@@ -464,7 +474,7 @@ function celebrateDelivery(car) {
   if (!overlay) return;
   const conf = document.getElementById('celebrate-confetti');
   const carEl = document.getElementById('celebrate-car');
-  if (carEl) carEl.textContent = `${car.maker} ${car.model}(${car.num})`;
+  if (carEl) carEl.textContent = `${car.maker} ${car.model}（${car.num}）`;
   if (conf) conf.innerHTML = '';
   const colors = ['#fcd34d','#fb923c','#f87171','#60a5fa','#34d399','#a78bfa','#f472b6','#facc15'];
   const count = 120;

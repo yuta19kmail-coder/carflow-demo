@@ -28,6 +28,29 @@ function dateAddDays(str, n) {
 // 今日の日付文字列 (YYYY-MM-DD)
 const todayStr = () => new Date().toISOString().split('T')[0];
 
+// ========================================
+// v1.8.83: 期間集計用の到達日（裏方データ・UI非表示）
+// ----------------------------------------
+// car.exhibitedAt（展示開始日）を遷移パターンに応じて自動セット/クリアする
+// 既に値があれば保持（再入場でも初回日付を維持。誤操作で戻された場合のみクリア）
+// ----------------------------------------
+// fromCol: 遷移前の car.col（null=新規登録）
+// toCol:   遷移後の car.col
+function _applyColTransitionDates(car, fromCol, toCol) {
+  if (!car) return;
+  // 展示列に入った瞬間：初回なら今日の日付をセット
+  if (toCol === 'exhibit' && !car.exhibitedAt) {
+    car.exhibitedAt = todayStr();
+  }
+  // 展示列から「再生／仕入／その他」に戻された場合：誤操作扱いでクリア
+  if (fromCol === 'exhibit' &&
+      (toCol === 'regen' || toCol === 'purchase' || toCol === 'other')) {
+    car.exhibitedAt = '';
+  }
+  // 展示 → 納車準備／納車完了 はそのまま保持（正常パイプライン）
+  // 売約キャンセルで delivery/done → exhibit に戻る場合は、既存値あれば保持
+}
+
 // ユニークIDを生成
 const uid = () => 'c' + Date.now() + '-' + Math.floor(Math.random()*1000);
 
@@ -117,7 +140,6 @@ function convertTax(amount, fromMode, toMode) {
 
 // v1.8.71: 納車完了時に「その時の税設定」をスナップショットとして固定。
 //   過去の販売実績は、設定を後から変えても当時の税扱いで集計・表示できる。
-// ★デモ版：呼び出し側（kanban.js）でコメントアウト済み。関数定義は互換性のため残す。
 function snapshotPriceTax() {
   const ps = (typeof appSettings !== 'undefined' && appSettings && appSettings.priceTax) || {};
   return {
@@ -397,52 +419,67 @@ function _isTaskDoneForOverdue(car, task, isDelivery) {
 }
 
 // 車両の期日超過タスク一覧を返す
-// 戻り値：[{ taskId, name, icon, phase, deadline, overdueDays, kind:'regen'|'delivery' }, ...]
-//   regen: 仕入れから N 日経過 → overdueDays = (経過日数 - N)
-//   delivery: 納車予定まで残 N 日切ってる → overdueDays = (N - 残日数)
-// 完了済みタスクは含めない
-// 期日設定がないタスクは含めない
+// 戻り値：[{ taskId, name, icon, phase, target, limit, deadline, overdueDays, severity, kind }, ...]
+//   regen: 仕入れから N 日経過 → overdueDays = (経過日数 - target)
+//   delivery: 納車予定まで残 N 日切ってる → overdueDays = (target - 残日数)
+// 完了済みタスク／期日設定なしは含めない
+// v1.8.80: target/limit の2軸判定に対応。severity: 'yellow'（目標超）/'orange'（限界本日）/'red'（限界超）
 function getOverdueTasks(car) {
   if (!car) return [];
   // その他列・納車完了は対象外
   if (car.col === 'other' || car.col === 'done') return [];
   const result = [];
 
+  const pushIfOver = (t, phase, base, effTarget, effLimit) => {
+    // 完了済みは除外
+    if (_isTaskDoneForOverdue(car, t, phase === 'delivery')) return;
+    // base = 経過日数（regen）or 残日数（delivery）
+    let overdue, severity;
+    if (phase === 'regen') {
+      overdue = base - effTarget; // 目標 から N日 超過
+      if (overdue <= 0) return;
+      if (base > effLimit)        severity = 'red';
+      else if (base === effLimit) severity = 'orange';
+      else                        severity = 'yellow';
+    } else {
+      overdue = effTarget - base; // 目標 から N日 超過（base=remain）
+      if (overdue <= 0) return;
+      if (base < effLimit)        severity = 'red';
+      else if (base === effLimit) severity = 'orange';
+      else                        severity = 'yellow';
+    }
+    result.push({
+      taskId: t.id, name: t.name, icon: t.icon || '📋',
+      phase, target: effTarget, limit: effLimit,
+      deadline: effTarget,  // 後方互換
+      overdueDays: overdue, severity, kind: phase,
+    });
+  };
+
   // === 再生フェーズ ===
-  // 在庫扱い（delivery 列以外）かつ regen 期日が設定されているタスクを評価
   if (car.col !== 'delivery') {
     const inv = (typeof daysSince === 'function') ? daysSince(car.purchaseDate) : 0;
     const regenTasks = (typeof getActiveRegenTasks === 'function') ? getActiveRegenTasks(car) : [];
     regenTasks.forEach(t => {
-      const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'regen') : null;
-      if (dl == null) return;
-      const overdue = inv - dl; // 仕入れから dl 日以内が期限。inv > dl で超過
-      if (overdue <= 0) return;
-      if (_isTaskDoneForOverdue(car, t, false)) return;
-      result.push({
-        taskId: t.id, name: t.name, icon: t.icon || '📋',
-        phase: 'regen', deadline: dl, overdueDays: overdue, kind: 'regen',
-      });
+      const dl = (typeof getTaskDeadlines === 'function') ? getTaskDeadlines(t.id, 'regen') : { target: null, limit: null };
+      if (dl.target == null && dl.limit == null) return;
+      const effTarget = (dl.target != null) ? dl.target : dl.limit;
+      const effLimit  = (dl.limit  != null) ? dl.limit  : dl.target;
+      pushIfOver(t, 'regen', inv, effTarget, effLimit);
     });
   }
 
   // === 納車フェーズ ===
-  // delivery 列で、納車予定日が設定されており、納車まで残り日数 < dl のタスクを評価
   if (car.col === 'delivery' && car.deliveryDate) {
     const remain = (typeof daysDiff === 'function') ? daysDiff(car.deliveryDate) : null;
     if (remain != null) {
       const delTasks = (typeof getActiveDeliveryTasks === 'function') ? getActiveDeliveryTasks(car) : [];
       delTasks.forEach(t => {
-        const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'delivery') : null;
-        if (dl == null) return;
-        // 納車まで dl 日前まで完了しておくべき。残り remain < dl で超過
-        if (remain >= dl) return;
-        const overdue = dl - remain;
-        if (_isTaskDoneForOverdue(car, t, true)) return;
-        result.push({
-          taskId: t.id, name: t.name, icon: t.icon || '📋',
-          phase: 'delivery', deadline: dl, overdueDays: overdue, kind: 'delivery',
-        });
+        const dl = (typeof getTaskDeadlines === 'function') ? getTaskDeadlines(t.id, 'delivery') : { target: null, limit: null };
+        if (dl.target == null && dl.limit == null) return;
+        const effTarget = (dl.target != null) ? dl.target : dl.limit;
+        const effLimit  = (dl.limit  != null) ? dl.limit  : dl.target;
+        pushIfOver(t, 'delivery', remain, effTarget, effLimit);
       });
     }
   }

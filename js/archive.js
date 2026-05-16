@@ -190,6 +190,7 @@ function renderArchive() {
           <div class="arc-month-stat">${list.length}台 / ${(sales/10000).toFixed(0)}万円</div>
           <span class="arc-achv ${salesHit?'hit':'miss'}" title="売上目標">売${salesPct}%</span>
           <span class="arc-achv ${countHit?'hit':'miss'}" title="台数目標">台${countPct}%</span>
+          <button class="arc-print-btn" onclick="event.stopPropagation(); if(window.forecastPrint) window.forecastPrint.open('month','0',${y},${parseInt(m,10)})" title="この月のレポートを印刷">🖨</button>
         </div>
         <div style="font-size:11px;color:var(--text3);padding:4px 0 6px">
           目標：${(goal.sales/10000).toFixed(0)}万円 / ${goal.count}台　実績：${(sales/10000).toFixed(0)}万円 / ${list.length}台

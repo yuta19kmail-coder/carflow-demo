@@ -233,6 +233,10 @@ async function _onSignedIn(user) {
         if (typeof captureProgressSnapshotsIfNew === 'function') {
           try { captureProgressSnapshotsIfNew(); } catch (e) { console.error('[auth] snapshot 失敗', e); }
         }
+        // v1.8.80: タスク完了通知ストアを初期化（既存完了タスクは「過去」として記録、ロード時通知は発火しない）
+        if (typeof initTaskCompletionStoreForAllCars === 'function') {
+          try { initTaskCompletionStoreForAllCars(); } catch (e) { console.error('[auth] task notify init 失敗', e); }
+        }
         if (typeof window._carsUnsub === 'function') {
           try { window._carsUnsub(); } catch (e) {}
           window._carsUnsub = null;

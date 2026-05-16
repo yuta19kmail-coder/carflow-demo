@@ -116,11 +116,13 @@
 .cc-tag{font-size:11px;color:var(--text3);background:var(--bg4);padding:2px 8px;border-radius:4px;white-space:nowrap}
 
 /* 中段：進捗% + ラベル + ドット */
-.cc-mid{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.cc-pct-wrap{display:flex;align-items:baseline;gap:6px}
-.cc-pct{font-size:20px;font-weight:700}
-.cc-pct-label{font-size:10px;color:var(--text3)}
-.cc-dots{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+/* v1.8.80: ドットが多くて2行になった時にも崩れないよう、両方を上揃えにして点々は右寄せ。
+            「6% 全体進捗」が点々の1行目と高さで揃う。 */
+.cc-mid{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.cc-pct-wrap{display:flex;align-items:baseline;gap:6px;flex-shrink:0;line-height:1;padding-top:2px}
+.cc-pct{font-size:20px;font-weight:700;line-height:1}
+.cc-pct-label{font-size:10px;color:var(--text3);line-height:1}
+.cc-dots{display:flex;gap:5px;flex-wrap:wrap;align-items:center;justify-content:flex-end;flex:1;padding-top:4px}
 .cc-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--border2)}
 .cc-dot.done{background:var(--green);border-color:var(--green)}
 .cc-dot.partial{background:var(--orange);border-color:var(--orange)}

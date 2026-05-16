@@ -316,6 +316,8 @@
     if (!n) return;
     n.status = 'done';
     n.doneAt = window.fb.serverTimestamp();
+    // v1.8.82: 対応者uidを記録（LINE通知の「対応した人」名に使用）
+    n.doneByUid = _myUid() || null;
     if (window.dbBoardNotes) {
       try { await window.dbBoardNotes.saveBoardNote(n); } catch (e) { return; }
     }

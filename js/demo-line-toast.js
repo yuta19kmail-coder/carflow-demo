@@ -178,5 +178,17 @@
   window.loadLineConfig = loadLineConfig;
   window.demoShowLineToast = showLineToast;
 
+  // v1.8.105: task-completion-notify.js が呼ぶ sendLineMessage を本番互換で実装
+  // 本番は line-notify.js が定義する。デモではトースト表示に置換
+  window.sendLineMessage = function (message, kind) {
+    if (!_lineConfig.enabled) return Promise.resolve();
+    let label = 'LINE通知';
+    if (kind === 'task_complete' || kind === 'task_completion') label = 'タスク完了';
+    else if (kind === 'red_boardnote') label = '赤付箋';
+    else if (kind === 'daily_report') label = '日報';
+    showLineToast(message, { label });
+    return Promise.resolve();
+  };
+
   console.log('[demo-line-toast] ready');
 })();

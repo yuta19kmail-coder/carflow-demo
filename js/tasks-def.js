@@ -443,12 +443,47 @@ window.isTaskOptional = isTaskOptional;
 window.isTaskOptedInForCar = isTaskOptedInForCar;
 window.setTaskOptional = setTaskOptional;
 
-function getTaskDeadline(taskId, phase) {
+// v1.8.80: 各大タスクの期日は { target: 目標ライン日数, limit: 限界ライン日数 } の2値構造。
+//   後方互換：appTaskDeadline[phase][taskId] が「数値」の場合は target のみ設定された旧データ扱い。
+//   limit が未設定の場合、要対応判定は旧挙動（target 超過＝赤一発）と等価になる。
+function _readDeadlineEntry(taskId, phase) {
   const map = (appTaskDeadline && appTaskDeadline[phase]) || {};
   const v = map[taskId];
-  if (v == null || v === '') return null;
+  if (v == null || v === '') return { target: null, limit: null };
+  if (typeof v === 'object') {
+    const t = (v.target == null || v.target === '') ? null : Number(v.target);
+    const l = (v.limit  == null || v.limit  === '') ? null : Number(v.limit);
+    return {
+      target: Number.isFinite(t) && t > 0 ? Math.floor(t) : null,
+      limit:  Number.isFinite(l) && l > 0 ? Math.floor(l) : null,
+    };
+  }
+  // 数値 or 文字列の旧フォーマット
   const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  return {
+    target: Number.isFinite(n) && n > 0 ? Math.floor(n) : null,
+    limit:  null,
+  };
+}
+
+// 後方互換：従来通り target（目標ライン日数）を返す
+function getTaskDeadline(taskId, phase) {
+  return _readDeadlineEntry(taskId, phase).target;
+}
+
+// v1.8.80: 目標ライン日数
+function getTaskTargetDays(taskId, phase) {
+  return _readDeadlineEntry(taskId, phase).target;
+}
+
+// v1.8.80: 限界ライン日数（未設定なら null）
+function getTaskLimitDays(taskId, phase) {
+  return _readDeadlineEntry(taskId, phase).limit;
+}
+
+// v1.8.80: { target, limit } をまとめて取得
+function getTaskDeadlines(taskId, phase) {
+  return _readDeadlineEntry(taskId, phase);
 }
 
 function _sortByTaskOrder(tasks, phase) {
@@ -491,18 +526,25 @@ function getActiveDeliveryTasks(car) {
 }
 
 function getAllTasksForUI(phase) {
-  return _allTasksForPhase(phase).map(t => ({
-    id: t.id, name: t.name, icon: t.icon, type: t.type,
-    enabled: isTaskActive(t.id, phase),
-    builtin: t.builtin,
-    deadline: getTaskDeadline(t.id, phase),
-    // v1.6.1: 詳細チェックリストを持つかどうか
-    hasChecklist: hasTaskChecklist(t.id, phase),
-    // 詳細作成の切替が許可されているか（worksheet系・自動判定系は固定）
-    canToggleChecklist: canToggleTaskChecklist(t.id, phase),
-    // v1.8.51: 選択制かどうか
-    optional: isTaskOptional(t.id, phase),
-  }));
+  return _allTasksForPhase(phase).map(t => {
+    const dl = getTaskDeadlines(t.id, phase);
+    return {
+      id: t.id, name: t.name, icon: t.icon, type: t.type,
+      enabled: isTaskActive(t.id, phase),
+      builtin: t.builtin,
+      // 後方互換：deadline は目標ライン日数（旧 getTaskDeadline と等価）
+      deadline: dl.target,
+      // v1.8.80: 目標ライン日数 / 限界ライン日数
+      targetDays: dl.target,
+      limitDays:  dl.limit,
+      // v1.6.1: 詳細チェックリストを持つかどうか
+      hasChecklist: hasTaskChecklist(t.id, phase),
+      // 詳細作成の切替が許可されているか（worksheet系・自動判定系は固定）
+      canToggleChecklist: canToggleTaskChecklist(t.id, phase),
+      // v1.8.51: 選択制かどうか
+      optional: isTaskOptional(t.id, phase),
+    };
+  });
 }
 
 // v1.6.1: 詳細チェックリストを持つかどうか
@@ -578,13 +620,49 @@ function moveTaskOrder(taskId, phase, dir) {
   if (window.saveSettings) saveSettings();
 }
 
-function setTaskDeadline(taskId, phase, value) {
+// v1.8.80: target/limit を共通保存ロジックで書き込む
+//   - 両方 null → エントリ自体削除
+//   - target のみ（limit=null）→ 旧形式（数値）で保存
+//   - 両方ある or limit のみ → { target, limit } オブジェクト形式で保存
+function _writeDeadlineEntry(taskId, phase, target, limit) {
   if (!appTaskDeadline[phase]) appTaskDeadline[phase] = {};
-  const v = (value == null || value === '') ? null : Number(value);
-  if (v == null || !Number.isFinite(v) || v <= 0) {
+  const t = (target == null) ? null : Math.floor(Number(target));
+  const l = (limit  == null) ? null : Math.floor(Number(limit));
+  const tValid = t != null && Number.isFinite(t) && t > 0;
+  const lValid = l != null && Number.isFinite(l) && l > 0;
+  if (!tValid && !lValid) {
     delete appTaskDeadline[phase][taskId];
+  } else if (tValid && !lValid) {
+    // 旧フォーマット互換：target のみ → 数値で保存
+    appTaskDeadline[phase][taskId] = t;
   } else {
-    appTaskDeadline[phase][taskId] = Math.floor(v);
+    // limit あり（target がなくても）→ オブジェクト形式
+    appTaskDeadline[phase][taskId] = {
+      target: tValid ? t : null,
+      limit:  lValid ? l : null,
+    };
   }
+}
+
+// 後方互換：従来通り target（目標ライン日数）を設定（旧挙動）
+function setTaskDeadline(taskId, phase, value) {
+  setTaskTargetDays(taskId, phase, value);
+}
+
+// v1.8.80: 目標ライン日数を設定
+function setTaskTargetDays(taskId, phase, value) {
+  const entry = _readDeadlineEntry(taskId, phase);
+  const v = (value == null || value === '') ? null : Number(value);
+  const t = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
+  _writeDeadlineEntry(taskId, phase, t, entry.limit);
+  if (window.saveSettings) saveSettings();
+}
+
+// v1.8.80: 限界ライン日数を設定
+function setTaskLimitDays(taskId, phase, value) {
+  const entry = _readDeadlineEntry(taskId, phase);
+  const v = (value == null || value === '') ? null : Number(value);
+  const l = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
+  _writeDeadlineEntry(taskId, phase, entry.target, l);
   if (window.saveSettings) saveSettings();
 }

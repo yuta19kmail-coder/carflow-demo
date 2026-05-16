@@ -702,6 +702,8 @@ function onWsTextInput(itemId, value) {
     _refreshWsCompleteBtn(car, taskDef);
     // v1.8.49: kanban 側もデバウンス完了タイミングで更新
     if (typeof renderAll === 'function') renderAll();
+    // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
+    if (typeof checkTaskCompletionAndNotify === 'function') checkTaskCompletionAndNotify(car);
     delete _wsTextSaveTimers[itemId];
   }, 400);
 }
@@ -731,6 +733,8 @@ function _wsSetItemValue(itemId, updater) {
   } else if (window.saveCarById) {
     saveCarById(car.id);
   }
+  // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
+  if (typeof checkTaskCompletionAndNotify === 'function') checkTaskCompletionAndNotify(car);
 
   // 該当行を再描画（入力タイプによってボタンの active 状態などが変わるので itemHtml 再生成）
   const row = document.querySelector(`.ws-item[data-id="${itemId}"]`);

@@ -74,8 +74,11 @@ function _buildInventoryWarningChips() {
   return chips;
 }
 
-// v1.8.79: 車両ごとに「最も期限が近いタスク」を1チップにまとめる
-// 期限1日前=黄／当日=橙／1日以上超過=赤
+// v1.8.80: 車両ごとに「最も切迫したタスク」を1チップにまとめる（目標/限界の2軸判定）
+// 目標ライン超過=黄／限界ライン本日=橙／限界ライン超過=赤
+//   - regen: 経過日数(inv) が target以上で黄、limit到達で橙、limit超で赤
+//   - delivery: 納車まで残日数(remain) が target以下で黄、limit以下で橙、limit未満で赤
+//   - limit 未設定なら target を限界として扱う（旧データ互換）
 function _buildTaskUrgencyChips() {
   const out = [];
   if (typeof cars === 'undefined' || !Array.isArray(cars)) return out;
@@ -83,50 +86,68 @@ function _buildTaskUrgencyChips() {
     if (!car || car.col === 'done' || car.col === 'other') return;
     const candidates = [];
 
-    // 再生フェーズ
+    // 再生フェーズ：数値が大きいほど遅延
     if (car.col !== 'delivery') {
       const inv = (typeof daysSince === 'function') ? daysSince(car.purchaseDate) : 0;
       const regenTasks = (typeof getActiveRegenTasks === 'function') ? getActiveRegenTasks(car) : [];
       regenTasks.forEach(t => {
-        const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'regen') : null;
-        if (dl == null) return;
-        const overdue = inv - dl; // >0 超過 / =0 当日 / <0 余裕
-        if (overdue < -1) return; // 2日以上余裕は対象外
+        const dl = (typeof getTaskDeadlines === 'function') ? getTaskDeadlines(t.id, 'regen') : { target: null, limit: null };
+        if (dl.target == null && dl.limit == null) return;
+        // 限界未設定 → target を限界として扱う（旧データ互換）
+        const effTarget = (dl.target != null) ? dl.target : dl.limit;
+        const effLimit  = (dl.limit  != null) ? dl.limit  : dl.target;
         if (typeof _isTaskDoneForOverdue === 'function' && _isTaskDoneForOverdue(car, t, false)) return;
-        candidates.push({ name: t.name, icon: t.icon || '📋', overdue });
+
+        let severity;
+        const toLimit = effLimit - inv; // 限界まで何日（負なら超過）
+        if (inv > effLimit)        severity = 'red';
+        else if (inv === effLimit) severity = 'orange';
+        else if (inv >= effTarget) severity = 'yellow';
+        else return; // 目標ライン内：チップ出さない
+        candidates.push({ name: t.name, icon: t.icon || '📋', severity, toLimit, overdueDays: Math.max(0, -toLimit) });
       });
     }
 
-    // 納車フェーズ
+    // 納車フェーズ：remain が小さいほど切迫
     if (car.col === 'delivery' && car.deliveryDate) {
       const remain = (typeof daysDiff === 'function') ? daysDiff(car.deliveryDate) : null;
       if (remain != null) {
         const delTasks = (typeof getActiveDeliveryTasks === 'function') ? getActiveDeliveryTasks(car) : [];
         delTasks.forEach(t => {
-          const dl = (typeof getTaskDeadline === 'function') ? getTaskDeadline(t.id, 'delivery') : null;
-          if (dl == null) return;
-          const overdue = dl - remain;
-          if (overdue < -1) return;
+          const dl = (typeof getTaskDeadlines === 'function') ? getTaskDeadlines(t.id, 'delivery') : { target: null, limit: null };
+          if (dl.target == null && dl.limit == null) return;
+          const effTarget = (dl.target != null) ? dl.target : dl.limit;
+          const effLimit  = (dl.limit  != null) ? dl.limit  : dl.target;
           if (typeof _isTaskDoneForOverdue === 'function' && _isTaskDoneForOverdue(car, t, true)) return;
-          candidates.push({ name: t.name, icon: t.icon || '📋', overdue });
+
+          // delivery では target>=limit が想定（例：target=7日前, limit=3日前）
+          let severity;
+          const toLimit = remain - effLimit; // 限界まで何日（負なら超過）
+          if (remain < effLimit)        severity = 'red';
+          else if (remain === effLimit) severity = 'orange';
+          else if (remain <= effTarget) severity = 'yellow';
+          else return;
+          candidates.push({ name: t.name, icon: t.icon || '📋', severity, toLimit, overdueDays: Math.max(0, -toLimit) });
         });
       }
     }
 
     if (!candidates.length) return;
-    // 一番切迫した（overdue最大）タスクを選ぶ
-    candidates.sort((a, b) => b.overdue - a.overdue);
+    // severity 優先度：red > orange > yellow（同 severity 内は超過日数で）
+    const sevPri = { red: 3, orange: 2, yellow: 1 };
+    candidates.sort((a, b) => (sevPri[b.severity] - sevPri[a.severity]) || (b.overdueDays - a.overdueDays));
     const top = candidates[0];
     let cls, msg;
-    if (top.overdue > 0) {
+    if (top.severity === 'red') {
       cls = 'chip-red';
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} が期日越え（${top.overdue}日超過）`;
-    } else if (top.overdue === 0) {
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 限界ライン超過（${top.overdueDays}日）`;
+    } else if (top.severity === 'orange') {
       cls = 'chip-orange';
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 本日が期限`;
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 限界ライン本日`;
     } else {
       cls = 'chip-yellow';
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 期限まであと1日`;
+      const daysToLimit = Math.max(0, top.toLimit);
+      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 目標ライン超過（限界まであと${daysToLimit}日）`;
     }
     out.push(`<div class="chip ${cls}" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${msg}</div>`);
   });
@@ -204,22 +225,37 @@ function calcLanding() {
   const lastOfMonth = `${y}-${String(m).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
 
   if (mode === 'contract') {
-    // 契約主義：当月売約済 = 確定、営業努力で追加可能 = 残日数×日次ペース
-    const thisMonthContracted = [...cars, ...archivedCars].filter(c => {
-      return c.contractDate && c.contractDate >= firstOfMonth && c.contractDate <= lastOfMonth;
-    });
-    const fixedCount = thisMonthContracted.length;
-    const fixedSales = thisMonthContracted.reduce((s, c) => s + _dashAmount(c), 0);
-    const pace = fixedCount / Math.max(1, dayOfMonth);
-    const addMax = Math.round(pace * daysLeft);
+    // v1.8.98: 売約ベースを新ロジックに統一（リード控除なし＝売約即計上、1年アベ、1日目に1台立つ）
+    const fixedCars = [...cars, ...archivedCars].filter(c => c.contractDate && c.contractDate >= firstOfMonth && c.contractDate <= lastOfMonth);
+    const fixedCount = fixedCars.length;
+    const fixedSales = fixedCars.reduce((s, c) => s + _dashAmount(c), 0);
+
+    // 売約ベースはリードタイム控除なし（今日売約 = 今日計上）
+    const addSlotsC = Math.max(0, daysLeft);
+    let possibleCountC = 0, possibleSalesC = 0;
+    if (addSlotsC > 0) {
+      const since = new Date(now); since.setDate(since.getDate() - 365);
+      const sinceStr = since.toISOString().split('T')[0];
+      const recent = [...cars, ...archivedCars].filter(c => c.contractDate && c.contractDate >= sinceStr);
+      const dailyPace = recent.length / 365;
+      if (dailyPace > 0) {
+        const interval = Math.max(1, Math.ceil(1 / dailyPace));
+        possibleCountC = Math.floor((addSlotsC - 1) / interval) + 1;
+      }
+      const avgPrice = recent.length ? recent.reduce((s, c) => s + _dashAmount(c), 0) / recent.length : 0;
+      possibleSalesC = Math.round(avgPrice * possibleCountC);
+    }
+
     return {
       mode, goal, daysLeft, dayOfMonth, daysInMonth,
-      fixed: {count: fixedCount, sales: fixedSales, label:'売約済'},
+      fixed: {count: fixedCount, sales: fixedSales, label:'確定（売約済み）'},
       likely: {count: 0, sales: 0, label:'—'},
-      possible: {count: addMax, sales: Math.round(pace * daysLeft * (fixedSales/Math.max(1,fixedCount) || 0)), label:'残日数×ペース'},
-      paceNote: `日次ペース ${pace.toFixed(2)}台/日、残${daysLeft}日`,
+      possible: {count: possibleCountC, sales: possibleSalesC, label:'実績予測（過去1年ペース）'},
+      paceNote: addSlotsC > 0
+        ? `月末まで残${daysLeft}日（売約即計上のためリード控除なし）<br><span style="color:var(--text3)">※実績予測：直近1年の売約ペースから「期間内に何台売約取れそうか」の希望的観測（実車両ではありません）</span>`
+        : `月末まで残${daysLeft}日`,
       predictLow: fixedCount,
-      predictHigh: fixedCount + addMax,
+      predictHigh: fixedCount + possibleCountC,
     };
   }
 
@@ -234,25 +270,30 @@ function calcLanding() {
   const likelyCount = likelyCars.length;
   const likelySales = likelyCars.reduce((s, c) => s + _dashAmount(c), 0);
 
-  // ③ 追加余地：残日数 − リードタイム = 今からまだ売約→納車に間に合う余地
-  // 追加枠 (台)：過去実績の日次売約→納車ペースから概算。ここでは直近90日の納車済み台数/90 × (daysLeft - lead) とする
+  // v1.8.95: 印刷シートと同じ「気合短縮3日 + 1日目に1台立つ」式に統一
+  // - effectiveLead = max(1, lead - 3)
+  // - addSlots = max(0, daysLeft - effectiveLead)
+  // - addSlots > 0 で過去90日にペースがあれば、最低1台立つ
   let possibleCount = 0;
   let possibleSales = 0;
-  const addSlots = Math.max(0, daysLeft - lead);
+  const effectiveLead = Math.max(1, lead - 3);
+  const addSlots = Math.max(0, daysLeft - effectiveLead);
   if (addSlots > 0) {
-    const since = new Date(now); since.setDate(since.getDate() - 90);
+    // v1.8.97: 直近365日（1年）のペース・平均価格（月間バラつき吸収）
+    const since = new Date(now); since.setDate(since.getDate() - 365);
     const sinceStr = since.toISOString().split('T')[0];
     const recent = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= sinceStr);
-    const dailyPace = recent.length / 90;
-    possibleCount = Math.round(dailyPace * addSlots);
+    const dailyPace = recent.length / 365;
+    if (dailyPace > 0) {
+      const interval = Math.max(1, Math.ceil(1 / dailyPace));
+      possibleCount = Math.floor((addSlots - 1) / interval) + 1;
+    }
     const avgPrice = recent.length ? recent.reduce((s, c) => s + _dashAmount(c), 0) / recent.length : 0;
     possibleSales = Math.round(avgPrice * possibleCount);
   }
-  // v1.8.41: 「追加余地」表記を「実績予測」に統一。実体のある車両ではなく
-  //          過去の納車ペースから算出する予測値であることを明示する説明文を追記。
   const note = addSlots > 0
-    ? `月末まで残${daysLeft}日 − 準備リードタイム${lead}日 ＝ 追加売約余地${addSlots}日<br><span style="color:var(--text3)">※実績予測：直近90日の納車ペースから「今月あと売れそうな目安台数」を試算した数値（実車両ではありません）</span>`
-    : `月末まで残${daysLeft}日 ≤ 準備リードタイム${lead}日。新規売約は来月スライドの可能性が高いです`;
+    ? `月末まで残${daysLeft}日 − 気合リードタイム${effectiveLead}日（標準${lead}日−気合3日）＝ 追加売約余地 ${addSlots}日<br><span style="color:var(--text3)">※実績予測：直近1年の納車ペースから「期間内に最低何台売約取れそうか」の希望的観測（実車両ではありません）</span>`
+    : `月末まで残${daysLeft}日 ≤ 気合リードタイム${effectiveLead}日。新規売約は来月スライドの可能性が高いです`;
   return {
     mode, goal, daysLeft, dayOfMonth, daysInMonth,
     fixed: {count: fixedCount, sales: fixedSales, label:'確定（納車完了）'},
@@ -264,46 +305,156 @@ function calcLanding() {
   };
 }
 
+// v1.8.83: 着地予測パネル右上の期間プルダウン＋印刷／集計対象ボタン用ステート
+let _landingSelected = null; // { mode, periodId, year, month }
+
+function _initLandingPeriodSelect(){
+  const sel = document.getElementById('landing-period-select');
+  if (!sel) return;
+  // 既に options が入っているなら再構築しない
+  if (sel.options && sel.options.length > 0) return;
+  if (!window.periodStats) return;
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const opts = window.periodStats.buildPeriodOptions(y, m);
+  let html = '';
+  let lastGroup = null;
+  opts.forEach(o => {
+    if (o.group !== lastGroup){
+      if (lastGroup) html += '</optgroup>';
+      if (o.group)  html += `<optgroup label="${o.group}">`;
+      lastGroup = o.group;
+    }
+    html += `<option value="${o.value}">${o.label}</option>`;
+  });
+  if (lastGroup) html += '</optgroup>';
+  sel.innerHTML = html;
+  // v1.8.85: 境界+2日まで前期間を引っ張るデフォルト選択
+  const def = window.periodStats.defaultPeriodForToday('half');
+  const defVal = `${def.year}-${String(def.month).padStart(2,'0')}:${def.mode}:${def.periodId}`;
+  sel.value = defVal;
+  _landingSelected = { mode: def.mode, periodId: def.periodId, year: def.year, month: def.month };
+}
+
+function onLandingPeriodChange(){
+  const sel = document.getElementById('landing-period-select');
+  if (!sel || !sel.value) return;
+  const parsed = window.periodStats.parsePeriodValue(sel.value);
+  if (!parsed) return;
+  _landingSelected = parsed;
+}
+
+function openForecastPrint(){
+  if (!_landingSelected) _initLandingPeriodSelect();
+  if (!_landingSelected || !window.forecastPrint) { showToast('印刷モジュールが読み込めません'); return; }
+  window.forecastPrint.open(_landingSelected.mode, _landingSelected.periodId, _landingSelected.year, _landingSelected.month);
+}
+
+function openForecastTargets(){
+  if (!_landingSelected) _initLandingPeriodSelect();
+  if (!_landingSelected || !window.forecastTargets) { showToast('集計対象モジュールが読み込めません'); return; }
+  window.forecastTargets.open(_landingSelected.mode, _landingSelected.periodId, _landingSelected.year, _landingSelected.month);
+}
+
 function renderLanding() {
+  _initLandingPeriodSelect(); // v1.8.83
   const L = calcLanding();
   const g = L.goal;
   const el = document.getElementById('dash-landing');
   const totalGoalCount = g.count || 1;
   const totalGoalSales = g.sales || 1;
 
-  // バー比率（台数ベース）
-  const barMax = Math.max(totalGoalCount, L.predictHigh, 1);
-  const pctFixed   = Math.min(100, L.fixed.count / barMax * 100);
-  const pctLikely  = Math.min(100 - pctFixed, L.likely.count / barMax * 100);
-  const pctPoss    = Math.min(100 - pctFixed - pctLikely, L.possible.count / barMax * 100);
-  const pctRemain  = Math.max(0, 100 - pctFixed - pctLikely - pctPoss);
+  // v1.8.105: 金バーは「確定（fixed）が目標到達」した時のみ。緑バーが金に変わるイメージ
+  const fixedOverCount = L.fixed.count > totalGoalCount;
+  const overshootCount = Math.max(0, L.fixed.count - totalGoalCount); // 確定の超過分のみ
+  const overshootCountRatio = overshootCount / totalGoalCount * 100;
+  let pctFixed, pctLikely, pctPoss, pctRemain;
+  if (fixedOverCount){
+    // 確定で目標達成済み → バー全部金
+    pctFixed = 100; pctLikely = 0; pctPoss = 0; pctRemain = 0;
+  } else {
+    pctFixed   = Math.min(100, L.fixed.count / totalGoalCount * 100);
+    pctLikely  = Math.min(100 - pctFixed, L.likely.count / totalGoalCount * 100);
+    pctPoss    = Math.min(100 - pctFixed - pctLikely, L.possible.count / totalGoalCount * 100);
+    pctRemain  = Math.max(0, 100 - pctFixed - pctLikely - pctPoss);
+  }
 
   const remainToGoal = Math.max(0, totalGoalCount - L.predictLow);
   const remainSalesToGoal = Math.max(0, totalGoalSales - (L.fixed.sales + L.likely.sales));
-  // v1.8.59: ダッシュボード金額の税扱いラベル
   const dashTax = (typeof getTaxLabel === 'function') ? getTaxLabel('dashboard') : '税込';
+
+  // 売上バー：fixed sales が目標到達 → 金バー
+  const fxSales = Math.round(L.fixed.sales);
+  const lkSales = Math.round(L.likely.sales);
+  const psSales = Math.round(L.possible.sales);
+  const predictHighSales = fxSales + lkSales + psSales;
+  const fixedOverSales = fxSales > totalGoalSales;
+  const overshootSales = Math.max(0, fxSales - totalGoalSales);
+  const overshootSalesRatio = overshootSales / totalGoalSales * 100;
+  let slFx, slLk, slPs, slRm;
+  if (fixedOverSales){
+    slFx = 100; slLk = 0; slPs = 0; slRm = 0;
+  } else {
+    slFx = Math.min(100, fxSales / totalGoalSales * 100);
+    slLk = Math.min(100 - slFx, lkSales / totalGoalSales * 100);
+    slPs = Math.min(100 - slFx - slLk, psSales / totalGoalSales * 100);
+    slRm = Math.max(0, 100 - slFx - slLk - slPs);
+  }
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div style="font-size:12px;color:var(--text2)">目標 ${totalGoalCount}台 / ${(totalGoalSales/10000).toFixed(0)}万円<span style="font-size:10px;color:var(--text3);margin-left:4px">（${dashTax}）</span></div>
       <div style="font-size:11px;color:var(--text3)">${L.mode==='contract'?'売約時計上':'納車完了計上'}</div>
     </div>
-    <div class="land-bar">
-      ${L.fixed.count   ? `<div class="land-fixed"   style="width:${pctFixed}%"  title="${L.fixed.label}：${L.fixed.count}台">${L.fixed.count>0&&pctFixed>10?L.fixed.count+'台':''}</div>`   : ''}
-      ${L.likely.count  ? `<div class="land-likely"  style="width:${pctLikely}%" title="${L.likely.label}：${L.likely.count}台">${L.likely.count>0&&pctLikely>10?L.likely.count+'台':''}</div>`  : ''}
-      ${L.possible.count? `<div class="land-possible"style="width:${pctPoss}%"   title="${L.possible.label}：${L.possible.count}台">${L.possible.count>0&&pctPoss>10?L.possible.count+'台':''}</div>`: ''}
-      ${pctRemain > 0   ? `<div class="land-remain"  style="width:${pctRemain}%">残${Math.max(0, totalGoalCount-L.predictHigh)}台</div>` : ''}
+    <div style="display:grid;grid-template-columns:32px 1fr 120px;gap:8px;align-items:center;margin-bottom:4px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:right">台数</div>
+      <div class="land-bar-row" style="display:flex;gap:1px;align-items:stretch">
+        <div class="land-bar" style="flex:100; min-width:0">
+          ${fixedOverCount
+            ? `<div class="land-overshoot" style="width:100%" title="確定で目標達成：${L.fixed.count}台">${totalGoalCount}台 ✨</div>`
+            : `
+              ${L.fixed.count   ? `<div class="land-fixed"   style="width:${pctFixed}%"  title="${L.fixed.label}：${L.fixed.count}台">${L.fixed.count>0&&pctFixed>10?L.fixed.count+'台':''}</div>`   : ''}
+              ${L.likely.count  ? `<div class="land-likely"  style="width:${pctLikely}%" title="${L.likely.label}：${L.likely.count}台">${L.likely.count>0&&pctLikely>10?L.likely.count+'台':''}</div>`  : ''}
+              ${L.possible.count? `<div class="land-possible"style="width:${pctPoss}%"   title="${L.possible.label}：${L.possible.count}台">${L.possible.count>0&&pctPoss>10?L.possible.count+'台':''}</div>`: ''}
+              ${pctRemain > 0   ? `<div class="land-remain"  style="width:${pctRemain}%">残${remainToGoal}台</div>` : ''}
+            `
+          }
+        </div>
+        ${fixedOverCount && overshootCount > 0 ? `<div class="land-overshoot" style="flex:${overshootCountRatio}; min-width:32px" title="目標超過 +${overshootCount}台">+${overshootCount}</div>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${L.predictLow}〜${L.predictHigh}台 / ${totalGoalCount}台${fixedOverCount?' ✨':''}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:32px 1fr 120px;gap:8px;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:right">売上</div>
+      <div class="land-bar-row" style="display:flex;gap:1px;align-items:stretch">
+        <div class="land-bar" style="flex:100; min-width:0">
+          ${fixedOverSales
+            ? `<div class="land-overshoot" style="width:100%" title="確定売上で目標達成：${Math.round(fxSales/10000)}万円">${Math.round(totalGoalSales/10000)}万 ✨</div>`
+            : `
+              ${fxSales ? `<div class="land-fixed"    style="width:${slFx}%" title="確定売上：${Math.round(fxSales/10000)}万円">${slFx>14?Math.round(fxSales/10000)+'万':''}</div>` : ''}
+              ${lkSales ? `<div class="land-likely"   style="width:${slLk}%" title="見込み売上：${Math.round(lkSales/10000)}万円">${slLk>14?Math.round(lkSales/10000)+'万':''}</div>` : ''}
+              ${psSales ? `<div class="land-possible" style="width:${slPs}%" title="実績予測売上：${Math.round(psSales/10000)}万円">${slPs>14?Math.round(psSales/10000)+'万':''}</div>` : ''}
+              ${slRm > 0 ? `<div class="land-remain"   style="width:${slRm}%">残${Math.round(Math.max(0,totalGoalSales-predictHighSales)/10000)}万</div>` : ''}
+            `
+          }
+        </div>
+        ${fixedOverSales && overshootSales > 0 ? `<div class="land-overshoot" style="flex:${overshootSalesRatio}; min-width:40px" title="目標超過 +${Math.round(overshootSales/10000)}万">+${Math.round(overshootSales/10000)}万</div>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${Math.round((fxSales+lkSales)/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(totalGoalSales/10000).toLocaleString()}万${fixedOverSales?' ✨':''}</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin-bottom:10px">
       <span><span style="display:inline-block;width:10px;height:10px;background:#1db97a;border-radius:2px;vertical-align:middle;margin-right:4px"></span>確定 ${L.fixed.count}台</span>
       <span><span style="display:inline-block;width:10px;height:10px;background:#378ADD;border-radius:2px;vertical-align:middle;margin-right:4px"></span>見込み ${L.likely.count}台</span>
       <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>実績予測 ${L.possible.count}台</span>
     </div>
-    <div class="kpi-grid">
-      <div class="kpi-box"><div class="kpi-label">着地予測（レンジ）</div><div class="kpi-value">${L.predictLow}〜${L.predictHigh}<span style="font-size:12px;color:var(--text3)">台</span></div>
-        <div class="kpi-sub">目標達成まで<strong style="color:${remainToGoal===0?'#6ee7b7':'#fcd34d'}">${remainToGoal}台</strong></div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi-box"><div class="kpi-label">確定売上 <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div><div class="kpi-value">${(L.fixed.sales/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
+        <div class="kpi-sub">納車完了 ${L.fixed.count}台</div></div>
       <div class="kpi-box"><div class="kpi-label">売上見込み <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div><div class="kpi-value">${((L.fixed.sales+L.likely.sales)/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
         <div class="kpi-sub">目標まで ${(remainSalesToGoal/10000).toFixed(0)}万円</div></div>
+      <div class="kpi-box"><div class="kpi-label">着地予想（レンジ）</div><div class="kpi-value">${L.predictLow}〜${L.predictHigh}<span style="font-size:12px;color:var(--text3)">台</span></div>
+        <div class="kpi-sub">目標達成まで<strong style="color:${remainToGoal===0?'#6ee7b7':'#fcd34d'}">${remainToGoal}台</strong></div></div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">${L.paceNote}</div>
   `;

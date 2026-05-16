@@ -508,7 +508,7 @@ function renderTasksEditor() {
     //          旧 appTaskWeight 設定は Firestore に残してても害なし（読まないだけ）。
     html += `<div class="task-edit-phase">
       <div class="task-edit-phase-head">${ph.label}</div>
-      <div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（空欄なら期限なし）<br><span style="color:var(--text3);font-size:11px">※ 進捗は有効タスクの均等割り＋小タスク按分で自動計算（v1.8.51）</span></div>`;
+      <div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（目標 / 限界 の2段階で設定。空欄なら未設定）<br><span style="color:var(--text3);font-size:11px">目標ライン＝このペースで進めたい / 限界ライン＝これを超えたらアウト</span><br><span style="color:var(--text3);font-size:11px">※ 進捗は有効タスクの均等割り＋小タスク按分で自動計算（v1.8.51）</span></div>`;
     if (!tasks.length) {
       html += '<div class="task-edit-empty">タスクが定義されていません</div>';
     } else {
@@ -516,7 +516,8 @@ function renderTasksEditor() {
         const customCls = t.builtin ? '' : ' task-edit-custom';
         const isFirst = idx === 0;
         const isLast  = idx === tasks.length - 1;
-        const dlVal   = t.deadline != null ? t.deadline : '';
+        const targetVal = (t.targetDays != null) ? t.targetDays : '';
+        const limitVal  = (t.limitDays  != null) ? t.limitDays  : '';
         // v1.6.1: 詳細チェックリスト（hasChecklist）の状態と切替可否
         const hasChk = !!t.hasChecklist;
         const canTgl = !!t.canToggleChecklist;
@@ -534,13 +535,25 @@ function renderTasksEditor() {
             ${t.builtin ? '' : '<span class="task-edit-tag custom">追加</span>'}
             ${(t.id === 'd_complete' || t.id === 't_complete') ? '<span class="task-edit-tag auto" title="他のタスク全完了で自動ON">自動</span>' : ''}
             ${t.optional ? '<span class="task-edit-tag" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.35)" title="選択制：車両ごとに使うかどうかをチェックで指定">選択</span>' : ''}
-            <div class="task-edit-deadline">
-              <input type="number" min="1" max="365" value="${dlVal}"
-                     placeholder="—"
-                     onchange="setTaskDeadline('${escapeHtml(t.id)}', '${ph.key}', this.value)"
-                     class="task-edit-deadline-inp"
-                     title="${ph.deadlineHint} N ${ph.deadlineSuffix}">
-              <span class="task-edit-deadline-suffix">${ph.deadlineSuffix.replace(/日.*/,'日')}</span>
+            <div class="task-edit-deadline task-edit-deadline-v2">
+              <div class="task-edit-deadline-pair" title="目標ライン：このペースで進めたい">
+                <span class="task-edit-deadline-lbl task-edit-deadline-lbl-target">目標</span>
+                <input type="number" min="1" max="365" value="${targetVal}"
+                       placeholder="—"
+                       onchange="setTaskTargetDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       class="task-edit-deadline-inp"
+                       title="目標ライン（${ph.deadlineHint} N ${ph.deadlineSuffix}）">
+                <span class="task-edit-deadline-suffix">日</span>
+              </div>
+              <div class="task-edit-deadline-pair" title="限界ライン：これを超えたらアウト">
+                <span class="task-edit-deadline-lbl task-edit-deadline-lbl-limit">限界</span>
+                <input type="number" min="1" max="365" value="${limitVal}"
+                       placeholder="—"
+                       onchange="setTaskLimitDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       class="task-edit-deadline-inp"
+                       title="限界ライン（${ph.deadlineHint} N ${ph.deadlineSuffix}）">
+                <span class="task-edit-deadline-suffix">日</span>
+              </div>
             </div>
             <!-- v1.8.13: 詳細チェックリスト/編集/削除を ⋮ メニューに集約。
                  ON/OFFトグルだけ常時表示（よく使う操作）。これで全行のレイアウトが揃う。 -->
@@ -827,16 +840,21 @@ function moveTaskDown(taskId, phase) {
 }
 
 // v1.0.33: 期日設定
+// v1.8.80: setTaskTargetDays に委譲（後方互換用）
 function setTaskDeadline(taskId, phase, value) {
-  if (!appTaskDeadline[phase]) appTaskDeadline[phase] = {};
-  const v = (value == null || value === '') ? null : Number(value);
-  if (v == null || !Number.isFinite(v) || v <= 0) {
-    delete appTaskDeadline[phase][taskId];
+  if (typeof setTaskTargetDays === 'function') {
+    setTaskTargetDays(taskId, phase, value);
   } else {
-    appTaskDeadline[phase][taskId] = v;
+    if (!appTaskDeadline[phase]) appTaskDeadline[phase] = {};
+    const v = (value == null || value === '') ? null : Number(value);
+    if (v == null || !Number.isFinite(v) || v <= 0) {
+      delete appTaskDeadline[phase][taskId];
+    } else {
+      appTaskDeadline[phase][taskId] = v;
+    }
+    if (window.saveSettings) saveSettings();
   }
   if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
-  if (window.saveSettings) saveSettings(); // v1.5.2
 }
 
 // カスタムタスク追加

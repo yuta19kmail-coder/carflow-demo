@@ -80,6 +80,42 @@
 .land-likely{background:var(--blue)}
 .land-possible{background:var(--orange);color:#1a1d27}
 .land-remain{background:var(--bg4);color:var(--text3);font-weight:600}
+/* v1.8.104/105: 台数バー＋売上バー2本 + 目標達成（確定で）時の金バー */
+.land-bar-row .land-bar{margin:0;border-radius:var(--r) 0 0 var(--r)}
+.land-bar-row .land-overshoot,
+.land-bar .land-overshoot{
+  /* v1.8.105: もっと金金、メタリック光沢 */
+  background:
+    linear-gradient(135deg,
+      #FFE066 0%,
+      #FFD700 15%,
+      #FFEC8B 30%,
+      #FFD700 45%,
+      #DAA520 60%,
+      #FFD700 75%,
+      #FFEC8B 90%,
+      #DAA520 100%);
+  background-size:200% 200%;
+  border:1px solid #B8860B;
+  border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;color:#4a3500;
+  text-shadow:0 0 4px rgba(255,255,255,0.8), 0 1px 0 rgba(255,255,255,0.6);
+  box-shadow:inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 8px rgba(255,215,0,0.4);
+  white-space:nowrap;overflow:hidden;
+  letter-spacing:0.05em;
+}
+.land-bar-row .land-overshoot{
+  height:32px;
+  border-radius:0 var(--r) var(--r) 0;
+  border-left:0;
+}
+.land-bar > .land-overshoot{
+  height:100%;
+  border-radius:0;
+  border:0;
+}
+.land-bar-row:has(.land-overshoot) .land-bar{border-right:0}
 
 /* 着地予測の凡例（任意で使用） */
 .land-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--text2);margin-top:6px}
@@ -741,6 +777,29 @@
 .task-edit-deadline-suffix {
   font-size: 11px;
   color: var(--text3);
+}
+/* v1.8.80: 目標 / 限界 の2段階デッドライン入力（横並び） */
+.task-edit-deadline.task-edit-deadline-v2 {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+.task-edit-deadline-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.task-edit-deadline-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.task-edit-deadline-lbl-target { color: var(--green); }
+.task-edit-deadline-lbl-limit  { color: #fca5a5; }
+.task-edit-deadline-v2 .task-edit-deadline-inp {
+  width: 45px;
 }
 .task-edit-tag.auto {
   background: var(--orange, #f57c00);
