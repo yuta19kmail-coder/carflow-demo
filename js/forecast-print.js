@@ -540,4 +540,9 @@
     sheet.setAttribute('data-mode', currentData._isWeek ? 'week' : 'period');
     sheet.innerHTML = currentData._isWeek ? _buildWeekSheetHtml(currentData) : _buildSheetHtml(currentData);
     overlayEl.querySelectorAll('.fp-design-toggle button').forEach(b => {
-      b.classList.toggle('active', b.getAttribute('data-design') === current
+      b.classList.toggle('active', b.getAttribute('data-design') === currentDesign);
+    });
+  }
+
+  window.forecastPrint = { open, close, setDesign, doPrint, doPdf };
+})();

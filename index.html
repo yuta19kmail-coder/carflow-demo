@@ -15,7 +15,7 @@
 
 <!-- ========== CSS ========== -->
 <link rel="stylesheet" href="css/base.css?v=284">
-<!-- デモ版専用CSS（上部バナー＋トースト＋デモログイン） -->
+<!-- デモ版専用CSS -->
 <link rel="stylesheet" href="css/demo.css">
 <link rel="stylesheet" href="css/login.css?v=284">
 <link rel="stylesheet" href="css/layout.css?v=284">
@@ -42,7 +42,6 @@
 <link rel="stylesheet" href="css/meeting.css?v=284">
 
 <!-- ========== デモ版：Firebase SDK は読み込まない ========== -->
-<!-- 代わりに in-memory モックで動かす（demo-firestore-mock.js / demo-storage-mock.js / demo-init.js）-->
 <!-- v1.6.2: SheetJS（テンプレ Excel 取込/書き出し用） -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- v1.8.85: html2pdf.js（着地予測印刷シートのPDFダウンロード用） -->
@@ -1697,13 +1696,12 @@
 </div>
 
 <!-- ============= scripts ============= -->
-<!-- ========== デモ版：mock スクリプト群（本物の Firebase の代替） ========== -->
+<!-- ========== デモ版：mock スクリプト群 ========== -->
 <script src="js/demo-firestore-mock.js"></script>
 <script src="js/demo-storage-mock.js"></script>
 <script src="js/demo-init.js"></script>
 <script src="js/demo-sample-data.js"></script>
 <script src="js/demo-line-toast.js"></script>
-<!-- デモ版：firebase-init.js は読み込まない（demo-firestore-mock.js が代替） -->
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
 <script src="js/db-cars.js?v=288"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
@@ -1722,7 +1720,7 @@
 <script src="js/migrate-data-urls.js?v=284"></script>
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
 <script src="js/db-board-notes.js?v=284"></script>
-<!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み（上で読み込み） -->
+<!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み -->
 <!-- v1.8.80: タスク完了通知の文言テーブル＋カスタム/CSV -->
 <script src="js/line-messages.js?v=320"></script>
 <!-- v1.8.80: タスク完了瞬間の検知＋LINE通知ディスパッチ -->
@@ -1792,8 +1790,7 @@
 <!-- 7. ディスパッチャ -->
 <script src="js/main.js?v=284"></script>
 
-<!-- デモ版：auth.js は読み込むが、Firebase auth は mock 済み（onAuthStateChanged 発火しない）-->
-<!-- デモ版：本番 auth.js を読んだ後、ログインUIを差し替え -->
+<!-- デモ版：ログインUIを差し替え -->
 <script src="js/demo-auth-mock.js"></script>
 
 </body>

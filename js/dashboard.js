@@ -740,4 +740,6 @@ async function renderMembers() {
     }).join('');
   } catch (err) {
     console.error('[renderMembers]', err);
-    list.innerHTML = '<div style="font-size:12px;color:var(--red)">読み込�
+    list.innerHTML = '<div style="font-size:12px;color:var(--red)">読み込みに失敗しました</div>';
+  }
+}
