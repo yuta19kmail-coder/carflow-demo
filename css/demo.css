@@ -35,6 +35,14 @@
   background: rgba(255, 255, 255, .4);
 }
 
+/* v1.8.105: 印刷オーバーレイ表示中はデモバナーを隠す（印刷ボタンと干渉するため） */
+body.fp-open #demo-banner {
+  display: none !important;
+}
+body.fp-open.demo-mode #app {
+  margin-top: 0 !important;
+}
+
 /* バナー分本体を下げる：高さ計算でちゃんとビューポート内に収める */
 body.demo-mode {
   padding-top: 0 !important;        /* paddingではなくappの高さで対応 */
