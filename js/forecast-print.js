@@ -93,7 +93,8 @@
   function _buildLandingBlock(L, monthLabel){
     // 台数バー
     const goalCount = Math.max(1, L.goalCount || 1);
-    const fixedOverCount = L.fixed.count > goalCount;
+    // v1.8.106: ピッタリ目標達成でも金（>=）
+    const fixedOverCount = L.fixed.count > 0 && L.fixed.count >= goalCount;
     const overCnt = Math.max(0, L.fixed.count - goalCount);
     const overCntRatio = overCnt / goalCount * 100;
     let cntFx, cntLk, cntPs, cntRm;
@@ -114,7 +115,7 @@
     const psSales = Math.round(L.possible.sales);
     const predictHighSales = fxSales + lkSales + psSales;
     const predictLowSales  = fxSales + lkSales;
-    const fixedOverSales = fxSales > goalSalesYen;
+    const fixedOverSales = fxSales > 0 && fxSales >= goalSalesYen;
     const overSales = Math.max(0, fxSales - goalSalesYen);
     const overSalesRatio = overSales / goalSalesYen * 100;
     let slFx, slLk, slPs, slRm;
@@ -539,9 +540,4 @@
     sheet.setAttribute('data-mode', currentData._isWeek ? 'week' : 'period');
     sheet.innerHTML = currentData._isWeek ? _buildWeekSheetHtml(currentData) : _buildSheetHtml(currentData);
     overlayEl.querySelectorAll('.fp-design-toggle button').forEach(b => {
-      b.classList.toggle('active', b.getAttribute('data-design') === currentDesign);
-    });
-  }
-
-  window.forecastPrint = { open, close, setDesign, doPrint, doPdf };
-})();
+      b.classList.toggle('active', b.getAttribute('data-design') === current
