@@ -158,7 +158,7 @@
       <div class="login-card" style="max-width:480px;margin:auto;padding:30px 28px;background:var(--bg2,#1a1a1a);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center">
         <div class="login-logo" style="font-size:48px;margin-bottom:6px">🚗</div>
         <div class="login-title" style="font-size:32px;font-weight:800;margin-bottom:4px;color:var(--text,#fff)">CarFlow</div>
-        <div class="login-ver" style="font-size:13px;color:var(--text3,#999);margin-bottom:8px">v1.8.106 — デモ版</div>
+        <div class="login-ver" style="font-size:13px;color:var(--text3,#999);margin-bottom:8px">v1.8.110 — デモ版</div>
         <p style="font-size:13px;color:var(--text2,#ccc);margin:8px 0 16px;line-height:1.6">
           中古車整備工場・販売店向け<br>業務管理ツール
         </p>

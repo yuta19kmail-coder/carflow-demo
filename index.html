@@ -88,7 +88,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v1.8.106 — デモ版</div>
+    <div class="login-ver">CarFlow v1.8.110 — デモ版</div>
   </div>
 </div>
 
@@ -99,7 +99,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.106</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.110</span>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
     <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
     <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
@@ -601,6 +601,7 @@
                       <div style="font-size:13px;font-weight:600">日報通知を有効化</div>
                       <div style="font-size:11px;color:var(--text3);margin-top:3px">OFFのとき、自動送信もテストもブロック</div>
                     </div>
+                    <button class="btn-sm" id="line-test-btn-dailyReport" onclick="sendTestForTrigger('dailyReport')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
                     <div class="toggle" id="line-trig-daily-toggle" onclick="toggleLineTrigger('dailyReport')"></div>
                   </div>
 
@@ -617,7 +618,6 @@
                     </div>
                     <div class="toggle" id="line-daily-closed-toggle" onclick="toggleDailyClosed()"></div>
                   </div>
-
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -630,11 +630,11 @@
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1">
                       <div style="font-size:13px;font-weight:600">赤付箋通知を有効化</div>
-                      <div style="font-size:11px;color:var(--text3);margin-top:3px">既存付箋を赤に変えた場合は発火しません（新規作成時のみ）</div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:3px">新規作成時＋「済」化時の両方で通知（同じスイッチで動作）</div>
                     </div>
+                    <button class="btn-sm" id="line-test-btn-redBoardNote" onclick="sendTestForTrigger('redBoardNote')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
                     <div class="toggle" id="line-trig-redboard-toggle" onclick="toggleLineTrigger('redBoardNote')"></div>
                   </div>
-
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
@@ -649,6 +649,7 @@
                       <div style="font-size:13px;font-weight:600">大タスク完了通知を有効化</div>
                       <div style="font-size:11px;color:var(--text3);margin-top:3px">頻度の調整は下のモード設定で</div>
                     </div>
+                    <button class="btn-sm" id="line-test-btn-taskComplete" onclick="sendTestForTrigger('taskComplete')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
                     <div class="toggle" id="line-trig-task-toggle" onclick="toggleLineTrigger('taskComplete')"></div>
                   </div>
 
@@ -669,7 +670,124 @@
                       </label>
                     </div>
                   </div>
+                </div>
 
+                <!-- v1.8.107: 新規トリガー群 -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">✨ 展示準備完了通知</h3>
+                  <p class="settings-card-desc">再生フェーズの全大タスクが完了した瞬間に「仕上がりました！」通知。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">展示準備完了通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-exhibitReady" onclick="sendTestForTrigger('exhibitReady')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-exhibitReady-toggle" onclick="toggleLineTrigger('exhibitReady')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🚗 納車準備完了通知</h3>
+                  <p class="settings-card-desc">納車準備フェーズの全大タスクが完了した瞬間に「いよいよ納車！」通知。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">納車準備完了通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-deliveryReady" onclick="sendTestForTrigger('deliveryReady')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-deliveryReady-toggle" onclick="toggleLineTrigger('deliveryReady')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🎉 納車完了通知</h3>
+                  <p class="settings-card-desc">納車完了（col='done'）になった瞬間に喜びテイストで通知。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">納車完了通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-deliveryDone" onclick="sendTestForTrigger('deliveryDone')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-deliveryDone-toggle" onclick="toggleLineTrigger('deliveryDone')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🏆 月販目標達成通知</h3>
+                  <p class="settings-card-desc">確定（納車完了）の台数が月販目標に到達した瞬間、その月で1回だけ祝う。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">月販目標達成通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-monthlyGoalReached" onclick="sendTestForTrigger('monthlyGoalReached')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-monthlyGoalReached-toggle" onclick="toggleLineTrigger('monthlyGoalReached')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">💴 売約通知</h3>
+                  <p class="settings-card-desc">売約（contract=1）になった瞬間に通知。営業の手柄をチーム共有。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">売約通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-contractWin" onclick="sendTestForTrigger('contractWin')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-contractWin-toggle" onclick="toggleLineTrigger('contractWin')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">🚨 リミット超過アラート</h3>
+                  <p class="settings-card-desc">毎日の指定時刻に、限界ライン超過してる車をまとめて通知。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">リミット超過アラートを有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-limitOver" onclick="sendTestForTrigger('limitOver')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-limitOver-toggle" onclick="toggleLineTrigger('limitOver')"></div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <label style="font-size:12px;color:var(--text2);margin-right:6px">送信時刻：</label>
+                    <input type="time" id="line-limitOver-time" onchange="onTriggerTimeChange('limitOver', this.value)" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📥 仕入れ通知</h3>
+                  <p class="settings-card-desc">新しい車を仕入れ列に追加した瞬間に通知。次の弾の入荷をチーム共有。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">仕入れ通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-carIntake" onclick="sendTestForTrigger('carIntake')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-carIntake-toggle" onclick="toggleLineTrigger('carIntake')"></div>
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">⏰ 在庫日数警告通知</h3>
+                  <p class="settings-card-desc">毎日の指定時刻に、在庫日数が警告閾値を超えてる車をまとめて通知。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">在庫日数警告通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-invDaysAlert" onclick="sendTestForTrigger('invDaysAlert')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-invDaysAlert-toggle" onclick="toggleLineTrigger('invDaysAlert')"></div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <label style="font-size:12px;color:var(--text2);margin-right:6px">送信時刻：</label>
+                    <input type="time" id="line-invDaysAlert-time" onchange="onTriggerTimeChange('invDaysAlert', this.value)" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+                  </div>
+                </div>
+
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📊 月末締めサマリー通知</h3>
+                  <p class="settings-card-desc">毎月1日の指定時刻に先月の納車台数・売上・目標達成率をまとめて通知。定休日に被ったら翌営業日に後ズレ。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">月末サマリー通知を有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-monthlySummary" onclick="sendTestForTrigger('monthlySummary')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-monthlySummary-toggle" onclick="toggleLineTrigger('monthlySummary')"></div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <label style="font-size:12px;color:var(--text2);margin-right:6px">送信時刻：</label>
+                    <input type="time" id="line-monthlySummary-time" onchange="onTriggerTimeChange('monthlySummary', this.value)" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+                  </div>
+                </div>
+
+                <!-- v1.8.110: 月末集計締めリマインド -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title">📋 月末締め作業リマインド</h3>
+                  <p class="settings-card-desc">月末日の指定時刻に「締め作業をしてね」リマインド通知。定休日に被ったら前営業日に前ズレ。</p>
+                  <div class="setting-row" style="margin-bottom:10px">
+                    <div style="flex:1"><div style="font-size:13px;font-weight:600">月末締めリマインドを有効化</div></div>
+                    <button class="btn-sm" id="line-test-btn-monthlyCloseReminder" onclick="sendTestForTrigger('monthlyCloseReminder')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <div class="toggle" id="line-trig-monthlyCloseReminder-toggle" onclick="toggleLineTrigger('monthlyCloseReminder')"></div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <label style="font-size:12px;color:var(--text2);margin-right:6px">送信時刻：</label>
+                    <input type="time" id="line-monthlyCloseReminder-time" onchange="onTriggerTimeChange('monthlyCloseReminder', this.value)" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+                  </div>
                 </div>
 
                 <!-- v1.8.80: タスク完了通知 文言カスタム -->
@@ -1694,6 +1812,9 @@
     </div>
   </div>
 </div>
+
+<!-- v1.8.109: トースト表示用の要素（showToast() が動くために必要） -->
+<div id="toast" class="toast"></div>
 
 <!-- ============= scripts ============= -->
 <!-- ========== デモ版：mock スクリプト群 ========== -->
