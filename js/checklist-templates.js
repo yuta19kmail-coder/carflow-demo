@@ -92,24 +92,32 @@ const ChecklistTemplates = {};
 // worksheet 型タスクの section を ChecklistSection に変換
 // v1.7.19: 既存 section.title を「大カテゴリ（tab）」に昇格し、中カテゴリ名は空にする。
 //          → 既存の「外装/内装」タブ表示はそのまま（タブの中はフラット）。
+// v2.3.0: item.inputType が指定されていれば 'check' で上書きせず引き継ぐ。
+//         （登録内容設定 d_register など select/tri 必要なタスクに対応）
 function _ctBuildSectionFromTaskSection(taskSec, secIdx, srcTaskId) {
   return {
     id: taskSec.id || `${srcTaskId}_sec${secIdx}`,
     title: '', // 中カテゴリ名（タブ内では空＝フラット）
     tab: taskSec.title || '', // 大カテゴリ名（旧 section title をそのまま昇格）
     icon: taskSec.icon || '',
-    items: (taskSec.items || []).map((item, i) => ({
-      id: item.id,
-      name: item.name || '',
-      sub: item.sub || '',
-      detail: item.detail || '',
-      help: item.help || '',
-      points: Array.isArray(item.points) ? item.points.slice() : [],
-      media: Array.isArray(item.media) ? item.media.slice() : [],
-      inputType: 'check', // worksheet 系はすべて単純トグル
-      order: i,
-      _source: 'default',
-    })),
+    items: (taskSec.items || []).map((item, i) => {
+      const m = {
+        id: item.id,
+        name: item.name || '',
+        sub: item.sub || '',
+        detail: item.detail || '',
+        help: item.help || '',
+        points: Array.isArray(item.points) ? item.points.slice() : [],
+        media: Array.isArray(item.media) ? item.media.slice() : [],
+        inputType: item.inputType || 'check', // v2.3.0: item側の指定を優先
+        order: i,
+        _source: 'default',
+      };
+      if (m.inputType === 'select' && Array.isArray(item.selectOptions)) {
+        m.selectOptions = item.selectOptions.slice();
+      }
+      return m;
+    }),
   };
 }
 
