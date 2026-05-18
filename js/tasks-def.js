@@ -204,8 +204,8 @@ const DELIVERY_TASKS = [
   {id:'d_register', name:'登録内容設定', icon:'📋', type:'workflow', sections:[
     {title:'01 登録パターン', items:[
       {id:'reg_pattern', name:'登録パターン', sub:'必ず1つ選ぶ',
-       type:'select',
-       options:['中古新規','継続移転','移転継続','名変','予備検'],
+       inputType:'select',
+       selectOptions:['中古新規','継続移転','移転継続','名変','予備検'],
        detail:'この車の登録方式を選択します。書類フローはこの選択で大きく変わります。',
        points:[
          '中古新規：車検切れ・抹消車を中古新規登録',
@@ -217,27 +217,27 @@ const DELIVERY_TASKS = [
     ]},
     {title:'02 オプション要素', items:[
       {id:'reg_loan',     name:'ローン',           sub:'信販会社利用',
-       type:'tri',
+       inputType:'tri',
        detail:'信販会社のローンを利用する場合は「あり」。所有権留保が発生します。',
        points:['ありの場合は所有権も自動的に「あり」になることが多い']},
       {id:'reg_ownership',name:'所有権',           sub:'所有権留保',
-       type:'tri',
+       inputType:'tri',
        detail:'販売店・信販会社など車両所有権が顧客以外にある場合「あり」。',
        points:['ローン利用時は通常「あり」']},
       {id:'reg_minor',    name:'未成年',           sub:'契約者が未成年',
-       type:'tri',
+       inputType:'tri',
        detail:'契約者が未成年の場合「あり」。親権者同意書などが必要になります。',
        points:['ありの場合：親権者同意書、親の印鑑証明書']},
       {id:'reg_recycle',  name:'リサイクル券',     sub:'リサイクル券あり',
-       type:'tri',
+       inputType:'tri',
        detail:'リサイクル券が手元にあるか。',
        points:['なしの場合：再発行 or 確認書類用意']},
       {id:'reg_proxy',    name:'委任状必要',       sub:'代行書類',
-       type:'tri',
+       inputType:'tri',
        detail:'運輸支局への登録を代行する場合に必要。',
        points:['印鑑証明書とセットで管理']},
       {id:'reg_plate',    name:'希望ナンバー',     sub:'希望NO申請',
-       type:'tri',
+       inputType:'tri',
        detail:'お客様が希望ナンバーを指定した場合「あり」。事前申請が必要。',
        points:['抽選番号の場合は2〜3週間前から準備','図柄入りも別フロー']},
     ]},
@@ -723,73 +723,4 @@ function setTaskChecklistMode(taskId, phase, hasChecklist) {
   return true;
 }
 
-// このタスクに紐づく ChecklistTemplate ID を返す（規約：tpl_${phase}_${taskId}）
-// v1.7.17: t_equip だけは EQUIPMENT_CATEGORIES から生成される 'tpl_equipment' を使う
-//          （装備品チェックの中身を再利用するため）
-function templateIdForTask(taskId, phase) {
-  if (taskId === 't_equip') return 'tpl_equipment';
-  return 'tpl_' + phase + '_' + taskId;
-}
-
-function moveTaskOrder(taskId, phase, dir) {
-  if (!appTaskOrder[phase]) appTaskOrder[phase] = [];
-  let order = appTaskOrder[phase];
-  const builtin = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS).map(t => t.id);
-  const custom = (appCustomTasks || []).filter(t => (t.phases || []).includes(phase)).map(t => t.id);
-  const all = builtin.concat(custom);
-  if (!order.length) order = all.slice();
-  if (!order.includes(taskId)) order.push(taskId);
-  const idx = order.indexOf(taskId);
-  const j = idx + dir;
-  if (j < 0 || j >= order.length) return;
-  [order[idx], order[j]] = [order[j], order[idx]];
-  appTaskOrder[phase] = order;
-  if (window.saveSettings) saveSettings();
-}
-
-// v1.8.80: target/limit を共通保存ロジックで書き込む
-//   - 両方 null → エントリ自体削除
-//   - target のみ（limit=null）→ 旧形式（数値）で保存
-//   - 両方ある or limit のみ → { target, limit } オブジェクト形式で保存
-function _writeDeadlineEntry(taskId, phase, target, limit) {
-  if (!appTaskDeadline[phase]) appTaskDeadline[phase] = {};
-  const t = (target == null) ? null : Math.floor(Number(target));
-  const l = (limit  == null) ? null : Math.floor(Number(limit));
-  const tValid = t != null && Number.isFinite(t) && t > 0;
-  const lValid = l != null && Number.isFinite(l) && l > 0;
-  if (!tValid && !lValid) {
-    delete appTaskDeadline[phase][taskId];
-  } else if (tValid && !lValid) {
-    // 旧フォーマット互換：target のみ → 数値で保存
-    appTaskDeadline[phase][taskId] = t;
-  } else {
-    // limit あり（target がなくても）→ オブジェクト形式
-    appTaskDeadline[phase][taskId] = {
-      target: tValid ? t : null,
-      limit:  lValid ? l : null,
-    };
-  }
-}
-
-// 後方互換：従来通り target（目標ライン日数）を設定（旧挙動）
-function setTaskDeadline(taskId, phase, value) {
-  setTaskTargetDays(taskId, phase, value);
-}
-
-// v1.8.80: 目標ライン日数を設定
-function setTaskTargetDays(taskId, phase, value) {
-  const entry = _readDeadlineEntry(taskId, phase);
-  const v = (value == null || value === '') ? null : Number(value);
-  const t = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
-  _writeDeadlineEntry(taskId, phase, t, entry.limit);
-  if (window.saveSettings) saveSettings();
-}
-
-// v1.8.80: 限界ライン日数を設定
-function setTaskLimitDays(taskId, phase, value) {
-  const entry = _readDeadlineEntry(taskId, phase);
-  const v = (value == null || value === '') ? null : Number(value);
-  const l = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
-  _writeDeadlineEntry(taskId, phase, entry.target, l);
-  if (window.saveSettings) saveSettings();
-}
+/
