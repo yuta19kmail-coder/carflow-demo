@@ -208,11 +208,11 @@ const DELIVERY_TASKS = [
        selectOptions:['中古新規','継続移転','移転継続','名変','予備検'],
        detail:'この車の登録方式を選択します。書類フローはこの選択で大きく変わります。',
        points:[
-         '中古新規：車検切れ・抹消車を中古新規登録',
-         '継続移転：車検残あり、所有者変更',
-         '移転継続：所有者変更と同時に車検更新',
-         '名変：旧所有者名義のまま継続車検（名義のみ変更）',
-         '予備検：車検取得のみ先行（登録は後）',
+         '中古新規=車検切れ・抹消車を中古新規登録',
+         '継続移転=車検残あり、所有者変更',
+         '移転継続=所有者変更と同時に車検更新',
+         '名変=旧所有者名義のまま継続車検（名義のみ変更）',
+         '予備検=車検取得のみ先行（登録は後）',
        ]},
     ]},
     {title:'02 オプション要素', items:[
@@ -227,11 +227,11 @@ const DELIVERY_TASKS = [
       {id:'reg_minor',    name:'未成年',           sub:'契約者が未成年',
        inputType:'tri',
        detail:'契約者が未成年の場合「あり」。親権者同意書などが必要になります。',
-       points:['ありの場合：親権者同意書、親の印鑑証明書']},
+       points:['ありの場合は親権者同意書、親の印鑑証明書が必要']},
       {id:'reg_recycle',  name:'リサイクル券',     sub:'リサイクル券あり',
        inputType:'tri',
        detail:'リサイクル券が手元にあるか。',
-       points:['なしの場合：再発行 or 確認書類用意']},
+       points:['なしの場合は再発行または確認書類用意']},
       {id:'reg_proxy',    name:'委任状必要',       sub:'代行書類',
        inputType:'tri',
        detail:'運輸支局への登録を代行する場合に必要。',
@@ -723,4 +723,73 @@ function setTaskChecklistMode(taskId, phase, hasChecklist) {
   return true;
 }
 
-/
+// このタスクに紐づく ChecklistTemplate ID を返す（規約：tpl_${phase}_${taskId}）
+// v1.7.17: t_equip だけは EQUIPMENT_CATEGORIES から生成される 'tpl_equipment' を使う
+//          （装備品チェックの中身を再利用するため）
+function templateIdForTask(taskId, phase) {
+  if (taskId === 't_equip') return 'tpl_equipment';
+  return 'tpl_' + phase + '_' + taskId;
+}
+
+function moveTaskOrder(taskId, phase, dir) {
+  if (!appTaskOrder[phase]) appTaskOrder[phase] = [];
+  let order = appTaskOrder[phase];
+  const builtin = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS).map(t => t.id);
+  const custom = (appCustomTasks || []).filter(t => (t.phases || []).includes(phase)).map(t => t.id);
+  const all = builtin.concat(custom);
+  if (!order.length) order = all.slice();
+  if (!order.includes(taskId)) order.push(taskId);
+  const idx = order.indexOf(taskId);
+  const j = idx + dir;
+  if (j < 0 || j >= order.length) return;
+  [order[idx], order[j]] = [order[j], order[idx]];
+  appTaskOrder[phase] = order;
+  if (window.saveSettings) saveSettings();
+}
+
+// v1.8.80: target/limit を共通保存ロジックで書き込む
+//   - 両方 null → エントリ自体削除
+//   - target のみ（limit=null）→ 旧形式（数値）で保存
+//   - 両方ある or limit のみ → { target, limit } オブジェクト形式で保存
+function _writeDeadlineEntry(taskId, phase, target, limit) {
+  if (!appTaskDeadline[phase]) appTaskDeadline[phase] = {};
+  const t = (target == null) ? null : Math.floor(Number(target));
+  const l = (limit  == null) ? null : Math.floor(Number(limit));
+  const tValid = t != null && Number.isFinite(t) && t > 0;
+  const lValid = l != null && Number.isFinite(l) && l > 0;
+  if (!tValid && !lValid) {
+    delete appTaskDeadline[phase][taskId];
+  } else if (tValid && !lValid) {
+    // 旧フォーマット互換：target のみ → 数値で保存
+    appTaskDeadline[phase][taskId] = t;
+  } else {
+    // limit あり（target がなくても）→ オブジェクト形式
+    appTaskDeadline[phase][taskId] = {
+      target: tValid ? t : null,
+      limit:  lValid ? l : null,
+    };
+  }
+}
+
+// 後方互換：従来通り target（目標ライン日数）を設定（旧挙動）
+function setTaskDeadline(taskId, phase, value) {
+  setTaskTargetDays(taskId, phase, value);
+}
+
+// v1.8.80: 目標ライン日数を設定
+function setTaskTargetDays(taskId, phase, value) {
+  const entry = _readDeadlineEntry(taskId, phase);
+  const v = (value == null || value === '') ? null : Number(value);
+  const t = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
+  _writeDeadlineEntry(taskId, phase, t, entry.limit);
+  if (window.saveSettings) saveSettings();
+}
+
+// v1.8.80: 限界ライン日数を設定
+function setTaskLimitDays(taskId, phase, value) {
+  const entry = _readDeadlineEntry(taskId, phase);
+  const v = (value == null || value === '') ? null : Number(value);
+  const l = (v == null || !Number.isFinite(v) || v <= 0) ? null : Math.floor(v);
+  _writeDeadlineEntry(taskId, phase, entry.target, l);
+  if (window.saveSettings) saveSettings();
+}
