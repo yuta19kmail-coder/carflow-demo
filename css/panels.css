@@ -1408,3 +1408,81 @@ body.mobile .task-item-mv-stack .task-item-variant-sel { max-width: 120px; font-
   color: #fff;
 }
 .tmc-type-radio:hover { border-color: var(--accent, #378ADD); }
+
+/* ========================================
+   v2.3.0: 登録内容バー（カード詳細「車両編集」の下に常時表示）
+   納車準備フェーズの車両に出る。
+   reg_pattern → カラーバー（1文字+フルネーム）、tri「あり」項目 → タグで列挙。
+   ======================================== */
+.detail-reg-bar {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.detail-reg-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 700;
+}
+.detail-reg-bar-short {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  font-size: 14px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.detail-reg-bar-label {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+.detail-reg-bar-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.detail-reg-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+.detail-reg-no-tags {
+  font-size: 11px;
+  color: var(--text3);
+  font-style: italic;
+}
+
+/* 未設定（警告表示） */
+.detail-reg-bar-empty {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--r);
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+.detail-reg-bar-empty-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red, #ef4444);
+  margin-bottom: 3px;
+}
+.detail-reg-bar-empty-sub {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.4;
+}

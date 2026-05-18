@@ -643,14 +643,16 @@ window.openTaskMenu = function (taskId, phase) {
   const t = tasks.find(x => x.id === taskId);
   if (!t) return;
 
-  // v2.0.0: 保護対象 = 自動判定タスク or 装備品チェック
+  // v2.0.0: 保護対象 = 自動判定タスク or 装備品チェック or 登録内容設定
   //   自動判定（展示前完全完了/納車前完全完了）：他タスクの完了で自動ON/OFF → 削除で進捗計算が破綻
   //   装備品チェック（t_equip）：閲覧用装備品シート（カタログ風印刷）に連動 → 削除で装備品ビューが破綻
+  //   登録内容設定（d_register / v2.3.0〜）：カード詳細の登録内容バー表示に連動 → 削除で表示が破綻
   //   ※ 再生/展示/納車準備/納車整備 は workflow 型だがチェックリスト内容はユーザーカスタム前提なので
   //     カスタムタスクと同等に名前変更・削除可（再作成も自由）
   const isAutoTask  = (taskId === 't_complete' || taskId === 'd_complete');
   const isEquip     = (taskId === 't_equip');
-  const isProtected = isAutoTask || isEquip;
+  const isRegister  = (taskId === 'd_register');
+  const isProtected = isAutoTask || isEquip || isRegister;
 
   const titleEl = document.getElementById('task-actionsheet-title');
   if (titleEl) titleEl.textContent = (t.icon || '📋') + ' ' + (t.name || '');
@@ -993,6 +995,11 @@ function renameCustomTask(taskId, phase) {
     if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため名前変更できません');
     return;
   }
+  // v2.3.0: 登録内容設定はガード（カード詳細の登録内容バーに連動）
+  if (taskId === 'd_register') {
+    if (typeof showToast === 'function') showToast('登録内容設定は登録内容バー連動のため名前変更できません');
+    return;
+  }
   // カスタムかビルトインかを判定
   const cust = (appCustomTasks || []).find(x => x.id === taskId);
   let curName = '', curIcon = '📋';
@@ -1120,6 +1127,11 @@ function deleteCustomTask(taskId, phase) {
   }
   if (taskId === 't_equip') {
     if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため削除できません');
+    return;
+  }
+  // v2.3.0: 登録内容設定はガード
+  if (taskId === 'd_register') {
+    if (typeof showToast === 'function') showToast('登録内容設定は登録内容バー連動のため削除できません');
     return;
   }
   const cust = (appCustomTasks || []).find(x => x.id === taskId);

@@ -4,7 +4,71 @@
 // v0.8.9: その他はタスク非表示・メモ中心
 // v0.9.0: 削除ボタンは編集モーダル側に移動（誤タップ防止）
 // v1.7.38: 各タスク行に「タスクパターン」選択UIを追加（パターン2つ以上のテンプレ）
+// v2.3.0: 登録内容バー（納車準備フェーズ用）の表示関数を追加
 // ========================================
+
+// v2.3.0: 登録内容バー（カード詳細「車両編集」ボタンの下に常時表示）
+//   納車準備/納車完了フェーズの車両だけ表示。
+//   reg_pattern（必須・select）でカラーバー、reg_*（tri）の「あり」項目をタグで列挙。
+//   未設定なら赤めの警告バー。
+function _renderRegistrationBar(car) {
+  if (!car) return '';
+  if (car.col !== 'delivery' && car.col !== 'done') return '';
+
+  const data = (car.deliveryTasks && car.deliveryTasks.d_register) || {};
+  const pattern = data.reg_pattern || '';
+
+  // 5パターン用カラー（順番固定）
+  const PATTERN_COLOR = {
+    '中古新規': { bg: '#3b82f6', short: '中' },   // 青
+    '継続移転': { bg: '#22c55e', short: '継' },   // 緑
+    '移転継続': { bg: '#8b5cf6', short: '移' },   // 紫
+    '名変':     { bg: '#f59e0b', short: '名' },   // オレンジ
+    '予備検':   { bg: '#ef4444', short: '予' },   // 赤
+  };
+
+  // 未設定 → 赤め警告
+  if (!pattern || !PATTERN_COLOR[pattern]) {
+    return `
+      <div class="detail-reg-bar detail-reg-bar-empty">
+        <div class="detail-reg-bar-empty-head">⚠️ 登録内容 未設定</div>
+        <div class="detail-reg-bar-empty-sub">納車準備の「📋 登録内容設定」タスクから入力してください（書類フローに直結します）</div>
+      </div>`;
+  }
+
+  const pc = PATTERN_COLOR[pattern];
+
+  // tri 項目で「あり」のものだけタグ化（reg_* で始まる任意のキーに対応、カスタム追加にも追従）
+  // 既知の表示名マップ＋未知IDは itemName を取得（tpl から）
+  const KNOWN_LABELS = {
+    reg_loan:      'ローン',
+    reg_ownership: '所有権',
+    reg_minor:     '未成年',
+    reg_recycle:   'リサイクル券',
+    reg_proxy:     '委任状必要',
+    reg_plate:     '希望ナンバー',
+  };
+  const tags = [];
+  Object.keys(data).forEach(k => {
+    if (k === 'reg_pattern' || k.startsWith('_')) return;
+    if (data[k] === 'あり') {
+      tags.push(KNOWN_LABELS[k] || k.replace(/^reg_/, ''));
+    }
+  });
+
+  const tagsHtml = tags.length
+    ? tags.map(t => `<span class="detail-reg-tag">${escapeHtml(t)}</span>`).join('')
+    : '<span class="detail-reg-no-tags">オプション要素なし</span>';
+
+  return `
+    <div class="detail-reg-bar">
+      <div class="detail-reg-bar-head" style="background:${pc.bg}">
+        <span class="detail-reg-bar-short">${pc.short}</span>
+        <span class="detail-reg-bar-label">${escapeHtml(pattern)}</span>
+      </div>
+      <div class="detail-reg-bar-tags">${tagsHtml}</div>
+    </div>`;
+}
 
 // v1.7.38: タスクパターン変更ハンドラ
 //   ・初回選択（旧データ無し）：そのまま反映
@@ -132,6 +196,7 @@ function _renderDetailBodyOther(car) {
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
     <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">✏️ 車両詳細を編集</button>
+    ${_renderRegistrationBar(car)}
     <div class="work-memo" id="work-memo-wrap">
       <div class="work-memo-label">📝 作業メモ <span class="work-memo-hint">（保留中のメモ）</span></div>
       <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
@@ -244,6 +309,7 @@ function renderDetailBody(car) {
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
     <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">✏️ 車両詳細を編集</button>
+    ${_renderRegistrationBar(car)}
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isBackofficeMode ? '🗂 バックオフィス（事務処理）' : (isD ? '納車準備' : '業務タスク')}</div>
     <div class="detail-overall">
       <div class="detail-overall-label"><span>全体進捗</span><span>${prog.done}/${prog.total} (${prog.pct}%)</span></div>
