@@ -48,10 +48,12 @@ function _renderRegistrationBar(car) {
     reg_proxy:     '委任状必要',
     reg_plate:     '希望ナンバー',
   };
+  // tri の保存値は 'on' / 'off' / 'none'（worksheet.js 規約）
+  // 「あり」= 'on' のものだけタグ化
   const tags = [];
   Object.keys(data).forEach(k => {
     if (k === 'reg_pattern' || k.startsWith('_')) return;
-    if (data[k] === 'あり') {
+    if (data[k] === 'on') {
       tags.push(KNOWN_LABELS[k] || k.replace(/^reg_/, ''));
     }
   });
