@@ -180,6 +180,12 @@
   gap:8px;
   flex-wrap:wrap;
 }
+/* v2.4.0: 4テーマピッカーは 2列x2行 グリッドに */
+.theme-picker-4{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:8px;
+}
 
 .theme-btn, .fontsize-btn{
   flex:1;
