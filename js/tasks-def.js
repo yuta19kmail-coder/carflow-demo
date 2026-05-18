@@ -372,23 +372,71 @@ const DELIVERY_TASKS = [
 // 設定UIで管理（メモリ上、リロードで初期化）
 // ========================================
 
-let appTaskEnabled = { regen: {}, delivery: {} };
+// v1.8.112: バックオフィス（売約以降の裏方業務）の大タスクをデフォルト4種で初期化
+//   設定→タスク・進捗→「バックオフィス」セクションから編集可能
+const BACKOFFICE_TASKS = [
+  { id: 'bo_cost',     name: '原価処理',     icon: '💰', type: 'toggle' },
+  { id: 'bo_docs',     name: '書類整理',     icon: '📂', type: 'toggle' },
+  { id: 'bo_scan',     name: '書類スキャン', icon: '🖨️', type: 'toggle' },
+  { id: 'bo_revenue',  name: '売上確認',     icon: '🧾', type: 'toggle' },
+];
+
+let appTaskEnabled = { regen: {}, delivery: {}, backoffice: {} };
 let appCustomTasks = [];
-let appTaskOrder = { regen: [], delivery: [] };
+let appTaskOrder = { regen: [], delivery: [], backoffice: [] };
 // v1.8.51: 大タスクを「選択制」にできる仕組み（Phase B）
 //   appTaskOptional[phase][taskId] = true なら、その大タスクは選択制扱い。
 //   選択制の大タスクは新規車両登録／編集／売約確定時のチェックUIで
 //   個別に car.selectedTasks[phase][taskId] = true を立てた車だけに表示される。
 //   既存（=非選択制）の大タスクはそのまま全車に表示。
-let appTaskOptional = { regen: {}, delivery: {} };
+let appTaskOptional = { regen: {}, delivery: {}, backoffice: {} };
 // v1.6.1: 各タスクが「詳細チェックリスト」を持つかどうか
 //   true  → ChecklistTemplate (tpl_${phase}_${taskId}) と紐づき、編集UIから項目を編集
 //   false → 単純トグル（旧来通り）
 //   未設定の builtin workflow 系（t_equip / t_regen / d_prep / d_maint）は実質 true 固定
-let appTaskMode = { regen: {}, delivery: {} };
+let appTaskMode = { regen: {}, delivery: {}, backoffice: {} };
 // v1.8.12: 各大タスクの「進捗ウエイト（％）」。フェーズごとに合計100％。
 //   未設定なら均等割り（後方互換）。t_complete / d_complete（自動判定タスク）は対象外
-let appTaskWeight = { regen: {}, delivery: {} };
+let appTaskWeight = { regen: {}, delivery: {}, backoffice: {} };
+// v2.0.0: ビルトインタスクの削除フラグ（true ならUI/有効タスクから除外）
+//   t_complete / d_complete（自動判定）はガードでセット不可
+let appTaskDeleted = { regen: {}, delivery: {}, backoffice: {} };
+// v2.0.0: ビルトインタスクの名前/アイコンオーバーライド
+//   appTaskRename[phase][taskId] = { name, icon } を持つと UI 表示時に置き換え
+let appTaskRename  = { regen: {}, delivery: {}, backoffice: {} };
+// v2.2.1: タスク個別メモの種別設定
+//   appTaskMemoConfig[phase][taskId] = { type: 'off'|'freeword'|'date'|'time', label: string }
+//   - type='off'（デフォルト）ならそのタスクにメモ機能なし（表示なし＝従来通り）
+//   - date/time のときに label を表示ラベルに使う（空ならデフォの「日付」「時刻」）
+//   - freeword は label を使わず「メモ」固定
+//   - 値（実データ）は車両側 car.taskMemos[taskId].value に入る
+let appTaskMemoConfig = { regen: {}, delivery: {}, backoffice: {} };
+
+// v2.2.1: タスクごとのメモ設定取得（未設定時は OFF を返す）
+function getTaskMemoConfig(taskId, phase) {
+  const c = (typeof appTaskMemoConfig !== 'undefined'
+    && appTaskMemoConfig && appTaskMemoConfig[phase]
+    && appTaskMemoConfig[phase][taskId]) || null;
+  if (!c || typeof c !== 'object') return { type: 'off', label: '' };
+  return {
+    type: c.type || 'off',
+    label: c.label || '',
+  };
+}
+
+// v2.2.1: メモ機能が有効か（type !== 'off'）
+function isTaskMemoEnabled(taskId, phase) {
+  return getTaskMemoConfig(taskId, phase).type !== 'off';
+}
+
+// v2.2.1: 表示ラベルを返す（date/time はカスタム/デフォルト、freeword は「メモ」）
+function getTaskMemoLabel(taskId, phase) {
+  const c = getTaskMemoConfig(taskId, phase);
+  if (c.type === 'date') return c.label || '日付';
+  if (c.type === 'time') return c.label || '時刻';
+  if (c.type === 'freeword') return 'メモ';
+  return '';
+}
 
 // v1.2.5: 再生フェーズのデフォルト期日を入れて、期限超過アラートが発火する状態に
 let appTaskDeadline = {
@@ -407,6 +455,8 @@ let appTaskDeadline = {
     d_prep:     1,
     d_complete: 1,
   },
+  // v1.8.112: バックオフィスフェーズは期限なし（task-edit上で隠す）
+  backoffice: {},
 };
 
 function isTaskActive(taskId, phase) {
@@ -498,13 +548,31 @@ function _sortByTaskOrder(tasks, phase) {
 }
 
 function _allTasksForPhase(phase) {
-  const builtin = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS).map(t => ({
+  // v1.8.112: backoffice フェーズ追加
+  let builtinSrc;
+  if (phase === 'delivery') builtinSrc = DELIVERY_TASKS;
+  else if (phase === 'backoffice') builtinSrc = BACKOFFICE_TASKS;
+  else builtinSrc = REGEN_TASKS;
+  const builtin = builtinSrc.map(t => ({
     id: t.id, name: t.name, icon: t.icon, type: t.type, sections: t.sections, builtin: true,
   }));
   const custom = (appCustomTasks || [])
     .filter(t => (t.phases || []).includes(phase))
     .map(t => ({ id: t.id, name: t.name, icon: t.icon, type: 'toggle', _custom: true, builtin: false }));
-  return _sortByTaskOrder(builtin.concat(custom), phase);
+  // v2.0.0: 削除済みタスクを除外、名前/アイコンの override を適用
+  const deletedMap = (appTaskDeleted && appTaskDeleted[phase]) || {};
+  const renameMap  = (appTaskRename  && appTaskRename[phase])  || {};
+  const merged = builtin.concat(custom)
+    .filter(t => !deletedMap[t.id])
+    .map(t => {
+      const ov = renameMap[t.id];
+      if (!ov) return t;
+      return Object.assign({}, t, {
+        name: ov.name || t.name,
+        icon: ov.icon || t.icon,
+      });
+    });
+  return _sortByTaskOrder(merged, phase);
 }
 
 // v1.8.51: car を渡すと、選択制かつ未opt-in のタスクが除外される。
@@ -521,6 +589,18 @@ function getActiveDeliveryTasks(car) {
   return _allTasksForPhase('delivery').filter(t => {
     if (!isTaskActive(t.id, 'delivery')) return false;
     if (isTaskOptional(t.id, 'delivery') && !isTaskOptedInForCar(car, t.id, 'delivery')) return false;
+    return true;
+  });
+}
+
+// v2.1.0: バックオフィスフェーズの有効タスク一覧
+//   バックオフィスは「選択制」概念を持たない（全車に同じタスクが付く想定）。
+//   appTaskEnabled.backoffice で OFF にされたタスクは除外。
+//   appTaskDeleted / appTaskRename は _allTasksForPhase 内で適用済み。
+function getActiveBackofficeTasks(car) {
+  return _allTasksForPhase('backoffice').filter(t => {
+    if (!isTaskActive(t.id, 'backoffice')) return false;
+    if (isTaskOptional(t.id, 'backoffice') && !isTaskOptedInForCar(car, t.id, 'backoffice')) return false;
     return true;
   });
 }

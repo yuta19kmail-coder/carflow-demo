@@ -102,20 +102,17 @@
 .task-items{display:flex;flex-direction:column;gap:9px;margin-top:12px}
 .task-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .task-item-row{display:flex;align-items:center;gap:11px;padding:12px 14px}
-/* v1.7.41: タスクパターン選択（2行目・控えめスタイル）
-   名前の左端と揃えて、背景・枠は最小限。インパクトを抑えてスマートに見せる。
-   chk(30px) + gap(11px) = 41px 分インデント */
-.task-item-variant-row{
-  padding: 0 14px 8px 53px; /* chk幅+gapぶんインデント */
-}
+/* v2.2.2: タスクパターン選択は task-item-row 内に inline 配置（1行化）
+   v1.7.41 時代の .task-item-variant-row 2行レイアウトは廃止。
+   メモセルとの共存を考慮して、極力コンパクトに表示する。 */
 .task-item-variant-sel{
-  max-width:200px;
-  padding:3px 22px 3px 8px;
+  max-width:120px;
+  padding:2px 18px 2px 7px;
   background:transparent;
   border:1px solid var(--border);
   border-radius:5px;
   color:var(--text2);
-  font-size:11px;
+  font-size:10.5px;
   font-weight:500;
   font-family:inherit;
   outline:none;
@@ -123,6 +120,8 @@
   text-overflow:ellipsis;
   white-space:nowrap;
   overflow:hidden;
+  flex-shrink:1;
+  min-width:0;
 }
 .task-item-variant-sel:hover{
   background:rgba(55,138,221,.08);
@@ -135,9 +134,21 @@
   background:var(--bg2);
   color:var(--text);
 }
-/* スマホ：もう少しコンパクトに */
-body.mobile .task-item-variant-row{ padding: 0 12px 7px 45px; }
-body.mobile .task-item-variant-sel{ font-size:10px; padding:2px 18px 2px 6px; }
+/* v2.2.11: スマホでは2行目（全幅）に下りるので幅制限は不要、フォントは少し戻す */
+body.mobile .task-item-row > .task-item-variant-sel {
+  font-size: 11px;
+  padding: 3px 18px 3px 8px;
+  max-width: none;
+  flex: 1 1 0;
+  min-width: 0;
+}
+body.mobile .task-item-mv-stack .task-item-variant-sel {
+  font-size: 11px;
+  padding: 3px 18px 3px 8px;
+  max-width: none;
+  flex: 1 1 0;
+  min-width: 0;
+}
 .task-chk{width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s}
 /* v1.0.27: 状態色の統一基準  未着手=グレー（既定） / 途中=オレンジ / 完了=緑 */
 .task-chk.partial{background:var(--orange);border-color:var(--orange)}

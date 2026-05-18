@@ -15,8 +15,23 @@ function isMobileMode() {
   return window.innerWidth <= 768 && !mobileAdminMode;
 }
 
+// v2.2.12: スマホ幅でフルメニューモードの時だけ true（管理者画面のスマホ表示用）
+function isMobileAdminMode() {
+  return window.innerWidth <= 768 && mobileAdminMode;
+}
+
+// v2.2.12: スマホでフルメニュー時に重い編集UIをガード
+function blockOnMobileAdmin(label) {
+  if (document.body.classList.contains('mobile-admin')) {
+    if (typeof showToast === 'function') showToast('📱 ' + label + 'はPCから操作してください');
+    return true;
+  }
+  return false;
+}
+
 function applyMobileClass() {
   document.body.classList.toggle('mobile', isMobileMode());
+  document.body.classList.toggle('mobile-admin', isMobileAdminMode());
   refreshAdminToggleButtons();
 }
 
@@ -53,6 +68,8 @@ function enterAdminMode() {
 function exitAdminMode() {
   mobileAdminMode = false;
   applyMobileClass();
+  // v2.2.17: 戻り時に scroll 位置だけリセット
+  window.scrollTo(0, 0);
   if (typeof forceProgressView === 'function') forceProgressView();
   if (typeof showToast === 'function') showToast('⚡ クイックメニューに戻りました');
 }
@@ -60,6 +77,13 @@ function exitAdminMode() {
 function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+}
+
+// v2.2.14: モバイル（iOS/Android）はリダイレクト方式の方が圧倒的に早い
+// （signInWithPopup はタブ間 postMessage に依存していて、Safari のタブ suspend で激遅になる）
+function _shouldUseRedirect() {
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod|Android/i.test(ua);
 }
 
 async function doLogin() {
@@ -74,15 +98,26 @@ async function doLogin() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    await window.fb.auth.signInWithPopup(provider);
+    if (_shouldUseRedirect()) {
+      // モバイル：同タブで Google に遷移して戻る
+      // ※ ここから先は戻ってこない（ページ遷移）
+      await window.fb.auth.signInWithRedirect(provider);
+    } else {
+      await window.fb.auth.signInWithPopup(provider);
+    }
   } catch (err) {
-    console.error('[auth] signInWithPopup error:', err);
+    console.error('[auth] signIn error:', err);
     let msg = 'ログインに失敗しました';
     if (err && err.code === 'auth/popup-closed-by-user') msg = 'ログインがキャンセルされました';
     else if (err && err.code === 'auth/popup-blocked') msg = 'ポップアップがブロックされました';
     else if (err && err.code === 'auth/unauthorized-domain') msg = 'このドメインは Firebase に未登録です';
     if (typeof showToast === 'function') showToast(msg);
-  } finally {
+    _authBusy = false;
+    _setLoginBusy(false);
+  }
+  // 注意：リダイレクト方式の場合、await signInWithRedirect は遷移開始前に return することがある
+  // ので finally は使わず、popup と error 時だけ busy を解除する
+  if (!_shouldUseRedirect()) {
     _authBusy = false;
     _setLoginBusy(false);
   }
@@ -104,6 +139,16 @@ async function doLogout() {
 
 function _initAuthStateListener() {
   if (!window.fb || !window.fb.auth) return;
+  // v2.2.14: モバイル signInWithRedirect 戻りのエラーをキャッチ
+  // 正常時は onAuthStateChanged が発火するのでここでは何もしない
+  if (window.fb.auth.getRedirectResult) {
+    window.fb.auth.getRedirectResult().catch((err) => {
+      console.error('[auth] getRedirectResult error:', err);
+      if (typeof showToast === 'function') {
+        showToast('ログインに失敗しました：' + (err.code || err.message || '不明'));
+      }
+    });
+  }
   window.fb.auth.onAuthStateChanged(async (user) => {
     if (user) {
       await _onSignedIn(user);
@@ -272,6 +317,17 @@ async function _onSignedIn(user) {
         if (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
           archivedCars.length = 0;
           aList.forEach(c => archivedCars.push(c));
+        }
+        // v2.1.0: アプリ起動時に「archive 後 90 日超え写真」をクリーンアップ
+        if (window.backoffice && typeof window.backoffice.cleanupExpiredArchivedPhotos === 'function') {
+          try { window.backoffice.cleanupExpiredArchivedPhotos(); } catch (e) { console.error('[auth] cleanupExpiredArchivedPhotos failed', e); }
+        }
+        // v2.2.7: 完了から7日経過した done 付箋を削除（自動付箋＋手動付箋とも対象）
+        // boardNotes の読み込み完了を待つため少し遅延
+        if (window.taskMemoAutoNote && typeof window.taskMemoAutoNote.cleanup === 'function') {
+          setTimeout(() => {
+            try { window.taskMemoAutoNote.cleanup(); } catch (e) { console.error('[auth] taskMemoAutoNote.cleanup failed', e); }
+          }, 2000);
         }
       } catch (e) {
         console.error('[auth] archivedCars 読み込み失敗:', e);

@@ -194,6 +194,23 @@ body[data-theme="light"] #view-overview { background: var(--bg, #f5f1ea) !import
   text-overflow: ellipsis;
 }
 
+/* v2.2.7/v2.2.8: 自動付箋バッジ（タスクメモから自動生成）
+   footer の制作者の左側にインライン配置 */
+.bn-auto-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
 /* ⋮ メニューボタン */
 .bn-menu-btn {
   position: absolute;

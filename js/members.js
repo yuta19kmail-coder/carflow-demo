@@ -164,6 +164,7 @@ async function _renderPendingInvites() {
 // ========================================
 
 function openInviteMemberModal() {
+  if (typeof blockOnMobileAdmin === 'function' && blockOnMobileAdmin('メンバー招待')) return;
   if (!_isAdmin()) {
     showToast('管理者のみ招待できます');
     return;

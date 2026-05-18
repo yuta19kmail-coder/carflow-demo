@@ -50,15 +50,37 @@ window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
   if (typeof renderAll === 'function') renderAll();
 };
 
+// v2.1.0: 詳細モーダルのモード（'default' | 'backoffice'）
+//   バックオフィスサイドパネルから開くと 'backoffice' になり、
+//   納車タスクの代わりにバックオフィスタスクを納車と同じUIで描画する。
+let _detailMode = 'default';
+
 // 車両詳細を開く
-function openDetail(carId) {
+// v2.1.0:
+//   - 第2引数 fromArchive: archivedCars 由来なら true
+//   - 第3引数 mode: 'backoffice' を渡すとバックオフィスモードで描画
+function openDetail(carId, fromArchive, mode) {
   activeDetailCarId = carId;
-  const car = cars.find(c => c.id === carId);
+  _detailMode = (mode === 'backoffice') ? 'backoffice' : 'default';
+  let car = null;
+  if (fromArchive && typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
+    car = archivedCars.find(c => c && c.id === carId);
+  }
+  if (!car && typeof cars !== 'undefined' && Array.isArray(cars)) {
+    car = cars.find(c => c && c.id === carId);
+  }
+  if (!car && typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
+    car = archivedCars.find(c => c && c.id === carId);
+  }
   if (!car) return;
+  // archive 由来かを保持
+  car._fromArchive = !!(typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)
+                         && archivedCars.find(c => c && c.id === carId));
   document.getElementById('detail-title').textContent = `${car.maker} ${car.model}`;
   renderDetailBody(car);
   document.getElementById('modal-detail').classList.add('open');
 }
+window.getCurrentDetailMode = function () { return _detailMode; };
 
 // その他用の詳細：タスクなしでメモ中心
 function _renderDetailBodyOther(car) {
@@ -125,9 +147,25 @@ function _renderDetailBodyOther(car) {
 function renderDetailBody(car) {
   if (car.col === 'other') return _renderDetailBodyOther(car);
 
+  // v2.1.0: バックオフィスモードでは納車タスクの代わりにバックオフィスタスクを描画
+  const isBackofficeMode = (_detailMode === 'backoffice');
   const isD = car.col === 'delivery' || car.col === 'done';
-  const tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
-  const prog = calcProg(car);
+  let tasks, prog;
+  if (isBackofficeMode) {
+    if (!car.backofficeTasks) car.backofficeTasks = {};
+    tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
+    // バックオフィス進捗（toggle 完了数ベース。workflow/checklist は将来拡張）
+    const _store = car.backofficeTasks || {};
+    const _done = tasks.filter(t => {
+      if (t.type === 'toggle') return _store[t.id] === true;
+      // workflow / checklist 系は将来対応（暫定で false）
+      return _store[t.id] === true;
+    }).length;
+    prog = { done: _done, total: tasks.length, pct: tasks.length ? Math.round(_done / tasks.length * 100) : 0 };
+  } else {
+    tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
+    prog = calcProg(car);
+  }
   const inv = daysSince(car.purchaseDate);
   const contractedDays = daysSinceContract(car);
   const delDiff = car.deliveryDate ? daysDiff(car.deliveryDate) : null;
@@ -206,7 +244,7 @@ function renderDetailBody(car) {
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
     <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">✏️ 車両詳細を編集</button>
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isD?'納車準備':'業務タスク'}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isBackofficeMode ? '🗂 バックオフィス（事務処理）' : (isD ? '納車準備' : '業務タスク')}</div>
     <div class="detail-overall">
       <div class="detail-overall-label"><span>全体進捗</span><span>${prog.done}/${prog.total} (${prog.pct}%)</span></div>
       <div class="detail-overall-bar"><div class="detail-overall-fill" style="width:${prog.pct}%;background:${prog.pct>=100?'var(--green)':prog.pct>0?'var(--orange)':'var(--bg4)'}"></div></div>
@@ -228,10 +266,12 @@ function renderDetailBody(car) {
     return `<div class="task-item-badge">${o ? `<span class="task-overdue-badge" title="期限超過">⚠ 超過${o.overdueDays}日</span>` : ''}</div>`;
   }
   // v1.7.13: Phase 3 — 「📝 詳細」ON のトグルタスクは項目チェック式に昇格、ws-page で開く
-  const _phaseStr = isD ? 'delivery' : 'regen';
+  // v2.1.0: バックオフィスモードでは phaseStr='backoffice'
+  const _phaseStr = isBackofficeMode ? 'backoffice' : (isD ? 'delivery' : 'regen');
   const _isCheckMode = (taskId) =>
     (typeof hasTaskChecklist === 'function' && hasTaskChecklist(taskId, _phaseStr));
-  // v1.7.41: パターン選択UIを2行目（控えめ）に戻す。スマホや期限切れバッジとの干渉を回避。
+  // v2.2.2: パターン選択を task-item-row 内に inline 配置（メモ連携で2行になっていたのを解消）
+  //         未選択 placeholder は「パターン」だけにシンプル化
   function _renderTaskVariantRow(task) {
     if (typeof ChecklistTemplates === 'undefined') return '';
     const tplId = (task.id === 't_equip') ? 'tpl_equipment' : `tpl_${_phaseStr}_${task.id}`;
@@ -244,24 +284,32 @@ function renderDetailBody(car) {
     const opts = variants.map(v =>
       `<option value="${escapeHtml(v.id)}" ${v.id === sel ? 'selected' : ''}>${escapeHtml(v.name || '(無題)')}</option>`
     ).join('');
-    const placeholder = sel ? '' : '<option value="">パターン未選択</option>';
-    return `
-      <div class="task-item-variant-row">
-        <select class="task-item-variant-sel"
-                onchange="onCarTaskVariantChange('${car.id}','${task.id}',this)">
-          ${placeholder}${opts}
-        </select>
-      </div>`;
+    const placeholder = sel ? '' : '<option value="">パターン</option>';
+    return `<select class="task-item-variant-sel"
+              onclick="event.stopPropagation()"
+              onchange="onCarTaskVariantChange('${car.id}','${task.id}',this)">
+        ${placeholder}${opts}
+      </select>`;
   }
 
   tasks.forEach(task => {
-    const p = calcSingleProg(car, task.id, tasks);
+    // v2.1.0: バックオフィスモードでは独自進捗計算（toggle は backofficeTasks[id] の boolean）
+    let p, state;
+    if (isBackofficeMode) {
+      const _bst = car.backofficeTasks || {};
+      const _done = (task.type === 'toggle' && _bst[task.id] === true) ? 1 : 0;
+      p = { done: _done, total: 1, pct: _done * 100 };
+      state = _bst;
+    } else {
+      p = calcSingleProg(car, task.id, tasks);
+      state = isD ? car.deliveryTasks : car.regenTasks;
+    }
     const isDone = p.pct === 100, isPartial = p.pct > 0 && p.pct < 100;
-    const state = isD ? car.deliveryTasks : car.regenTasks;
+
     // 単純トグル：type='toggle' かつ mode='checklist' ではない（d_complete / t_complete はここに残る）
     if (task.type === 'toggle' && !_isCheckMode(task.id)) {
-      // v1.0.41 / v1.7.17: d_complete / t_complete は自動判定（他の有効タスク全完了で ON）。手動チェック不可
-      const isAuto = (task.id === 'd_complete' || task.id === 't_complete');
+      // v1.0.41 / v1.7.17: d_complete / t_complete は自動判定。手動チェック不可
+      const isAuto = !isBackofficeMode && (task.id === 'd_complete' || task.id === 't_complete');
       let autoChecked = false;
       if (isAuto) {
         if (task.id === 'd_complete' && typeof isDeliveryAllOtherTasksDone === 'function') {
@@ -271,56 +319,294 @@ function renderDetailBody(car) {
         }
       }
       const checked = isAuto ? autoChecked : !!state[task.id];
-      const onclickAttr = isAuto ? '' : ` onclick="toggleTaskToggle('${car.id}','${task.id}',${isD})"`;
+      // v2.1.0: バックオフィスモードは toggleBackofficeTaskToggle（cars/archivedCars 両対応）
+      const onclickAttr = isAuto
+        ? ''
+        : (isBackofficeMode
+            ? ` onclick="toggleBackofficeTaskToggle('${car.id}','${task.id}')"`
+            : ` onclick="toggleTaskToggle('${car.id}','${task.id}',${isD})"`);
       const subText = isAuto
         ? (checked ? '✓ 自動完了（他タスク全完了）' : '他タスク完了で自動ON')
         : (checked ? '完了' : '未完了');
       const chkExtraCls = isAuto ? ' auto' : '';
+      // v2.2.1: タスク個別メモのインラインセル（OFFタスクなら空文字＝従来通り）
+      const memoCell = (typeof window.taskMemo !== 'undefined' && window.taskMemo.renderTaskMemoCellHtml)
+        ? window.taskMemo.renderTaskMemoCellHtml(car, task, _phaseStr) : '';
       html += `<div class="task-item"><div class="task-item-row">
         <div class="task-chk${checked?' done':''}${chkExtraCls}"${onclickAttr}>
           ${checked ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
         </div>
         <div class="task-item-info"><div class="task-item-name">${task.icon} ${task.name}</div><div class="task-item-sub">${subText}</div></div>
+        ${memoCell}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${checked?'100':'0'}%</div>
         <div class="task-item-open"></div>
       </div></div>`;
     } else {
-      // v1.7.41: パターン選択を2行目に戻す（控えめなスタイル）
+      // workflow / checklist 型
+      // v2.1.0: バックオフィスの workflow/checklist は worksheet 側が未対応のため
+      //         「未対応」を表示。将来バックオフィス用 worksheet を拡張する想定。
       const variantRow = _renderTaskVariantRow(task);
-      // パターン未選択の場合「開く」を無効化
       const tplId2 = (task.id === 't_equip') ? 'tpl_equipment' : `tpl_${_phaseStr}_${task.id}`;
       const tpl2 = (typeof ChecklistTemplates !== 'undefined') ? ChecklistTemplates[tplId2] : null;
       const variants2 = (tpl2 && Array.isArray(tpl2.variants)) ? tpl2.variants : [];
       const needsSelect = variants2.length > 1;
       const carVariants2 = (car && car.taskVariants) || {};
       const hasSelection = !needsSelect || !!carVariants2[task.id];
-      const openBtnHtml = hasSelection
-        ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}')">開く →</button>`
-        : `<button class="task-open-btn" disabled title="先にタスクパターンを選んでください" style="opacity:.4;cursor:not-allowed">開く →</button>`;
+      let openBtnHtml;
+      if (isBackofficeMode) {
+        openBtnHtml = `<button class="task-open-btn" disabled title="バックオフィスの詳細チェックリストは将来対応予定" style="opacity:.4;cursor:not-allowed">未対応</button>`;
+      } else {
+        openBtnHtml = hasSelection
+          ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}')">開く →</button>`
+          : `<button class="task-open-btn" disabled title="先にタスクパターンを選んでください" style="opacity:.4;cursor:not-allowed">開く →</button>`;
+      }
+      // v2.2.1: タスク個別メモのインラインセル
+      const memoCell = (typeof window.taskMemo !== 'undefined' && window.taskMemo.renderTaskMemoCellHtml)
+        ? window.taskMemo.renderTaskMemoCellHtml(car, task, _phaseStr) : '';
+      // v2.2.2: variantRow を task-item-row 内に inline 配置（1行化）
+      // v2.2.3: メモを左、パターンを右の順に
+      // v2.2.4: メモとパターンが両方あるときは縦stack（0.5行ずつ）にまとめて高さ温存
+      let mvHtml;
+      if (memoCell && variantRow) {
+        mvHtml = `<div class="task-item-mv-stack">${memoCell}${variantRow}</div>`;
+      } else {
+        mvHtml = `${memoCell}${variantRow}`;
+      }
       html += `<div class="task-item"><div class="task-item-row">
         <div class="task-chk${isDone?' done':isPartial?' partial':''}">
           ${isDone ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : isPartial ? '<div style="width:7px;height:7px;border-radius:50%;background:#fff"></div>' : ''}
         </div>
         <div class="task-item-info"><div class="task-item-name">${task.icon} ${task.name}</div><div class="task-item-sub">${p.done}/${p.total} 完了</div></div>
+        ${mvHtml}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${p.pct}%</div>
         <div class="task-item-open">${openBtnHtml}</div>
-      </div>${variantRow}</div>`;
+      </div></div>`;
     }
   });
   html += `</div>`;
-  html += `
-    <div class="work-memo" id="work-memo-wrap">
-      <div class="work-memo-label">📝 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
-      <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
-        workMemo
-          ? escapeHtml(workMemo).replace(/\n/g,'<br>')
-          : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
-      }</div>
-    </div>`;
+  // v2.1.0: バックオフィスモードでは作業メモ（再生/納車準備のメモ）は出さない
+  if (!isBackofficeMode) {
+    html += `
+      <div class="work-memo" id="work-memo-wrap">
+        <div class="work-memo-label">📝 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
+        <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
+          workMemo
+            ? escapeHtml(workMemo).replace(/\n/g,'<br>')
+            : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
+        }</div>
+      </div>`;
+  }
+  // v2.1.0: バックオフィスモードでは「バックオフィス専用メモ」（大きめ）を追加
+  if (isBackofficeMode) {
+    html += _renderBackofficeMemoHtml(car);
+  }
+  // v2.1.0: バックオフィスモード時の完了ボタン or 完了済みバナー
+  if (isBackofficeMode) {
+    const completed = !!car.backofficeCompleted;
+    const allDone = tasks.length > 0 && tasks.every(t => {
+      const _bst = car.backofficeTasks || {};
+      return _bst[t.id] === true;
+    });
+    if (completed) {
+      const at = car.backofficeCompletedAt
+        ? (typeof fmtDate === 'function' ? fmtDate(car.backofficeCompletedAt) : car.backofficeCompletedAt)
+        : '';
+      html += `<div class="detail-bo-done-banner" style="margin-top:14px">
+        ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
+        <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${car.id}')">完了を取り消す</button>
+      </div>`;
+    } else if (allDone) {
+      html += `<button class="detail-bo-complete-btn" style="margin-top:14px" onclick="window.backoffice.markComplete('${car.id}')">
+        ✅ バックオフィス完了
+      </button>`;
+    }
+  }
   document.getElementById('detail-body').innerHTML = html;
 }
+
+// v2.1.0: バックオフィス用 toggle ハンドラ（cars / archivedCars 両対応）
+function toggleBackofficeTaskToggle(carId, taskId) {
+  let car = null, fromArchive = false;
+  if (typeof cars !== 'undefined' && Array.isArray(cars)) {
+    car = cars.find(c => c && c.id === carId);
+  }
+  if (!car && typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
+    car = archivedCars.find(c => c && c.id === carId);
+    if (car) fromArchive = true;
+  }
+  if (!car) return;
+  if (!car.backofficeTasks) car.backofficeTasks = {};
+  car.backofficeTasks[taskId] = !car.backofficeTasks[taskId];
+  if (fromArchive) {
+    if (window.dbArchive && window.dbArchive.saveArchivedCar) {
+      window.dbArchive.saveArchivedCar(car).catch(e => console.error('[bo-toggle] save archived failed', e));
+    }
+  } else {
+    if (window.saveCarById) saveCarById(car.id);
+  }
+  if (typeof addLog === 'function') {
+    addLog(carId, `バックオフィス「${taskId}」を${car.backofficeTasks[taskId]?'完了':'未完了に戻す'}`);
+  }
+  // v2.2.7: 自動付箋を完了/未完了に同期
+  if (window.taskMemoAutoNote && window.taskMemoAutoNote.markDone) {
+    window.taskMemoAutoNote.markDone(car, taskId, !!car.backofficeTasks[taskId]);
+  }
+  renderDetailBody(car);
+  if (typeof renderBackoffice === 'function') renderBackoffice();
+  if (typeof showToast === 'function') {
+    showToast(car.backofficeTasks[taskId] ? '✓ 完了しました' : '未完了に戻しました');
+  }
+}
+window.toggleBackofficeTaskToggle = toggleBackofficeTaskToggle;
+
+// ========================================
+// v2.1.0: バックオフィス専用メモ
+//   - データ: car.backofficeMemo (string)
+//   - cars / archivedCars 両対応
+//   - 既存の作業メモ（workMemo）とは別データ
+// ========================================
+function _findCarAnyCollection(carId) {
+  if (typeof cars !== 'undefined' && Array.isArray(cars)) {
+    const c = cars.find(x => x && x.id === carId);
+    if (c) return { car: c, fromArchive: false };
+  }
+  if (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
+    const c = archivedCars.find(x => x && x.id === carId);
+    if (c) return { car: c, fromArchive: true };
+  }
+  return null;
+}
+
+function _renderBackofficeMemoHtml(car) {
+  const memo = (car.backofficeMemo || '').trim();
+  return `
+    <div class="bo-memo" id="bo-memo-wrap">
+      <div class="bo-memo-label">📝 バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
+      <div class="bo-memo-view" onclick="startEditBackofficeMemo('${car.id}')">${
+        memo
+          ? escapeHtml(memo).replace(/\n/g,'<br>')
+          : '<span class="bo-memo-placeholder">タップしてメモを記入</span>'
+      }</div>
+    </div>`;
+}
+
+function startEditBackofficeMemo(carId) {
+  const found = _findCarAnyCollection(carId);
+  if (!found) return;
+  const wrap = document.getElementById('bo-memo-wrap');
+  if (!wrap) return;
+  const cur = found.car.backofficeMemo || '';
+  wrap.innerHTML = `
+    <div class="bo-memo-label">📝 バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
+    <textarea id="bo-memo-ta" class="bo-memo-input" rows="6" placeholder="原価処理の進捗・書類の所在・申し送りなど">${escapeHtml(cur)}</textarea>
+    <div class="bo-memo-btns">
+      <button class="btn-sm" onclick="cancelEditBackofficeMemo('${carId}')">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveBackofficeMemo('${carId}')">保存</button>
+    </div>`;
+}
+
+function saveBackofficeMemo(carId) {
+  const found = _findCarAnyCollection(carId);
+  if (!found) return;
+  const ta = document.getElementById('bo-memo-ta');
+  if (!ta) return;
+  const newVal = ta.value;
+  found.car.backofficeMemo = newVal;
+  if (found.fromArchive) {
+    if (window.dbArchive && window.dbArchive.saveArchivedCar) {
+      window.dbArchive.saveArchivedCar(found.car).catch(e => console.error('[bo-memo] save archived failed', e));
+    }
+  } else {
+    if (window.saveCarById) saveCarById(found.car.id);
+  }
+  if (typeof addLog === 'function') addLog(carId, 'バックオフィスメモを更新');
+  if (typeof showToast === 'function') showToast('メモを保存しました');
+  renderDetailBody(found.car);
+}
+
+function cancelEditBackofficeMemo(carId) {
+  const found = _findCarAnyCollection(carId);
+  if (!found) return;
+  renderDetailBody(found.car);
+}
+
+window.startEditBackofficeMemo = startEditBackofficeMemo;
+window.saveBackofficeMemo = saveBackofficeMemo;
+window.cancelEditBackofficeMemo = cancelEditBackofficeMemo;
+
+// ----------------------------------------
+// v2.1.0: バックオフィスタスクセクション（詳細モーダル末尾）
+// ----------------------------------------
+function _renderBackofficeSectionHtml(car) {
+  // タスク取得
+  const tasks = (typeof getActiveBackofficeTasks === 'function')
+    ? getActiveBackofficeTasks(car) : [];
+  if (!tasks.length) {
+    return `<div class="detail-bo-section">
+      <div class="detail-bo-head">🗂 バックオフィス（事務処理）</div>
+      <div class="detail-bo-empty">バックオフィスタスクが設定されていません。<br>設定 → タスク・進捗 → 🗂バックオフィス で追加できます。</div>
+    </div>`;
+  }
+  const store = car.backofficeTasks || {};
+  const renameMap = (typeof appTaskRename !== 'undefined' && appTaskRename && appTaskRename.backoffice) || {};
+  const completed = !!car.backofficeCompleted;
+  const doneCount = tasks.filter(t => store[t.id] === true).length;
+  const allDone = doneCount >= tasks.length;
+
+  const itemsHtml = tasks.map(t => {
+    const done = store[t.id] === true;
+    const ov = renameMap[t.id];
+    const name = (ov && ov.name) || t.name || '';
+    const icon = (ov && ov.icon) || t.icon || '✅';
+    const disabledAttr = completed ? 'disabled' : '';
+    const lockedCls = completed ? ' bo-locked' : '';
+    return `<label class="detail-bo-item${done ? ' is-done' : ''}${lockedCls}">
+      <input type="checkbox" ${done ? 'checked' : ''} ${disabledAttr}
+        onchange="window.backoffice.toggleTask('${escapeHtml(car.id)}','${escapeHtml(t.id)}',this.checked)">
+      <span class="detail-bo-item-icon">${escapeHtml(icon)}</span>
+      <span class="detail-bo-item-name">${escapeHtml(name)}</span>
+    </label>`;
+  }).join('');
+
+  let actionHtml = '';
+  if (completed) {
+    const at = car.backofficeCompletedAt
+      ? (typeof fmtDate === 'function' ? fmtDate(car.backofficeCompletedAt) : car.backofficeCompletedAt)
+      : '';
+    actionHtml = `<div class="detail-bo-done-banner">
+      ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
+      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${escapeHtml(car.id)}')">完了を取り消す</button>
+    </div>`;
+  } else if (allDone) {
+    actionHtml = `<button class="detail-bo-complete-btn" onclick="window.backoffice.markComplete('${escapeHtml(car.id)}')">
+      ✅ バックオフィス完了
+    </button>`;
+  }
+
+  return `<div class="detail-bo-section" id="detail-bo-section-${escapeHtml(car.id)}">
+    <div class="detail-bo-head">
+      🗂 バックオフィス（事務処理）
+      <span class="detail-bo-count">${doneCount}/${tasks.length}</span>
+    </div>
+    <div class="detail-bo-items">${itemsHtml}</div>
+    ${actionHtml}
+  </div>`;
+}
+
+// v2.1.0: トグル後にバックオフィスセクションだけ差し替え（全体 renderDetailBody を再呼びすると
+// メモ編集中の状態などが飛ぶため、必要な部分だけ最小差分で再描画する）
+function renderDetailBackofficeSection(car) {
+  if (!car || !car.id) return;
+  const sec = document.getElementById('detail-bo-section-' + car.id);
+  if (!sec) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = _renderBackofficeSectionHtml(car);
+  const fresh = wrap.firstElementChild;
+  if (fresh) sec.replaceWith(fresh);
+}
+window.renderDetailBackofficeSection = renderDetailBackofficeSection;
 
 // 装備詳細ボタン＋アコーディオンパネルの描画
 // v1.0.20: 新規追加 / v1.0.21: アコーディオン化 / v1.0.24: ラベル統一 / v1.0.33: タスクOFF時は非表示
@@ -435,6 +721,10 @@ function toggleTaskToggle(carId, taskId, isD) {
   state[taskId] = !state[taskId];
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(carId, `「${taskId}」を${state[taskId]?'完了':'未完了に戻す'}`);
+  // v2.2.7: 自動付箋を完了/未完了に同期（dateメモの付箋があれば反映）
+  if (window.taskMemoAutoNote && window.taskMemoAutoNote.markDone) {
+    window.taskMemoAutoNote.markDone(car, taskId, !!state[taskId]);
+  }
   renderDetailBody(car);
   renderAll();
   showToast(state[taskId] ? '✓ 完了しました' : '未完了に戻しました');

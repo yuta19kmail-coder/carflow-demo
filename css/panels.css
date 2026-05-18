@@ -488,9 +488,7 @@
   background: var(--bg2);
 }
 .task-edit-row:last-child { border-bottom: none; }
-.task-edit-row.task-edit-custom {
-  background: rgba(55,138,221,.06);
-}
+/* v2.0.0: 「追加タスク」のBGハイライトを撤廃（ビルトイン／カスタムを見た目で区別しない方針） */
 .task-edit-icon {
   font-size: 18px;
   width: 26px;
@@ -664,6 +662,17 @@
 .task-edit-menu-btn:active {
   transform: scale(0.94);
 }
+/* v2.0.0: タスクが OFF のとき ⋮ ボタンを淡く（行全体もうっすら淡色化） */
+.task-edit-menu-btn.task-edit-menu-off {
+  opacity: 0.45;
+}
+.task-edit-row:has(.task-edit-menu-off) {
+  opacity: 0.7;
+}
+.task-edit-row:has(.task-edit-menu-off) .task-edit-name {
+  text-decoration: line-through;
+  color: var(--text3);
+}
 
 /* 追加フォーム */
 .task-edit-add {
@@ -806,3 +815,596 @@
   color: #fff;
   font-weight: 600;
 }
+
+/* ========================================
+   v2.1.0: バックオフィス（サイドパネル）
+   - サイドパネル「ダッシュボードと新規車両登録の間」
+   - 上から「当月 / 先月 / 先々月 / それより前」の4段、各段は横スクロール
+   - カードはカンバン風（タスク管理と同等のスタイル）
+   - タスクのチェックはカード詳細モーダル内（detail-bo-section）
+   ======================================== */
+.bo-total {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 600;
+  margin-top: -4px;
+}
+
+.bo-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bo-empty {
+  color: var(--text3);
+  font-size: 13px;
+  padding: 28px 12px;
+  text-align: center;
+  background: var(--bg2);
+  border: 1px dashed var(--border);
+  border-radius: var(--r2, 10px);
+}
+
+.bo-row {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2, 10px);
+  padding: 10px 12px 12px;
+}
+.bo-row-empty { opacity: 0.55; }
+.bo-row-old   { border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(180deg, var(--bg2) 0%, rgba(239,68,68,0.04) 100%); }
+
+.bo-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bo-row-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.bo-row-count {
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.bo-row-warn {
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.bo-row-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 6px;
+  scroll-snap-type: x proximity;
+}
+.bo-row-scroll::-webkit-scrollbar { height: 8px; }
+.bo-row-scroll::-webkit-scrollbar-track { background: var(--bg3); border-radius: 4px; }
+.bo-row-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.bo-row-scroll::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+.bo-row-empty-msg {
+  font-size: 11px;
+  color: var(--text3);
+  padding: 14px 8px;
+  font-style: italic;
+}
+
+/* ----------------------------------------
+   バックオフィスカード（縦長・カンバン風）
+   購入者名は CarFlow に入力欄がないため非表示（v2.1.0 で削除）
+   その分、車両情報・価格・納車日・進捗を大きく表示
+   ---------------------------------------- */
+.bo-card {
+  flex: 0 0 230px;
+  scroll-snap-align: start;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: transform .1s, border-color .15s, box-shadow .15s;
+  position: relative;
+}
+.bo-card:hover {
+  border-color: var(--accent, #378ADD);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+.bo-card-thumb {
+  width: 100%; height: 110px;
+  background: var(--bg3);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px;
+}
+.bo-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.bo-card-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.bo-card-maker {
+  font-size: 12px; color: var(--text3); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bo-card-model {
+  font-size: 15px; color: var(--text); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  line-height: 1.2;
+}
+
+.bo-card-meta {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+}
+.bo-card-num {
+  background: var(--bg3);
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-weight: 700;
+  color: var(--text);
+  font-size: 12px;
+}
+.bo-status-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+.bo-pill-prep    { background: rgba(245,158,11,0.18); color: #f59e0b; }
+.bo-pill-done    { background: rgba(29,185,122,0.18); color: var(--green, #1db97a); }
+.bo-pill-archived{ background: rgba(120,120,140,0.22); color: var(--text2); }
+
+.bo-card-price {
+  display: flex; flex-direction: column; gap: 1px;
+  background: rgba(29,185,122,0.10);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.bo-card-price-main {
+  display: flex; align-items: baseline; gap: 4px;
+}
+.bo-card-price-lbl {
+  font-size: 10px; color: var(--green, #1db97a); font-weight: 700;
+}
+.bo-card-price-amt {
+  font-size: 15px; font-weight: 800; color: var(--green, #1db97a);
+}
+.bo-card-price-tax {
+  font-size: 10px; color: var(--green, #1db97a); opacity: 0.8;
+}
+.bo-card-price-sub {
+  display: flex; align-items: baseline; gap: 3px;
+  margin-left: 4px;
+}
+.bo-card-price-sub-lbl {
+  font-size: 9px; color: var(--text3); font-weight: 600;
+}
+.bo-card-price-sub-amt {
+  font-size: 11px; color: var(--text3); font-weight: 600;
+}
+.bo-card-price-sub-tax {
+  font-size: 8px; color: var(--text3); opacity: 0.8;
+}
+
+.bo-card-deliveryday {
+  display: flex; align-items: baseline; gap: 5px;
+  background: var(--bg3);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.bo-card-deliveryday-md {
+  font-size: 16px; font-weight: 800; color: var(--text);
+}
+.bo-card-deliveryday-suf {
+  font-size: 11px; color: var(--text2); font-weight: 600;
+}
+
+.bo-card-prog {
+  display: flex; flex-direction: column; gap: 5px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.bo-card-prog-row {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.bo-card-prog-pct {
+  font-size: 15px; font-weight: 800; color: var(--text);
+}
+.bo-card-prog-lbl {
+  font-size: 11px; color: var(--text3); font-weight: 600;
+}
+.bo-card-dots {
+  display: flex; gap: 4px;
+}
+.bo-card-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--bg4, #333);
+  border: 1px solid var(--border);
+}
+.bo-card-dot.done {
+  background: var(--green, #1db97a);
+  border-color: var(--green, #1db97a);
+}
+
+/* ========================================
+   v2.1.0: 詳細モーダル内のバックオフィスセクション
+   ======================================== */
+.detail-bo-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.detail-bo-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-bo-count {
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 1px 7px;
+  border-radius: 7px;
+  font-weight: 600;
+}
+.detail-bo-empty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 12px;
+  background: var(--bg3);
+  border-radius: 8px;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.5;
+}
+.detail-bo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.detail-bo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+  transition: background .15s;
+}
+.detail-bo-item:hover { background: var(--bg4, #2a2a2a); }
+.detail-bo-item.is-done {
+  background: rgba(29,185,122,0.12);
+}
+.detail-bo-item.is-done .detail-bo-item-name {
+  text-decoration: line-through;
+  color: var(--text2);
+}
+.detail-bo-item input[type="checkbox"] {
+  width: 18px; height: 18px;
+  accent-color: var(--green, #1db97a);
+  cursor: pointer;
+}
+.detail-bo-item.bo-locked input[type="checkbox"] { cursor: not-allowed; opacity: 0.6; }
+.detail-bo-item.bo-locked { opacity: 0.65; cursor: default; }
+.detail-bo-item-icon { font-size: 16px; flex-shrink: 0; }
+.detail-bo-item-name { flex: 1; color: var(--text); }
+
+.detail-bo-complete-btn {
+  display: block;
+  width: 100%;
+  background: var(--green, #1db97a);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 11px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+  box-shadow: 0 2px 8px rgba(29,185,122,0.3);
+}
+.detail-bo-complete-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.detail-bo-complete-btn:active { transform: translateY(0); }
+
+.detail-bo-done-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(29,185,122,0.12);
+  color: var(--green, #1db97a);
+  border: 1px solid rgba(29,185,122,0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.detail-bo-unmark-btn {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.detail-bo-unmark-btn:hover { background: var(--bg3); color: var(--text); }
+
+/* ----------------------------------------
+   v2.1.0: バックオフィス専用メモ欄（既存の work-memo より一回り大きく）
+   ---------------------------------------- */
+.bo-memo {
+  margin-top: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.bo-memo-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.bo-memo-hint {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 500;
+}
+.bo-memo-view {
+  min-height: 80px;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.65;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+.bo-memo-view:hover { background: var(--bg4, #2a2a2a); }
+.bo-memo-placeholder { color: var(--text3); font-style: italic; }
+
+.bo-memo-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+.bo-memo-input:focus {
+  outline: 2px solid var(--accent, #378ADD);
+  outline-offset: -2px;
+}
+.bo-memo-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ========================================
+   v2.2.1: タスク個別メモ（インライン版）
+   - タスク行内の右側に「ラベル: 値」inline 表示（高さは変えない）
+   - OFF タスクは何も表示しない＝従来通り
+   - 設定モーダル＋値編集モーダル
+   ======================================== */
+.task-memo-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  cursor: pointer;
+  user-select: none;
+  max-width: 140px;
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .15s, opacity .15s;
+  line-height: 1.35;
+}
+/* v2.2.11: スマホでは1行に収めず、メモ/バリアントは2行目（全幅）に下ろす */
+body.mobile .task-item-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+/* 1行目右側の固定要素（superdge/pct/open）はそのまま */
+body.mobile .task-item-row > .task-item-badge { order: 10; }
+body.mobile .task-item-row > .task-item-pct   { order: 11; }
+body.mobile .task-item-row > .task-item-open  { order: 12; }
+/* メモ・バリアント・mv-stack は2行目に押し下げる */
+body.mobile .task-item-row > .task-memo-cell,
+body.mobile .task-item-row > .task-item-variant-sel,
+body.mobile .task-item-row > .task-item-mv-stack {
+  order: 20;
+  flex-basis: 100%;
+  margin-left: 41px; /* chk(30) + gap(11) でタスク名と左揃え */
+  max-width: calc(100% - 41px);
+}
+/* 2行目に下りたメモセル：もう幅制限不要、サイズ復元 */
+body.mobile .task-item-row > .task-memo-cell {
+  font-size: 11px;
+  padding: 3px 9px;
+}
+/* mv-stack は2行目で横並びに（縦stackをやめて幅を活用） */
+body.mobile .task-item-mv-stack {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+body.mobile .task-item-mv-stack .task-memo-cell {
+  max-width: none;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 11px;
+  padding: 3px 9px;
+}
+
+/* v2.2.4: メモとパターンが両方あるときは縦stack（0.5行ずつ）。
+   横並びだと幅を食って情報側が窮屈になるので、両方ある時だけ縦に積む。
+   行全体の高さは変わらない。 */
+.task-item-mv-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex-shrink: 1;
+  align-items: stretch;
+}
+.task-item-mv-stack .task-memo-cell {
+  max-width: 180px;
+  padding: 1px 7px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.task-item-mv-stack .task-item-variant-sel {
+  max-width: 180px;
+  padding: 1px 16px 1px 6px;
+  font-size: 10px;
+  height: auto;
+}
+body.mobile .task-item-mv-stack .task-memo-cell { max-width: 120px; font-size: 9.5px; }
+body.mobile .task-item-mv-stack .task-item-variant-sel { max-width: 120px; font-size: 9.5px; }
+.task-memo-empty {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text3);
+  opacity: 0.5;
+}
+.task-memo-empty:hover {
+  opacity: 1;
+  background: var(--bg3);
+  color: var(--text2);
+}
+.task-memo-empty-lbl {
+  font-size: 10px;
+  font-style: italic;
+}
+
+.task-memo-filled {
+  border: 1px solid var(--border);
+}
+.task-memo-filled.task-memo-freeword {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.3);
+}
+.task-memo-filled.task-memo-freeword .task-memo-lbl { color: #f5b86a; }
+.task-memo-filled.task-memo-freeword:hover { background: rgba(245,158,11,0.20); }
+
+.task-memo-filled.task-memo-date {
+  background: rgba(96,165,250,0.14);
+  border-color: rgba(96,165,250,0.3);
+}
+.task-memo-filled.task-memo-date .task-memo-lbl { color: #93c5fd; }
+.task-memo-filled.task-memo-date:hover { background: rgba(96,165,250,0.22); }
+
+.task-memo-filled.task-memo-time {
+  background: rgba(168,85,247,0.14);
+  border-color: rgba(168,85,247,0.3);
+}
+.task-memo-filled.task-memo-time .task-memo-lbl { color: #c084fc; }
+.task-memo-filled.task-memo-time:hover { background: rgba(168,85,247,0.22); }
+
+.task-memo-lbl {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.task-memo-val {
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ----------------------------------------
+   値編集モーダル
+   ---------------------------------------- */
+.tm-input-field {
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+.tm-input-field:focus {
+  outline: 2px solid var(--accent, #378ADD);
+  outline-offset: -2px;
+}
+.tm-input-ta {
+  resize: vertical;
+  min-height: 110px;
+  font-size: 13px;
+}
+
+/* ----------------------------------------
+   設定モーダル（メモ種別の選択）
+   ---------------------------------------- */
+.tmc-type-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tmc-type-radio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: all .15s;
+  user-select: none;
+}
+.tmc-type-radio input { margin: 0; cursor: pointer; }
+.tmc-type-radio:has(input:checked) {
+  background: var(--accent, #378ADD);
+  border-color: var(--accent, #378ADD);
+  color: #fff;
+}
+.tmc-type-radio:hover { border-color: var(--accent, #378ADD); }

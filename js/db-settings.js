@@ -52,6 +52,11 @@
     if (typeof appTaskMode     !== 'undefined') out.appTaskMode     = _clone(appTaskMode     || {});
     // v1.8.51: 大タスクの「選択制」フラグ
     if (typeof appTaskOptional !== 'undefined') out.appTaskOptional = _clone(appTaskOptional || {});
+    // v2.0.0: ビルトインタスクの削除フラグ／名前オーバーライド
+    if (typeof appTaskDeleted  !== 'undefined') out.appTaskDeleted  = _clone(appTaskDeleted  || {});
+    if (typeof appTaskRename   !== 'undefined') out.appTaskRename   = _clone(appTaskRename   || {});
+    // v2.2.1: タスク個別メモの種別設定
+    if (typeof appTaskMemoConfig !== 'undefined') out.appTaskMemoConfig = _clone(appTaskMemoConfig || {});
     if (typeof appCustomTasks  !== 'undefined') out.appCustomTasks  = _clone(appCustomTasks  || []);
     if (typeof closedRules     !== 'undefined') out.closedRules     = _clone(closedRules     || []);
     if (typeof closedDays      !== 'undefined') out.closedDays      = _clone(closedDays      || []);
@@ -69,34 +74,61 @@
     if (!data || typeof data !== 'object') return;
 
     if (data.appTaskEnabled && typeof appTaskEnabled !== 'undefined') {
-      appTaskEnabled.regen    = (data.appTaskEnabled.regen)    ? {...data.appTaskEnabled.regen}    : {};
-      appTaskEnabled.delivery = (data.appTaskEnabled.delivery) ? {...data.appTaskEnabled.delivery} : {};
+      appTaskEnabled.regen      = (data.appTaskEnabled.regen)      ? {...data.appTaskEnabled.regen}      : {};
+      appTaskEnabled.delivery   = (data.appTaskEnabled.delivery)   ? {...data.appTaskEnabled.delivery}   : {};
+      appTaskEnabled.backoffice = (data.appTaskEnabled.backoffice) ? {...data.appTaskEnabled.backoffice} : {};
     }
 
     if (data.appTaskOrder && typeof appTaskOrder !== 'undefined') {
-      appTaskOrder.regen    = Array.isArray(data.appTaskOrder.regen)    ? data.appTaskOrder.regen.slice()    : [];
-      appTaskOrder.delivery = Array.isArray(data.appTaskOrder.delivery) ? data.appTaskOrder.delivery.slice() : [];
+      appTaskOrder.regen      = Array.isArray(data.appTaskOrder.regen)      ? data.appTaskOrder.regen.slice()      : [];
+      appTaskOrder.delivery   = Array.isArray(data.appTaskOrder.delivery)   ? data.appTaskOrder.delivery.slice()   : [];
+      appTaskOrder.backoffice = Array.isArray(data.appTaskOrder.backoffice) ? data.appTaskOrder.backoffice.slice() : [];
     }
 
     if (data.appTaskDeadline && typeof appTaskDeadline !== 'undefined') {
-      appTaskDeadline.regen    = (data.appTaskDeadline.regen)    ? {...data.appTaskDeadline.regen}    : {};
-      appTaskDeadline.delivery = (data.appTaskDeadline.delivery) ? {...data.appTaskDeadline.delivery} : {};
+      appTaskDeadline.regen      = (data.appTaskDeadline.regen)      ? {...data.appTaskDeadline.regen}      : {};
+      appTaskDeadline.delivery   = (data.appTaskDeadline.delivery)   ? {...data.appTaskDeadline.delivery}   : {};
+      appTaskDeadline.backoffice = (data.appTaskDeadline.backoffice) ? {...data.appTaskDeadline.backoffice} : {};
     }
 
     if (data.appTaskWeight && typeof appTaskWeight !== 'undefined') {
-      appTaskWeight.regen    = (data.appTaskWeight.regen)    ? {...data.appTaskWeight.regen}    : {};
-      appTaskWeight.delivery = (data.appTaskWeight.delivery) ? {...data.appTaskWeight.delivery} : {};
+      appTaskWeight.regen      = (data.appTaskWeight.regen)      ? {...data.appTaskWeight.regen}      : {};
+      appTaskWeight.delivery   = (data.appTaskWeight.delivery)   ? {...data.appTaskWeight.delivery}   : {};
+      appTaskWeight.backoffice = (data.appTaskWeight.backoffice) ? {...data.appTaskWeight.backoffice} : {};
     }
 
     if (data.appTaskMode && typeof appTaskMode !== 'undefined') {
-      appTaskMode.regen    = (data.appTaskMode.regen)    ? {...data.appTaskMode.regen}    : {};
-      appTaskMode.delivery = (data.appTaskMode.delivery) ? {...data.appTaskMode.delivery} : {};
+      appTaskMode.regen      = (data.appTaskMode.regen)      ? {...data.appTaskMode.regen}      : {};
+      appTaskMode.delivery   = (data.appTaskMode.delivery)   ? {...data.appTaskMode.delivery}   : {};
+      appTaskMode.backoffice = (data.appTaskMode.backoffice) ? {...data.appTaskMode.backoffice} : {};
     }
 
     // v1.8.51: 大タスクの「選択制」フラグ
     if (data.appTaskOptional && typeof appTaskOptional !== 'undefined') {
-      appTaskOptional.regen    = (data.appTaskOptional.regen)    ? {...data.appTaskOptional.regen}    : {};
-      appTaskOptional.delivery = (data.appTaskOptional.delivery) ? {...data.appTaskOptional.delivery} : {};
+      appTaskOptional.regen      = (data.appTaskOptional.regen)      ? {...data.appTaskOptional.regen}      : {};
+      appTaskOptional.delivery   = (data.appTaskOptional.delivery)   ? {...data.appTaskOptional.delivery}   : {};
+      appTaskOptional.backoffice = (data.appTaskOptional.backoffice) ? {...data.appTaskOptional.backoffice} : {};
+    }
+
+    // v2.0.0: ビルトインタスクの削除フラグ
+    if (data.appTaskDeleted && typeof appTaskDeleted !== 'undefined') {
+      appTaskDeleted.regen      = (data.appTaskDeleted.regen)      ? {...data.appTaskDeleted.regen}      : {};
+      appTaskDeleted.delivery   = (data.appTaskDeleted.delivery)   ? {...data.appTaskDeleted.delivery}   : {};
+      appTaskDeleted.backoffice = (data.appTaskDeleted.backoffice) ? {...data.appTaskDeleted.backoffice} : {};
+    }
+
+    // v2.0.0: ビルトインタスクの名前/アイコン オーバーライド
+    if (data.appTaskRename && typeof appTaskRename !== 'undefined') {
+      appTaskRename.regen      = (data.appTaskRename.regen)      ? {...data.appTaskRename.regen}      : {};
+      appTaskRename.delivery   = (data.appTaskRename.delivery)   ? {...data.appTaskRename.delivery}   : {};
+      appTaskRename.backoffice = (data.appTaskRename.backoffice) ? {...data.appTaskRename.backoffice} : {};
+    }
+
+    // v2.2.1: タスク個別メモの種別設定
+    if (data.appTaskMemoConfig && typeof appTaskMemoConfig !== 'undefined') {
+      appTaskMemoConfig.regen      = (data.appTaskMemoConfig.regen)      ? {...data.appTaskMemoConfig.regen}      : {};
+      appTaskMemoConfig.delivery   = (data.appTaskMemoConfig.delivery)   ? {...data.appTaskMemoConfig.delivery}   : {};
+      appTaskMemoConfig.backoffice = (data.appTaskMemoConfig.backoffice) ? {...data.appTaskMemoConfig.backoffice} : {};
     }
 
     if (data.boardLabels && typeof boardLabels !== 'undefined') {

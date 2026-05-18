@@ -172,6 +172,56 @@ function buildBarSegments(car, todayStr) {
 }
 
 // 1か月分のグリッドを描画
+// v2.2.6: 「納車準備中の車両」に紐づく date型タスクメモを車両IDごと・日付ごとに収集
+//   - 対象は col === 'delivery' の車両のみ（納車カレンダーは納車準備中の車両のための画面なので）
+//   - すべてのフェーズの date型メモを対象
+//   - 戻り値: { carId: { 'YYYY-MM-DD': [{label, value, taskName, phase}, ...] } }
+function _getDeliveryCarDateMemos(carList) {
+  const result = {};
+  const phases = ['regen', 'delivery', 'backoffice'];
+
+  (carList || []).forEach(car => {
+    if (!car || !car.taskMemos) return;
+    Object.keys(car.taskMemos).forEach(taskId => {
+      const memo = car.taskMemos[taskId];
+      if (!memo || !memo.value) return;
+
+      // この taskId のメモ設定（date型）を全phaseから探す
+      let cfg = null, phase = null;
+      for (const ph of phases) {
+        const c = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, ph) : null;
+        if (c && c.type === 'date') {
+          cfg = c;
+          phase = ph;
+          break;
+        }
+      }
+      if (!cfg) return;
+
+      const ds = memo.value;
+      if (!ds) return;
+
+      let taskName = taskId;
+      if (typeof _allTasksForPhase === 'function') {
+        const tasks = _allTasksForPhase(phase);
+        const t = tasks.find(x => x.id === taskId);
+        if (t) taskName = `${t.icon || ''} ${t.name || taskId}`.trim();
+      }
+      const label = (typeof getTaskMemoLabel === 'function') ? getTaskMemoLabel(taskId, phase) : (cfg.label || '日付');
+
+      if (!result[car.id]) result[car.id] = {};
+      if (!result[car.id][ds]) result[car.id][ds] = [];
+      result[car.id][ds].push({
+        label: label,
+        value: memo.value,
+        taskName: taskName,
+        phase: phase,
+      });
+    });
+  });
+  return result;
+}
+
 function renderOneMonth(year, month, hostEl) {
   const ts = todayStr();
 
@@ -208,6 +258,8 @@ function renderOneMonth(year, month, hostEl) {
   const dim = new Date(year, month + 1, 0).getDate();
 
   const targetCars = cars.filter(c => c.col === 'delivery' && c.deliveryDate);
+  // v2.2.6: 納車準備中の車両に紐づく date型タスクメモを収集（バー内ラベル用）
+  const _carDateMemos = _getDeliveryCarDateMemos(targetCars);
 
   const allSegments = [];
   targetCars.forEach(car => {
@@ -356,8 +408,9 @@ function renderOneMonth(year, month, hostEl) {
       nameEl.className = 'cal-ev-name';
       nameEl.dataset.carId = car.id;
       nameEl.style.cssText = 'position:absolute;left:4px;right:0;top:0;height:16px;font-size:10px;font-weight:700;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px;cursor:pointer';
-      nameEl.textContent = car.model;
-      nameEl.title = `${car.maker} ${car.model} — クリックで詳細`;
+      // v1.8.111: 管理番号＋車両名表記
+      nameEl.textContent = `${car.num || ''} ${car.model || ''}`.trim();
+      nameEl.title = `${car.num || ''} ${car.maker || ''} ${car.model || ''} — クリックで詳細`.trim();
       nameEl.addEventListener('click', (ev) => {
         ev.stopPropagation();
         openDetail(car.id);
@@ -441,9 +494,54 @@ function renderOneMonth(year, month, hostEl) {
             chip.appendChild(nameEl);
             labelWrap.appendChild(chip);
           });
+          // v2.2.6: バー終端のセル日付に該当する date型メモがあれば、ラベルチップとして並べる
+          const _endMemos = (_carDateMemos[s.car.id] || {})[cellDate] || [];
+          _endMemos.forEach(m => {
+            const chip = document.createElement('span');
+            chip.className = 'cal-ev-label-chip cal-ev-memo-chip';
+            const iconEl = document.createElement('span');
+            iconEl.className = 'cal-ev-label-icon';
+            iconEl.textContent = '📝';
+            chip.appendChild(iconEl);
+            const nameEl = document.createElement('span');
+            nameEl.className = 'cal-ev-label-name';
+            nameEl.textContent = m.label;
+            chip.appendChild(nameEl);
+            chip.title = `${m.label}: ${m.value}\nタスク: ${m.taskName}`;
+            labelWrap.appendChild(chip);
+          });
           bar.appendChild(labelWrap);
           // タイトル（hover）に全ラベル
-          bar.title = `${s.car.maker} ${s.car.model}\n` + labels.map(l => `${l.label}${l.isDone ? '（完了）' : ''}`).join('\n');
+          let _titleBase = `${s.car.num || ''} ${s.car.maker || ''} ${s.car.model || ''}\n`.trim() + '\n' + labels.map(l => `${l.label}${l.isDone ? '（完了）' : ''}`).join('\n');
+          if (_endMemos.length) {
+            _titleBase += '\n' + _endMemos.map(m => `${m.label}: ${m.value}（${m.taskName}）`).join('\n');
+          }
+          bar.title = _titleBase;
+        } else {
+          // v2.2.6: バー中間セルに date型メモが該当するなら、その場でラベルチップを追加
+          const _midMemos = (_carDateMemos[s.car.id] || {})[cellDate] || [];
+          if (_midMemos.length) {
+            bar.style.justifyContent = 'center';
+            bar.style.padding = '0 4px';
+            const memoWrap = document.createElement('div');
+            memoWrap.className = 'cal-ev-label-wrap';
+            memoWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-wrap:nowrap;overflow:hidden;width:100%;justify-content:center;min-width:0';
+            _midMemos.forEach(m => {
+              const chip = document.createElement('span');
+              chip.className = 'cal-ev-label-chip cal-ev-memo-chip';
+              const iconEl = document.createElement('span');
+              iconEl.className = 'cal-ev-label-icon';
+              iconEl.textContent = '📝';
+              chip.appendChild(iconEl);
+              const nameEl = document.createElement('span');
+              nameEl.className = 'cal-ev-label-name';
+              nameEl.textContent = m.label;
+              chip.appendChild(nameEl);
+              chip.title = `${m.label}: ${m.value}\nタスク: ${m.taskName}`;
+              memoWrap.appendChild(chip);
+            });
+            bar.appendChild(memoWrap);
+          }
         }
 
         bar.dataset.carId = s.car.id;

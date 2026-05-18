@@ -15,18 +15,16 @@
 
 <!-- ========== CSS ========== -->
 <link rel="stylesheet" href="css/base.css?v=284">
-<!-- デモ版専用CSS -->
-<link rel="stylesheet" href="css/demo.css">
 <link rel="stylesheet" href="css/login.css?v=284">
 <link rel="stylesheet" href="css/layout.css?v=284">
 <link rel="stylesheet" href="css/components.css?v=320">
-<link rel="stylesheet" href="css/panels.css?v=345">
+<link rel="stylesheet" href="css/panels.css?v=359">
 <link rel="stylesheet" href="css/kanban.css?v=321">
-<link rel="stylesheet" href="css/calendar.css?v=284">
-<link rel="stylesheet" href="css/modal.css?v=313">
+<link rel="stylesheet" href="css/calendar.css?v=286">
+<link rel="stylesheet" href="css/modal.css?v=315">
 <link rel="stylesheet" href="css/celebrate.css?v=284">
 <link rel="stylesheet" href="css/help.css?v=284">
-<link rel="stylesheet" href="css/mobile.css?v=284">
+<link rel="stylesheet" href="css/mobile.css?v=289">
 <link rel="stylesheet" href="css/deal.css?v=293">
 <link rel="stylesheet" href="css/worksheet.css?v=284">
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風） -->
@@ -35,13 +33,20 @@
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
 <link rel="stylesheet" href="css/template-editor.css?v=284">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<link rel="stylesheet" href="css/board-notes.css?v=284">
+<link rel="stylesheet" href="css/board-notes.css?v=286">
 <!-- v1.7.42: 作業実績ビュー -->
 <link rel="stylesheet" href="css/worklog.css?v=284">
 <!-- v1.8.1: β版ミーティングビュー -->
 <link rel="stylesheet" href="css/meeting.css?v=284">
 
-<!-- ========== デモ版：Firebase SDK は読み込まない ========== -->
+<!-- ========== Firebase SDK (v1.5.10〜) ========== -->
+<!-- compat 版を使用（既存のグローバル window.firebase 経由でアクセス） -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
+<!-- v1.8.19: LINE通知連携（Cloud Functions 経由送信） -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-functions-compat.js"></script>
 <!-- v1.6.2: SheetJS（テンプレ Excel 取込/書き出し用） -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- v1.8.85: html2pdf.js（着地予測印刷シートのPDFダウンロード用） -->
@@ -88,7 +93,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v1.8.110 — デモ版</div>
+    <div class="login-ver">CarFlow v2.2.19</div>
   </div>
 </div>
 
@@ -99,7 +104,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v1.8.110</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.2.19</span>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
     <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
     <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
@@ -126,6 +131,8 @@
       <div style="padding:8px 6px 4px">
         <div class="sb-sec">メイン</div>
         <div class="sb-item active" id="si-dashboard" onclick="showPanel('dashboard',this)"><span class="sb-icon">🏠</span>ダッシュボード</div>
+        <!-- v2.1.0: バックオフィス（売約後の事務処理を一覧管理） -->
+        <div class="sb-item" id="si-backoffice" onclick="showPanel('backoffice',this)"><span class="sb-icon">🗂</span>バックオフィス</div>
         <div class="sb-item" onclick="openCarModal(null)"><span class="sb-icon">➕</span>新規車両登録</div>
         <div class="sb-item" id="si-close" onclick="openCloseMonthDialog()"><span class="sb-icon">📦</span>月次集計締め</div>
         <!-- v1.8.1: β版ミーティングビュー（壁掛け大型モニター用・打ち合わせ時に4枚同時表示） -->
@@ -219,6 +226,16 @@
             <button class="btn-sm btn-danger" onclick="clearAuditLogsFromUI()" data-perm="canEditSettings" style="margin-top:4px">🗑 操作ログを消去</button>
           </div>
           <div class="panel-card"><h3>最新ログ</h3><div id="log-list"></div></div>
+        </div>
+
+        <!-- v2.1.0: バックオフィス（売約後の事務処理）— 4段（当月/先月/先々月/それより前）横スクロール -->
+        <div id="panel-backoffice" class="side-panel">
+          <div>
+            <div class="panel-title">🗂 バックオフィス</div>
+            <div class="panel-sub">売約後の事務処理を一覧管理（カードクリックで詳細→バックオフィスタスクをチェック）</div>
+          </div>
+          <div class="bo-total" id="bo-total-label">対応中 0台</div>
+          <div class="bo-rows" id="bo-rows"></div>
         </div>
 
         <!-- メンバー -->
@@ -479,8 +496,8 @@
                 <!-- v1.8.15: 管理者向け詳細マニュアル PDF -->
                 <div class="settings-card" style="border:1px solid rgba(55,138,221,.4);background:rgba(55,138,221,.06)">
                   <h3 class="settings-card-title">📄 管理者マニュアル（PDF）</h3>
-                  <p class="settings-card-desc">タスク・進捗・小タスク・タブ／アコーディオン・パターン・Excel一括編集など、複雑な仕組みを詳しく解説した管理者・Web担当者向けマニュアル。約20ページ。</p>
-                  <a href="manuals/task-manual-v5.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none">📥 PDFをダウンロード</a>
+                  <p class="settings-card-desc">タスク・進捗・小タスク・タブ／アコーディオン・パターン・Excel一括編集に加え、⋮メニュー一本化・選択制タスク・タスク個別メモ＋自動付箋・バックオフィスタスクまで網羅した管理者・Web担当者向けマニュアル。約16ページ。</p>
+                  <a href="manuals/task-manual-v6.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none">📥 PDFをダウンロード</a>
                 </div>
 
                 <div class="settings-card">
@@ -1677,6 +1694,76 @@
   </div>
 </div>
 
+<!-- v2.2.0: タスク個別メモの値編集モーダル（v2.2.1で簡素化：種別は設定で固定済み） -->
+<div class="overlay" id="modal-task-memo" onclick="if(event.target===this)window.taskMemo.closeModal()">
+  <div class="modal" style="max-width:480px;width:92%">
+    <div class="mhdr">
+      <div class="mhdr-title" id="tm-modal-title">📝 メモ</div>
+      <button class="mclose" onclick="window.taskMemo.closeModal()">✕</button>
+    </div>
+    <div class="mbody" style="padding:16px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:3px">対象タスク</div>
+      <div id="tm-task-name" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding:8px 10px;background:var(--bg3);border-radius:6px"></div>
+
+      <div id="tm-input-label" style="font-size:11px;color:var(--text3);margin-bottom:6px">内容</div>
+      <div id="tm-input-area"></div>
+    </div>
+    <div class="mfoot" style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);align-items:center">
+      <button id="tm-btn-delete" class="btn-sm btn-danger" onclick="window.taskMemo.delete()">削除</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn-sm" onclick="window.taskMemo.closeModal()">キャンセル</button>
+        <button class="btn-sm btn-primary" onclick="window.taskMemo.save()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v2.2.1: タスクメモ「種別」設定モーダル（設定→⋮メニュー→📝メモ設定 から開く） -->
+<div class="overlay" id="modal-task-memo-config" onclick="if(event.target===this)closeTaskMemoConfigModal()">
+  <div class="modal" style="max-width:480px;width:92%">
+    <div class="mhdr">
+      <div class="mhdr-title">📝 メモ設定</div>
+      <button class="mclose" onclick="closeTaskMemoConfigModal()">✕</button>
+    </div>
+    <div class="mbody" style="padding:16px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:3px">対象タスク</div>
+      <div id="tmc-task-name" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding:8px 10px;background:var(--bg3);border-radius:6px"></div>
+
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">メモ種別</div>
+      <div class="tmc-type-row">
+        <label class="tmc-type-radio">
+          <input type="radio" name="tmc-type" value="off" onchange="onTaskMemoConfigTypeChange(this.value)">
+          <span>OFF</span>
+        </label>
+        <label class="tmc-type-radio">
+          <input type="radio" name="tmc-type" value="freeword" onchange="onTaskMemoConfigTypeChange(this.value)">
+          <span>📝 フリーテキスト</span>
+        </label>
+        <label class="tmc-type-radio">
+          <input type="radio" name="tmc-type" value="date" onchange="onTaskMemoConfigTypeChange(this.value)">
+          <span>📅 日付</span>
+        </label>
+        <label class="tmc-type-radio">
+          <input type="radio" name="tmc-type" value="time" onchange="onTaskMemoConfigTypeChange(this.value)">
+          <span>⏰ 時刻</span>
+        </label>
+      </div>
+
+      <div id="tmc-label-area" style="margin-top:14px;display:none">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">表示ラベル <span style="color:var(--text3)">（空でもOK。デフォルトは「日付」or「時刻」）</span></div>
+        <input type="text" id="tmc-label" maxlength="20" placeholder="例：来店日、集金時間、引取日…" style="width:100%;padding:11px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;box-sizing:border-box">
+        <div style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.5">
+          車両詳細のタスク行右側に「<span style="color:var(--text)" id="tmc-preview">日付: 5/25</span>」のように表示されます
+        </div>
+      </div>
+    </div>
+    <div class="mfoot" style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);justify-content:flex-end">
+      <button class="btn-sm" onclick="closeTaskMemoConfigModal()">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveTaskMemoConfig()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 一括目標入力 -->
 <div class="confirm-overlay" id="confirm-bulk-goal">
   <div class="confirm-box" style="width:400px">
@@ -1731,6 +1818,7 @@
         <div class="help-sb-item" data-section="work-delivery" onclick="showHelpSection('work-delivery')">展示・納車整備の小タスク詳細</div>
         <div class="help-sb-item" data-section="work-input-types" onclick="showHelpSection('work-input-types')">入力タイプ5種類の使い方</div>
         <div class="help-sb-item" data-section="work-media" onclick="showHelpSection('work-media')">写真・動画を見る</div>
+        <div class="help-sb-item" data-section="work-task-memo" onclick="showHelpSection('work-task-memo')">📝 タスク個別メモと自動付箋</div>
 
         <div class="help-sb-cat">📑 画面の見方</div>
         <div class="help-sb-item" data-section="view-kanban" onclick="showHelpSection('view-kanban')">タスク管理画面</div>
@@ -1741,6 +1829,7 @@
         <div class="help-sb-item" data-section="view-deal" onclick="showHelpSection('view-deal')">商談モード</div>
         <div class="help-sb-item" data-section="view-table" onclick="showHelpSection('view-table')">全体一覧</div>
         <div class="help-sb-item" data-section="view-meeting" onclick="showHelpSection('view-meeting')">📺 ミーティングビュー</div>
+        <div class="help-sb-item" data-section="view-backoffice" onclick="showHelpSection('view-backoffice')">🗂 バックオフィス</div>
 
         <div class="help-sb-cat">🤝 チーム編</div>
         <div class="help-sb-item" data-section="team-board" onclick="showHelpSection('team-board')">全体タスク（付箋ボード）</div>
@@ -1752,6 +1841,7 @@
         <div class="help-sb-item" data-section="mobile-quick" onclick="showHelpSection('mobile-quick')">クイックメニュー</div>
         <div class="help-sb-item" data-section="mobile-progress" onclick="showHelpSection('mobile-progress')">進捗ビューでチェック</div>
         <div class="help-sb-item" data-section="mobile-overview" onclick="showHelpSection('mobile-overview')">重要タブで付箋を見る</div>
+        <div class="help-sb-item" data-section="mobile-fullmenu" onclick="showHelpSection('mobile-fullmenu')">🗂 フルメニュー（管理者切替）</div>
 
         <div class="help-sb-cat">📚 用語と FAQ</div>
         <div class="help-sb-item" data-section="terms" onclick="showHelpSection('terms')">用語集</div>
@@ -1808,6 +1898,9 @@
         <section class="help-sec" data-section="adv-staff"></section>
         <section class="help-sec" data-section="adv-line"></section>
         <section class="help-sec" data-section="adv-data"></section>
+        <section class="help-sec" data-section="work-task-memo"></section>
+        <section class="help-sec" data-section="view-backoffice"></section>
+        <section class="help-sec" data-section="mobile-fullmenu"></section>
       </main>
     </div>
   </div>
@@ -1823,10 +1916,12 @@
 <script src="js/demo-init.js"></script>
 <script src="js/demo-sample-data.js"></script>
 <script src="js/demo-line-toast.js"></script>
+<!-- 0a. Firebase 初期化（v1.5.0〜） -->
+<script src="js/firebase-init.js?v=284"></script>
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
 <script src="js/db-cars.js?v=288"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
-<script src="js/db-settings.js?v=310"></script>
+<script src="js/db-settings.js?v=350"></script>
 <!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
 <script src="js/db-archive.js?v=284"></script>
 <!-- 0d. auditLogs DB wrapper（v1.5.4〜） -->
@@ -1841,6 +1936,7 @@
 <script src="js/migrate-data-urls.js?v=284"></script>
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
 <script src="js/db-board-notes.js?v=284"></script>
+<!-- 0j. LINE通知連携（v1.8.19〜）DB読み書き＋Cloud Functions呼び出し -->
 <!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み -->
 <!-- v1.8.80: タスク完了通知の文言テーブル＋カスタム/CSV -->
 <script src="js/line-messages.js?v=320"></script>
@@ -1851,7 +1947,7 @@
 
 <!-- 1. 設定・定数 -->
 <script src="js/config.js?v=284"></script>
-<script src="js/tasks-def.js?v=320"></script>
+<script src="js/tasks-def.js?v=352"></script>
 <script src="js/equipment-def.js?v=284"></script>
 <script src="js/checklist-templates.js?v=284"></script>
 <!-- v1.5.11: ChecklistTemplates をDB化 -->
@@ -1869,16 +1965,16 @@
 
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=284"></script>
-<script src="js/auth.js?v=320"></script>
-<script src="js/navigation.js?v=310"></script>
-<script src="js/archive.js?v=324"></script>
-<script src="js/settings.js?v=321"></script>
+<script src="js/auth.js?v=329"></script>
+<script src="js/navigation.js?v=312"></script>
+<script src="js/archive.js?v=325"></script>
+<script src="js/settings.js?v=353"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=346"></script>
-<script src="js/members.js?v=312"></script>
+<script src="js/members.js?v=313"></script>
 <script src="js/kanban.js?v=324"></script>
-<script src="js/car-detail.js?v=305"></script>
+<script src="js/car-detail.js?v=314"></script>
 <script src="js/car-modal.js?v=307"></script>
 <script src="js/workflow.js?v=284"></script>
 <script src="js/worksheet.js?v=320"></script>
@@ -1888,18 +1984,26 @@
 <script src="js/period-stats.js?v=343"></script>
 <script src="js/forecast-print.js?v=346"></script>
 <script src="js/forecast-targets.js?v=327"></script>
-<script src="js/calendar.js?v=284"></script>
+<script src="js/calendar.js?v=352"></script>
 <script src="js/views.js?v=305"></script>
+<!-- v2.1.0: バックオフィスビュー本体 -->
+<script src="js/backoffice.js?v=5"></script>
+<!-- v2.2.0/v2.2.1: タスク個別メモ -->
+<script src="js/task-memo.js?v=4"></script>
+<!-- v2.2.1: タスク個別メモ「種別設定」モーダル -->
+<script src="js/task-memo-config.js?v=1"></script>
+<!-- v2.2.7: date型タスクメモから自動緑付箋を作成/同期 -->
+<script src="js/task-memo-auto-note.js?v=3"></script>
 <!-- v1.7.42: ヘルプの本文（HELP_CONTENTS）を別ファイル化。help.js より先に読み込む -->
-<script src="js/help-content.js?v=284"></script>
+<script src="js/help-content.js?v=285"></script>
 <script src="js/help.js?v=284"></script>
 <script src="js/theme.js?v=284"></script>
 
 <!-- v1.6.0: ChecklistTemplate 編集 -->
-<script src="js/template-editor.js?v=284"></script>
+<script src="js/template-editor.js?v=285"></script>
 
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<script src="js/board-notes.js?v=323"></script>
+<script src="js/board-notes.js?v=325"></script>
 
 <!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
 <script src="js/worklog.js?v=284"></script>
@@ -1909,7 +2013,7 @@
 
 
 <!-- 7. ディスパッチャ -->
-<script src="js/main.js?v=284"></script>
+<script src="js/main.js?v=286"></script>
 
 <!-- デモ版：ログインUIを差し替え -->
 <script src="js/demo-auth-mock.js"></script>

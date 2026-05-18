@@ -22,6 +22,8 @@ function showPanel(name, el) {
   if (name === 'members') renderMembers();
   if (name === 'dashboard') renderDashboard();
   if (name === 'archive') renderArchive();
+  // v2.1.0: バックオフィスパネル
+  if (name === 'backoffice' && typeof renderBackoffice === 'function') renderBackoffice();
   if (name === 'help') {
     if (typeof initHelpPanel === 'function') initHelpPanel();
   }

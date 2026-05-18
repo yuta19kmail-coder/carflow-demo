@@ -59,27 +59,19 @@ function executeCloseMonth() {
   }
   const now = new Date();
   const closedAt = now.toISOString().split('T')[0];
-  let photoDeletedCount = 0;
   targets.forEach(c => {
     c._archivedAt = closedAt;
     c._archivedYM = ymKeyFromYM(y, m);
-    // v1.8.36: 月締め時に写真も削除（容量節約のため）
-    //   - archivedCars ドキュメントから photo フィールドを除去（壊れたURL残さない）
-    //   - Firebase Storage 上の写真ファイル本体も削除
-    const hadPhoto = !!c.photo;
-    if (hadPhoto) {
-      c.photo = null;
-      photoDeletedCount++;
-    }
+    // v2.1.0: 月締め時の写真即削除を撤廃。
+    //   旧 v1.8.36 では archivedCars 移動と同時に photo を null 化していたが、
+    //   バックオフィスビュー（書類スキャン等）で archive 後も写真が必要なため、
+    //   _archivedAt から 90日経過後に backoffice.js の cleanupExpiredArchivedPhotos
+    //   で自動削除する方式に変更した。
     archivedCars.push(c);
-    addLog(c.id, `月次集計締め（${y}年${m}月）でアーカイブ` + (hadPhoto ? '・写真削除' : ''));
+    addLog(c.id, `月次集計締め（${y}年${m}月）でアーカイブ`);
     // v1.5.3: archivedCars コレクションへ Firestore 保存
     if (window.dbArchive) {
       window.dbArchive.saveArchivedCar(c).catch(e => console.error('[archive] save failed', e));
-    }
-    // v1.8.36: Storage 上の写真ファイル本体を削除（手動削除フローと挙動を統一）
-    if (hadPhoto && window.dbStorage && window.dbStorage.deleteCarPhoto) {
-      window.dbStorage.deleteCarPhoto(c.id).catch(e => console.error('[archive] delete photo failed', e));
     }
   });
   // cars 配列から除去
@@ -94,10 +86,15 @@ function executeCloseMonth() {
     });
   }
   closeCloseMonth();
+  // v2.1.0: 締めボタン押下時に 90日超え archived の写真をクリーンアップ
+  let cleanedCount = 0;
+  if (window.backoffice && typeof window.backoffice.cleanupExpiredArchivedPhotos === 'function') {
+    try { cleanedCount = window.backoffice.cleanupExpiredArchivedPhotos() || 0; } catch (e) { console.error('[archive] cleanup failed', e); }
+  }
   renderAll();
   renderDashboard();
-  const photoMsg = photoDeletedCount > 0 ? `（写真${photoDeletedCount}枚も削除）` : '';
-  showToast(`${y}年${m}月の${targets.length}台をアーカイブしました${photoMsg}`);
+  const cleanedMsg = cleanedCount > 0 ? `（同時に古い写真${cleanedCount}枚をクリーンアップ）` : '';
+  showToast(`${y}年${m}月の${targets.length}台をアーカイブしました${cleanedMsg}`);
 }
 
 // ========================================

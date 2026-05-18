@@ -201,3 +201,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ========================================
+   v2.2.6: カレンダーに date型タスクメモをバー内ラベルとして埋め込む
+   - 納車準備中の車両のバーにのみ表示（regen/backofficeはそもそも収集対象外）
+   - バー終端なら他のマイルストーンラベルと並ぶ
+   - バー途中なら中央配置のラベル
+   - 既存の .cal-ev-label-chip を継承しつつ、色だけ差し替え
+   ======================================== */
+.cal-ev-label-chip.cal-ev-memo-chip {
+  background: rgba(255,255,255,0.92);
+  color: #1d4ed8;
+  border: 1px solid rgba(29,78,216,0.4);
+}
+.cal-ev-label-chip.cal-ev-memo-chip .cal-ev-label-icon { color: #1d4ed8; }
+.cal-ev-label-chip.cal-ev-memo-chip .cal-ev-label-name { color: #1d4ed8; font-weight: 700; }

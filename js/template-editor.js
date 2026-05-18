@@ -208,7 +208,9 @@
   }
 
   // v1.7.34: 第2引数 variantId を受け取れるように。指定が無ければ variants[0] を使う。
+  // v2.2.12: スマホでフルメニュー時は編集不可（重いUIなのでガード）
   function openTemplateDetail(id, variantId) {
+    if (typeof blockOnMobileAdmin === 'function' && blockOnMobileAdmin('テンプレート編集')) return;
     const tpl = _getTpl(id);
     if (!tpl) return;
     window._tplEditor.view = 'detail';

@@ -242,8 +242,14 @@
            ondrop="boardNoteOnDrop(event, '${_esc(note.id)}')"
            ondragend="boardNoteOnDragEnd(event)"`
       : '';
+    // v2.2.7: 自動付箋判定（タスクメモから自動生成された付箋）
+    // v2.2.8: バッジは footer 内の制作者の左側にインライン配置（タイトルかぶり解消）
+    const isAuto = !!(note.autoSource && note.autoSource.type === 'taskMemo');
+    const autoBadge = isAuto
+      ? `<span class="bn-auto-badge" title="自動付箋（タスクメモから生成）">🤖 自動</span>`
+      : '';
     return `
-      <div class="bn-card bn-color-${color} ${done ? 'is-done' : ''} ${overdue ? 'is-overdue' : ''}"
+      <div class="bn-card bn-color-${color} ${done ? 'is-done' : ''} ${overdue ? 'is-overdue' : ''} ${isAuto ? 'is-auto' : ''}"
            data-note-id="${_esc(note.id)}"
            ${dragAttrs}>
         ${done ? '<div class="bn-done-stamp">済</div>' : ''}
@@ -259,6 +265,7 @@
         <div class="bn-footer">
           <div class="bn-members">${memberAvatars || '<span class="bn-no-member">担当なし</span>'}</div>
           <div class="bn-author">
+            ${autoBadge}
             ${authorAv}
             <span class="bn-author-name">${_esc(authorName)}</span>
           </div>
@@ -292,7 +299,15 @@
   window.bnActionEdit = function () {
     const id = _activeMenuNoteId;
     closeBoardNoteActions();
-    if (id) openBoardNoteModal(id);
+    if (!id) return;
+    // v2.2.7: 自動付箋は編集モーダルを開かず、車両詳細を開く（タスクメモが元データ）
+    const note = (boardNotes || []).find(x => x.id === id);
+    if (note && note.autoSource && note.autoSource.type === 'taskMemo') {
+      if (typeof openDetail === 'function') openDetail(note.autoSource.carId);
+      if (typeof showToast === 'function') showToast('自動付箋は車両詳細のタスクメモから編集してください');
+      return;
+    }
+    openBoardNoteModal(id);
   };
   window.bnActionDone = function () {
     const id = _activeMenuNoteId;

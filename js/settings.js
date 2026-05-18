@@ -496,19 +496,27 @@ function renderTasksEditor() {
   const root = document.getElementById('tasks-editor');
   if (!root) return;
 
+  // v1.8.112: バックオフィスフェーズ追加。納車期日は1軸（目標のみ・限界欄廃止）
   const phases = [
-    { key: 'regen',    label: '🔧 展示準備フェーズ', deadlineHint: '仕入れから', deadlineSuffix: '日以内' },
-    { key: 'delivery', label: '📦 納車フェーズ', deadlineHint: '納車まで',   deadlineSuffix: '日前' },
+    { key: 'regen',      label: '🔧 展示準備フェーズ', deadlineHint: '仕入れから', deadlineSuffix: '日以内', dlMode: 'dual' },
+    { key: 'delivery',   label: '📦 納車フェーズ',     deadlineHint: '納車から',   deadlineSuffix: '日前',   dlMode: 'single' },
+    { key: 'backoffice', label: '🗂 バックオフィス',   deadlineHint: '',           deadlineSuffix: '',       dlMode: 'none' },
   ];
 
   let html = '';
   phases.forEach(ph => {
     const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI(ph.key) : [];
-    // v1.8.51: 進捗ウエイト機能は廃止 → 均等割り + 小タスク按分に統一（Phase B）。
-    //          旧 appTaskWeight 設定は Firestore に残してても害なし（読まないだけ）。
+    let deadlineHintHtml = '';
+    if (ph.dlMode === 'dual') {
+      deadlineHintHtml = `<div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（目標 / 限界 の2段階で設定。空欄なら未設定）<br><span style="color:var(--text3);font-size:11px">目標ライン＝このペースで進めたい / 限界ライン＝これを超えたらアウト</span><br><span style="color:var(--text3);font-size:11px">※ 進捗は有効タスクの均等割り＋小タスク按分で自動計算</span></div>`;
+    } else if (ph.dlMode === 'single') {
+      deadlineHintHtml = `<div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（納車カレンダーに自動でマーカー表示。空欄なら未設定）</div>`;
+    } else {
+      deadlineHintHtml = `<div class="task-edit-phase-deadline-hint" style="color:var(--text3);font-size:11px">納車後の裏方業務（原価処理・書類整理など）。期限なし。</div>`;
+    }
     html += `<div class="task-edit-phase">
       <div class="task-edit-phase-head">${ph.label}</div>
-      <div class="task-edit-phase-deadline-hint">期日：<strong>${ph.deadlineHint} N ${ph.deadlineSuffix}</strong>（目標 / 限界 の2段階で設定。空欄なら未設定）<br><span style="color:var(--text3);font-size:11px">目標ライン＝このペースで進めたい / 限界ライン＝これを超えたらアウト</span><br><span style="color:var(--text3);font-size:11px">※ 進捗は有効タスクの均等割り＋小タスク按分で自動計算（v1.8.51）</span></div>`;
+      ${deadlineHintHtml}`;
     if (!tasks.length) {
       html += '<div class="task-edit-empty">タスクが定義されていません</div>';
     } else {
@@ -532,9 +540,19 @@ function renderTasksEditor() {
             </div>
             <span class="task-edit-icon">${t.icon || '📋'}</span>
             <span class="task-edit-name">${escapeHtml(t.name)}</span>
-            ${t.builtin ? '' : '<span class="task-edit-tag custom">追加</span>'}
             ${(t.id === 'd_complete' || t.id === 't_complete') ? '<span class="task-edit-tag auto" title="他のタスク全完了で自動ON">自動</span>' : ''}
             ${t.optional ? '<span class="task-edit-tag" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.35)" title="選択制：車両ごとに使うかどうかをチェックで指定">選択</span>' : ''}
+            ${(() => {
+              // v2.2.1: メモ設定がOFF以外ならバッジ表示（選択バッジと同じ見た目）
+              if (typeof isTaskMemoEnabled !== 'function' || !isTaskMemoEnabled(t.id, ph.key)) return '';
+              const cfg = getTaskMemoConfig(t.id, ph.key);
+              const detail = cfg.type === 'freeword' ? 'フリーテキスト'
+                          : cfg.type === 'date'     ? '日付' + (cfg.label ? `「${cfg.label}」` : '')
+                          : cfg.type === 'time'     ? '時刻' + (cfg.label ? `「${cfg.label}」` : '')
+                          : '';
+              return `<span class="task-edit-tag" style="background:rgba(96,165,250,.18);color:#93c5fd;border:1px solid rgba(96,165,250,.35)" title="メモ設定：${escapeHtml(detail)}">メモ</span>`;
+            })()}
+            ${ph.dlMode === 'dual' ? `
             <div class="task-edit-deadline task-edit-deadline-v2">
               <div class="task-edit-deadline-pair" title="目標ライン：このペースで進めたい">
                 <span class="task-edit-deadline-lbl task-edit-deadline-lbl-target">目標</span>
@@ -554,40 +572,38 @@ function renderTasksEditor() {
                        title="限界ライン（${ph.deadlineHint} N ${ph.deadlineSuffix}）">
                 <span class="task-edit-deadline-suffix">日</span>
               </div>
-            </div>
-            <!-- v1.8.13: 詳細チェックリスト/編集/削除を ⋮ メニューに集約。
-                 ON/OFFトグルだけ常時表示（よく使う操作）。これで全行のレイアウトが揃う。 -->
-            <label class="task-edit-toggle" title="このタスクを表示する">
-              <input type="checkbox" ${t.enabled ? 'checked' : ''}
-                     onchange="toggleTaskEnabled('${escapeHtml(t.id)}', '${ph.key}', this.checked)">
-              <span class="task-edit-toggle-slider"></span>
-            </label>
-            <button class="task-edit-menu-btn" onclick="openTaskMenu('${escapeHtml(t.id)}', '${ph.key}')" title="このタスクの操作メニュー">⋮</button>
+            </div>` : ph.dlMode === 'single' ? `
+            <div class="task-edit-deadline task-edit-deadline-v2">
+              <div class="task-edit-deadline-pair" title="納車から何日前に行うか">
+                <span class="task-edit-deadline-lbl">納車</span>
+                <input type="number" min="1" max="365" value="${targetVal}"
+                       placeholder="—"
+                       onchange="setTaskTargetDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       class="task-edit-deadline-inp"
+                       title="納車から N 日前">
+                <span class="task-edit-deadline-suffix">日前</span>
+              </div>
+            </div>` : ''}
+            <!-- v2.0.0: ON/OFFトグルを廃止し、すべての操作（ON/OFF含む）を ⋮ メニューに集約。
+                 ⋮ボタンの見た目は「OFFのときグレーアウト」で視覚的にON/OFFも判別できる。 -->
+            <button class="task-edit-menu-btn${t.enabled ? '' : ' task-edit-menu-off'}"
+                    onclick="openTaskMenu('${escapeHtml(t.id)}', '${ph.key}')"
+                    title="${t.enabled ? 'ON' : 'OFF'}（クリックで操作メニュー）">⋮</button>
           </div>`;
       });
     }
+    // v1.8.112: 各フェーズ末尾に「+タスク追加」ボタン
+    html += `
+      <div class="task-edit-add-inline" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">＋ このフェーズに新しいタスクを追加</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="new-task-icon-${ph.key}" class="settings-input" placeholder="🔧" maxlength="4" style="width:48px;text-align:center">
+          <input type="text" id="new-task-name-${ph.key}" class="settings-input" placeholder="タスク名" maxlength="20" style="flex:1">
+          <button class="btn-sm" onclick="addCustomTaskForPhase('${ph.key}')">追加</button>
+        </div>
+      </div>`;
     html += `</div>`;
   });
-
-  // 追加フォーム
-  html += `
-    <div class="task-edit-add">
-      <div class="task-edit-add-title">＋ チェック型タスクを追加 <span style="font-size:10px;color:var(--text3);font-weight:400">（アイコン欄でフォーカス → Win+. または Win+; で絵文字パレットが開きます）</span></div>
-      <div class="task-edit-add-row">
-        <input type="text" id="new-task-icon" class="settings-input task-edit-add-icon" placeholder="🔧" maxlength="4" title="絵文字を入力。Win+. または Win+; でWindowsの絵文字パレットが開きます">
-        <input type="text" id="new-task-name" class="settings-input task-edit-add-name" placeholder="タスク名（例：鈑金見積）" maxlength="20">
-      </div>
-      <div class="task-edit-add-phase-row">
-        <span class="task-edit-add-phase-label">適用フェーズ：</span>
-        <label class="task-edit-add-phase">
-          <input type="checkbox" id="new-task-phase-regen" checked> 再生
-        </label>
-        <label class="task-edit-add-phase">
-          <input type="checkbox" id="new-task-phase-delivery"> 納車
-        </label>
-        <button class="btn-sm" onclick="addCustomTask()" style="margin-left:auto">追加する</button>
-      </div>
-    </div>`;
 
   // v1.7.36: タスクパターン一覧（テンプレ一覧）への入口
   html += `
@@ -619,11 +635,22 @@ window.openTemplateListFromSettings = function () {
 
 // ========================================
 // v1.8.13: タスク行の ⋮ メニュー（操作集約アクションシート）
+// v2.0.0: ON/OFF も含めて全操作をここに集約。ビルトインも編集/削除可能に
+//         （ただし自動判定タスク t_complete / d_complete は名前変更・削除不可）
 // ========================================
 window.openTaskMenu = function (taskId, phase) {
   const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI(phase) : [];
   const t = tasks.find(x => x.id === taskId);
   if (!t) return;
+
+  // v2.0.0: 保護対象 = 自動判定タスク or 装備品チェック
+  //   自動判定（展示前完全完了/納車前完全完了）：他タスクの完了で自動ON/OFF → 削除で進捗計算が破綻
+  //   装備品チェック（t_equip）：閲覧用装備品シート（カタログ風印刷）に連動 → 削除で装備品ビューが破綻
+  //   ※ 再生/展示/納車準備/納車整備 は workflow 型だがチェックリスト内容はユーザーカスタム前提なので
+  //     カスタムタスクと同等に名前変更・削除可（再作成も自由）
+  const isAutoTask  = (taskId === 't_complete' || taskId === 'd_complete');
+  const isEquip     = (taskId === 't_equip');
+  const isProtected = isAutoTask || isEquip;
 
   const titleEl = document.getElementById('task-actionsheet-title');
   if (titleEl) titleEl.textContent = (t.icon || '📋') + ' ' + (t.name || '');
@@ -639,28 +666,41 @@ window.openTaskMenu = function (taskId, phase) {
     btn.onclick = onClick;
     body.appendChild(btn);
   }
+  function _addDivider() {
+    const hr = document.createElement('div');
+    hr.style.cssText = 'height:1px;background:var(--border);margin:6px 0';
+    body.appendChild(hr);
+  }
 
-  // 1. ✏️ チェックリスト編集（hasChecklist=true は直接編集／false かつ canToggle=true なら自動でON＋編集）
+  // ① ON/OFF（最上段・常に出す）
+  const onLabel = t.enabled ? '✅ ON（クリックでOFFにする）' : '⬜ OFF（クリックでONにする）';
+  _addBtn(onLabel, function () {
+    closeTaskActions();
+    if (typeof toggleTaskEnabled === 'function') {
+      toggleTaskEnabled(taskId, phase, !t.enabled);
+    }
+  });
+  _addDivider();
+
+  // ② チェックリスト編集（hasChecklist=true は直接編集／false かつ canToggle=true なら自動でON＋編集）
   if (t.hasChecklist) {
     _addBtn('✏️ チェックリストを編集', function () {
       closeTaskActions();
       if (typeof openTaskTemplate === 'function') openTaskTemplate(taskId, phase);
     });
   } else if (t.canToggleChecklist) {
-    // v1.8.14: 詳細無しのタスクでも「編集」を押せるように。押した時に自動で詳細ON→エディタ起動
     _addBtn('✨ 小タスクを作って編集する', function () {
       closeTaskActions();
       if (typeof toggleTaskChecklist === 'function') {
         toggleTaskChecklist(taskId, phase, true);
       }
-      // toggleTaskChecklist 完了後に openTaskTemplate を呼ぶ（テンプレ生成は同期）
       setTimeout(function () {
         if (typeof openTaskTemplate === 'function') openTaskTemplate(taskId, phase);
       }, 50);
     });
   }
 
-  // 2. 詳細トグル（canToggleChecklist の時のみ・「ON/OFFに戻す」用に残す）
+  // ③ 詳細トグル戻し（canToggleChecklist の時のみ）
   if (t.canToggleChecklist && t.hasChecklist) {
     _addBtn('📝 シンプルなON/OFFに戻す', function () {
       closeTaskActions();
@@ -670,16 +710,16 @@ window.openTaskMenu = function (taskId, phase) {
     });
   }
 
-  // v1.8.46: 名前変更（カスタムタスクのみ）
-  if (!t.builtin) {
+  // ④ 名前・アイコン変更（保護対象以外）
+  if (!isProtected) {
     _addBtn('✏️ 名前・アイコンを変更', function () {
       closeTaskActions();
-      if (typeof renameCustomTask === 'function') renameCustomTask(taskId);
+      if (typeof renameCustomTask === 'function') renameCustomTask(taskId, phase);
     });
   }
 
-  // v1.8.51: 選択制トグル（自動判定タスク以外は全部対象）
-  if (taskId !== 't_complete' && taskId !== 'd_complete') {
+  // ⑤ 選択制トグル（自動判定タスク以外 ※ workflow型は選択制にできる）
+  if (!isAutoTask) {
     const isOpt = (typeof isTaskOptional === 'function') && isTaskOptional(taskId, phase);
     const label = isOpt ? '◉ 選択制をやめる（常時表示に戻す）' : '◉ この大タスクを選択制にする';
     _addBtn(label, function () {
@@ -693,20 +733,41 @@ window.openTaskMenu = function (taskId, phase) {
     });
   }
 
-  // 3. 削除（カスタムタスクのみ）
-  if (!t.builtin) {
+  // ⑥ メモ設定（自動判定タスク以外）
+  // v2.2.1: タスク個別メモの種別を切替（OFF/フリーテキスト/日付/時刻 ＋ date/time のラベル文言）
+  if (!isAutoTask) {
+    const cfg = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, phase) : { type: 'off', label: '' };
+    const typeLabel = cfg.type === 'off'      ? 'OFF'
+                    : cfg.type === 'freeword' ? 'フリーテキスト'
+                    : cfg.type === 'date'     ? `日付${cfg.label ? `「${cfg.label}」` : ''}`
+                    : cfg.type === 'time'     ? `時刻${cfg.label ? `「${cfg.label}」` : ''}`
+                    : 'OFF';
+    _addBtn(`📝 メモ設定（${typeLabel}）`, function () {
+      closeTaskActions();
+      if (typeof openTaskMemoConfigModal === 'function') {
+        openTaskMemoConfigModal(taskId, phase);
+      }
+    });
+  }
+
+  // ⑦ 削除（保護対象以外）
+  if (!isProtected) {
+    _addDivider();
     _addBtn('🗑 このタスクを削除', function () {
       closeTaskActions();
-      if (typeof deleteCustomTask === 'function') deleteCustomTask(taskId);
+      if (typeof deleteCustomTask === 'function') deleteCustomTask(taskId, phase);
     }, true);
   }
 
-  // メニュー項目がない場合
-  if (body.children.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'color:var(--text3);padding:18px 8px;text-align:center;font-size:13px';
-    empty.textContent = 'このタスクで使える操作はありません';
-    body.appendChild(empty);
+  // 保護対象の注記
+  if (isProtected) {
+    _addDivider();
+    const note = document.createElement('div');
+    note.style.cssText = 'color:var(--text3);padding:10px 8px;text-align:center;font-size:11px;line-height:1.5';
+    note.textContent = isAutoTask
+      ? '🔒 自動判定タスクは、他タスクの完了で自動的にON/OFFします。\n名前変更・削除はできません。'
+      : '🔒 装備品チェックは、お客様向けの装備品閲覧シート（カタログ印刷）に連動しています。\n名前変更・削除はできません。';
+    body.appendChild(note);
   }
 
   const m = document.getElementById('modal-task-actions');
@@ -764,12 +825,15 @@ function resetTaskWeights(phase) {
 window.resetTaskWeights = resetTaskWeights;
 
 // 組み込み・カスタム両方共通の ON/OFF 切替
+// v2.0.0: ⋮メニュー経由に統一されたため、UI反映用に renderTasksEditor を呼ぶ
 function toggleTaskEnabled(taskId, phase, enabled) {
   if (!appTaskEnabled[phase]) appTaskEnabled[phase] = {};
   appTaskEnabled[phase][taskId] = !!enabled;
+  if (typeof renderTasksEditor === 'function') renderTasksEditor();
   if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
+  if (typeof renderAll === 'function') renderAll();
   showToast(enabled ? 'タスクを有効化しました' : 'タスクを無効化しました');
-  if (window.saveSettings) saveSettings(); // v1.5.2
+  if (window.saveSettings) saveSettings();
 }
 
 // v1.6.1: 詳細チェックリスト ON/OFF 切替
@@ -882,13 +946,70 @@ function addCustomTask() {
   if (window.saveSettings) saveSettings(); // v1.5.2
 }
 
+// v1.8.112: 各フェーズ専用の追加ボタン
+function addCustomTaskForPhase(phase) {
+  const iconEl = document.getElementById('new-task-icon-' + phase);
+  const nameEl = document.getElementById('new-task-name-' + phase);
+  if (!iconEl || !nameEl) return;
+  const icon = (iconEl.value || '').trim() || '📋';
+  const name = (nameEl.value || '').trim();
+  if (!name) { showToast('タスク名を入力してください'); return; }
+  const id = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  appCustomTasks.push({ id, name, icon, phases: [phase] });
+  iconEl.value = '';
+  nameEl.value = '';
+  // 各車両のタスク状態を初期化
+  if (typeof cars !== 'undefined' && Array.isArray(cars)){
+    cars.forEach(c => {
+      if (phase === 'regen' && c.regenTasks && !(id in c.regenTasks)) c.regenTasks[id] = false;
+      if (phase === 'delivery' && c.deliveryTasks && !(id in c.deliveryTasks)) c.deliveryTasks[id] = false;
+      if (phase === 'backoffice'){
+        if (!c.backofficeTasks) c.backofficeTasks = {};
+        if (!(id in c.backofficeTasks)) c.backofficeTasks[id] = false;
+      }
+    });
+  }
+  renderTasksEditor();
+  if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
+  showToast(`「${name}」を追加しました`);
+  if (window.saveSettings) saveSettings();
+}
+window.addCustomTaskForPhase = addCustomTaskForPhase;
+
 // v1.8.46: カスタムタスクの名前を変更
 // v1.8.56: prompt() → HTML inputs を持つカスタムモーダルへ刷新。
 //   HTML <input> にフォーカスしている時は Win+. / Win+; で Windows 絵文字パレットが開く。
 //   prompt() ではこのショートカットが効かないため。
-function renameCustomTask(taskId) {
-  const t = appCustomTasks.find(x => x.id === taskId);
-  if (!t) return;
+// v2.0.0: ビルトインタスクも編集可能に。phase 引数を受け取り、カスタム/ビルトインで分岐。
+//   保護対象は t_complete / d_complete（自動判定）と t_equip（装備品ビュー連動）のみ。
+function renameCustomTask(taskId, phase) {
+  // 自動判定タスクはガード
+  if (taskId === 't_complete' || taskId === 'd_complete') {
+    if (typeof showToast === 'function') showToast('自動判定タスクは名前変更できません');
+    return;
+  }
+  // 装備品チェックはガード（閲覧用装備品シートに連動）
+  if (taskId === 't_equip') {
+    if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため名前変更できません');
+    return;
+  }
+  // カスタムかビルトインかを判定
+  const cust = (appCustomTasks || []).find(x => x.id === taskId);
+  let curName = '', curIcon = '📋';
+  if (cust) {
+    curName = cust.name || '';
+    curIcon = cust.icon || '📋';
+  } else {
+    // ビルトイン：適用済みオーバーライド → 元定義の順で初期値
+    const ov = (appTaskRename && appTaskRename[phase] && appTaskRename[phase][taskId]) || null;
+    const builtinSrc = (phase === 'delivery') ? DELIVERY_TASKS
+                     : (phase === 'backoffice') ? BACKOFFICE_TASKS
+                     : REGEN_TASKS;
+    const b = (builtinSrc || []).find(x => x.id === taskId);
+    if (!b) return; // 見つからなければ何もしない
+    curName = (ov && ov.name) ? ov.name : (b.name || '');
+    curIcon = (ov && ov.icon) ? ov.icon : (b.icon || '📋');
+  }
 
   // 既存モーダル要素を再利用、無ければ作成
   let overlay = document.getElementById('rename-task-overlay');
@@ -924,10 +1045,11 @@ function renameCustomTask(taskId) {
     });
   }
 
-  // 値を反映
-  document.getElementById('rename-task-icon').value = t.icon || '📋';
-  document.getElementById('rename-task-name').value = t.name || '';
+  // 値を反映（v2.0.0: builtin/custom 両対応）
+  document.getElementById('rename-task-icon').value = curIcon;
+  document.getElementById('rename-task-name').value = curName;
   overlay.dataset.taskId = taskId;
+  overlay.dataset.phase  = phase || '';
   overlay.classList.add('open');
   // 名前にフォーカス（絵文字側にフォーカスしたい場合はユーザーがクリックする）
   setTimeout(() => {
@@ -945,15 +1067,36 @@ function _closeRenameTaskModal(save) {
     return;
   }
   const taskId = overlay.dataset.taskId;
-  const t = appCustomTasks.find(x => x.id === taskId);
-  if (!t) { overlay.classList.remove('open'); return; }
+  const phase  = overlay.dataset.phase || '';
   const newName = (document.getElementById('rename-task-name').value || '').trim();
   const newIcon = (document.getElementById('rename-task-icon').value || '').trim();
   if (!newName) { showToast('タスク名が空です'); return; }
-  const nameChanged = newName !== t.name;
-  const iconChanged = !!newIcon && newIcon !== t.icon;
-  t.name = newName;
-  if (newIcon) t.icon = newIcon;
+
+  // v2.0.0: カスタム or ビルトインで分岐
+  const cust = (appCustomTasks || []).find(x => x.id === taskId);
+  let nameChanged = false, iconChanged = false;
+  if (cust) {
+    nameChanged = newName !== cust.name;
+    iconChanged = !!newIcon && newIcon !== cust.icon;
+    cust.name = newName;
+    if (newIcon) cust.icon = newIcon;
+  } else {
+    // ビルトイン → override をセット
+    if (!appTaskRename[phase]) appTaskRename[phase] = {};
+    const ov = appTaskRename[phase][taskId] || {};
+    const builtinSrc = (phase === 'delivery') ? DELIVERY_TASKS
+                     : (phase === 'backoffice') ? BACKOFFICE_TASKS
+                     : REGEN_TASKS;
+    const b = (builtinSrc || []).find(x => x.id === taskId) || {};
+    const origName = (ov.name) ? ov.name : (b.name || '');
+    const origIcon = (ov.icon) ? ov.icon : (b.icon || '');
+    nameChanged = newName !== origName;
+    iconChanged = !!newIcon && newIcon !== origIcon;
+    appTaskRename[phase][taskId] = {
+      name: newName,
+      icon: newIcon || ov.icon || b.icon || '',
+    };
+  }
   overlay.classList.remove('open');
   renderTasksEditor();
   if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
@@ -967,28 +1110,62 @@ function _closeRenameTaskModal(save) {
 }
 window._closeRenameTaskModal = _closeRenameTaskModal;
 
-// カスタムタスク削除
-function deleteCustomTask(taskId) {
-  const t = appCustomTasks.find(x => x.id === taskId);
-  if (!t) return;
-  if (!confirm(`「${t.name}」を削除しますか？\n（既に進捗が入っていても消えます）`)) return;
-  const __idx = appCustomTasks.findIndex(x => x.id === taskId);
-  if (__idx >= 0) appCustomTasks.splice(__idx, 1);
-  cars.forEach(c => {
-    if (c.regenTasks)    delete c.regenTasks[taskId];
-    if (c.deliveryTasks) delete c.deliveryTasks[taskId];
-  });
-  if (appTaskEnabled.regen)    delete appTaskEnabled.regen[taskId];
-  if (appTaskEnabled.delivery) delete appTaskEnabled.delivery[taskId];
-  if (appTaskDeadline.regen)    delete appTaskDeadline.regen[taskId];
-  if (appTaskDeadline.delivery) delete appTaskDeadline.delivery[taskId];
-  // 並び順からも除外
-  if (appTaskOrder.regen)    appTaskOrder.regen    = appTaskOrder.regen.filter(id => id !== taskId);
-  if (appTaskOrder.delivery) appTaskOrder.delivery = appTaskOrder.delivery.filter(id => id !== taskId);
+// v2.0.0: ビルトイン/カスタム両対応のタスク削除
+//   ビルトインは「削除フラグ」を立てて非表示化（不可逆扱い・元データは温存）
+//   保護対象は t_complete / d_complete（自動判定）と t_equip（装備品ビュー連動）のみ
+function deleteCustomTask(taskId, phase) {
+  if (taskId === 't_complete' || taskId === 'd_complete') {
+    if (typeof showToast === 'function') showToast('自動判定タスクは削除できません');
+    return;
+  }
+  if (taskId === 't_equip') {
+    if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため削除できません');
+    return;
+  }
+  const cust = (appCustomTasks || []).find(x => x.id === taskId);
+  // 表示名（確認ダイアログ用）
+  let displayName = taskId;
+  if (cust) {
+    displayName = cust.name || taskId;
+  } else {
+    const ov = (appTaskRename && appTaskRename[phase] && appTaskRename[phase][taskId]) || null;
+    const builtinSrc = (phase === 'delivery') ? DELIVERY_TASKS
+                     : (phase === 'backoffice') ? BACKOFFICE_TASKS
+                     : REGEN_TASKS;
+    const b = (builtinSrc || []).find(x => x.id === taskId);
+    if (!b) return;
+    displayName = (ov && ov.name) ? ov.name : (b.name || taskId);
+  }
+  if (!confirm(`「${displayName}」を削除しますか？\n（既に進捗が入っていても消えます。\n　ビルトインタスクは設定画面から非表示になります）`)) return;
+
+  if (cust) {
+    const __idx = appCustomTasks.findIndex(x => x.id === taskId);
+    if (__idx >= 0) appCustomTasks.splice(__idx, 1);
+    cars.forEach(c => {
+      if (c.regenTasks)    delete c.regenTasks[taskId];
+      if (c.deliveryTasks) delete c.deliveryTasks[taskId];
+    });
+    ['regen', 'delivery', 'backoffice'].forEach(ph => {
+      if (appTaskEnabled[ph])  delete appTaskEnabled[ph][taskId];
+      if (appTaskDeadline[ph]) delete appTaskDeadline[ph][taskId];
+      if (appTaskOrder[ph])    appTaskOrder[ph]    = appTaskOrder[ph].filter(id => id !== taskId);
+      if (appTaskOptional[ph]) delete appTaskOptional[ph][taskId];
+      if (appTaskWeight[ph])   delete appTaskWeight[ph][taskId];
+      if (appTaskMode[ph])     delete appTaskMode[ph][taskId];
+    });
+  } else {
+    // ビルトイン → 削除フラグ
+    if (!appTaskDeleted[phase]) appTaskDeleted[phase] = {};
+    appTaskDeleted[phase][taskId] = true;
+    // 有効フラグも OFF にしておく（既存の有効タスク扱いから抜く）
+    if (!appTaskEnabled[phase]) appTaskEnabled[phase] = {};
+    appTaskEnabled[phase][taskId] = false;
+  }
   renderTasksEditor();
   if (typeof _refreshSizesDependentViews === 'function') _refreshSizesDependentViews();
+  if (typeof renderAll === 'function') renderAll();
   showToast('タスクを削除しました');
-  if (window.saveSettings) saveSettings(); // v1.5.2
+  if (window.saveSettings) saveSettings();
 }
 
 // アプリ起動時の復元（appSettings 読込後に呼ぶ想定）

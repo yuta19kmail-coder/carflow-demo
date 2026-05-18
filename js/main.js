@@ -20,6 +20,11 @@ function renderAll() {
     if (t.includes('在庫'))       renderInventory();
     if (t.includes('商談'))       renderDeal();
   }
+  // v2.1.0: バックオフィスはサイドパネル。開いていればリアルタイム再描画
+  const boPanel = document.getElementById('panel-backoffice');
+  if (boPanel && boPanel.classList.contains('open') && typeof renderBackoffice === 'function') {
+    renderBackoffice();
+  }
   // v1.8.1: ミーティングビュー（サイドバー経由で開かれた時、view-meeting が active なら更新）
   const meetingView = document.getElementById('view-meeting');
   if (meetingView && meetingView.classList.contains('active') && typeof renderMeeting === 'function') {
