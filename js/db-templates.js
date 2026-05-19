@@ -190,6 +190,17 @@
     list.forEach(tpl => {
       if (tpl && tpl.id) ChecklistTemplates[tpl.id] = migrate(tpl);
     });
+    // v2.4.4: DBに無い builtin テンプレを補完（新規追加タスクが消える問題対策）
+    //   補完したものはバックグラウンドで Firestore にも保存して、次回以降は通常ロード
+    if (typeof window.ensureBuiltinTemplates === 'function') {
+      const added = window.ensureBuiltinTemplates();
+      if (added && added.length) {
+        console.log('[db-templates] 補完した builtin テンプレ:', added.map(t => t.id));
+        added.forEach(tpl => {
+          saveTemplate(tpl).catch(e => console.error('[db-templates] 補完 save 失敗', tpl.id, e));
+        });
+      }
+    }
   }
 
   // -----------------------------------------

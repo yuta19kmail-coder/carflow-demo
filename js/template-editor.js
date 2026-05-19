@@ -103,7 +103,7 @@
       root.innerHTML = '<div class="tpl-empty">この画面は管理者・店長クラスのみ利用できます。</div>';
       return;
     }
-    if (typeof ChecklistTemplates === 'undefined' || Object.keys(ChecklistTemplates).length === 0) {
+    if (typeof ChecklistTemplates === 'undefined') {
       root.innerHTML = '<div class="tpl-empty">テンプレートがまだ読み込まれていません。ログイン直後の場合は数秒待ってから再表示してください。</div>';
       return;
     }
@@ -117,30 +117,74 @@
   }
 
   // -----------------------------------------
-  // L1: テンプレ一覧（v1.7.34：バリアント枝分かれ表示）
+  // L1: タスクパターン一覧
+  // v2.5.0: 全大タスクをフェーズ別に表示。チェックリスト未設定タスクは「チェックのみ」として表示。
+  //         タスク並び順は getAllTasksForUI（appTaskOrder を反映）に同期。
+  //         _renderList()                              : スタンドアロン（panel-templates）描画
+  //         renderTaskPatternsInSettings()             : 設定パネル「タスクパターン」セクション内に描画
   // -----------------------------------------
   function _renderList() {
-    const root = document.getElementById('tpl-editor-body');
-    if (!root) return;
-    const list = _allTpls();
-    const sourceLabel = { worksheet: '作業管理票', equipment: '装備品', custom: 'カスタム' };
+    _renderListIntoElement(document.getElementById('tpl-editor-body'), { standalone: true });
+  }
 
-    const cardsHtml = list.map(t => {
-      const phase = t.sourcePhase ? `<span class="tpl-phase tpl-phase-${t.sourcePhase}">${t.sourcePhase === 'regen' ? '展示準備' : '納車準備'}</span>` : '';
-      // v1.7.34: variants を必ず1個以上持つよう整える（旧データの自動移行）
-      if (!Array.isArray(t.variants) || t.variants.length === 0) {
-        const sec = Array.isArray(t.sections) ? t.sections : [];
-        t.variants = [{ id: 'va_default', name: 'デフォルト', sections: sec }];
+  function _renderListIntoElement(root, opts) {
+    if (!root) return;
+    opts = opts || {};
+    const standalone = !!opts.standalone;
+
+    if (!_can()) {
+      root.innerHTML = '<div class="tpl-empty">この画面は管理者・店長クラスのみ利用できます。</div>';
+      return;
+    }
+    if (typeof ChecklistTemplates === 'undefined') {
+      root.innerHTML = '<div class="tpl-empty">テンプレートがまだ読み込まれていません。ログイン直後の場合は数秒待ってから再表示してください。</div>';
+      return;
+    }
+
+    // 小タスク制ON（hasChecklist=true）の大タスク用カード
+    // v2.5.2: variants 0個でも成立する設計に。削除ボタンの「最低1つ」制限も撤廃。
+    // v2.5.4: 特殊タスク（t_equip / d_register）はUI連動のため最後の1個は削除不可（disabled）。
+    // v2.5.12: 小タスク制 ON/OFF を示す chip（クリックで切替可。タスク・進捗側と連動）
+    //   保護対象（t_equip / d_register）：強制ON でロック
+    //   自動判定（t_complete / d_complete）：強制OFF でロック
+    //   それ以外：現状を表示しつつクリックで反転
+    function _modeChipHtml(taskInfo, phase) {
+      if (!taskInfo) return '';
+      const tid = taskInfo.id;
+      const isAuto = (tid === 't_complete' || tid === 'd_complete');
+      const isProtectedOn = (tid === 't_equip' || tid === 'd_register');
+      if (isAuto) {
+        return `<span class="tpl-card-mode-chip locked" title="自動判定タスクのため切替不可">🔒 自動判定</span>`;
       }
-      const variantsHtml = t.variants.map((v, i) => {
-        const isLast = i === t.variants.length - 1;
+      if (isProtectedOn) {
+        return `<span class="tpl-card-mode-chip locked" title="他機能と連動するため強制ON">🔒 小タスク制 ON</span>`;
+      }
+      const on = !!taskInfo.hasChecklist;
+      const cls = on ? 'on' : 'off';
+      const label = on ? '📝 小タスク制 ON' : '📝 小タスク制 OFF';
+      const tip = on ? 'クリックで OFF（パターンは保持されます）' : 'クリックで ON';
+      return `<button type="button" class="tpl-card-mode-chip ${cls}"
+                 onclick="_toggleTaskChecklistFromPatterns('${_esc(tid)}','${_esc(phase)}',${on})"
+                 title="${tip}">${label}</button>`;
+    }
+
+    function _renderTplCard(t, taskInfo, phase) {
+      const variants = (Array.isArray(t.variants) ? t.variants : []);
+      // UI連動の特殊タスクは「最低1パターン保証」
+      const isProtectedMinOne = !!(taskInfo && (taskInfo.id === 't_equip' || taskInfo.id === 'd_register'));
+      const variantsHtml = variants.map((v, i) => {
+        const isLast = i === variants.length - 1;
         const branch = isLast ? '└─' : '├─';
         const items = (v.sections || []).reduce((a, s) => a + (s.items || []).filter(i => !i._disabled).length, 0);
         const sectionCount = (v.sections || []).length;
         const tabSet = new Set();
         (v.sections || []).forEach(s => { tabSet.add(s.tab || ''); });
-        const isOnly = t.variants.length <= 1;
-        // v1.7.36: パターン名を大きめに、操作ボタンは2段組（名前変更 / 複製 / 削除を別行に折り返せるように）
+        // 最後の1個 + 特殊タスク → 削除不可
+        const isOnly = variants.length <= 1;
+        const lockDelete = isOnly && isProtectedMinOne;
+        const deleteAttrs = lockDelete
+          ? 'disabled title="UI連動のため最低1パターン必要"'
+          : 'title="このパターンを削除"';
         return `
           <div class="tpl-variant-row">
             <span class="tpl-variant-branch">${branch}</span>
@@ -157,55 +201,304 @@
               <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターン名を変更">📝 名前</button>
               <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを複製">📋 複製</button>
               <button class="btn-sm" onclick="resetVariantToDefault('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを初期状態に戻す">↺ 初期化</button>
-              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを削除" ${isOnly ? 'disabled' : ''}>🗑 削除</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" ${deleteAttrs}>🗑 削除</button>
             </div>
           </div>`;
       }).join('');
 
-      // v1.7.37: built-in（worksheet/equipment）なら「このタスクを初期化」ボタンを出す
+      const emptyHint = variants.length === 0
+        ? '<div class="tpl-variant-empty">まだパターンがありません。「+ パターンを追加」で構築開始できます。</div>'
+        : '';
+
       const isBuiltin = (t.sourceType === 'worksheet' || t.sourceType === 'equipment');
       const resetTaskBtn = isBuiltin
-        ? `<button class="btn-sm" style="margin-left:auto" onclick="resetTemplateToDefault('${_esc(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">↺ このタスクを初期化</button>`
+        ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">↺ このタスクを初期化</button>`
         : '';
+      const modeChip = _modeChipHtml(taskInfo, phase);
+
+      // パターン追加：addPatternForTask は taskId / phase ベースなので、taskInfo + phase があれば使う。
+      // 互換性のため、無ければ従来の addTemplateVariantById(tplId) を呼ぶ。
+      const addBtnHandler = (taskInfo && phase)
+        ? `addPatternForTask('${_esc(taskInfo.id)}', '${_esc(phase)}')`
+        : `addTemplateVariantById('${_esc(t.id)}')`;
+
+      // v2.5.12: ヘッダーを2段構成に。上段はタイトル、下段は「初期化／チェックのみ」＋「小タスク制トグル」
       return `
         <div class="tpl-card-v2">
-          <div class="tpl-card-header">
-            <span class="tpl-card-icon">${_esc(t.icon || '📋')}</span>
-            <div style="flex:1;min-width:0">
+          <div class="tpl-card-header tpl-card-header-v2">
+            <div class="tpl-card-header-top">
+              <span class="tpl-card-icon">${_esc(t.icon || '📋')}</span>
               <div class="tpl-card-name">${_esc(t.name || '(無題)')}</div>
-              <div class="tpl-card-meta">${_esc(sourceLabel[t.sourceType] || t.sourceType || '')} ${phase}</div>
             </div>
-            ${resetTaskBtn}
+            <div class="tpl-card-header-bottom">
+              <div class="tpl-card-header-actions">${resetTaskBtn}</div>
+              <div class="tpl-card-header-mode">${modeChip}</div>
+            </div>
           </div>
           <div class="tpl-variant-list">
             <div class="tpl-variant-list-label">📦 タスクパターン</div>
             ${variantsHtml}
+            ${emptyHint}
             <div class="tpl-variant-add-row">
-              <button class="btn-sm" onclick="addTemplateVariantById('${_esc(t.id)}')">+ パターンを追加</button>
+              <button class="btn-sm" onclick="${addBtnHandler}">+ パターンを追加</button>
             </div>
           </div>
         </div>`;
-    }).join('');
+    }
+
+    // 小タスク制OFF（hasChecklist=false）の大タスク用「チェックのみ」カード
+    // v2.5.1: 「📝 小タスク制をONにする」ボタンは削除（ON/OFFはタスク・進捗⋮メニュー側）。
+    //          OFFのままでも裏でパターンを構築できるよう、テンプレ未生成なら作って variants 一覧 + 「+ パターンを追加」を表示。
+    //          ※ canToggleChecklist=false（自動判定タスク）はパターン編集不可なので簡易表示のみ。
+    function _renderCheckOnlyCard(taskInfo, phase) {
+      const canToggle = !!taskInfo.canToggleChecklist;
+
+      // 自動判定タスク（t_complete / d_complete）はパターンを持てない → 静的表示
+      if (!canToggle) {
+        const modeChipAuto = _modeChipHtml(taskInfo, phase);
+        return `
+          <div class="tpl-card-v2 tpl-card-checkonly tpl-card-checkonly-locked">
+            <div class="tpl-card-header tpl-card-header-v2">
+              <div class="tpl-card-header-top">
+                <span class="tpl-card-icon">${_esc(taskInfo.icon || '📋')}</span>
+                <div class="tpl-card-name">${_esc(taskInfo.name || '(無題)')}</div>
+              </div>
+              <div class="tpl-card-header-bottom">
+                <div class="tpl-card-header-actions">
+                  <span class="tpl-check-only-badge">チェックのみ</span>
+                </div>
+                <div class="tpl-card-header-mode">${modeChipAuto}</div>
+              </div>
+            </div>
+            <div class="tpl-check-only-body">
+              <span class="tpl-check-only-sub">他タスクの完了で自動判定されるため、小タスクは持てません。</span>
+            </div>
+          </div>`;
+      }
+
+      // 切替可能タスク：テンプレが既にあれば variants 一覧を出して編集可、なくても「+ パターンを追加」で構築開始可能
+      const tplId = (typeof templateIdForTask === 'function')
+        ? templateIdForTask(taskInfo.id, phase)
+        : ('tpl_' + phase + '_' + taskInfo.id);
+      const tpl = _getTpl(tplId);
+      const variants = (tpl && Array.isArray(tpl.variants)) ? tpl.variants : [];
+
+      const variantsHtml = variants.map((v, i) => {
+        const isLast = i === variants.length - 1;
+        const branch = isLast ? '└─' : '├─';
+        const items = (v.sections || []).reduce((a, s) => a + (s.items || []).filter(i => !i._disabled).length, 0);
+        const sectionCount = (v.sections || []).length;
+        const tabSet = new Set();
+        (v.sections || []).forEach(s => { tabSet.add(s.tab || ''); });
+        const isOnly = variants.length <= 1;
+        return `
+          <div class="tpl-variant-row">
+            <span class="tpl-variant-branch">${branch}</span>
+            <div class="tpl-variant-row-main">
+              <div class="tpl-variant-row-name">${_esc(v.name || '(無題)')}</div>
+              <div class="tpl-variant-row-stats">
+                <span class="tpl-variant-stat">${tabSet.size}タブ</span>
+                <span class="tpl-variant-stat">${sectionCount}セクション</span>
+                <span class="tpl-variant-stat">${items}項目</span>
+              </div>
+            </div>
+            <div class="tpl-variant-row-actions">
+              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(tplId)}', '${_esc(v.id)}')">✏️ 中身を編集</button>
+              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターン名を変更">📝 名前</button>
+              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを複製">📋 複製</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを削除">🗑 削除</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      const emptyHint = variants.length === 0
+        ? '<div class="tpl-variant-empty">まだパターンがありません。「+ パターンを追加」で構築開始できます。</div>'
+        : '';
+
+      const modeChip = _modeChipHtml(taskInfo, phase);
+      return `
+        <div class="tpl-card-v2 tpl-card-checkonly">
+          <div class="tpl-card-header tpl-card-header-v2">
+            <div class="tpl-card-header-top">
+              <span class="tpl-card-icon">${_esc(taskInfo.icon || '📋')}</span>
+              <div class="tpl-card-name">${_esc(taskInfo.name || '(無題)')}</div>
+            </div>
+            <div class="tpl-card-header-bottom">
+              <div class="tpl-card-header-actions">
+                <span class="tpl-check-only-badge tpl-check-only-badge-sm" title="現在は大タスクのチェックのみで運用中">チェックのみ</span>
+              </div>
+              <div class="tpl-card-header-mode">${modeChip}</div>
+            </div>
+          </div>
+          <div class="tpl-variant-list">
+            <div class="tpl-variant-list-label">📦 タスクパターン</div>
+            ${variantsHtml}
+            ${emptyHint}
+            <div class="tpl-variant-add-row">
+              <button class="btn-sm" onclick="addPatternForTask('${_esc(taskInfo.id)}', '${_esc(phase)}')">+ パターンを追加</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // v2.5.0: フェーズごとに getAllTasksForUI で全大タスクを取得（appTaskOrder の順序を反映）
+    const phaseDefs = [
+      { key: 'regen',      label: '🔧 展示準備フェーズ',     hue: 'orange' },
+      { key: 'delivery',   label: '📦 納車準備フェーズ',     hue: 'blue' },
+      { key: 'backoffice', label: '🗂 バックオフィスフェーズ', hue: 'purple' },
+    ];
+
+    const hasFn = (typeof getAllTasksForUI === 'function');
+    // v2.5.4: 装備品チェック / 登録内容設定 はパターン編集・小タスク追加は通常通り可能。
+    //         ただしUI連動のため「最後の1パターンは削除不可」の保護だけかける（PROTECTED_MIN_ONE）。
+    //         _renderTplCard 側で taskInfo.id を見て削除ボタンを disabled に。
+    const groupsHtml = phaseDefs.map(g => {
+      const tasks = hasFn ? (getAllTasksForUI(g.key) || []) : [];
+      if (!tasks.length) return '';
+      const cards = tasks.map(t => {
+        if (t.hasChecklist) {
+          const tplId = (typeof templateIdForTask === 'function')
+            ? templateIdForTask(t.id, g.key)
+            : ('tpl_' + g.key + '_' + t.id);
+          const tpl = _getTpl(tplId);
+          if (tpl) return _renderTplCard(tpl, t, g.key);
+          // テンプレが未生成（極めて稀）。チェックのみカードでフォールバック。
+          return _renderCheckOnlyCard(t, g.key);
+        }
+        return _renderCheckOnlyCard(t, g.key);
+      }).join('');
+      return `
+        <div class="tpl-phase-group tpl-phase-group-${g.hue}">
+          <div class="tpl-phase-group-head">
+            <span class="tpl-phase-group-label">${g.label}</span>
+            <span class="tpl-phase-group-count">${tasks.length}件</span>
+          </div>
+          <div class="tpl-grid">${cards}</div>
+        </div>`;
+    }).filter(Boolean).join('');
+
+    // 戻るボタン：standalone（panel-templates 単独表示）のときだけ出す。
+    // 設定パネル埋め込み時は左サイドバーで他セクションに移動できるので不要。
+    const backBtnHtml = standalone
+      ? `<button class="btn-sm" onclick="backToTaskSettings()" title="設定パネルへ戻る">← 戻る</button>`
+      : '';
 
     root.innerHTML = `
       <div class="tpl-list-header">
+        ${backBtnHtml ? `<div>${backBtnHtml}</div>` : ''}
         <div>
           <div class="tpl-list-title">タスクパターン一覧</div>
-          <div class="tpl-list-sub">${list.length}件のテンプレート</div>
+          <div class="tpl-list-sub">全大タスクをフェーズ別に表示（小タスク制ONのものはパターン編集可能）</div>
         </div>
         <div style="margin-left:auto">
           <button class="btn-sm btn-danger" onclick="resetAllTemplatesToDefault()" title="全タスクを初期状態に戻す">↺ 全タスクを初期化</button>
         </div>
       </div>
-      <div class="tpl-grid">${cardsHtml}</div>
+      ${groupsHtml}
       <div class="tpl-help">
         <strong>💡 ヒント</strong><br>
         ・「✏️ 中身を編集」でセクション・小タスクを編集できます。<br>
         ・「+ パターンを追加」で同じテンプレに複数パターン（A/B/C など）を持てます。<br>
+        ・「チェックのみ」表示のタスクは「📝 小タスク制をONにする」で編集可能になります。<br>
         ・「↺ 初期化」は元の組込内容に戻します（カスタム編集は消えます）。
       </div>
     `;
   }
+
+  // v2.5.0: 設定パネル「タスクパターン」セクションから呼ばれる公開API
+  window.renderTaskPatternsInSettings = function () {
+    const el = document.getElementById('task-patterns-editor');
+    if (!el) return;
+    _renderListIntoElement(el, { standalone: false });
+  };
+
+  // v2.5.12: タスクパターン画面のヘッダーから 小タスク制 ON/OFF を切替
+  //   currentlyOn: 現在の状態（true=ON, false=OFF）
+  //   タスク・進捗側（settings.js の toggleTaskChecklist）と完全に連動
+  window._toggleTaskChecklistFromPatterns = async function (taskId, phase, currentlyOn) {
+    if (!_can()) { _toast('管理者権限が必要です'); return; }
+    if (typeof toggleTaskChecklist !== 'function') {
+      _toast('切替モジュールが読み込まれていません');
+      return;
+    }
+    const newOn = !currentlyOn;
+    const msg = newOn
+      ? '小タスク制を ON にしますか？\n\nカード詳細で小タスク（チェックリスト）が展開されるようになります。\n後からOFFに戻してもパターンの中身は保持されます。'
+      : '小タスク制を OFF に戻しますか？\n\nカード詳細では「✅完了」トグルだけのシンプル表示に戻ります。\nパターン（variants）の中身は保持されるので、もう一度ONにすればそのまま使えます。';
+    if (!confirm(msg)) return;
+    await toggleTaskChecklist(taskId, phase, newOn);
+    // タスク・進捗側は toggleTaskChecklist 内で renderTasksEditor が呼ばれる。
+    // タスクパターン画面側はここで再描画する。
+    if (typeof window.renderTaskPatternsInSettings === 'function') {
+      window.renderTaskPatternsInSettings();
+    }
+    // standalone モード（独立画面）で開かれてるケースにも対応
+    const standaloneBody = document.getElementById('tpl-editor-body');
+    if (standaloneBody && standaloneBody.offsetParent !== null) {
+      _renderListIntoElement(standaloneBody, { standalone: true });
+    }
+  };
+
+  // v2.5.1: 「チェックのみ」カードの「+ パターンを追加」ボタン経由。
+  //          - テンプレが未存在 → 空テンプレを作って Firestore に保存（小タスク制は OFF のまま！）
+  //          - パターン名を prompt で受け取り → variants に push して保存
+  //          これにより、OFF運用中でも裏でパターンを造り込んでおき、完成したら ⋮ メニューでONにできる。
+  window.addPatternForTask = async function (taskId, phase) {
+    if (!_can()) { _toast('管理者権限が必要です'); return; }
+    if (typeof ChecklistTemplates === 'undefined') { _toast('テンプレートが読み込まれていません'); return; }
+
+    const v = prompt('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
+    if (v == null) return;
+    const name = v.trim();
+    if (!name) { _toast('名前は必須です'); return; }
+
+    const tplId = (typeof templateIdForTask === 'function')
+      ? templateIdForTask(taskId, phase)
+      : ('tpl_' + phase + '_' + taskId);
+
+    // テンプレが未存在なら空テンプレを生成（mode='simple' のまま）
+    let tpl = _getTpl(tplId);
+    if (!tpl) {
+      let tname = taskId, ticon = '📝';
+      if (typeof getAllTasksForUI === 'function') {
+        const all = getAllTasksForUI(phase) || [];
+        const tt = all.find(x => x.id === taskId);
+        if (tt) { tname = tt.name; ticon = tt.icon || '📝'; }
+      }
+      tpl = {
+        id: tplId,
+        name: tname,
+        icon: ticon,
+        sourceType: 'worksheet',
+        sourceTaskId: taskId,
+        sourcePhase: phase,
+        sections: [],
+        variants: [],
+        _migrated: true,
+      };
+      ChecklistTemplates[tplId] = tpl;
+    }
+    if (!Array.isArray(tpl.variants)) tpl.variants = [];
+
+    // 新 variant を作成して push
+    const newVarId = 'va_' + Date.now().toString(36);
+    tpl.variants.push({ id: newVarId, name, sections: [] });
+
+    const ok = await _saveTpl(tpl);
+    if (!ok) return;
+
+    _toast('パターンを追加しました（小タスク制はOFFのまま。ONはタスク・進捗⋮メニューから）');
+
+    // 表示中の場所を再描画
+    const settingsEl = document.getElementById('task-patterns-editor');
+    if (settingsEl && settingsEl.offsetParent !== null) {
+      _renderListIntoElement(settingsEl, { standalone: false });
+    }
+    const stand = document.getElementById('tpl-editor-body');
+    if (stand && stand.offsetParent !== null) {
+      _renderList();
+    }
+  };
 
   // v1.7.34: 第2引数 variantId を受け取れるように。指定が無ければ variants[0] を使う。
   // v2.2.12: スマホでフルメニュー時は編集不可（重いUIなのでガード）
@@ -428,26 +721,42 @@
   }
   window.renameTemplateVariant = renameTemplateVariant;
 
+  // v2.5.2: パターンが1個しかなくても削除可。0個になったら一覧へ戻る。
+  // v2.5.4: 特殊タスク（t_equip / d_register）はUI連動のため最後の1個は削除不可。
   async function deleteTemplateVariant(tplId) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    if (!Array.isArray(tpl.variants) || tpl.variants.length <= 1) {
-      _toast('パターンは最低1つ必要です');
-      return;
-    }
+    if (!Array.isArray(tpl.variants)) tpl.variants = [];
     const cur = tpl.variants.find(v => v.id === window._tplEditor.activeVariantId);
     if (!cur) return;
+    // 特殊タスク保護：最後の1個は削除不可
+    const isProtectedMinOne = (tpl.sourceTaskId === 't_equip' || tpl.sourceTaskId === 'd_register');
+    if (isProtectedMinOne && tpl.variants.length <= 1) {
+      _toast('このタスクは最低1パターン必要です（UI連動のため）');
+      return;
+    }
     const itemCount = (cur.sections || []).reduce((a, s) => a + (s.items || []).length, 0);
+    const willBeEmpty = tpl.variants.length <= 1;
+    const emptyNote = willBeEmpty
+      ? '\n\n※ 削除するとこのタスクのパターンは0個になります。一覧画面へ戻ります。'
+      : '';
     const msg = itemCount > 0
-      ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）`
-      : `パターン「${cur.name}」を削除しますか？`;
+      ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）${emptyNote}`
+      : `パターン「${cur.name}」を削除しますか？${emptyNote}`;
     if (!confirm(msg)) return;
     tpl.variants = tpl.variants.filter(v => v.id !== cur.id);
-    window._tplEditor.activeVariantId = tpl.variants[0].id;
+    window._tplEditor.activeVariantId = tpl.variants[0] ? tpl.variants[0].id : null;
     window._tplEditor.expandedSectionId = null;
-    _ensureActiveVariant(tpl);
+    if (window._tplEditor.activeVariantId) _ensureActiveVariant(tpl);
     if (await _saveTpl(tpl)) {
       _toast('パターンを削除しました');
-      _renderDetail();
+      if (tpl.variants.length === 0) {
+        // 0個になったので一覧画面へ戻す
+        window._tplEditor.view = 'list';
+        window._tplEditor.activeTplId = null;
+        _renderList();
+      } else {
+        _renderDetail();
+      }
     }
   }
   window.deleteTemplateVariant = deleteTemplateVariant;
@@ -601,23 +910,44 @@
   }
   window.renameTemplateVariantById = renameTemplateVariantById;
 
+  // v2.5.2: パターンが1個しかなくても削除可能に。0個になったらカードに「まだありません」表示。
+  // v2.5.4: 特殊タスク（t_equip / d_register）はUI連動のため最後の1個は削除不可。
   async function deleteTemplateVariantById(tplId, variantId) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    if (!Array.isArray(tpl.variants) || tpl.variants.length <= 1) {
-      _toast('パターンは最低1つ必要です');
-      return;
-    }
+    if (!Array.isArray(tpl.variants)) tpl.variants = [];
     const cur = tpl.variants.find(v => v.id === variantId);
     if (!cur) return;
+    // 特殊タスク保護：最後の1個は削除不可
+    const isProtectedMinOne = (tpl.sourceTaskId === 't_equip' || tpl.sourceTaskId === 'd_register');
+    if (isProtectedMinOne && tpl.variants.length <= 1) {
+      _toast('このタスクは最低1パターン必要です（UI連動のため）');
+      return;
+    }
     const itemCount = (cur.sections || []).reduce((a, s) => a + (s.items || []).length, 0);
+    const willBeEmpty = tpl.variants.length <= 1;
+    const emptyNote = willBeEmpty
+      ? '\n\n※ 削除するとこのタスクのパターンは0個になります（カードでは「まだありません」と表示されます）。'
+      : '';
     const msg = itemCount > 0
-      ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）`
-      : `パターン「${cur.name}」を削除しますか？`;
+      ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）${emptyNote}`
+      : `パターン「${cur.name}」を削除しますか？${emptyNote}`;
     if (!confirm(msg)) return;
     tpl.variants = tpl.variants.filter(v => v.id !== variantId);
+    // active variant が消えた場合は先頭に再アサイン（残ってれば）
+    if (window._tplEditor && window._tplEditor.activeVariantId === variantId) {
+      window._tplEditor.activeVariantId = tpl.variants[0] ? tpl.variants[0].id : null;
+    }
     if (await _saveTpl(tpl)) {
       _toast('パターンを削除しました');
-      _renderList();
+      // 設定パネル / スタンドアロンの両方を更新
+      const settingsEl = document.getElementById('task-patterns-editor');
+      if (settingsEl && settingsEl.offsetParent !== null) {
+        _renderListIntoElement(settingsEl, { standalone: false });
+      }
+      const stand = document.getElementById('tpl-editor-body');
+      if (stand && stand.offsetParent !== null) {
+        _renderList();
+      }
     }
   }
   window.deleteTemplateVariantById = deleteTemplateVariantById;
@@ -677,9 +1007,11 @@
         <button class="btn-sm" onclick="downloadTemplateBlank()" title="記入例と列の説明が入った空のテンプレを書き出す">📋 書式テンプレDL</button>
       </div>
 
-      <div class="tpl-tab-blocks">${tabBlocksHtml || '<div class="tpl-empty">まだ何もありません。下の「+ 大カテゴリ追加」から始めてください。</div>'}</div>
-      <div class="tpl-add-tab-row">
+      <div class="tpl-tab-blocks">${tabBlocksHtml || '<div class="tpl-empty">まだ何もありません。下のボタンから始めてください。<br><span style="font-size:11px;color:var(--text3)">シンプルに項目だけ並べたいなら一番右の「+ 小タスクだけ追加」、フォルダ分けしたいなら左から</span></div>'}</div>
+      <div class="tpl-add-tab-row" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-sm btn-primary" onclick="addTemplateTab('${_esc(tpl.id)}')">+ 大カテゴリ追加</button>
+        <button class="btn-sm" onclick="addTemplateSectionInTab('${_esc(tpl.id)}', '')" title="タブを使わず中カテゴリだけを直接追加">+ 中カテゴリ追加（タブなし）</button>
+        <button class="btn-sm" onclick="addTemplateItemFlat('${_esc(tpl.id)}')" title="タブも中カテゴリも作らず、項目だけを直接並べる最もシンプルな構成">+ 小タスクだけ追加</button>
       </div>
     `;
   }
@@ -998,7 +1330,6 @@
     if (!data) return;
     const toSecId = secEl.dataset.sectionId;
     if (!toSecId) return;
-    if (data.fromSecId === toSecId) return; // 同じ枠内のドロップは無視（並び替えは▲▼で）
     const tpl = _getTpl(data.tplId); if (!tpl) return;
     const sections = tpl.sections || [];
     const fromSec = sections.find(s => s.id === data.fromSecId);
@@ -1006,6 +1337,19 @@
     if (!fromSec || !toSec) return;
     const itemIdx = (fromSec.items || []).findIndex(i => i.id === data.itemId);
     if (itemIdx < 0) return;
+    // v2.4.1: 同セクション内のドロップは「末尾に移動」として扱う（旧仕様は無視だったが、
+    //         ユーザー的には「動いてない」に見えるので、最低限「末尾に行く」挙動を提供）
+    if (data.fromSecId === toSecId) {
+      // すでに末尾なら何もしない
+      if (itemIdx === fromSec.items.length - 1) return;
+      const [movedSame] = fromSec.items.splice(itemIdx, 1);
+      fromSec.items.push(movedSame);
+      if (await _saveTpl(tpl)) {
+        _toast('項目を末尾に移動しました（同枠内の細かい並び替えは ▲▼ で）');
+        _renderDetail();
+      }
+      return;
+    }
     const [moved] = fromSec.items.splice(itemIdx, 1);
     if (!Array.isArray(toSec.items)) toSec.items = [];
     toSec.items.push(moved);
@@ -1136,6 +1480,59 @@
     if (await _saveTpl(tpl)) { _toast('項目を追加しました'); _renderDetail(); }
   }
   window.addTemplateItem = addTemplateItem;
+
+  // v2.4.2: タブも中カテゴリも作らず、項目だけを直接追加する最短ルート。
+  //   既存に「フラット用セクション（tab=''、title=''）」があれば再利用、なければ自動作成。
+  async function addTemplateItemFlat(tplId) {
+    const tpl = _getTpl(tplId); if (!tpl) return;
+    if (!Array.isArray(tpl.sections)) tpl.sections = [];
+    let flatSec = tpl.sections.find(s => !(s.tab || '').trim() && !(s.title || '').trim());
+    let createdNewSec = false;
+    if (!flatSec) {
+      flatSec = {
+        id: _newId('sec'),
+        title: '',
+        tab: '',
+        icon: '',
+        items: [],
+      };
+      tpl.sections.push(flatSec);
+      createdNewSec = true;
+    }
+    const name = prompt('項目名', '');
+    if (name == null) {
+      if (createdNewSec) tpl.sections.pop(); // キャンセル時は作りかけのセクションを撤回
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      if (createdNewSec) tpl.sections.pop();
+      _toast('名前は必須です');
+      return;
+    }
+    const idPrefix = (tpl.sourceType === 'equipment') ? 'eq' :
+      (tpl.sourceType === 'worksheet' && tpl.sourcePhase === 'regen') ? 'r' :
+      (tpl.sourceType === 'worksheet' && tpl.sourcePhase === 'delivery') ? 'd' :
+      (tpl.sourceType === 'worksheet' && tpl.sourcePhase === 'backoffice') ? 'b' : 'c';
+    if (!Array.isArray(flatSec.items)) flatSec.items = [];
+    flatSec.items.push({
+      id: _newId(idPrefix),
+      name: trimmed,
+      sub: '',
+      detail: '',
+      points: [],
+      media: [],
+      inputType: 'check',
+      order: flatSec.items.length,
+      _source: 'custom',
+    });
+    if (await _saveTpl(tpl)) {
+      _toast('項目を追加しました');
+      window._tplEditor.expandedSectionId = flatSec.id;
+      _renderDetail();
+    }
+  }
+  window.addTemplateItemFlat = addTemplateItemFlat;
 
   async function moveTemplateItem(tplId, secId, idx, delta) {
     const tpl = _getTpl(tplId); if (!tpl) return;
@@ -1473,344 +1870,4 @@
         const hasTitle = !!(sec.title && sec.title.trim());
         const head = hasTitle ? `
           <div class="tpl-preview-section-head">
-            <span class="tpl-preview-section-num">${String(sIdx + 1).padStart(2, '0')}</span>
-            <span class="tpl-preview-section-icon">${_esc(sec.icon || '📂')}</span>
-            <span class="tpl-preview-section-title">${_esc(sec.title)}</span>
-            <span class="tpl-preview-section-count">${items.filter(i => !i._disabled).length}/${items.length}</span>
-          </div>` : '';
-        return `
-          <div class="tpl-preview-section ${hasTitle ? '' : 'is-flat'}">
-            ${head}
-            <div class="tpl-preview-items">
-              ${items.length === 0 ? '<div class="tpl-preview-empty">項目なし</div>' : items.map((it, iIdx) => _renderPreviewItem(it, iIdx)).join('')}
-            </div>
-          </div>`;
-      };
-
-      if (showTabs) {
-        tabOrder.forEach(tabName => {
-          const secs = tabMap.get(tabName) || [];
-          html += `<div class="tpl-preview-tab-block">
-            <div class="tpl-preview-tab-head">📑 ${_esc(tabName || '(タブなし)')}</div>`;
-          secs.forEach((sec, sIdx) => { html += renderSecHtml(sec, sIdx); });
-          html += `</div>`;
-        });
-      } else {
-        const secs = tabMap.get(tabOrder[0]) || [];
-        secs.forEach((sec, sIdx) => { html += renderSecHtml(sec, sIdx); });
-      }
-    }
-    body.innerHTML = html;
-    modal.classList.add('open');
-  }
-  window.previewTemplate = previewTemplate;
-
-  function _renderPreviewItem(item, idx) {
-    const disabled = !!item._disabled;
-    const points = Array.isArray(item.points) ? item.points : [];
-    const pointsHtml = points.length === 0
-      ? ''
-      : '<ul class="tpl-preview-points">' + points.map(p => `<li>${_esc(p)}</li>`).join('') + '</ul>';
-    const detailHtml = item.detail ? `<div class="tpl-preview-detail">${_esc(item.detail)}</div>` : '';
-    const subHtml = item.sub ? `<div class="tpl-preview-sub">${_esc(item.sub)}</div>` : '';
-    const badge = disabled ? '<span class="tpl-preview-badge-disabled">無効</span>' : '';
-    const itype = item.inputType || 'check';
-    const mockInput = (itype === 'select')
-      ? '<span class="tpl-preview-mock-select">▼ 選択</span>'
-      : (itype === 'status' || itype === 'tri')
-        ? '<span class="tpl-preview-mock-status">未／OK／NG</span>'
-        : '<span class="tpl-preview-mock-check">○</span>';
-    return `
-      <div class="tpl-preview-item ${disabled ? 'is-disabled' : ''}">
-        <div class="tpl-preview-item-num">${String(idx + 1).padStart(2, '0')}</div>
-        <div class="tpl-preview-item-body">
-          <div class="tpl-preview-item-name">${_esc(item.name || '(無題)')}${badge}</div>
-          ${subHtml}
-          ${detailHtml}
-          ${pointsHtml}
-        </div>
-        <div class="tpl-preview-item-mock">${mockInput}</div>
-      </div>`;
-  }
-
-  function closeTemplatePreview() {
-    const modal = document.getElementById('modal-tpl-preview');
-    if (modal) modal.classList.remove('open');
-  }
-  window.closeTemplatePreview = closeTemplatePreview;
-
-  // =========================================
-  // v1.6.2: Excel エクスポート
-  // =========================================
-  function _xlsxLib() {
-    return (typeof XLSX !== 'undefined') ? XLSX : null;
-  }
-
-  function exportTemplateXlsx(tplId) {
-    const X = _xlsxLib();
-    if (!X) { _toast('Excelライブラリの読込待ち。少し待って再実行してください'); return; }
-    const tpl = _getTpl(tplId); if (!tpl) return;
-
-    // v1.7.14: select_options 列を追加
-    // v1.7.19: section_tab 列（大カテゴリ名）を追加
-    const headers = [
-      'section_id', 'section_tab', 'section_title', 'section_icon',
-      'item_id', 'item_name', 'item_sub', 'item_detail', 'item_points',
-      'input_type', 'select_options', 'disabled',
-    ];
-    const rows = [headers];
-
-    (tpl.sections || []).forEach(sec => {
-      const items = (sec.items || []);
-      if (items.length === 0) {
-        rows.push([sec.id || '', sec.tab || '', sec.title || '', sec.icon || '', '', '', '', '', '', '', '', '']);
-      } else {
-        items.forEach(it => {
-          rows.push([
-            sec.id || '',
-            sec.tab || '',
-            sec.title || '',
-            sec.icon || '',
-            it.id || '',
-            it.name || '',
-            it.sub || '',
-            it.detail || '',
-            (it.points || []).join(' | '),
-            it.inputType || 'check',
-            (Array.isArray(it.selectOptions) ? it.selectOptions : []).join(' | '),
-            it._disabled ? 'true' : '',
-          ]);
-        });
-      }
-    });
-
-    const ws = X.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 6 },
-      { wch: 14 }, { wch: 24 }, { wch: 24 }, { wch: 40 }, { wch: 40 },
-      { wch: 10 }, { wch: 30 }, { wch: 8 },
-    ];
-    const wb = X.utils.book_new();
-    const sheetName = (tpl.name || 'template').slice(0, 28).replace(/[\\\/:?*\[\]]/g, '_') || 'template';
-    X.utils.book_append_sheet(wb, ws, sheetName);
-    const filename = `carflow_tpl_${tpl.id}.xlsx`;
-    X.writeFile(wb, filename);
-    _toast('Excel を書き出しました：' + filename);
-  }
-  window.exportTemplateXlsx = exportTemplateXlsx;
-
-  // v1.7.14: 書式テンプレ DL（空のひな型 + 列の説明 + 記入例）
-  function downloadTemplateBlank() {
-    const X = _xlsxLib();
-    if (!X) { _toast('Excelライブラリの読込待ち。少し待って再実行してください'); return; }
-
-    // 1行目：列名（取込時のキー）
-    // 2行目：日本語の見出し（人間向け）
-    // 3行目：説明（その列に何を入れるか）
-    // 4〜n行目：記入例（チェック/3状態/状態判定/選択肢/テキスト）
-    // v1.7.19: section_tab（大カテゴリ名）列を追加
-    const rows = [
-      // 1行目：取込キー（小文字英数）。この行が無いと取込できない
-      [
-        'section_id', 'section_tab', 'section_title', 'section_icon',
-        'item_id', 'item_name', 'item_sub', 'item_detail', 'item_points',
-        'input_type', 'select_options', 'disabled',
-      ],
-      // 2行目：日本語見出し（取込時は無視されますが人が読みやすいように）
-      [
-        'セクションID', '大カテゴリ名（タブ）', '中カテゴリ名', 'セクションアイコン',
-        '項目ID', '項目名', 'サブ（短い説明）', '詳細（長い説明）', '注意点（ | 区切り）',
-        '入力タイプ', '選択肢（ | 区切り）', '無効化',
-      ],
-      // 3行目：説明
-      [
-        '空欄なら自動付番（同じ名前のセクションがあれば既存IDを再利用）',
-        '同じ名前を複数セクションで使うと、その大カテゴリのタブにまとまります（空欄ならタブ無し）',
-        'アコーディオンの見出し名。空欄ならフラット表示（帯なし）',
-        '絵文字1つ（例：🔧）。空欄でもOK',
-        '空欄なら自動付番（既存と一致するIDを書けば上書き）',
-        '必須。スタッフがチェックする時に画面に出る項目名',
-        '画面で項目名の下に小さく出る短文（任意）',
-        '画面で項目名の下に出る詳細説明（任意）',
-        '注意点を「 | 」（半角パイプ）で区切って並べる（任意）',
-        'check / tri / status / select / text のどれか（既定：check）',
-        'input_type=select の時だけ使用。選択肢を「 | 」区切りで並べる',
-        'true / 1 / yes / 無効 のどれかで「無効化」状態（無効化された項目は画面に出ない）',
-      ],
-      // 4行目以降：記入例
-      ['ext', '外装', '', '🚗', '', '🟦 ボディ全周チェック', '傷・へこみ・錆', 'ボディ全周を目視で確認します', 'ルーフ・ピラーも確認 | フレーム歪みの有無', 'check', '', ''],
-      ['ext', '外装', '', '🚗', '', '🟦 タイヤ・ホイール清掃', '', '鉄粉除去剤で洗浄', '', 'check', '', ''],
-      ['eq',  '装備品', 'オーディオ・ナビ', '🎵', '', '🟩 カーナビ', '純正/社外', '画面が映るかと地図表示を確認', '', 'tri', '', ''],
-      ['eq',  '装備品', 'オーディオ・ナビ', '🎵', '', '🟩 ナビ媒体', '中身がHDDかSSDかDVDか', '', '', 'select', 'HDD | SSD/メモリ | DVD | なし/不明', ''],
-      ['chk', '点検', '', '🔧', '', '🟧 ブレーキ動作', 'OK/NG判定', '試乗してブレーキが効くか確認', '効きの強さ | 異音の有無', 'status', '', ''],
-      ['chk', '点検', '', '🔧', '', '🟧 整備メモ', '気づいたことを自由に', '次回点検時の引き継ぎなど', '', 'text', '', ''],
-      ['chk', '点検', '', '🔧', '', '🟥 廃止項目（書いても表示されない）', '', '', '', 'check', '', 'true'],
-    ];
-
-    const ws = X.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 8 },
-      { wch: 14 }, { wch: 26 }, { wch: 22 }, { wch: 38 }, { wch: 38 },
-      { wch: 10 }, { wch: 32 }, { wch: 8 },
-    ];
-    // 説明行（3行目）に背景色…は SheetJS の community 版だと完全には効かないので諦め、
-    // 列幅と行構成だけ整えておく。
-    const wb = X.utils.book_new();
-    X.utils.book_append_sheet(wb, ws, 'template_format');
-
-    // 取込時に説明行（2行目=日本語、3行目=説明、4行目以降=例）を「セクションID未設定」として
-    // 自動付番される事故を避けたい。importTemplateXlsx 側で「2,3行目スキップ」する仕組みを入れる
-    // …のは複雑なので、運用ルールで「ダウンロードしたら 2/3 行目（説明行）と 4〜10 行目（例）を
-    // 削除してから記入し、そのまま取込ボタンに突っ込む」とする。
-    const filename = `carflow_template_format.xlsx`;
-    X.writeFile(wb, filename);
-    _toast('書式テンプレートを書き出しました：' + filename);
-  }
-  window.downloadTemplateBlank = downloadTemplateBlank;
-
-  // =========================================
-  // v1.6.2: Excel インポート
-  // =========================================
-  async function importTemplateXlsx(tplId, file) {
-    const X = _xlsxLib();
-    if (!X) { _toast('Excelライブラリの読込待ち'); return; }
-    if (!file) return;
-    const tpl = _getTpl(tplId); if (!tpl) return;
-    if (!_can()) { _toast('管理者権限が必要です'); return; }
-
-    if (!confirm(`「${tpl.name}」の項目を Excel から取り込みます。\n現在の項目はすべて上書きされます。続行しますか？`)) return;
-
-    try {
-      const data = await file.arrayBuffer();
-      const wb = X.read(data, { type: 'array' });
-      const firstSheetName = wb.SheetNames[0];
-      const ws = wb.Sheets[firstSheetName];
-      const aoa = X.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      if (!aoa || aoa.length < 2) { _toast('行が見つかりません'); return; }
-
-      const header = aoa[0].map(s => String(s).trim().toLowerCase());
-      const idx = (k) => header.indexOf(k);
-      const cSecId    = idx('section_id');
-      const cSecTab   = idx('section_tab');   // v1.7.19: 大カテゴリ列
-      const cSecTitle = idx('section_title');
-      const cSecIcon  = idx('section_icon');
-      const cItemId   = idx('item_id');
-      const cItemName = idx('item_name');
-      const cItemSub  = idx('item_sub');
-      const cDetail   = idx('item_detail');
-      const cPoints   = idx('item_points');
-      const cInput    = idx('input_type');
-      const cSelOpts  = idx('select_options'); // v1.7.14
-      const cDisabled = idx('disabled');
-
-      // v1.7.19: section_title は必須ではなくなった（フラット表示の場合は空欄）
-      //   行が「セクションを成り立たせるか」は section_tab か section_title のどちらかが
-      //   入っているかで判定する。
-      if (cItemName < 0) {
-        _toast('必須列（item_name）が見つかりません');
-        return;
-      }
-
-      const existingItem = {};
-      (tpl.sections || []).forEach(s => {
-        (s.items || []).forEach(i => { existingItem[i.id] = i; });
-      });
-
-      const sectionMap = new Map();
-      const sectionOrder = [];
-      let autoSecCounter = 0, autoItemCounter = 0;
-
-      for (let r = 1; r < aoa.length; r++) {
-        const row = aoa[r];
-        if (!row) continue;
-        const secTitle = (cSecTitle >= 0) ? String(row[cSecTitle] || '').trim() : '';
-        const secTab   = (cSecTab   >= 0) ? String(row[cSecTab]   || '').trim() : '';
-        const itemName = (cItemName >= 0) ? String(row[cItemName] || '').trim() : '';
-        // tab・title・item_name のどれもなければ空行扱いでスキップ
-        if (!secTitle && !secTab && !itemName) continue;
-
-        let secId = (cSecId >= 0) ? String(row[cSecId] || '').trim() : '';
-        if (!secId) {
-          // v1.7.19: 既存セクションは (tab, title) ペアで探す
-          const found = (tpl.sections || []).find(s =>
-            (s.title || '') === secTitle && (s.tab || '') === secTab);
-          secId = found ? found.id : ('sec_' + Date.now().toString(36) + '_' + (autoSecCounter++));
-        }
-
-        let sec = sectionMap.get(secId);
-        if (!sec) {
-          sec = {
-            id: secId,
-            title: secTitle,
-            tab: secTab, // v1.7.19: 大カテゴリ
-            icon: (cSecIcon >= 0) ? String(row[cSecIcon] || '').trim() : '',
-            items: [],
-          };
-          sectionMap.set(secId, sec);
-          sectionOrder.push(secId);
-        }
-
-        if (!itemName) continue;
-
-        let itemId = (cItemId >= 0) ? String(row[cItemId] || '').trim() : '';
-        if (!itemId) {
-          itemId = 'i_' + Date.now().toString(36) + '_' + (autoItemCounter++);
-        }
-        const points = (cPoints >= 0)
-          ? String(row[cPoints] || '').split('|').map(s => s.trim()).filter(Boolean)
-          : [];
-        let inputType = (cInput >= 0) ? (String(row[cInput] || 'check').trim() || 'check') : 'check';
-        if (!['check', 'tri', 'status', 'select', 'text'].includes(inputType)) inputType = 'check';
-        // v1.7.14: select_options を | で分割
-        const selectOptions = (cSelOpts >= 0)
-          ? String(row[cSelOpts] || '').split('|').map(s => s.trim()).filter(Boolean)
-          : [];
-        const disabledStr = (cDisabled >= 0) ? String(row[cDisabled] || '').trim().toLowerCase() : '';
-        const isDisabled = (disabledStr === 'true' || disabledStr === '1' || disabledStr === 'yes' || disabledStr === '無効');
-
-        const prev = existingItem[itemId] || {};
-        const newItem = {
-          ...prev,
-          id: itemId,
-          name: itemName,
-          sub: (cItemSub >= 0) ? String(row[cItemSub] || '').trim() : '',
-          detail: (cDetail >= 0) ? String(row[cDetail] || '').trim() : '',
-          points,
-          inputType,
-          // v1.7.14: select 用選択肢。空配列でも持たせる（次回再開時の値保持のため）
-          selectOptions: (selectOptions && selectOptions.length > 0)
-            ? selectOptions
-            : (Array.isArray(prev.selectOptions) ? prev.selectOptions : []),
-          order: sec.items.length,
-          _source: prev._source || 'custom',
-        };
-        if (isDisabled) newItem._disabled = true; else delete newItem._disabled;
-        sec.items.push(newItem);
-      }
-
-      const newSections = sectionOrder.map(id => sectionMap.get(id));
-      if (newSections.length === 0) { _toast('有効な行が見つかりませんでした'); return; }
-
-      // v1.7.37: variants[0] と tpl.sections を一緒に更新
-      _setActiveSections(tpl, newSections);
-      const ok = await _saveTpl(tpl);
-      if (ok) {
-        const totalItems = newSections.reduce((a, s) => a + s.items.length, 0);
-        _toast(`✅ 取込完了：${newSections.length}セクション / ${totalItems}項目`);
-        window._tplEditor.expandedSectionId = null;
-        _renderDetail();
-      }
-    } catch (err) {
-      console.error('[importTemplateXlsx]', err);
-      _toast('Excel 取込に失敗しました：' + (err.message || err));
-    }
-  }
-  window.importTemplateXlsx = importTemplateXlsx;
-
-  // -----------------------------------------
-  // 公開
-  // -----------------------------------------
-  window.renderTemplateEditor = renderTemplateEditor;
-
-  console.log('[template-editor] ready');
-})();
+            <span class="tpl-preview-section-num">${String(sIdx + 1).padStart(2, '

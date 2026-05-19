@@ -45,6 +45,19 @@
     return data;
   }
 
+  // v2.5.11: 直近のローカル書込み時刻を carId 単位で記録。
+  // applyRealtimeCars 側で「直近自分が書いた車だけ短期間保護」するために使う。
+  // 旧来の activeDetailCarId 全面保護は他端末からの更新もブロックしていたため廃止。
+  const _lastLocalWriteAt = {};
+  function _markLocalWrite(carId) {
+    if (!carId) return;
+    _lastLocalWriteAt[String(carId)] = Date.now();
+  }
+  function getLastLocalWriteAt(carId) {
+    if (!carId) return 0;
+    return _lastLocalWriteAt[String(carId)] || 0;
+  }
+
   async function loadCars() {
     const col = _carsCol();
     if (!col) {
@@ -68,6 +81,8 @@
       console.warn('[db-cars] saveCar: companyId 未確定');
       return;
     }
+    // v2.5.11: ローカル書込み時刻を記録（onSnapshot 経由の上書きフリッカ防止）
+    _markLocalWrite(car.id);
     try {
       await col.doc(String(car.id)).set(_normalizeForSave(car), { merge: true });
     } catch (err) {
@@ -90,6 +105,8 @@
       console.warn('[db-cars] saveCarField: companyId 未確定');
       return;
     }
+    // v2.5.11: ローカル書込み時刻を記録
+    _markLocalWrite(carId);
     try {
       const FieldPath = window.firebase.firestore.FieldPath;
       const FieldValue = window.firebase.firestore.FieldValue;
@@ -263,6 +280,8 @@
     // v1.8.40: realtime 同期側で削除中車両をスキップするためのフック
     isCarPendingDelete: isCarPendingDelete,
     _confirmPendingDelete: _confirmPendingDelete,
+    // v2.5.11: 直近のローカル書込み時刻取得（main.js applyRealtimeCars で参照）
+    getLastLocalWriteAt: getLastLocalWriteAt,
   };
 
   console.log('[db-cars] ready');

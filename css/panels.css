@@ -180,12 +180,6 @@
   gap:8px;
   flex-wrap:wrap;
 }
-/* v2.4.0: 4テーマピッカーは 2列x2行 グリッドに */
-.theme-picker-4{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:8px;
-}
 
 .theme-btn, .fontsize-btn{
   flex:1;
@@ -1043,6 +1037,11 @@
   background: var(--green, #1db97a);
   border-color: var(--green, #1db97a);
 }
+/* v2.4.2: 途中（workflow タスクが部分的に進んでる） */
+.bo-card-dot.partial {
+  background: var(--orange, #f59e0b);
+  border-color: var(--orange, #f59e0b);
+}
 
 /* ========================================
    v2.1.0: 詳細モーダル内のバックオフィスセクション
@@ -1416,7 +1415,7 @@ body.mobile .task-item-mv-stack .task-item-variant-sel { max-width: 120px; font-
 .tmc-type-radio:hover { border-color: var(--accent, #378ADD); }
 
 /* ========================================
-   v2.3.0: 登録内容バー（カード詳細「車両編集」の下に常時表示）
+   v2.4.4: 登録内容バー（カード詳細「車両編集」の下に常時表示）
    納車準備フェーズの車両に出る。
    reg_pattern → カラーバー（1文字+フルネーム）、tri「あり」項目 → タグで列挙。
    ======================================== */

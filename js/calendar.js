@@ -28,11 +28,15 @@ function _isDeliveryTaskDone(car, taskId) {
     // カスタムタスク（toggle 型）
     return !!dt[taskId];
   }
-  if (t.type === 'workflow' && Array.isArray(t.sections)) {
+  // v2.5.10: hasTaskChecklist ベースで判定（解放対象 workflow が simple に切替えられたケースに対応）
+  const isCheckMode = (typeof hasTaskChecklist === 'function')
+    ? hasTaskChecklist(taskId, 'delivery')
+    : (t.type === 'workflow');
+  if (isCheckMode && Array.isArray(t.sections)) {
     const st = dt[taskId] || {};
     return t.sections.every(sec => sec.items.every(i => st[i.id]));
   }
-  return !!dt[taskId];
+  return dt[taskId] === true;
 }
 
 // 後方互換：他から呼ばれている可能性に備えてラッパーを残す

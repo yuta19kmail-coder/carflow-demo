@@ -870,3 +870,25 @@ body.mobile .cl-media-label { font-size: 10px; }
   outline: none;
   border-color: var(--blue);
 }
+
+/* ========================================
+   v2.4.3: PC幅では小タスクを多列グリッドにレイアウト
+   スマホ（body.mobile）は現状通り縦一列。PC（body.mobile が付かない時）は
+   画面幅に応じて 2〜3列に自動配置して、目線の左右移動を短縮。
+   バックオフィスを含むすべての小タスクページに適用。
+   ======================================== */
+body:not(.mobile) .ws-section-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 8px;
+}
+/* グリッド時はアコーディオン open 状態でも display: grid を維持 */
+body:not(.mobile) .ws-section[data-open="1"] .ws-section-body {
+  display: grid;
+}
+/* PC用：項目内のチェックを項目名のすぐ近くに置きたいので、幅が狭まる以上の補助は不要。
+   ただし詳細展開した時にカードが縦長になるので、グリッド内の他カードとの高さズレを避ける
+   align-self は自然に行頭揃え（grid デフォルト stretch でOK） */
+body:not(.mobile) .ws-item-detail {
+  /* 詳細が開いた時、カード内に閉じ込められて表示される（grid 1セルの高さ内） */
+}

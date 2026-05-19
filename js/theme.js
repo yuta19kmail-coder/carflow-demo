@@ -1,9 +1,11 @@
 // ========================================
-// theme.js (v2.4.0)
+// theme.js (v2.4.0 / v2.5.13-demo)
 // テーマ切替（4テーマ：dark / light / dark-liquid / light-liquid）＋フォントサイズ切替
 // localStorage 保存・起動時復元
 // v0.9.9: トップバーのクイックフォントサイズを3分割ボタンに変更
 // v2.4.0: 4テーマ展開（リキッド・ガラス対応）
+// v2.5.13-demo: 本チャン v1.0.0/v1.0.1 の toggleTheme() / tb-theme-toggle 連動を 4 テーマ向けに統合
+//   トグルは「dark↔light」の base のみ切替（リキッド suffix は維持）。
 // ========================================
 
 const THEME_KEY = 'carflow_theme';
@@ -31,6 +33,18 @@ function setTheme(theme) {
   if (typeof showToast === 'function') {
     showToast(THEME_LABELS[t] + ' に切替えました');
   }
+}
+
+// v2.5.13-demo: 現場モード TOP（topbar）のワンタップ切替
+//   dark/light の base だけ切替。リキッドsuffixは維持
+//   例：dark-liquid → light-liquid、light → dark
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
+  const isLight = cur === 'light' || cur === 'light-liquid';
+  const isLiquid = cur.endsWith('-liquid');
+  const baseNext = isLight ? 'dark' : 'light';
+  const nextTheme = isLiquid ? (baseNext + '-liquid') : baseNext;
+  setTheme(nextTheme);
 }
 
 function setFontSize(size) {
@@ -62,6 +76,14 @@ function refreshThemePickerUI() {
   document.querySelectorAll('#theme-picker .theme-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === cur);
   });
+  // v2.5.13-demo: 現場モード TOP（topbar）の切替ボタンの表示も同期
+  const tbBtn = document.getElementById('tb-theme-toggle');
+  if (tbBtn) {
+    const isLight = cur === 'light' || cur === 'light-liquid';
+    tbBtn.textContent = isLight ? '☀️' : '🌙';
+    tbBtn.setAttribute('aria-label', isLight ? 'ライト→ダークに切替' : 'ダーク→ライトに切替');
+    tbBtn.setAttribute('title', isLight ? 'ライト→ダーク' : 'ダーク→ライト');
+  }
 }
 
 function refreshFontSizePickerUI() {
@@ -80,8 +102,12 @@ function refreshTopbarFontSizeLabel() {
 }
 
 applyStoredThemeAndSize();
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', refreshTopbarFontSizeLabel);
-} else {
+function _initThemeUI() {
   refreshTopbarFontSizeLabel();
+  refreshThemePickerUI();  // v2.5.13-demo: 現場モード切替ボタンの初期表示
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initThemeUI);
+} else {
+  _initThemeUI();
 }

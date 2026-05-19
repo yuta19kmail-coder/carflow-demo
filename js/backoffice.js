@@ -147,15 +147,33 @@
     }
 
     // バックオフィスタスクの進捗（ドット＋％）
+    // v2.4.2: workflow 型は backofficeWorkflows ベースで done/partial/none 判定
     const tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
     const store = car.backofficeTasks || {};
-    const doneCount = tasks.filter(t => store[t.id] === true).length;
+    // 'done'（全完了）/ 'partial'（途中）/ 'none'（未着手）の三値
+    function _boTaskState(t) {
+      const isChecklistTask = (t.type === 'workflow') ||
+        (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
+      if (isChecklistTask && typeof window._calcBackofficeWorkflowProgress === 'function') {
+        const wp = window._calcBackofficeWorkflowProgress(car, t);
+        if (wp.total <= 0) return 'none';
+        if (wp.done >= wp.total) return 'done';
+        if (wp.done > 0) return 'partial';
+        return 'none';
+      }
+      return store[t.id] === true ? 'done' : 'none';
+    }
+    const states = tasks.map(_boTaskState);
+    const doneCount = states.filter(s => s === 'done').length;
     const totalCount = tasks.length;
-    const dots = tasks.map(t => {
-      const done = store[t.id] === true;
-      return `<span class="bo-card-dot ${done ? 'done' : ''}" title="${_esc(t.name)}"></span>`;
+    // 部分反映：done=1, partial=0.5 で計算
+    const doneUnits = states.reduce((a, s) => a + (s === 'done' ? 1 : s === 'partial' ? 0.5 : 0), 0);
+    const dots = tasks.map((t, i) => {
+      const s = states[i];
+      const cls = s === 'done' ? 'done' : (s === 'partial' ? 'partial' : '');
+      return `<span class="bo-card-dot ${cls}" title="${_esc(t.name)}"></span>`;
     }).join('');
-    const pct = totalCount > 0 ? Math.round(doneCount / totalCount * 100) : 0;
+    const pct = totalCount > 0 ? Math.round(doneUnits / totalCount * 100) : 0;
 
     // 価格（総額：緑大、本体：グレー小で併記）
     let priceHtml = '';

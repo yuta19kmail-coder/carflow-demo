@@ -44,18 +44,28 @@ function applyRealtimeCars(list, meta) {
     else setSyncStatus('online');
   }
 
-  const protectedIds = new Set();
+  // v1.8.x / v2.5.11: 保護対象の分類
+  //   - strongProtect: 編集モーダル中 / 作業管理票（worksheet）中 → 全更新ブロック
+  //     （ユーザーがフォーム入力中なので他端末からの上書きを避ける）
+  //   - 直近ローカル書込み（2秒以内）→ 短期的に保護してフリッカ防止
+  //     （以前の v1.8.50 では activeDetailCarId 全面保護にしていたが、
+  //      他端末からの大タスク変更などが反映されない不具合があったので時間ベースに変更）
+  const strongProtect = new Set();
   if (typeof editingCarId !== 'undefined' && editingCarId) {
-    protectedIds.add(String(editingCarId));
+    strongProtect.add(String(editingCarId));
   }
   const wsId = (typeof window.getWsActiveCarId === 'function')
     ? window.getWsActiveCarId() : null;
-  if (wsId) protectedIds.add(String(wsId));
-  // v1.8.50: カード詳細モーダルが開いてる車も保護。
-  //   詳細内で大タスクをトグルした直後に snapshot のキャッシュ反映で
-  //   旧 state が戻り、kanban のドット色が反映されない不具合を防ぐ。
-  if (typeof activeDetailCarId !== 'undefined' && activeDetailCarId) {
-    protectedIds.add(String(activeDetailCarId));
+  if (wsId) strongProtect.add(String(wsId));
+
+  const LOCAL_WRITE_PROTECT_MS = 2000;
+  const _nowMs = Date.now();
+  const _getLastWriteAt = (window.dbCars && typeof window.dbCars.getLastLocalWriteAt === 'function')
+    ? window.dbCars.getLastLocalWriteAt
+    : function () { return 0; };
+  function isRecentLocalWrite(sid) {
+    const t = _getLastWriteAt(sid);
+    return t > 0 && (_nowMs - t) < LOCAL_WRITE_PROTECT_MS;
   }
 
   const localById = {};
@@ -80,7 +90,12 @@ function applyRealtimeCars(list, meta) {
     // v1.8.40: 削除中の車両は snapshot に残っていてもスキップ
     if (isPendingDelete(sid)) continue;
     seen.add(sid);
-    if (protectedIds.has(sid) && localById[sid]) {
+    // v2.5.11: 強い保護（編集中／作業管理票中）→ 全更新ブロック
+    //          直近 2 秒以内に自分が書込んだ車 → 短期間保護してフリッカ防止
+    //          それ以外は遠隔の更新を素直に反映
+    if (strongProtect.has(sid) && localById[sid]) {
+      next.push(localById[sid]);
+    } else if (isRecentLocalWrite(sid) && localById[sid]) {
       next.push(localById[sid]);
     } else {
       next.push(c);
@@ -99,7 +114,9 @@ function applyRealtimeCars(list, meta) {
       }
     });
   }
-  protectedIds.forEach(pid => {
+  // v2.5.11: 強い保護対象が snapshot から欠けてた場合のみローカルから復元
+  //          （直近ローカル書込みだけの車は snapshot 側の事実を優先したいので含めない）
+  strongProtect.forEach(pid => {
     // v1.8.40: 削除予約中の ID は protect 対象としても復活させない
     if (isPendingDelete(pid)) return;
     if (!seen.has(pid) && localById[pid]) next.push(localById[pid]);

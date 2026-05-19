@@ -30,6 +30,35 @@
 
 ## 📝 反映履歴
 
+### 2026-05-19：本体 v2.4.1 〜 v2.5.13 を全面反映（v2.5.13-demo）
+
+**反映方法**：本体 `carflow/` の `js/` `css/` 配下を `demo-carflow/` にバルクコピー（`demo-*.js` と `demo.css` は除外）。`theme.js` は 4 テーマ実装を維持しつつ本体 v2.5.7+ の `toggleTheme()` と `tb-theme-toggle` 連動を手動マージ。`index.html` は本体ファイルを丸ごとコピーした上で以下のデモ差分を再注入：
+- `<link rel="stylesheet" href="css/demo.css?v=285">`（`login.css` の直後）
+- Firebase SDK 直前に mock スクリプト 5 本（`demo-firestore-mock.js` / `demo-storage-mock.js` / `demo-init.js` / `demo-sample-data.js` / `demo-line-toast.js`）
+- `<script src="js/line-notify.js?v=349"></script>` → コメント置換
+- `</body>` 直前に `<script src="js/demo-auth-mock.js"></script>`
+- `login-ver` と topbar version badge を `v2.5.13-demo` に
+
+**主な機能反映（v2.4.1 〜 v2.5.13）**：
+- v2.5.13：タスク・進捗一覧に「📝 小タスク」バッジ追加（自動／選択／メモと同列）
+- v2.5.12：タスクパターン画面ヘッダー2段化＋小タスク制トグル（タスク・進捗側と連動）
+- v2.5.11：カード詳細でのリアルタイム同期欠落を修正（保護を時間ベースに）
+- v2.5.10：workflow タスク 4 つ（再生／展示／納車準備／納車整備）の小タスク制 ON/OFF 解放
+- v2.5.9：小タスク制 ON→OFF 戻し制限を撤廃
+- v2.5.8：現場モード TOP（topbar）にダーク/ライト切替トグル（リキッド suffix は維持）
+- v2.5.6：⋮メニューを設定モーダル化（トグル/入力欄/保存ボタン）
+- v2.5.0：タスクパターン画面の独立化（設定→📦タスクパターン）
+- v2.4.1：バックオフィスフェーズ（売約以降の裏方業務）基盤
+
+**画面バージョン表記**：`v2.5.13-demo`
+
+**theme.js デモ独自実装**：
+- `VALID_THEMES = ['dark','light','dark-liquid','light-liquid']` を保持
+- `toggleTheme()` は base のみ反転（dark↔light、リキッド suffix は維持）
+- `refreshThemePickerUI()` で `#tb-theme-toggle` の表示も同期（isLight 判定でアイコン切替）
+
+---
+
 ### 2026-05-18：v2.3.0-demo「登録内容バー」試作（デモ先行）
 
 **目的**：販売車の登録作業は車検付き/車検切れ/ローン/未成年など複数バリエーションがあり、抜け漏れが大きなミスに直結する。これを「カード詳細を開けば誰でも登録内容を目視できる」状態にして防ぐ。

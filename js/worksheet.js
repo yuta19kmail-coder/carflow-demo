@@ -28,6 +28,40 @@ let _wsActiveCarId = null;
 let _wsActiveTaskId = null;
 let _wsActiveCatIdx = 0;
 let _wsExpanded = {}; // { itemId: true } で詳細展開フラグ
+// v2.4.1: 開いている worksheet の phase を保持（regen / delivery / backoffice）
+//   openWorksheet 第3引数で受け取り、bucket 判定の3択化に使う
+let _wsActivePhase = null;
+
+// v2.4.2: cars と archivedCars 両方を検索（バックオフィスから archived 車両の worksheet を開く対応）
+function _wsFindCar(id) {
+  if (!id) return null;
+  if (typeof cars !== 'undefined' && cars) {
+    const c = cars.find(x => x.id === id);
+    if (c) return c;
+  }
+  if (typeof archivedCars !== 'undefined' && archivedCars) {
+    const c = archivedCars.find(x => x.id === id);
+    if (c) return c;
+  }
+  return null;
+}
+function _wsIsArchived(car) {
+  if (!car) return false;
+  return (typeof archivedCars !== 'undefined' && archivedCars && archivedCars.includes(car));
+}
+// 保存：archived なら saveArchivedCarById、cars なら saveCarField/saveCarById
+function _wsSaveCar(car, fieldPath, value) {
+  if (!car) return;
+  if (_wsIsArchived(car)) {
+    if (window.saveArchivedCarById) window.saveArchivedCarById(car.id);
+    return;
+  }
+  if (fieldPath && window.saveCarField) {
+    window.saveCarField(car.id, fieldPath, value);
+  } else if (window.saveCarById) {
+    saveCarById(car.id);
+  }
+}
 // v1.7.14: accordion モードでセクションごとの開閉状態
 //   key: section.id, value: true=開 / false or undefined=閉
 let _wsOpenSections = {};
@@ -36,11 +70,13 @@ let _wsOpenSections = {};
 //   優先順位：
 //   (1) 該当タスクが ChecklistTemplate を持っているなら、そこから "task-shaped" 形に変換して使う
 //   (2) なければ従来通り REGEN_TASKS / DELIVERY_TASKS から探す
-//   phase は引数優先 → 無ければ _wsActiveCarId から推定（regen/delivery）
+//   phase は引数優先 → 次に _wsActivePhase（backoffice等の明示指定）→ 最後に car.col から推定
+// v2.4.2: _wsActivePhase を優先するように修正（backoffice 起動後にクリックハンドラから呼ばれる
+//   時、phaseHint がなくても 'backoffice' を保てるように）
 function _wsGetTaskDef(taskId, phaseHint) {
-  let phase = phaseHint || null;
+  let phase = phaseHint || _wsActivePhase || null;
   if (!phase && _wsActiveCarId) {
-    const car = cars.find(c => c.id === _wsActiveCarId);
+    const car = _wsFindCar(_wsActiveCarId);
     if (car) phase = (car.col === 'delivery' || car.col === 'done') ? 'delivery' : 'regen';
   }
   // (1) ChecklistTemplate 経由（mode='checklist' なタスク or built-in workflow）
@@ -68,7 +104,7 @@ function _wsGetTplAsTaskDef(taskId, phase) {
   if (!tpl) return null;
   // v1.7.38: 車のパターン選択を反映
   let rawSections = null;
-  const car = _wsActiveCarId ? cars.find(c => c.id === _wsActiveCarId) : null;
+  const car = _wsActiveCarId ? _wsFindCar(_wsActiveCarId) : null;
   if (car && typeof window.getActiveTaskSections === 'function') {
     rawSections = window.getActiveTaskSections(car, taskId);
   }
@@ -113,9 +149,15 @@ function _wsGetTplAsTaskDef(taskId, phase) {
 //   さらに「📝 詳細」スイッチで toggle → checklist に昇格した時、旧 boolean state
 //   (true/false) が残っていると state[itemId] への代入が無視されるので、ここで
 //   object に変換してから返す（破壊的書き換えはこの 1 点のみ）。
-function _wsGetTaskState(car, taskId) {
+// v2.4.1: phase ベースの bucket 判定（backoffice 対応）
+function _wsGetBucket(car) {
+  if (_wsActivePhase === 'backoffice') return 'backofficeWorkflows';
   const isDelivery = car && (car.col === 'delivery' || car.col === 'done');
-  const bucket = isDelivery ? 'deliveryTasks' : 'regenTasks';
+  return isDelivery ? 'deliveryTasks' : 'regenTasks';
+}
+
+function _wsGetTaskState(car, taskId) {
+  const bucket = _wsGetBucket(car);
   if (!car[bucket]) car[bucket] = {};
   if (car[bucket][taskId] != null && typeof car[bucket][taskId] !== 'object') {
     car[bucket][taskId] = {};
@@ -137,7 +179,7 @@ function _wsGetTaskState(car, taskId) {
         if (!(k in dst)) dst[k] = car.equipment[k]; // 既存の編集を上書きしない
       });
       dst._migrated = true;
-      if (window.saveCarById) saveCarById(car.id);
+      _wsSaveCar(car); // v2.4.2: archivedCars対応（saveArchivedCarByIdへ自動分岐）
     }
   }
   return car[bucket][taskId];
@@ -163,11 +205,13 @@ function _wsCalcProgress(car, taskDef) {
 // ---------------------------------------------------------------
 // 開閉
 // ---------------------------------------------------------------
-function openWorksheet(carId, taskId) {
-  const car = cars.find(c => c.id === carId);
+function openWorksheet(carId, taskId, phaseHint) {
+  const car = _wsFindCar(carId);
   if (!car) return;
   // v1.7.13: phase を明示的に推定して _wsGetTaskDef に渡す（ChecklistTemplate ID 解決用）
-  const phase = (car.col === 'delivery' || car.col === 'done') ? 'delivery' : 'regen';
+  // v2.4.1: 第3引数で phase を受け取れるように（バックオフィスから呼ばれる場合 'backoffice'）
+  const phase = phaseHint || ((car.col === 'delivery' || car.col === 'done') ? 'delivery' : 'regen');
+  _wsActivePhase = phase;
   // v1.7.38: パターン未選択チェック（パターン2つ以上のテンプレで未選択なら開けない）
   if (typeof ChecklistTemplates !== 'undefined') {
     const tplId = (taskId === 't_equip') ? 'tpl_equipment' : `tpl_${phase}_${taskId}`;
@@ -190,6 +234,7 @@ function openWorksheet(carId, taskId) {
   const taskDef = _wsGetTaskDef(taskId, phase);
   if (!taskDef) {
     _wsActiveCarId = null;
+    _wsActivePhase = null; // v2.4.2: 失敗時も phase をクリア
     return;
   }
   _wsActiveTaskId = taskId;
@@ -210,9 +255,10 @@ function closeWorksheet() {
   const targetCarId = _wsActiveCarId;
   _wsActiveCarId = null;
   _wsActiveTaskId = null;
+  _wsActivePhase = null; // v2.4.2: phase 汚染防止
   _wsExpanded = {};
   if (targetCarId) {
-    const car = cars.find(c => c.id === targetCarId);
+    const car = _wsFindCar(targetCarId);
     if (car && typeof activeDetailCarId !== 'undefined' && activeDetailCarId === targetCarId) {
       const dbody = document.getElementById('detail-body');
       if (dbody && typeof renderDetailBody === 'function') {
@@ -225,7 +271,7 @@ function closeWorksheet() {
 
 function markWorksheetComplete() {
   if (!_wsActiveCarId || !_wsActiveTaskId) return;
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   const p = _wsCalcProgress(car, taskDef);
@@ -360,7 +406,7 @@ function _renderWsSections(car, taskDef, sections) {
 function toggleWsSection(secId) {
   if (!secId) return;
   _wsOpenSections[secId] = !_wsOpenSections[secId];
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   const groups = _wsBuildTabGroups(taskDef);
@@ -620,7 +666,7 @@ function closeWsLightbox() {
 // v1.7.19: タブ切替（大カテゴリ index ベース）
 function switchWorksheetTab(idx) {
   _wsActiveCatIdx = idx;
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   document.querySelectorAll('#ws-tabs .ws-tab').forEach((el, i) => {
@@ -676,7 +722,7 @@ window.onWsSelectClick = onWsSelectClick;
 // v1.8.0: 項目単位の保存（saveCarField）に切替。同時編集に強くなる。
 let _wsTextSaveTimers = {};
 function onWsTextInput(itemId, value) {
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   const state = _wsGetTaskState(car, taskDef.id);
@@ -689,14 +735,10 @@ function onWsTextInput(itemId, value) {
   // 連打入力で書き込みが荒れないよう 400ms デバウンス
   if (_wsTextSaveTimers[itemId]) clearTimeout(_wsTextSaveTimers[itemId]);
   _wsTextSaveTimers[itemId] = setTimeout(() => {
-    const isDelivery = car && (car.col === 'delivery' || car.col === 'done');
-    const bucket = isDelivery ? 'deliveryTasks' : 'regenTasks';
+    const bucket = _wsGetBucket(car);
     const writeVal = (v && v.length > 0) ? v : null;
-    if (window.saveCarField) {
-      window.saveCarField(car.id, [bucket, taskDef.id, itemId], writeVal);
-    } else if (window.saveCarById) {
-      saveCarById(car.id);
-    }
+    // v2.4.2: archivedCars対応（_wsSaveCarが内部で分岐）
+    _wsSaveCar(car, [bucket, taskDef.id, itemId], writeVal);
     _wsRefreshSectionCounts(car, taskDef);
     _wsUpdateProgressBadge();
     _refreshWsCompleteBtn(car, taskDef);
@@ -712,7 +754,7 @@ window.onWsTextInput = onWsTextInput;
 // v1.7.14: 値変更を一元化（updater は現在値を受け取り新値を返す関数。null/false/'' は未入力扱い）
 // v1.8.0: 項目単位保存（saveCarField）。他のスタッフが同じ車・別項目を触っても消えない。
 function _wsSetItemValue(itemId, updater) {
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   const state = _wsGetTaskState(car, taskDef.id);
@@ -726,13 +768,9 @@ function _wsSetItemValue(itemId, updater) {
     state[itemId] = next;
     writeVal = next;
   }
-  const isDelivery = car && (car.col === 'delivery' || car.col === 'done');
-  const bucket = isDelivery ? 'deliveryTasks' : 'regenTasks';
-  if (window.saveCarField) {
-    window.saveCarField(car.id, [bucket, taskDef.id, itemId], writeVal);
-  } else if (window.saveCarById) {
-    saveCarById(car.id);
-  }
+  const bucket = _wsGetBucket(car);
+  // v2.4.2: archivedCars対応
+  _wsSaveCar(car, [bucket, taskDef.id, itemId], writeVal);
   // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
   if (typeof checkTaskCompletionAndNotify === 'function') checkTaskCompletionAndNotify(car);
 
@@ -799,7 +837,7 @@ function _wsCountSectionFilled(car, sec) {
 }
 
 function _wsUpdateProgressBadge() {
-  const car = cars.find(c => c.id === _wsActiveCarId);
+  const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
   const p = _wsCalcProgress(car, taskDef);

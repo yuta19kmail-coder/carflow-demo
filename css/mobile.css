@@ -53,6 +53,38 @@ body.mobile .topbar #u-name,
 body.mobile .tb-fontsize-group { display: none !important; }
 body.mobile .topbar .btn-sm { font-size: 11px; padding: 4px 9px; }
 
+/* v2.5.8: 現場モード TOP のダーク/ライト切替トグル
+   ・PC（管理者）モードでは隠し、現場モード（body.mobile）でだけ表示
+   ・mobile-admin でも表示しておく（スマホ管理者画面でも便利） */
+.tb-theme-toggle {
+  display: none;
+}
+body.mobile .tb-theme-toggle,
+body.mobile-admin .tb-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  margin: 0 0 0 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg3);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.08s;
+}
+body.mobile .tb-theme-toggle:hover,
+body.mobile-admin .tb-theme-toggle:hover { background: var(--bg); }
+body.mobile .tb-theme-toggle:active,
+body.mobile-admin .tb-theme-toggle:active { transform: scale(0.92); }
+
 /* v1.8.1: スマホは同期インジケータの「同期」文字を消してドットだけに */
 body.mobile .sync-indicator { padding: 4px 6px; }
 body.mobile .sync-indicator .sync-text { display: none; }

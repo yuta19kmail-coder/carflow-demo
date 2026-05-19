@@ -4,10 +4,10 @@
 // v0.8.9: その他はタスク非表示・メモ中心
 // v0.9.0: 削除ボタンは編集モーダル側に移動（誤タップ防止）
 // v1.7.38: 各タスク行に「タスクパターン」選択UIを追加（パターン2つ以上のテンプレ）
-// v2.3.0: 登録内容バー（納車準備フェーズ用）の表示関数を追加
+// v2.4.4: 登録内容バー（納車準備フェーズ用）の表示関数を追加
 // ========================================
 
-// v2.3.0: 登録内容バー（カード詳細「車両編集」ボタンの下に常時表示）
+// v2.4.4: 登録内容バー（カード詳細「車両編集」ボタンの下に常時表示）
 //   納車準備/納車完了フェーズの車両だけ表示。
 //   reg_pattern（必須・select）でカラーバー、reg_*（tri）の「あり」項目をタグで列挙。
 //   未設定なら赤めの警告バー。
@@ -15,6 +15,7 @@ function _renderRegistrationBar(car) {
   if (!car) return '';
   if (car.col !== 'delivery' && car.col !== 'done') return '';
 
+  // 値の取得（cars/archivedCars いずれも car.deliveryTasks.d_register に保存）
   const data = (car.deliveryTasks && car.deliveryTasks.d_register) || {};
   const pattern = data.reg_pattern || '';
 
@@ -38,8 +39,7 @@ function _renderRegistrationBar(car) {
 
   const pc = PATTERN_COLOR[pattern];
 
-  // tri 項目で「あり」のものだけタグ化（reg_* で始まる任意のキーに対応、カスタム追加にも追従）
-  // 既知の表示名マップ＋未知IDは itemName を取得（tpl から）
+  // tri 項目で「あり」（'on'）のものだけタグ化（reg_* で始まる任意のキーに対応、カスタム追加にも追従）
   const KNOWN_LABELS = {
     reg_loan:      'ローン',
     reg_ownership: '所有権',
@@ -48,8 +48,6 @@ function _renderRegistrationBar(car) {
     reg_proxy:     '委任状必要',
     reg_plate:     '希望ナンバー',
   };
-  // tri の保存値は 'on' / 'off' / 'none'（worksheet.js 規約）
-  // 「あり」= 'on' のものだけタグ化
   const tags = [];
   Object.keys(data).forEach(k => {
     if (k === 'reg_pattern' || k.startsWith('_')) return;
@@ -210,6 +208,41 @@ function _renderDetailBodyOther(car) {
   document.getElementById('detail-body').innerHTML = html;
 }
 
+// v2.4.2: バックオフィスの workflow タスクの進捗計算
+//   tpl_backoffice_{taskId} テンプレの全 item 数 / チェック済 item 数で計算
+//   保存先は car.backofficeWorkflows[taskId][itemId]
+function _calcBackofficeWorkflowProgress(car, task) {
+  if (!car || !task) return { done: 0, total: 0, pct: 0 };
+  // テンプレ取得
+  let sections = null;
+  if (typeof ChecklistTemplates !== 'undefined') {
+    const tplId = (typeof templateIdForTask === 'function')
+      ? templateIdForTask(task.id, 'backoffice')
+      : `tpl_backoffice_${task.id}`;
+    const tpl = ChecklistTemplates[tplId];
+    if (tpl) {
+      // パターン選択を考慮
+      if (typeof window.getActiveTaskSections === 'function') {
+        sections = window.getActiveTaskSections(car, task.id);
+      }
+      if (!Array.isArray(sections)) sections = tpl.sections;
+    }
+  }
+  // フォールバック：task.sections (tasks-def 側の static 定義)
+  if (!Array.isArray(sections)) sections = task.sections || [];
+  const stateAll = (car.backofficeWorkflows && car.backofficeWorkflows[task.id]) || {};
+  let total = 0, done = 0;
+  sections.forEach(sec => {
+    (sec.items || []).forEach(item => {
+      if (item._disabled) return;
+      total++;
+      if (stateAll[item.id]) done++;
+    });
+  });
+  return { done, total, pct: total ? Math.round(done / total * 100) : 0 };
+}
+window._calcBackofficeWorkflowProgress = _calcBackofficeWorkflowProgress;
+
 // 詳細モーダルの本体を描画
 function renderDetailBody(car) {
   if (car.col === 'other') return _renderDetailBodyOther(car);
@@ -221,14 +254,24 @@ function renderDetailBody(car) {
   if (isBackofficeMode) {
     if (!car.backofficeTasks) car.backofficeTasks = {};
     tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
-    // バックオフィス進捗（toggle 完了数ベース。workflow/checklist は将来拡張）
+    // v2.4.2: バックオフィス全体進捗
+    //   toggle 型は boolean、workflow/checklist 型は backofficeWorkflows ベースで部分反映
     const _store = car.backofficeTasks || {};
-    const _done = tasks.filter(t => {
-      if (t.type === 'toggle') return _store[t.id] === true;
-      // workflow / checklist 系は将来対応（暫定で false）
-      return _store[t.id] === true;
-    }).length;
-    prog = { done: _done, total: tasks.length, pct: tasks.length ? Math.round(_done / tasks.length * 100) : 0 };
+    let _intDone = 0, _doneUnits = 0;
+    tasks.forEach(t => {
+      const isChecklistTask = (t.type === 'workflow') ||
+        (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
+      if (isChecklistTask) {
+        const wp = (typeof _calcBackofficeWorkflowProgress === 'function')
+          ? _calcBackofficeWorkflowProgress(car, t) : { done: 0, total: 0 };
+        const ratio = (wp.total > 0) ? Math.min(1, wp.done / wp.total) : 0;
+        _doneUnits += ratio;
+        if (ratio >= 1) _intDone += 1;
+      } else {
+        if (_store[t.id] === true) { _doneUnits += 1; _intDone += 1; }
+      }
+    });
+    prog = { done: _intDone, total: tasks.length, pct: tasks.length ? Math.round(_doneUnits / tasks.length * 100) : 0 };
   } else {
     tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
     prog = calcProg(car);
@@ -361,21 +404,30 @@ function renderDetailBody(car) {
   }
 
   tasks.forEach(task => {
-    // v2.1.0: バックオフィスモードでは独自進捗計算（toggle は backofficeTasks[id] の boolean）
+    // v2.1.0: バックオフィスモードでは独自進捗計算
+    // v2.4.2: workflow 型 / mode='checklist' なら car.backofficeWorkflows ベースで計算
+    //   （元 toggle 型タスクでもチェックリスト編集をONにしてれば workflow 扱い）
     let p, state;
     if (isBackofficeMode) {
-      const _bst = car.backofficeTasks || {};
-      const _done = (task.type === 'toggle' && _bst[task.id] === true) ? 1 : 0;
-      p = { done: _done, total: 1, pct: _done * 100 };
-      state = _bst;
+      const isChecklistTask = (task.type === 'workflow') || _isCheckMode(task.id);
+      if (isChecklistTask) {
+        p = _calcBackofficeWorkflowProgress(car, task);
+        state = (car.backofficeWorkflows && car.backofficeWorkflows[task.id]) || {};
+      } else {
+        const _bst = car.backofficeTasks || {};
+        const _done = (_bst[task.id] === true) ? 1 : 0;
+        p = { done: _done, total: 1, pct: _done * 100 };
+        state = _bst;
+      }
     } else {
       p = calcSingleProg(car, task.id, tasks);
       state = isD ? car.deliveryTasks : car.regenTasks;
     }
     const isDone = p.pct === 100, isPartial = p.pct > 0 && p.pct < 100;
 
-    // 単純トグル：type='toggle' かつ mode='checklist' ではない（d_complete / t_complete はここに残る）
-    if (task.type === 'toggle' && !_isCheckMode(task.id)) {
+    // 単純トグル：チェックリストモードでないタスク（type='toggle' の通常 / d_complete / t_complete /
+    // v2.5.10: 解放対象 workflow で simple に設定したもの）
+    if (!_isCheckMode(task.id)) {
       // v1.0.41 / v1.7.17: d_complete / t_complete は自動判定。手動チェック不可
       const isAuto = !isBackofficeMode && (task.id === 'd_complete' || task.id === 't_complete');
       let autoChecked = false;
@@ -422,8 +474,11 @@ function renderDetailBody(car) {
       const carVariants2 = (car && car.taskVariants) || {};
       const hasSelection = !needsSelect || !!carVariants2[task.id];
       let openBtnHtml;
+      // v2.4.1: バックオフィスでも workflow タスクを開けるように対応（worksheet.js が backoffice phase をサポート）
       if (isBackofficeMode) {
-        openBtnHtml = `<button class="task-open-btn" disabled title="バックオフィスの詳細チェックリストは将来対応予定" style="opacity:.4;cursor:not-allowed">未対応</button>`;
+        openBtnHtml = hasSelection
+          ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}','backoffice')">開く →</button>`
+          : `<button class="task-open-btn" disabled title="先にタスクパターンを選んでください" style="opacity:.4;cursor:not-allowed">開く →</button>`;
       } else {
         openBtnHtml = hasSelection
           ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}')">開く →</button>`
@@ -471,9 +526,15 @@ function renderDetailBody(car) {
     html += _renderBackofficeMemoHtml(car);
   }
   // v2.1.0: バックオフィスモード時の完了ボタン or 完了済みバナー
+  // v2.4.2: workflow 型タスクは backofficeWorkflows ベースで全項目完了判定
   if (isBackofficeMode) {
     const completed = !!car.backofficeCompleted;
     const allDone = tasks.length > 0 && tasks.every(t => {
+      const isChecklistTask = (t.type === 'workflow') || _isCheckMode(t.id);
+      if (isChecklistTask) {
+        const wp = _calcBackofficeWorkflowProgress(car, t);
+        return wp.total > 0 && wp.done >= wp.total;
+      }
       const _bst = car.backofficeTasks || {};
       return _bst[t.id] === true;
     });
@@ -620,7 +681,16 @@ function _renderBackofficeSectionHtml(car) {
   const store = car.backofficeTasks || {};
   const renameMap = (typeof appTaskRename !== 'undefined' && appTaskRename && appTaskRename.backoffice) || {};
   const completed = !!car.backofficeCompleted;
-  const doneCount = tasks.filter(t => store[t.id] === true).length;
+  // v2.4.2: workflow 型 / mode='checklist' なら全項目完了で done 判定
+  const doneCount = tasks.filter(t => {
+    const isChecklistTask = (t.type === 'workflow') ||
+      (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
+    if (isChecklistTask) {
+      const wp = _calcBackofficeWorkflowProgress(car, t);
+      return wp.total > 0 && wp.done >= wp.total;
+    }
+    return store[t.id] === true;
+  }).length;
   const allDone = doneCount >= tasks.length;
 
   const itemsHtml = tasks.map(t => {

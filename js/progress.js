@@ -105,6 +105,13 @@ function calcSingleProg(car, taskId, tasks) {
   // tpl_equipment / tpl_regen_xxx テンプレの sections.items で動いている。
   // テンプレが見つかれば tplベース、なければ task.sections フォールバック。
   const phaseW = isD ? 'delivery' : 'regen';
+  // v2.5.10: 解放対象 workflow（t_regen / t_exhibit / d_prep / d_maint）が simple モードに
+  //           設定されている場合は boolean トグルとして扱う
+  if (typeof hasTaskChecklist === 'function' && !hasTaskChecklist(taskId, phaseW)) {
+    const v = state[taskId];
+    const isDone = (v === true);
+    return { pct: isDone ? 100 : 0, done: isDone ? 1 : 0, total: 1 };
+  }
   const cpW = _calcChecklistProg(car, taskId, phaseW);
   if (cpW && cpW.total > 0) return cpW;
 

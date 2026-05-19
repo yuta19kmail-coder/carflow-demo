@@ -196,7 +196,7 @@ const REGEN_TASKS = [
 
 // 納車準備工程のタスク定義
 const DELIVERY_TASKS = [
-  // v2.3.0: 登録内容設定（保護対象タスク。装備品チェックと同じく削除・名前変更不可）
+  // v2.4.4: 登録内容設定（保護対象タスク。装備品チェックと同じく削除・名前変更不可）
   //   納車準備フェーズ初期にチェックする登録パターン＋オプション項目。
   //   結果はカード詳細の「登録内容バー」（カラーバー＋タグ）に常時表示される。
   //   選択式（必須）：登録パターン … 中古新規・継続移転・移転継続・名変・予備検
@@ -674,17 +674,32 @@ function getAllTasksForUI(phase) {
   });
 }
 
+// v2.5.10: ビルトイン workflow タスクのうち「小タスク制を ON/OFF 切替可能」にする対象
+//   t_equip / d_register は保護対象（他機能と連動）なので含めない＝強制ON維持
+//   再生 / 展示 / 納車準備 / 納車整備 はユーザーが自由にカスタム可能
+const UNLOCKABLE_WORKFLOWS = new Set(['t_regen', 't_exhibit', 'd_prep', 'd_maint']);
+
 // v1.6.1: 詳細チェックリストを持つかどうか
-//   builtin の type='workflow' は常に true（強制）
+//   builtin の type='workflow' は基本 true（強制）
+//   v2.5.10: ただし UNLOCKABLE_WORKFLOWS に含まれる場合は appTaskMode で OFF にできる（既定はON）
 //   d_complete は常に false（自動判定）
 //   それ以外は appTaskMode[phase][taskId] === 'checklist' or appCustomTasks[].mode を見る
 function hasTaskChecklist(taskId, phase) {
-  // builtin workflow → 常に true
-  const builtinList = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS);
-  const b = builtinList.find(t => t.id === taskId);
-  if (b && b.type === 'workflow') return true;
   // d_complete / t_complete は自動判定なので常に false（v1.7.17）
   if (taskId === 'd_complete' || taskId === 't_complete') return false;
+  // builtin workflow
+  const builtinList = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS);
+  const b = builtinList.find(t => t.id === taskId);
+  if (b && b.type === 'workflow') {
+    // v2.5.10: 解放対象は appTaskMode で OFF（'simple'）を選べる。既定 ON
+    if (UNLOCKABLE_WORKFLOWS.has(taskId)) {
+      const m = (appTaskMode && appTaskMode[phase]) || {};
+      if (m[taskId] === 'simple') return false;
+      return true;
+    }
+    // 保護対象（t_equip / d_register）は常に true
+    return true;
+  }
   // appTaskMode（builtin の toggle 系を checklist 化したケース）
   const m = (appTaskMode && appTaskMode[phase]) || {};
   if (m[taskId] === 'checklist') return true;
@@ -696,12 +711,14 @@ function hasTaskChecklist(taskId, phase) {
 
 // 切替可能か（false なら UI で disabled）
 function canToggleTaskChecklist(taskId, phase) {
-  // builtin workflow は固定ON、変更不可
+  // d_complete / t_complete は自動判定なので変更不可（v1.7.17）
+  if (taskId === 'd_complete' || taskId === 't_complete') return false;
+  // v2.5.10: 解放対象（再生 / 展示 / 納車準備 / 納車整備）は workflow でも切替可能
+  if (UNLOCKABLE_WORKFLOWS.has(taskId)) return true;
+  // builtin workflow（保護対象：t_equip / d_register）は固定ON、変更不可
   const builtinList = (phase === 'delivery' ? DELIVERY_TASKS : REGEN_TASKS);
   const b = builtinList.find(t => t.id === taskId);
   if (b && b.type === 'workflow') return false;
-  // d_complete / t_complete は自動判定なので変更不可（v1.7.17）
-  if (taskId === 'd_complete' || taskId === 't_complete') return false;
   return true;
 }
 

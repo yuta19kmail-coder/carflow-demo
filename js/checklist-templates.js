@@ -92,8 +92,8 @@ const ChecklistTemplates = {};
 // worksheet 型タスクの section を ChecklistSection に変換
 // v1.7.19: 既存 section.title を「大カテゴリ（tab）」に昇格し、中カテゴリ名は空にする。
 //          → 既存の「外装/内装」タブ表示はそのまま（タブの中はフラット）。
-// v2.3.0: item.inputType が指定されていれば 'check' で上書きせず引き継ぐ。
-//         （登録内容設定 d_register など select/tri 必要なタスクに対応）
+// v2.4.1: item.inputType が指定されていれば 'check' で上書きせず引き継ぐ。
+//         （workflow 型タスクで select/tri/status/text を使うカスタム項目に対応）
 function _ctBuildSectionFromTaskSection(taskSec, secIdx, srcTaskId) {
   return {
     id: taskSec.id || `${srcTaskId}_sec${secIdx}`,
@@ -109,7 +109,7 @@ function _ctBuildSectionFromTaskSection(taskSec, secIdx, srcTaskId) {
         help: item.help || '',
         points: Array.isArray(item.points) ? item.points.slice() : [],
         media: Array.isArray(item.media) ? item.media.slice() : [],
-        inputType: item.inputType || 'check', // v2.3.0: item側の指定を優先
+        inputType: item.inputType || 'check', // v2.4.1: item側の指定を優先
         order: i,
         _source: 'default',
       };
@@ -276,6 +276,53 @@ function _ctMigrateTemplate(tpl) {
   const eqTpl = _ctBuildTemplateFromEquipment();
   if (eqTpl) ChecklistTemplates[eqTpl.id] = eqTpl;
 })();
+
+// v2.4.4/v2.4.5: 既存データに不足している builtin テンプレを再補完する関数
+//   背景：db-templates.js の replaceInMemory が「Firestore に存在するテンプレ」だけで
+//        ChecklistTemplates を全置換するため、新規追加された builtin タスク
+//        （v2.4.4 の d_register など）が消える問題があった。
+//   対処：Firestore 読み込み後にこの関数を呼ぶ。
+//        v2.4.5: 「メモリに無い」だけでなく「メモリにあるが中身が空」も補充対象に。
+//                Firestoreに空テンプレが残ってる場合（旧バージョン保存）も再生成する。
+function _tplIsEmpty(tpl) {
+  if (!tpl) return true;
+  const hasSections = Array.isArray(tpl.sections) && tpl.sections.some(s => Array.isArray(s.items) && s.items.length);
+  if (hasSections) return false;
+  if (Array.isArray(tpl.variants)) {
+    return !tpl.variants.some(v => Array.isArray(v.sections) && v.sections.some(s => Array.isArray(s.items) && s.items.length));
+  }
+  return true;
+}
+
+function ensureBuiltinTemplates() {
+  let added = [];
+  let refilled = [];
+  if (typeof ChecklistTemplates === 'undefined') return added;
+  function _ensure(id, builderFn, phase) {
+    const existing = ChecklistTemplates[id];
+    if (existing && !_tplIsEmpty(existing)) return; // 既に中身あり → 触らない
+    const tpl = builderFn();
+    if (!tpl) return;
+    // 元データに項目がある場合だけ再構築（カスタムタスクで空のままにしたいケースを保護）
+    if (_tplIsEmpty(tpl)) return;
+    ChecklistTemplates[id] = tpl;
+    if (existing) refilled.push(tpl); else added.push(tpl);
+  }
+  if (typeof REGEN_TASKS !== 'undefined') {
+    REGEN_TASKS.forEach(t => _ensure(`tpl_regen_${t.id}`, () => _ctBuildTemplateFromWorksheetTask(t, 'regen')));
+  }
+  if (typeof DELIVERY_TASKS !== 'undefined') {
+    DELIVERY_TASKS.forEach(t => _ensure(`tpl_delivery_${t.id}`, () => _ctBuildTemplateFromWorksheetTask(t, 'delivery')));
+  }
+  if (typeof EQUIPMENT_CATEGORIES !== 'undefined') {
+    _ensure('tpl_equipment', () => _ctBuildTemplateFromEquipment());
+  }
+  if (refilled.length) {
+    console.log('[ct] 空テンプレを元データから再構築:', refilled.map(t => t.id));
+  }
+  return added.concat(refilled);
+}
+window.ensureBuiltinTemplates = ensureBuiltinTemplates;
 
 // ----------------------------------------
 // 公開API

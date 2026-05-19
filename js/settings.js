@@ -468,7 +468,12 @@ function selectSettingsSection(sectionId) {
   // 右コンテンツのスクロール位置をトップに戻す
   const content = document.querySelector('.settings-content');
   if (content) content.scrollTop = 0;
+  // v2.5.0: タスクパターンセクションを開いたら、template-editor のリストを描画
+  if (sectionId === 'task-patterns' && typeof window.renderTaskPatternsInSettings === 'function') {
+    window.renderTaskPatternsInSettings();
+  }
 }
+window.selectSettingsSection = selectSettingsSection;
 
 // ナビボタンのクリックハンドラを設定（DOMContentLoaded 後 / または開く時）
 function bindSettingsNav() {
@@ -541,6 +546,7 @@ function renderTasksEditor() {
             <span class="task-edit-icon">${t.icon || '📋'}</span>
             <span class="task-edit-name">${escapeHtml(t.name)}</span>
             ${(t.id === 'd_complete' || t.id === 't_complete') ? '<span class="task-edit-tag auto" title="他のタスク全完了で自動ON">自動</span>' : ''}
+            ${t.hasChecklist ? '<span class="task-edit-tag" style="background:rgba(34,197,94,.18);color:#22c55e;border:1px solid rgba(34,197,94,.35)" title="小タスク制：詳細チェックリストが有効">📝 小タスク</span>' : ''}
             ${t.optional ? '<span class="task-edit-tag" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.35)" title="選択制：車両ごとに使うかどうかをチェックで指定">選択</span>' : ''}
             ${(() => {
               // v2.2.1: メモ設定がOFF以外ならバッジ表示（選択バッジと同じ見た目）
@@ -617,6 +623,8 @@ function renderTasksEditor() {
 }
 
 // v1.7.36: 設定画面からテンプレ一覧（L1）を開く
+// v2.5.1: panel-templates 経由をやめ、設定パネル内の task-patterns セクションへ遷移
+//         （タスク・進捗下の「タスクパターン一覧を開く」ボタンと設定サイドバー「タスクパターン」を同一画面に統一）
 window.openTemplateListFromSettings = function () {
   if (window._tplEditor) {
     window._tplEditor.view = 'list';
@@ -625,160 +633,316 @@ window.openTemplateListFromSettings = function () {
     window._tplEditor.expandedSectionId = null;
     window._tplEditor.backTo = 'settings';
   }
-  if (typeof showPanel === 'function') {
-    showPanel('templates', null);
-  }
-  if (typeof renderTemplateEditor === 'function') {
-    renderTemplateEditor();
+  // 設定パネル内の「タスクパターン」セクションを開く
+  if (typeof selectSettingsSection === 'function') {
+    selectSettingsSection('task-patterns');
+    // セクション切替後、右コンテンツのスクロールをトップへ
+    setTimeout(() => {
+      const content = document.querySelector('.settings-content');
+      if (content) content.scrollTop = 0;
+    }, 30);
   }
 };
 
 // ========================================
-// v1.8.13: タスク行の ⋮ メニュー（操作集約アクションシート）
-// v2.0.0: ON/OFF も含めて全操作をここに集約。ビルトインも編集/削除可能に
-//         （ただし自動判定タスク t_complete / d_complete は名前変更・削除不可）
+// v2.5.6: タスク行の ⋮ メニュー（設定モーダル）
+//   - 旧 v1.8.13 アクションシート（クリック即実行）から、設定モーダルに変更
+//   - 各項目はトグル/入力欄/select で編集 → 「保存して閉じる」で一括適用
+//   - 「📦 タスクパターンを編集」「🗑 削除」は画面遷移するので即実行
 // ========================================
+window._taskSettingsModal = null;
+
 window.openTaskMenu = function (taskId, phase) {
   const tasks = (typeof getAllTasksForUI === 'function') ? getAllTasksForUI(phase) : [];
   const t = tasks.find(x => x.id === taskId);
   if (!t) return;
 
-  // v2.0.0: 保護対象 = 自動判定タスク or 装備品チェック or 登録内容設定
-  //   自動判定（展示前完全完了/納車前完全完了）：他タスクの完了で自動ON/OFF → 削除で進捗計算が破綻
-  //   装備品チェック（t_equip）：閲覧用装備品シート（カタログ風印刷）に連動 → 削除で装備品ビューが破綻
-  //   登録内容設定（d_register / v2.3.0〜）：カード詳細の登録内容バー表示に連動 → 削除で表示が破綻
-  //   ※ 再生/展示/納車準備/納車整備 は workflow 型だがチェックリスト内容はユーザーカスタム前提なので
-  //     カスタムタスクと同等に名前変更・削除可（再作成も自由）
   const isAutoTask  = (taskId === 't_complete' || taskId === 'd_complete');
   const isEquip     = (taskId === 't_equip');
   const isRegister  = (taskId === 'd_register');
   const isProtected = isAutoTask || isEquip || isRegister;
 
+  // 現在値スナップショット
+  const currentEnabled   = !!t.enabled;
+  const currentOptional  = (typeof isTaskOptional === 'function') ? !!isTaskOptional(taskId, phase) : false;
+  const currentChecklist = !!t.hasChecklist;
+  const currentName      = t.name || '';
+  const currentIcon      = t.icon || '📋';
+  const memoCfg          = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, phase) : { type: 'off', label: '' };
+
+  window._taskSettingsModal = {
+    taskId, phase,
+    isProtected, isAutoTask, isEquip, isRegister,
+    canToggleChecklist: !!t.canToggleChecklist,
+    enabled: currentEnabled,
+    optional: currentOptional,
+    hasChecklist: currentChecklist,
+    name: currentName,
+    icon: currentIcon,
+    memoType: memoCfg.type || 'off',
+    memoLabel: memoCfg.label || '',
+    _initial: {
+      enabled: currentEnabled,
+      optional: currentOptional,
+      hasChecklist: currentChecklist,
+      name: currentName,
+      icon: currentIcon,
+      memoType: memoCfg.type || 'off',
+      memoLabel: memoCfg.label || '',
+    },
+  };
+
   const titleEl = document.getElementById('task-actionsheet-title');
-  if (titleEl) titleEl.textContent = (t.icon || '📋') + ' ' + (t.name || '');
+  if (titleEl) titleEl.textContent = (t.icon || '📋') + ' ' + (t.name || '') + ' の設定';
 
-  const body = document.getElementById('task-actionsheet-body');
-  if (!body) return;
-  body.innerHTML = '';
-
-  function _addBtn(label, onClick, danger) {
-    const btn = document.createElement('button');
-    btn.className = 'bn-actionsheet-btn' + (danger ? ' bn-actionsheet-danger' : '');
-    btn.textContent = label;
-    btn.onclick = onClick;
-    body.appendChild(btn);
-  }
-  function _addDivider() {
-    const hr = document.createElement('div');
-    hr.style.cssText = 'height:1px;background:var(--border);margin:6px 0';
-    body.appendChild(hr);
-  }
-
-  // ① ON/OFF（最上段・常に出す）
-  const onLabel = t.enabled ? '✅ ON（クリックでOFFにする）' : '⬜ OFF（クリックでONにする）';
-  _addBtn(onLabel, function () {
-    closeTaskActions();
-    if (typeof toggleTaskEnabled === 'function') {
-      toggleTaskEnabled(taskId, phase, !t.enabled);
-    }
-  });
-  _addDivider();
-
-  // ② チェックリスト編集（hasChecklist=true は直接編集／false かつ canToggle=true なら自動でON＋編集）
-  if (t.hasChecklist) {
-    _addBtn('✏️ チェックリストを編集', function () {
-      closeTaskActions();
-      if (typeof openTaskTemplate === 'function') openTaskTemplate(taskId, phase);
-    });
-  } else if (t.canToggleChecklist) {
-    _addBtn('✨ 小タスクを作って編集する', function () {
-      closeTaskActions();
-      if (typeof toggleTaskChecklist === 'function') {
-        toggleTaskChecklist(taskId, phase, true);
-      }
-      setTimeout(function () {
-        if (typeof openTaskTemplate === 'function') openTaskTemplate(taskId, phase);
-      }, 50);
-    });
-  }
-
-  // ③ 詳細トグル戻し（canToggleChecklist の時のみ）
-  if (t.canToggleChecklist && t.hasChecklist) {
-    _addBtn('📝 シンプルなON/OFFに戻す', function () {
-      closeTaskActions();
-      if (typeof toggleTaskChecklist === 'function') {
-        toggleTaskChecklist(taskId, phase, false);
-      }
-    });
-  }
-
-  // ④ 名前・アイコン変更（保護対象以外）
-  if (!isProtected) {
-    _addBtn('✏️ 名前・アイコンを変更', function () {
-      closeTaskActions();
-      if (typeof renameCustomTask === 'function') renameCustomTask(taskId, phase);
-    });
-  }
-
-  // ⑤ 選択制トグル（自動判定タスク以外 ※ workflow型は選択制にできる）
-  if (!isAutoTask) {
-    const isOpt = (typeof isTaskOptional === 'function') && isTaskOptional(taskId, phase);
-    const label = isOpt ? '◉ 選択制をやめる（常時表示に戻す）' : '◉ この大タスクを選択制にする';
-    _addBtn(label, function () {
-      closeTaskActions();
-      if (typeof setTaskOptional === 'function') {
-        setTaskOptional(taskId, phase, !isOpt);
-        if (typeof renderTasksEditor === 'function') renderTasksEditor();
-        if (typeof renderAll === 'function') renderAll();
-        if (typeof showToast === 'function') showToast(isOpt ? '選択制を解除しました' : '選択制に変更しました');
-      }
-    });
-  }
-
-  // ⑥ メモ設定（自動判定タスク以外）
-  // v2.2.1: タスク個別メモの種別を切替（OFF/フリーテキスト/日付/時刻 ＋ date/time のラベル文言）
-  if (!isAutoTask) {
-    const cfg = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, phase) : { type: 'off', label: '' };
-    const typeLabel = cfg.type === 'off'      ? 'OFF'
-                    : cfg.type === 'freeword' ? 'フリーテキスト'
-                    : cfg.type === 'date'     ? `日付${cfg.label ? `「${cfg.label}」` : ''}`
-                    : cfg.type === 'time'     ? `時刻${cfg.label ? `「${cfg.label}」` : ''}`
-                    : 'OFF';
-    _addBtn(`📝 メモ設定（${typeLabel}）`, function () {
-      closeTaskActions();
-      if (typeof openTaskMemoConfigModal === 'function') {
-        openTaskMemoConfigModal(taskId, phase);
-      }
-    });
-  }
-
-  // ⑦ 削除（保護対象以外）
-  if (!isProtected) {
-    _addDivider();
-    _addBtn('🗑 このタスクを削除', function () {
-      closeTaskActions();
-      if (typeof deleteCustomTask === 'function') deleteCustomTask(taskId, phase);
-    }, true);
-  }
-
-  // 保護対象の注記
-  if (isProtected) {
-    _addDivider();
-    const note = document.createElement('div');
-    note.style.cssText = 'color:var(--text3);padding:10px 8px;text-align:center;font-size:11px;line-height:1.5';
-    note.textContent = isAutoTask
-      ? '🔒 自動判定タスクは、他タスクの完了で自動的にON/OFFします。\n名前変更・削除はできません。'
-      : '🔒 装備品チェックは、お客様向けの装備品閲覧シート（カタログ印刷）に連動しています。\n名前変更・削除はできません。';
-    body.appendChild(note);
-  }
+  _renderTaskSettingsForm();
 
   const m = document.getElementById('modal-task-actions');
   if (m) m.classList.add('open');
 };
 
+function _renderTaskSettingsForm() {
+  const body = document.getElementById('task-actionsheet-body');
+  if (!body) return;
+  const s = window._taskSettingsModal;
+  if (!s) { body.innerHTML = ''; return; }
+
+  const row = (label, desc, controlHtml, extraClass) => `
+    <div class="ts-row${extraClass ? ' ' + extraClass : ''}">
+      <div class="ts-row-left">
+        <div class="ts-row-label">${label}</div>
+        ${desc ? `<div class="ts-row-desc">${desc}</div>` : ''}
+      </div>
+      <div class="ts-row-control">${controlHtml}</div>
+    </div>`;
+  const toggleHtml = (key, on, extraClass) => `
+    <div class="toggle ${on ? 'on' : ''}${extraClass ? ' ' + extraClass : ''}" onclick="_toggleTaskSettingsField('${key}')" role="switch" aria-checked="${on}"></div>`;
+  const memoOptions = ['off', 'freeword', 'date', 'time'].map(v => {
+    const label = v === 'off' ? 'OFF（メモ無効）'
+               : v === 'freeword' ? 'フリーテキスト'
+               : v === 'date' ? '日付ピッカー'
+               : '時刻ピッカー';
+    return `<option value="${v}" ${s.memoType === v ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+  const escAttr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+  let html = '';
+
+  // 1. ON/OFF
+  html += row('大タスクを表示する', 'OFFにするとカード詳細・進捗計算・カンバンから除外されます', toggleHtml('enabled', s.enabled));
+
+  // 2. 名前・アイコン（保護対象以外）
+  if (!s.isProtected) {
+    html += `
+      <div class="ts-row">
+        <div class="ts-row-left">
+          <div class="ts-row-label">名前・アイコン</div>
+          <div class="ts-row-desc">カード・カンバンで表示される名前。アイコンは絵文字1〜2文字推奨</div>
+        </div>
+        <div class="ts-row-control ts-row-control-stack">
+          <div class="ts-name-row">
+            <input type="text" class="settings-input ts-icon-input" id="ts-icon" value="${escAttr(s.icon)}" maxlength="4" placeholder="📋" oninput="_setTaskSettingsField('icon', this.value)">
+            <input type="text" class="settings-input ts-name-input" id="ts-name" value="${escAttr(s.name)}" maxlength="30" placeholder="タスク名" oninput="_setTaskSettingsField('name', this.value)">
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // 3. 小タスク制
+  if (s.canToggleChecklist) {
+    // v2.5.9: ON↔OFF 両方向に切替可。OFFにしてもパターンは Firestore 上に保持される
+    const desc = s.hasChecklist
+      ? '✅ ON です。OFFに戻してもパターンは保持されます'
+      : 'カード詳細で小タスクが展開されるようになります';
+    const togHtml = s.hasChecklist
+      ? `<div class="toggle on" onclick="_toggleTaskSettingsField('hasChecklist', false)" role="switch" aria-checked="true"></div>`
+      : `<div class="toggle" onclick="_toggleTaskSettingsField('hasChecklist', true)" role="switch" aria-checked="false"></div>`;
+    html += row('小タスク制（チェックリスト化）', desc, togHtml);
+    html += `
+      <div class="ts-row ts-row-sub">
+        <div class="ts-row-left"></div>
+        <div class="ts-row-control">
+          <button class="btn-sm" onclick="_openPatternsFromTaskSettings()">📦 タスクパターンを編集（別画面）</button>
+        </div>
+      </div>`;
+  } else if (s.hasChecklist) {
+    html += `
+      <div class="ts-row">
+        <div class="ts-row-left">
+          <div class="ts-row-label">小タスク制（チェックリスト化）</div>
+          <div class="ts-row-desc">🔒 このタスクはチェックリスト固定です</div>
+        </div>
+        <div class="ts-row-control">
+          <button class="btn-sm" onclick="_openPatternsFromTaskSettings()">📦 タスクパターンを編集</button>
+        </div>
+      </div>`;
+  }
+
+  // 4. 選択制
+  if (!s.isAutoTask) {
+    html += row('選択制にする', 'ONにすると、車ごとに「使う／使わない」を選べる任意タスクになります（既定OFF＝全車に表示）', toggleHtml('optional', s.optional));
+  }
+
+  // 5. メモ設定
+  if (!s.isAutoTask) {
+    html += `
+      <div class="ts-row">
+        <div class="ts-row-left">
+          <div class="ts-row-label">タスク個別メモ</div>
+          <div class="ts-row-desc">カード詳細で、このタスク専用のメモ欄を出します</div>
+        </div>
+        <div class="ts-row-control ts-row-control-stack">
+          <select class="settings-input ts-memo-type" onchange="_setTaskSettingsField('memoType', this.value); _renderTaskSettingsForm()">${memoOptions}</select>
+          ${(s.memoType === 'date' || s.memoType === 'time')
+            ? `<input type="text" class="settings-input ts-memo-label" value="${escAttr(s.memoLabel)}" maxlength="20" placeholder="ラベル（例：登録日／入庫時刻）" oninput="_setTaskSettingsField('memoLabel', this.value)">`
+            : ''}
+        </div>
+      </div>`;
+  }
+
+  // 6. 削除
+  if (!s.isProtected) {
+    html += `
+      <div class="ts-row ts-row-danger">
+        <div class="ts-row-left">
+          <div class="ts-row-label">このタスクを削除</div>
+          <div class="ts-row-desc">削除すると進捗計算・カードから完全に消えます（復元不可）</div>
+        </div>
+        <div class="ts-row-control">
+          <button class="btn-sm btn-danger" onclick="_deleteTaskFromSettings()">🗑 削除</button>
+        </div>
+      </div>`;
+  }
+
+  // 保護対象の注記
+  if (s.isProtected) {
+    const noteText = s.isAutoTask
+      ? '🔒 自動判定タスクは、他タスクの完了で自動的にON/OFFします。名前変更・削除はできません。'
+      : s.isEquip
+        ? '🔒 装備品チェックは、装備品閲覧シート（カタログ印刷）と連動しています。名前変更・削除はできません。'
+        : '🔒 登録内容設定は、カード詳細の登録内容バー表示と連動しています。名前変更・削除はできません。';
+    html += `<div class="ts-note">${noteText}</div>`;
+  }
+
+  body.innerHTML = html;
+}
+window._renderTaskSettingsForm = _renderTaskSettingsForm;
+
+window._setTaskSettingsField = function (key, value) {
+  const s = window._taskSettingsModal;
+  if (!s) return;
+  s[key] = value;
+};
+
+window._toggleTaskSettingsField = function (key, forceValue) {
+  const s = window._taskSettingsModal;
+  if (!s) return;
+  if (forceValue === true) {
+    if (key === 'hasChecklist') {
+      if (!confirm('小タスク制を ON にしますか？\n\nカード詳細で小タスク（チェックリスト）が展開されるようになります。\n後からOFFに戻してもパターンの中身は保持されます。')) return;
+    }
+    s[key] = true;
+  } else if (forceValue === false) {
+    // v2.5.9: ON→OFF を許可（パターンは Firestore 上に保持されたまま）
+    if (key === 'hasChecklist') {
+      if (!confirm('小タスク制を OFF に戻しますか？\n\nカード詳細では「✅完了」トグルだけのシンプル表示に戻ります。\nパターン（variants）の中身は保持されるので、もう一度ONにすればそのまま使えます。')) return;
+    }
+    s[key] = false;
+  } else {
+    s[key] = !s[key];
+  }
+  _renderTaskSettingsForm();
+};
+
+// v2.5.9: ロックトーストは廃止。互換のため空関数だけ残す
+window._taskSettingsLockedToast = function () {};
+
+window._openPatternsFromTaskSettings = function () {
+  closeTaskActions();
+  if (typeof selectSettingsSection === 'function') {
+    selectSettingsSection('task-patterns');
+  } else if (typeof openTaskTemplate === 'function') {
+    openTaskTemplate(window._taskSettingsModal.taskId, window._taskSettingsModal.phase);
+  }
+};
+
+window._deleteTaskFromSettings = function () {
+  const s = window._taskSettingsModal;
+  if (!s) return;
+  if (typeof deleteCustomTask === 'function') {
+    closeTaskActions();
+    deleteCustomTask(s.taskId, s.phase);
+  }
+};
+
+// 保存して閉じる：作業バッファの値を実際の設定に反映
+window.saveTaskSettingsModal = async function () {
+  const s = window._taskSettingsModal;
+  if (!s) { closeTaskActions(); return; }
+  const init = s._initial || {};
+  const { taskId, phase } = s;
+  let changed = false;
+
+  // 1. ON/OFF
+  if (s.enabled !== init.enabled) {
+    if (typeof toggleTaskEnabled === 'function') {
+      toggleTaskEnabled(taskId, phase, s.enabled);
+    }
+    changed = true;
+  }
+
+  // 2. 名前・アイコン（保護対象以外）
+  if (!s.isProtected) {
+    const newName = (s.name || '').trim();
+    const newIcon = (s.icon || '').trim() || '📋';
+    if (newName && (newName !== init.name || newIcon !== init.icon)) {
+      if (typeof appTaskRename !== 'undefined') {
+        if (!appTaskRename[phase]) appTaskRename[phase] = {};
+        appTaskRename[phase][taskId] = { name: newName, icon: newIcon };
+        const c = (typeof appCustomTasks !== 'undefined') ? (appCustomTasks || []).find(x => x.id === taskId) : null;
+        if (c) { c.name = newName; c.icon = newIcon; }
+        if (window.saveSettings) saveSettings();
+        changed = true;
+      }
+    }
+  }
+
+  // 3. 小タスク制（v2.5.9: OFF↔ON 両方向対応）
+  if (s.canToggleChecklist && init.hasChecklist !== s.hasChecklist) {
+    if (typeof toggleTaskChecklist === 'function') {
+      await toggleTaskChecklist(taskId, phase, !!s.hasChecklist);
+    }
+    changed = true;
+  }
+
+  // 4. 選択制
+  if (!s.isAutoTask && s.optional !== init.optional) {
+    if (typeof setTaskOptional === 'function') {
+      setTaskOptional(taskId, phase, s.optional);
+      changed = true;
+    }
+  }
+
+  // 5. メモ設定
+  if (!s.isAutoTask && (s.memoType !== init.memoType || s.memoLabel !== init.memoLabel)) {
+    if (typeof setTaskMemoConfig === 'function') {
+      setTaskMemoConfig(taskId, phase, { type: s.memoType, label: s.memoLabel });
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    if (typeof renderTasksEditor === 'function') renderTasksEditor();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof showToast === 'function') showToast('設定を保存しました');
+  }
+  closeTaskActions();
+};
+
 window.closeTaskActions = function () {
   const m = document.getElementById('modal-task-actions');
   if (m) m.classList.remove('open');
+  window._taskSettingsModal = null;
 };
 
 // ========================================
@@ -995,7 +1159,7 @@ function renameCustomTask(taskId, phase) {
     if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため名前変更できません');
     return;
   }
-  // v2.3.0: 登録内容設定はガード（カード詳細の登録内容バーに連動）
+  // v2.4.4: 登録内容設定はガード（登録内容バーに連動）
   if (taskId === 'd_register') {
     if (typeof showToast === 'function') showToast('登録内容設定は登録内容バー連動のため名前変更できません');
     return;
@@ -1129,7 +1293,7 @@ function deleteCustomTask(taskId, phase) {
     if (typeof showToast === 'function') showToast('装備品チェックは装備品ビュー連動のため削除できません');
     return;
   }
-  // v2.3.0: 登録内容設定はガード
+  // v2.4.4: 登録内容設定はガード
   if (taskId === 'd_register') {
     if (typeof showToast === 'function') showToast('登録内容設定は登録内容バー連動のため削除できません');
     return;
