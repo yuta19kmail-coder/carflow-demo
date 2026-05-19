@@ -1870,4 +1870,344 @@
         const hasTitle = !!(sec.title && sec.title.trim());
         const head = hasTitle ? `
           <div class="tpl-preview-section-head">
-            <span class="tpl-preview-section-num">${String(sIdx + 1).padStart(2, '
+            <span class="tpl-preview-section-num">${String(sIdx + 1).padStart(2, '0')}</span>
+            <span class="tpl-preview-section-icon">${_esc(sec.icon || '📂')}</span>
+            <span class="tpl-preview-section-title">${_esc(sec.title)}</span>
+            <span class="tpl-preview-section-count">${items.filter(i => !i._disabled).length}/${items.length}</span>
+          </div>` : '';
+        return `
+          <div class="tpl-preview-section ${hasTitle ? '' : 'is-flat'}">
+            ${head}
+            <div class="tpl-preview-items">
+              ${items.length === 0 ? '<div class="tpl-preview-empty">項目なし</div>' : items.map((it, iIdx) => _renderPreviewItem(it, iIdx)).join('')}
+            </div>
+          </div>`;
+      };
+
+      if (showTabs) {
+        tabOrder.forEach(tabName => {
+          const secs = tabMap.get(tabName) || [];
+          html += `<div class="tpl-preview-tab-block">
+            <div class="tpl-preview-tab-head">📑 ${_esc(tabName || '(タブなし)')}</div>`;
+          secs.forEach((sec, sIdx) => { html += renderSecHtml(sec, sIdx); });
+          html += `</div>`;
+        });
+      } else {
+        const secs = tabMap.get(tabOrder[0]) || [];
+        secs.forEach((sec, sIdx) => { html += renderSecHtml(sec, sIdx); });
+      }
+    }
+    body.innerHTML = html;
+    modal.classList.add('open');
+  }
+  window.previewTemplate = previewTemplate;
+
+  function _renderPreviewItem(item, idx) {
+    const disabled = !!item._disabled;
+    const points = Array.isArray(item.points) ? item.points : [];
+    const pointsHtml = points.length === 0
+      ? ''
+      : '<ul class="tpl-preview-points">' + points.map(p => `<li>${_esc(p)}</li>`).join('') + '</ul>';
+    const detailHtml = item.detail ? `<div class="tpl-preview-detail">${_esc(item.detail)}</div>` : '';
+    const subHtml = item.sub ? `<div class="tpl-preview-sub">${_esc(item.sub)}</div>` : '';
+    const badge = disabled ? '<span class="tpl-preview-badge-disabled">無効</span>' : '';
+    const itype = item.inputType || 'check';
+    const mockInput = (itype === 'select')
+      ? '<span class="tpl-preview-mock-select">▼ 選択</span>'
+      : (itype === 'status' || itype === 'tri')
+        ? '<span class="tpl-preview-mock-status">未／OK／NG</span>'
+        : '<span class="tpl-preview-mock-check">○</span>';
+    return `
+      <div class="tpl-preview-item ${disabled ? 'is-disabled' : ''}">
+        <div class="tpl-preview-item-num">${String(idx + 1).padStart(2, '0')}</div>
+        <div class="tpl-preview-item-body">
+          <div class="tpl-preview-item-name">${_esc(item.name || '(無題)')}${badge}</div>
+          ${subHtml}
+          ${detailHtml}
+          ${pointsHtml}
+        </div>
+        <div class="tpl-preview-item-mock">${mockInput}</div>
+      </div>`;
+  }
+
+  function closeTemplatePreview() {
+    const modal = document.getElementById('modal-tpl-preview');
+    if (modal) modal.classList.remove('open');
+  }
+  window.closeTemplatePreview = closeTemplatePreview;
+
+  // =========================================
+  // v1.6.2: Excel エクスポート
+  // =========================================
+  function _xlsxLib() {
+    return (typeof XLSX !== 'undefined') ? XLSX : null;
+  }
+
+  function exportTemplateXlsx(tplId) {
+    const X = _xlsxLib();
+    if (!X) { _toast('Excelライブラリの読込待ち。少し待って再実行してください'); return; }
+    const tpl = _getTpl(tplId); if (!tpl) return;
+
+    // v1.7.14: select_options 列を追加
+    // v1.7.19: section_tab 列（大カテゴリ名）を追加
+    const headers = [
+      'section_id', 'section_tab', 'section_title', 'section_icon',
+      'item_id', 'item_name', 'item_sub', 'item_detail', 'item_points',
+      'input_type', 'select_options', 'disabled',
+    ];
+    const rows = [headers];
+
+    (tpl.sections || []).forEach(sec => {
+      const items = (sec.items || []);
+      if (items.length === 0) {
+        rows.push([sec.id || '', sec.tab || '', sec.title || '', sec.icon || '', '', '', '', '', '', '', '', '']);
+      } else {
+        items.forEach(it => {
+          rows.push([
+            sec.id || '',
+            sec.tab || '',
+            sec.title || '',
+            sec.icon || '',
+            it.id || '',
+            it.name || '',
+            it.sub || '',
+            it.detail || '',
+            (it.points || []).join(' | '),
+            it.inputType || 'check',
+            (Array.isArray(it.selectOptions) ? it.selectOptions : []).join(' | '),
+            it._disabled ? 'true' : '',
+          ]);
+        });
+      }
+    });
+
+    const ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 6 },
+      { wch: 14 }, { wch: 24 }, { wch: 24 }, { wch: 40 }, { wch: 40 },
+      { wch: 10 }, { wch: 30 }, { wch: 8 },
+    ];
+    const wb = X.utils.book_new();
+    const sheetName = (tpl.name || 'template').slice(0, 28).replace(/[\\\/:?*\[\]]/g, '_') || 'template';
+    X.utils.book_append_sheet(wb, ws, sheetName);
+    const filename = `carflow_tpl_${tpl.id}.xlsx`;
+    X.writeFile(wb, filename);
+    _toast('Excel を書き出しました：' + filename);
+  }
+  window.exportTemplateXlsx = exportTemplateXlsx;
+
+  // v1.7.14: 書式テンプレ DL（空のひな型 + 列の説明 + 記入例）
+  function downloadTemplateBlank() {
+    const X = _xlsxLib();
+    if (!X) { _toast('Excelライブラリの読込待ち。少し待って再実行してください'); return; }
+
+    // 1行目：列名（取込時のキー）
+    // 2行目：日本語の見出し（人間向け）
+    // 3行目：説明（その列に何を入れるか）
+    // 4〜n行目：記入例（チェック/3状態/状態判定/選択肢/テキスト）
+    // v1.7.19: section_tab（大カテゴリ名）列を追加
+    const rows = [
+      // 1行目：取込キー（小文字英数）。この行が無いと取込できない
+      [
+        'section_id', 'section_tab', 'section_title', 'section_icon',
+        'item_id', 'item_name', 'item_sub', 'item_detail', 'item_points',
+        'input_type', 'select_options', 'disabled',
+      ],
+      // 2行目：日本語見出し（取込時は無視されますが人が読みやすいように）
+      [
+        'セクションID', '大カテゴリ名（タブ）', '中カテゴリ名', 'セクションアイコン',
+        '項目ID', '項目名', 'サブ（短い説明）', '詳細（長い説明）', '注意点（ | 区切り）',
+        '入力タイプ', '選択肢（ | 区切り）', '無効化',
+      ],
+      // 3行目：説明
+      [
+        '空欄なら自動付番（同じ名前のセクションがあれば既存IDを再利用）',
+        '同じ名前を複数セクションで使うと、その大カテゴリのタブにまとまります（空欄ならタブ無し）',
+        'アコーディオンの見出し名。空欄ならフラット表示（帯なし）',
+        '絵文字1つ（例：🔧）。空欄でもOK',
+        '空欄なら自動付番（既存と一致するIDを書けば上書き）',
+        '必須。スタッフがチェックする時に画面に出る項目名',
+        '画面で項目名の下に小さく出る短文（任意）',
+        '画面で項目名の下に出る詳細説明（任意）',
+        '注意点を「 | 」（半角パイプ）で区切って並べる（任意）',
+        'check / tri / status / select / text のどれか（既定：check）',
+        'input_type=select の時だけ使用。選択肢を「 | 」区切りで並べる',
+        'true / 1 / yes / 無効 のどれかで「無効化」状態（無効化された項目は画面に出ない）',
+      ],
+      // 4行目以降：記入例
+      ['ext', '外装', '', '🚗', '', '🟦 ボディ全周チェック', '傷・へこみ・錆', 'ボディ全周を目視で確認します', 'ルーフ・ピラーも確認 | フレーム歪みの有無', 'check', '', ''],
+      ['ext', '外装', '', '🚗', '', '🟦 タイヤ・ホイール清掃', '', '鉄粉除去剤で洗浄', '', 'check', '', ''],
+      ['eq',  '装備品', 'オーディオ・ナビ', '🎵', '', '🟩 カーナビ', '純正/社外', '画面が映るかと地図表示を確認', '', 'tri', '', ''],
+      ['eq',  '装備品', 'オーディオ・ナビ', '🎵', '', '🟩 ナビ媒体', '中身がHDDかSSDかDVDか', '', '', 'select', 'HDD | SSD/メモリ | DVD | なし/不明', ''],
+      ['chk', '点検', '', '🔧', '', '🟧 ブレーキ動作', 'OK/NG判定', '試乗してブレーキが効くか確認', '効きの強さ | 異音の有無', 'status', '', ''],
+      ['chk', '点検', '', '🔧', '', '🟧 整備メモ', '気づいたことを自由に', '次回点検時の引き継ぎなど', '', 'text', '', ''],
+      ['chk', '点検', '', '🔧', '', '🟥 廃止項目（書いても表示されない）', '', '', '', 'check', '', 'true'],
+    ];
+
+    const ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 8 },
+      { wch: 14 }, { wch: 26 }, { wch: 22 }, { wch: 38 }, { wch: 38 },
+      { wch: 10 }, { wch: 32 }, { wch: 8 },
+    ];
+    // 説明行（3行目）に背景色…は SheetJS の community 版だと完全には効かないので諦め、
+    // 列幅と行構成だけ整えておく。
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'template_format');
+
+    // 取込時に説明行（2行目=日本語、3行目=説明、4行目以降=例）を「セクションID未設定」として
+    // 自動付番される事故を避けたい。importTemplateXlsx 側で「2,3行目スキップ」する仕組みを入れる
+    // …のは複雑なので、運用ルールで「ダウンロードしたら 2/3 行目（説明行）と 4〜10 行目（例）を
+    // 削除してから記入し、そのまま取込ボタンに突っ込む」とする。
+    const filename = `carflow_template_format.xlsx`;
+    X.writeFile(wb, filename);
+    _toast('書式テンプレートを書き出しました：' + filename);
+  }
+  window.downloadTemplateBlank = downloadTemplateBlank;
+
+  // =========================================
+  // v1.6.2: Excel インポート
+  // =========================================
+  async function importTemplateXlsx(tplId, file) {
+    const X = _xlsxLib();
+    if (!X) { _toast('Excelライブラリの読込待ち'); return; }
+    if (!file) return;
+    const tpl = _getTpl(tplId); if (!tpl) return;
+    if (!_can()) { _toast('管理者権限が必要です'); return; }
+
+    if (!confirm(`「${tpl.name}」の項目を Excel から取り込みます。\n現在の項目はすべて上書きされます。続行しますか？`)) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const wb = X.read(data, { type: 'array' });
+      const firstSheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[firstSheetName];
+      const aoa = X.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!aoa || aoa.length < 2) { _toast('行が見つかりません'); return; }
+
+      const header = aoa[0].map(s => String(s).trim().toLowerCase());
+      const idx = (k) => header.indexOf(k);
+      const cSecId    = idx('section_id');
+      const cSecTab   = idx('section_tab');   // v1.7.19: 大カテゴリ列
+      const cSecTitle = idx('section_title');
+      const cSecIcon  = idx('section_icon');
+      const cItemId   = idx('item_id');
+      const cItemName = idx('item_name');
+      const cItemSub  = idx('item_sub');
+      const cDetail   = idx('item_detail');
+      const cPoints   = idx('item_points');
+      const cInput    = idx('input_type');
+      const cSelOpts  = idx('select_options'); // v1.7.14
+      const cDisabled = idx('disabled');
+
+      // v1.7.19: section_title は必須ではなくなった（フラット表示の場合は空欄）
+      //   行が「セクションを成り立たせるか」は section_tab か section_title のどちらかが
+      //   入っているかで判定する。
+      if (cItemName < 0) {
+        _toast('必須列（item_name）が見つかりません');
+        return;
+      }
+
+      const existingItem = {};
+      (tpl.sections || []).forEach(s => {
+        (s.items || []).forEach(i => { existingItem[i.id] = i; });
+      });
+
+      const sectionMap = new Map();
+      const sectionOrder = [];
+      let autoSecCounter = 0, autoItemCounter = 0;
+
+      for (let r = 1; r < aoa.length; r++) {
+        const row = aoa[r];
+        if (!row) continue;
+        const secTitle = (cSecTitle >= 0) ? String(row[cSecTitle] || '').trim() : '';
+        const secTab   = (cSecTab   >= 0) ? String(row[cSecTab]   || '').trim() : '';
+        const itemName = (cItemName >= 0) ? String(row[cItemName] || '').trim() : '';
+        // tab・title・item_name のどれもなければ空行扱いでスキップ
+        if (!secTitle && !secTab && !itemName) continue;
+
+        let secId = (cSecId >= 0) ? String(row[cSecId] || '').trim() : '';
+        if (!secId) {
+          // v1.7.19: 既存セクションは (tab, title) ペアで探す
+          const found = (tpl.sections || []).find(s =>
+            (s.title || '') === secTitle && (s.tab || '') === secTab);
+          secId = found ? found.id : ('sec_' + Date.now().toString(36) + '_' + (autoSecCounter++));
+        }
+
+        let sec = sectionMap.get(secId);
+        if (!sec) {
+          sec = {
+            id: secId,
+            title: secTitle,
+            tab: secTab, // v1.7.19: 大カテゴリ
+            icon: (cSecIcon >= 0) ? String(row[cSecIcon] || '').trim() : '',
+            items: [],
+          };
+          sectionMap.set(secId, sec);
+          sectionOrder.push(secId);
+        }
+
+        if (!itemName) continue;
+
+        let itemId = (cItemId >= 0) ? String(row[cItemId] || '').trim() : '';
+        if (!itemId) {
+          itemId = 'i_' + Date.now().toString(36) + '_' + (autoItemCounter++);
+        }
+        const points = (cPoints >= 0)
+          ? String(row[cPoints] || '').split('|').map(s => s.trim()).filter(Boolean)
+          : [];
+        let inputType = (cInput >= 0) ? (String(row[cInput] || 'check').trim() || 'check') : 'check';
+        if (!['check', 'tri', 'status', 'select', 'text'].includes(inputType)) inputType = 'check';
+        // v1.7.14: select_options を | で分割
+        const selectOptions = (cSelOpts >= 0)
+          ? String(row[cSelOpts] || '').split('|').map(s => s.trim()).filter(Boolean)
+          : [];
+        const disabledStr = (cDisabled >= 0) ? String(row[cDisabled] || '').trim().toLowerCase() : '';
+        const isDisabled = (disabledStr === 'true' || disabledStr === '1' || disabledStr === 'yes' || disabledStr === '無効');
+
+        const prev = existingItem[itemId] || {};
+        const newItem = {
+          ...prev,
+          id: itemId,
+          name: itemName,
+          sub: (cItemSub >= 0) ? String(row[cItemSub] || '').trim() : '',
+          detail: (cDetail >= 0) ? String(row[cDetail] || '').trim() : '',
+          points,
+          inputType,
+          // v1.7.14: select 用選択肢。空配列でも持たせる（次回再開時の値保持のため）
+          selectOptions: (selectOptions && selectOptions.length > 0)
+            ? selectOptions
+            : (Array.isArray(prev.selectOptions) ? prev.selectOptions : []),
+          order: sec.items.length,
+          _source: prev._source || 'custom',
+        };
+        if (isDisabled) newItem._disabled = true; else delete newItem._disabled;
+        sec.items.push(newItem);
+      }
+
+      const newSections = sectionOrder.map(id => sectionMap.get(id));
+      if (newSections.length === 0) { _toast('有効な行が見つかりませんでした'); return; }
+
+      // v1.7.37: variants[0] と tpl.sections を一緒に更新
+      _setActiveSections(tpl, newSections);
+      const ok = await _saveTpl(tpl);
+      if (ok) {
+        const totalItems = newSections.reduce((a, s) => a + s.items.length, 0);
+        _toast(`✅ 取込完了：${newSections.length}セクション / ${totalItems}項目`);
+        window._tplEditor.expandedSectionId = null;
+        _renderDetail();
+      }
+    } catch (err) {
+      console.error('[importTemplateXlsx]', err);
+      _toast('Excel 取込に失敗しました：' + (err.message || err));
+    }
+  }
+  window.importTemplateXlsx = importTemplateXlsx;
+
+  // -----------------------------------------
+  // 公開
+  // -----------------------------------------
+  window.renderTemplateEditor = renderTemplateEditor;
+
+  console.log('[template-editor] ready');
+})();

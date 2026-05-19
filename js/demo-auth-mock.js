@@ -185,9 +185,15 @@
   function _init() {
     _renderDemoLoginUI();
     console.log('[demo-auth] login UI replaced');
+    // v2.5.13-demo: 通常 auth.js 経由でサインインした場合でもバナーを出す
+    //   _showDemoBanner は idempotent（既に存在すれば return）
+    _showDemoBanner();
+    // 念のため login-screen が消える瞬間にも再度確認（タイミング順序の保険）
+    setTimeout(_showDemoBanner, 800);
   }
 
   window.demoLogin = doDemoLogin;
+  window.showDemoBanner = _showDemoBanner;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _init);
