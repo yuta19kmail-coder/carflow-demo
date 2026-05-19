@@ -1044,4 +1044,158 @@
   cursor: pointer;
 }
 .tpl-modal-select:focus {
-  outline
+  outline: 2px solid var(--blue);
+  outline-offset: -1px;
+}
+
+/* v1.7.14: 「ファイルから写真を追加」ボタン用スタイル（label に btn-sm を当てる） */
+.tpl-media-file-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ========================================
+   v2.4.7: フェーズグループ（パターン一覧をフェーズ別に分類表示）
+   ======================================== */
+.tpl-phase-group {
+  margin: 20px 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 14px 16px 18px;
+}
+.tpl-phase-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--border);
+}
+.tpl-phase-group-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tpl-phase-group-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.tpl-phase-group-blue   { border-left: 4px solid #378ADD; }
+.tpl-phase-group-orange { border-left: 4px solid #f59e0b; }
+.tpl-phase-group-purple { border-left: 4px solid #8b5cf6; }
+.tpl-phase-group-green  { border-left: 4px solid #1db97a; }
+.tpl-phase-group-gray   { border-left: 4px solid #8a8f99; }
+
+/* v2.4.8: カードヘッダー折り返し対策。長いタイトル + 「↺ このタスクを初期化」ボタンで
+   タイトルが縦に潰れていたのを修正。
+   - flex-wrap: wrap でボタンが長い時は次の行に折り返す
+   - タイトル領域は最低限の幅を確保
+   - リセットボタンは小さめのアイコン表示風に */
+.tpl-card-header {
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tpl-card-title-wrap {
+  min-width: 180px;
+}
+.tpl-card-header > .btn-sm {
+  font-size: 11px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ========================================
+   v2.5.0: 「チェックのみ」カード（小タスク制OFFの大タスク）
+   ======================================== */
+.tpl-card-checkonly {
+  background: var(--bg2);
+  border: 1px dashed var(--border);
+  position: relative;
+}
+.tpl-card-checkonly .tpl-card-header {
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 10px;
+}
+.tpl-check-only-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 6px 6px;
+}
+.tpl-check-only-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.tpl-check-only-sub {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.6;
+  padding: 0 4px;
+}
+.tpl-check-only-locked {
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* v2.5.1: ヘッダー右に並べる小さめ「チェックのみ」バッジ */
+.tpl-check-only-badge-sm {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* v2.5.1: チェックのみカードでパターンがゼロ件の時のヒント */
+.tpl-variant-empty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+
+/* v2.5.1: 自動判定タスク用ロックカード（編集不可） */
+.tpl-card-checkonly-locked {
+  opacity: 0.85;
+}
+
+/* v2.5.3: 特殊タスク（装備品チェック・登録内容設定）用の静的カード */
+.tpl-card-special {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  opacity: 0.92;
+}
+.tpl-card-special .tpl-card-header {
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 10px;
+}
