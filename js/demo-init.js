@@ -6,7 +6,17 @@
 // 本番 auth.js もこれで動くようにし、
 // onAuthStateChanged は「never fire」状態に。
 // 実際のログインは demo-auth-mock.js が制御。
+//
+// v2.5.13: 安全装置として window.__DEMO_MODE を最優先で立てる。
+//   本番 firebase-init.js は冒頭でこのフラグを見て、立っていれば
+//   絶対に本物の Firebase に接続しない。これにより、index.html で
+//   誤って firebase-init.js を <script> ロードしてしまっても
+//   デモ版が本物の Firestore に書き込む事故を防ぐ。
 // ========================================
+
+// CRITICAL: スクリプト評価の最初の瞬間にフラグを立てる
+// （IIFE 内ではなくグローバルレベルで実行 → 読み込み順より早く保護）
+window.__DEMO_MODE = true;
 
 (function () {
   'use strict';

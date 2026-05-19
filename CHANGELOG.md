@@ -16,10 +16,11 @@
 ### デモ版固有のファイル（同期時は触らない）
 - `js/demo-firestore-mock.js` … Firestore モック
 - `js/demo-storage-mock.js` … Storage モック
-- `js/demo-init.js` … 初期化
+- `js/demo-init.js` … 初期化（**冒頭で `window.__DEMO_MODE = true` を立てる**：安全装置）
 - `js/demo-sample-data.js` … サンプルデータ
 - `js/demo-line-toast.js` … LINE通知をトースト表示に置換
 - `js/demo-auth-mock.js` … ログイン UI をモック化
+- `js/firebase-init.js` … ★no-op スタブ★（本体の同名ファイルを絶対に上書きしないこと）
 
 ### 本体と置き換わるもの
 - `js/line-notify.js` → `js/demo-line-toast.js` に差し替え（index.html で`<!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み -->` のコメントだけ残す）
@@ -132,15 +133,28 @@ CarFlow 本体の体験版として GitHub Pages 配信開始。
 
 ## 🛠 次回 同期する時のチェックリスト
 
+⚠️ **CRITICAL：本物の Firestore に接続しないために、絶対に守ること** ⚠️
+
 1. 新規追加された JS / CSS / manuals を確認
-2. `cp` で本体から demo へバルクコピー（`demo-*.js` は触らない）
+2. `cp` で本体から demo へバルクコピー（`demo-*.js` と `firebase-init.js` は **絶対に触らない**）
+   - **重要**：bash の `cp` は virtiofs mount stale で末尾欠落することがある。コピー後は必ず Read で末尾を確認するか、本体の Edit ツールで個別パッチを当てる方が安全。
 3. `index.html` は本体ベースで作り直し、以下のデモ差分を再注入：
-   - 冒頭の `<!-- ========== デモ版：mock スクリプト群 ========== -->` ＋ 5本の mock script
+   - 冒頭の `<link rel="stylesheet" href="css/demo.css?v=...">`（login.css 直後）
+   - Firebase SDK 直前に mock スクリプト 5 本（`demo-firestore-mock.js` / `demo-storage-mock.js` / `demo-init.js` / `demo-sample-data.js` / `demo-line-toast.js`）
+   - **★最重要★**：`<script src="js/firebase-init.js?v=..."></script>` → **コメント置換**（本物のFirebase初期化を絶対に走らせない）
    - `<script src="js/line-notify.js?v=..."></script>` → コメント置換
    - `</body>` 前に `<script src="js/demo-auth-mock.js"></script>`
 4. PDFマニュアルがあれば `manuals/` にも反映
 5. このファイル（`CHANGELOG.md`）の反映履歴に追記
 6. `git add -A && git commit && git push`（GitHub Pages 自動再ビルド）
+
+### 🛡 デモが本物Firestoreに接続しない 3 層防御
+
+1. **index.html**：`firebase-init.js` をコメントアウト（ロードしない）
+2. **本体 firebase-init.js**：冒頭で `if (window.__DEMO_MODE === true) return;` ガード
+3. **デモ側 firebase-init.js**：no-op スタブ（中身は警告ログのみ）
+
+`demo-init.js` 冒頭で `window.__DEMO_MODE = true` を立てているので、どの層を破られても本物のFirebaseに接続しない。**この3層のどれかが消えていたら同期作業を即中止すること。**
 
 ---
 
