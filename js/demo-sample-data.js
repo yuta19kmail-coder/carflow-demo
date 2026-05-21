@@ -110,6 +110,24 @@
     return out;
   }
 
+  // 登録内容（d_register）の小タスク（選択式＋あり/なし/該当なし）をランダム生成
+  //   → 「登録内容バー」＋多様な入力タイプの小タスク（小タスクバリエーション）を実演
+  function _makeRegisterData() {
+    const patterns = ['中古新規', '継続移転', '移転継続', '名変', '予備検'];
+    const tri = (onRate) => { const r = Math.random(); return r < onRate ? 'on' : (r < onRate + 0.45 ? 'off' : 'none'); };
+    const pat = _rand(patterns);
+    const loan = tri(0.4);
+    return {
+      reg_pattern: pat,
+      reg_loan: loan,
+      reg_ownership: loan === 'on' ? 'on' : tri(0.3),  // ローンありなら所有権ありになりやすい
+      reg_minor: tri(0.12),
+      reg_recycle: tri(0.75),
+      reg_proxy: tri(0.35),
+      reg_plate: tri(0.3),
+    };
+  }
+
   // 車両ごとに「あるべき進捗状態」のタスクを設定
   function _applyTasksByCol(car, col) {
     car.regenTasks = {};
@@ -152,6 +170,7 @@
         if (Math.random() < 0.5) car.deliveryTasks[t] = _completeWorkflowFor(t, true);
         else car.deliveryTasks[t] = _partialWorkflowFor(t, true, _randInt(40, 80));
       });
+      car.deliveryTasks['d_register'] = _makeRegisterData();  // 登録内容（小タスクバリエーション）
       return;
     }
     if (col === 'done') {
@@ -163,6 +182,7 @@
       car.regenTasks['t_equip'] = Object.assign({}, eqDataX);
       DELIVERY_TOGGLE_TASKS.forEach((t) => { car.deliveryTasks[t] = true; });
       DELIVERY_WORKFLOW_TASKS.forEach((t) => { car.deliveryTasks[t] = _completeWorkflowFor(t, true); });
+      car.deliveryTasks['d_register'] = _makeRegisterData();  // 登録内容（小タスクバリエーション）
       return;
     }
   }
@@ -172,12 +192,12 @@
   // =====================================
   // col: [台数, 在庫日数の中央値]
   const CAR_PLAN = [
-    { col: 'other',    count: 2, invDays: [5, 12] },
-    { col: 'purchase', count: 4, invDays: [3, 8, 15, 25] },
-    { col: 'regen',    count: 5, invDays: [40, 65, 75, 85, 95] },
-    { col: 'exhibit',  count: 6, invDays: [70, 80, 88, 95, 105, 130] },
-    { col: 'delivery', count: 3, invDays: [50, 70, 100] },
-    { col: 'done',     count: 2, invDays: [60, 90] },                 // 納車済み（月締め前）
+    { col: 'other',    count: 3, invDays: [5, 12, 22] },
+    { col: 'purchase', count: 6, invDays: [3, 7, 12, 18, 25, 33] },
+    { col: 'regen',    count: 7, invDays: [38, 52, 62, 72, 82, 92, 100] },
+    { col: 'exhibit',  count: 9, invDays: [55, 68, 78, 88, 95, 105, 115, 125, 140] },
+    { col: 'delivery', count: 5, invDays: [25, 45, 65, 85, 105] },
+    { col: 'done',     count: 3, invDays: [55, 75, 95] },             // 納車済み（月締め前）
   ];
 
   function _makeCarsByPlan() {
@@ -230,19 +250,96 @@
         idx++;
       }
     });
-    // v2.6: 車両メモ一覧デモ用に数台へサンプルメモを付与（コア／作業／大タスク付帯を網羅）
-    const _firstOf = (pred) => list.find(pred);
-    const _o = _firstOf(c => c.col === 'other');
-    if (_o) { _o.memo = '名義変更書類を要確認。前オーナーと連絡待ち。'; _o.workMemo = 'バッテリー弱め→交換見積り'; }
-    const _s = _firstOf(c => c.col === 'regen');
-    if (_s) { _s.memo = '内装の臭い気になる。再施工検討。'; _s.taskMemos = { t_webup: { value: 'サイト未掲載（写真待ち）' } }; }
-    const _s2 = _firstOf(c => c.col === 'exhibit');
-    if (_s2) { _s2.workMemo = '商談2件あり。価格交渉中。'; }
-    const _d = _firstOf(c => c.col === 'delivery');
-    if (_d) { _d.memo = '納車時にマット・ETCセットアップ忘れずに。'; _d.workMemo = '車検証の住所変更が未対応'; }
-    const _done = _firstOf(c => c.col === 'done');
-    if (_done) { _done.memo = '納車済み。1ヶ月点検の案内予定。'; }
+    // v2.7-demo: 新機能モリモリのサンプルデータを投入
+    //   大タスクメモ（日付/自由/時刻）・緑付箋自動付与の元データ・カレンダー日付メモ・選択制大タスク
+    const _stamp = { createdAt: _today(), updatedAt: _today() };
+    const byCol = (c) => list.filter((x) => x.col === c);
+
+    const CORE_MEMOS = [
+      '名義変更書類を要確認。前オーナーと連絡待ち。',
+      '内装の臭いが気になる。再施工を検討。',
+      '右リアドアに小傷。展示前に補修済みか確認。',
+      'ワンオーナー・記録簿あり。アピール材料に。',
+      '納車時にフロアマット・ETCセットアップ忘れずに。',
+    ];
+    const WORK_MEMOS = [
+      'バッテリー弱め→交換見積り',
+      '商談2件あり。価格交渉中。',
+      '車検整備の見積り待ち（部品取り寄せ）',
+      'タイヤ残溝少なめ→交換を提案',
+      '車検証の住所変更が未対応',
+    ];
+    const ESTIM_MEMOS = [
+      '下取り込みで端数値引きの相談あり',
+      '社外ナビ取付の追加見積りを提示予定',
+      '保証プラン（1年）込みで提案',
+    ];
+    // コアメモ／作業メモを散らす
+    list.forEach((c, i) => {
+      if (i % 3 === 0) c.memo = CORE_MEMOS[i % CORE_MEMOS.length];
+      if (i % 4 === 1) c.workMemo = WORK_MEMOS[i % WORK_MEMOS.length];
+    });
+
+    // 再生車：大タスクメモ「掲載予定日(日付)」＋「見積メモ(自由)」。掲載前なので t_webup は未完了に。
+    byCol('regen').forEach((c, i) => {
+      c.taskMemos = c.taskMemos || {};
+      c.taskMemos.t_webup = { value: _daysFromNow(3 + i * 2), createdBy: 'demo-staff-004', ..._stamp };
+      if (c.regenTasks) c.regenTasks.t_webup = false;
+      if (i % 2 === 0) c.taskMemos.t_estim = { value: ESTIM_MEMOS[i % ESTIM_MEMOS.length], createdBy: 'demo-staff-002', ..._stamp };
+    });
+    // 展示車の一部：掲載済みなので t_webup 日付は過去
+    byCol('exhibit').slice(0, 3).forEach((c, i) => {
+      c.taskMemos = c.taskMemos || {};
+      c.taskMemos.t_webup = { value: _daysAgo(2 + i), createdBy: 'demo-staff-005', ..._stamp };
+    });
+    // 選択制大タスク「下取り査定」：再生車の先頭3台だけ選択ON（1台は完了）
+    byCol('regen').slice(0, 3).forEach((c, i) => {
+      c.selectedTasks = c.selectedTasks || {};
+      c.selectedTasks.regen = c.selectedTasks.regen || {};
+      c.selectedTasks.regen.c_appraisal = true;
+      c.regenTasks = c.regenTasks || {};
+      c.regenTasks.c_appraisal = (i === 0);
+    });
+    // 納車準備車：「登録予定日(日付)」→ カレンダーの車両バーに表示＋緑付箋自動生成。「入庫予定(時刻)」も一部。
+    byCol('delivery').forEach((c, i) => {
+      c.taskMemos = c.taskMemos || {};
+      c.taskMemos.d_register = { value: _daysFromNow(2 + i * 2), createdBy: 'demo-staff-003', ..._stamp };
+      if (i % 2 === 0) c.taskMemos.d_maint = { value: ['09:30', '13:00', '15:30'][i % 3], createdBy: 'demo-staff-006', ..._stamp };
+    });
     return list;
+  }
+
+  // 日付型の大タスクメモ（t_webup / d_register）から「緑付箋（自動）」を生成
+  //   board-notes は note.autoSource.type==='taskMemo' で 🤖自動 と判定し、読み取り専用＋車両詳細リンクになる
+  function _makeAutoStickies(carsList) {
+    const DATE_TASKS = [
+      { taskId: 't_webup',    phase: 'regen',    label: '掲載予定日', taskName: 'webUP' },
+      { taskId: 'd_register', phase: 'delivery', label: '登録予定日', taskName: '登録内容設定' },
+    ];
+    const out = [];
+    carsList.forEach((c) => {
+      if (!c.taskMemos) return;
+      DATE_TASKS.forEach((dt) => {
+        const m = c.taskMemos[dt.taskId];
+        if (!m || !m.value || !/^\d{4}-\d{2}-\d{2}$/.test(String(m.value))) return;
+        const d = new Date(m.value);
+        const disp = !isNaN(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}` : m.value;
+        out.push({
+          id: 'auto_tm_' + c.id + '_' + dt.taskId,
+          title: [c.num, c.model].filter(Boolean).join(' '),
+          body: [dt.taskName, dt.label, disp].filter(Boolean).join(' '),
+          color: 'green',
+          deadline: m.value,
+          memberUids: [],
+          imageURL: '',
+          order: 100 + out.length,
+          autoSource: { type: 'taskMemo', carId: String(c.id), taskId: dt.taskId, phase: dt.phase },
+          createdAt: _today(),
+          createdBy: 'demo-user-001',
+        });
+      });
+    });
+    return out;
   }
 
   // =====================================
@@ -318,6 +415,11 @@
     'お客様情報を更新',
     '作業メモを追記',
     '写真を更新',
+    'タスク「webUP」のメモを更新',
+    'タスク「登録内容設定」のメモを更新',
+    '下取り査定 を選択タスクに追加',
+    '登録内容（登録パターン）を設定',
+    'バックオフィス処理を完了',
   ];
 
   function _makeAuditLogs(carsList) {
@@ -377,6 +479,28 @@
     customHolidays: [],
     SIZES: SIZES,
     boardLabels: { red: '緊急', orange: '今日中', yellow: '今週中', green: '連絡', blue: '余裕' },
+    // v2.7-demo: 大タスクメモの種別設定（日付/自由/時刻）
+    appTaskMemoConfig: {
+      regen: {
+        t_webup: { type: 'date', label: '掲載予定日' },
+        t_estim: { type: 'freeword', label: '' },
+      },
+      delivery: {
+        d_register: { type: 'date', label: '登録予定日' },
+        d_maint:    { type: 'time', label: '入庫予定' },
+      },
+      backoffice: {},
+    },
+    // v2.7-demo: 選択制大タスク（選択した車だけに表示）
+    appTaskOptional: {
+      regen: { c_appraisal: true },
+      delivery: {},
+      backoffice: {},
+    },
+    // v2.7-demo: カスタム大タスク（選択制で使う「下取り査定」）
+    appCustomTasks: [
+      { id: 'c_appraisal', name: '下取り査定', icon: '🚗', phases: ['regen'] },
+    ],
     _seedSampleDone: true,
   };
 
@@ -430,6 +554,13 @@
         updatedAt: _today(),
       });
     }
+
+    // v2.7-demo: 日付メモ由来の「緑付箋（自動）」を投入
+    const autoStickies = _makeAutoStickies(cars);
+    for (const n of autoStickies) {
+      await ref.collection('boardNotes').doc(n.id).set(n);
+    }
+    console.log(`[demo-seed]   autoStickies: ${autoStickies.length}件`);
 
     // auditLogs（操作ログ）— 作業実績ビュー（worklog）もこれを使う
     const auditLogs = _makeAuditLogs(cars);
