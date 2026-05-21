@@ -20,6 +20,7 @@
 const ANNOUNCEMENTS = [
   {
     id: 'a-20260521-theme',
+    version: '2.6',
     date: '2026-05-21',
     title: '🎨 テーマが4種類になりました（ライト刷新＋リキッドガラス）',
     body: `
@@ -34,6 +35,7 @@ const ANNOUNCEMENTS = [
   },
   {
     id: 'a-20260521-memo',
+    version: '2.7',
     date: '2026-05-21',
     title: '📝 ダッシュボードに「車両メモ一覧」を追加',
     body: `
@@ -49,6 +51,7 @@ const ANNOUNCEMENTS = [
   },
   {
     id: 'a-20260521-log',
+    version: '2.7',
     date: '2026-05-21',
     title: '📋 操作ログが見やすくなりました',
     body: `
@@ -93,7 +96,8 @@ function refreshAnnounceBadge() {
   const el = document.getElementById('announce-badge');
   if (!el) return;
   const n = announceUnreadCount();
-  if (n > 0) { el.textContent = String(n); el.style.display = ''; }
+  // .sb-badge は CSS で display:none 固定なので、表示時は明示的に inline-block にする（'' だと none に戻る）
+  if (n > 0) { el.textContent = String(n); el.style.display = 'inline-block'; }
   else { el.textContent = ''; el.style.display = 'none'; }
 }
 
@@ -115,22 +119,30 @@ function renderAnnounce() {
   host.innerHTML = items.map(a => {
     const isRead = read.indexOf(a.id) !== -1;
     const isOpen = window._ancOpen === a.id;
+    const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
+    const footer = isRead
+      ? '<div class="anc-footer"><span class="anc-confirmed">✓ 確認済み</span></div>'
+      : '<div class="anc-footer"><button type="button" class="anc-confirm-btn" onclick="confirmAnnounce(\'' + a.id + '\')">✓ 確認する（OK）</button></div>';
     return '<div class="anc-item ' + (isRead ? 'is-read' : 'is-unread') + (isOpen ? ' is-open' : '') + '">'
       + '<div class="anc-head" onclick="toggleAnnounce(\'' + a.id + '\')">'
       + '<span class="anc-dot"></span>'
+      + verTag
       + '<span class="anc-title">' + _ancEsc(a.title) + '</span>'
       + '<span class="anc-date">' + _ancEsc(a.date || '') + '</span>'
       + '<span class="anc-caret">' + (isOpen ? '▲' : '▼') + '</span>'
       + '</div>'
-      + '<div class="anc-body" style="' + (isOpen ? '' : 'display:none') + '">' + (a.body || '') + '</div>'
+      + '<div class="anc-body" style="' + (isOpen ? '' : 'display:none') + '">' + (a.body || '') + footer + '</div>'
       + '</div>';
   }).join('');
   refreshAnnounceBadge();
 }
 function toggleAnnounce(id) {
-  const opening = window._ancOpen !== id;
-  window._ancOpen = opening ? id : null;
-  if (opening) _markAnnounceRead(id);   // 開いたら既読
+  // 開閉のみ。既読化は「確認する（OK）」ボタンで明示的に行う。
+  window._ancOpen = (window._ancOpen === id) ? null : id;
+  renderAnnounce();
+}
+function confirmAnnounce(id) {
+  _markAnnounceRead(id);
   renderAnnounce();
 }
 
