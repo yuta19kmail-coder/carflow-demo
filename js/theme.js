@@ -47,6 +47,17 @@ function toggleTheme() {
   setTheme(nextTheme);
 }
 
+// v2.5.23-demo: ヘッダーの4テーマ循環ボタン用。
+//   押すごとに dark → light → dark-liquid → light-liquid を巡回。
+//   setTheme 経由なので localStorage 保存＋設定画面のテーマピッカーと自動連動する。
+function cycleTheme() {
+  const order = ['dark', 'light', 'dark-liquid', 'light-liquid'];
+  const cur = document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
+  const idx = order.indexOf(cur);
+  const next = order[(idx + 1) % order.length];
+  setTheme(next);
+}
+
 function setFontSize(size) {
   const s = FONTSIZE_ORDER.includes(size) ? size : 'md';
   document.documentElement.setAttribute('data-fontsize', s);
@@ -83,6 +94,16 @@ function refreshThemePickerUI() {
     tbBtn.textContent = isLight ? '☀️' : '🌙';
     tbBtn.setAttribute('aria-label', isLight ? 'ライト→ダークに切替' : 'ダーク→ライトに切替');
     tbBtn.setAttribute('title', isLight ? 'ライト→ダーク' : 'ダーク→ライト');
+  }
+  // v2.5.23-demo: ヘッダー（AAAの右隣）の4テーマ循環ボタンのアイコン/ツールチップも同期
+  //   アイコンは設定画面のテーマピッカーと同じ絵文字（🌙/☀️/✨/💎）に揃える
+  const cycBtn = document.getElementById('tb-theme-cycle');
+  if (cycBtn) {
+    const ICON = { 'dark': '🌙', 'light': '☀️', 'dark-liquid': '✨', 'light-liquid': '💎' };
+    const NAME = { 'dark': 'ダーク', 'light': 'ライト', 'dark-liquid': 'ダーク・リキッド', 'light-liquid': 'ライト・リキッド' };
+    cycBtn.textContent = ICON[cur] || '🌙';
+    cycBtn.setAttribute('title', 'テーマ切替（現在：' + (NAME[cur] || '') + '）');
+    cycBtn.setAttribute('aria-label', 'テーマを切り替え。現在：' + (NAME[cur] || ''));
   }
 }
 

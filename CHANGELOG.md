@@ -31,6 +31,18 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：ヘッダーに4テーマ循環ボタンを追加（v2.5.23-demo）
+
+文字サイズの「AAA」群（`#tb-fontsize-group`）の右隣に、テーマ循環ボタン（`#tb-theme-cycle`）を追加。AAA群と同じ並び・質感。
+
+- 押すごとに `dark → light → dark-liquid → light-liquid` を巡回（`theme.js` の `cycleTheme()` を新規追加）
+- `setTheme()` 経由なので localStorage 保存＋設定画面のテーマピッカー（`#theme-picker`）と自動連動。アイコンもピッカーと同じ絵文字（🌙/☀️/✨/💎）に同期（`refreshThemePickerUI()` に同期処理追加）
+- **PCのみ表示**。現場ビュー（`body.mobile` / `body.mobile-admin` / 狭幅768px以下）では非表示にして、既存の専用トグル `#tb-theme-toggle`（🌙/☀️、base のみ切替）と被らないようにした
+
+変更ファイル：`index.html`（ボタン追加）、`js/theme.js`（`?v=287`：cycleTheme＋ピッカー同期）、`css/panels.css`（`?v=365`：`.tb-theme-cycle` スタイル＋mobile排他）。バージョン `v2.5.23-demo`。
+
+---
+
 ### 2026-05-21：リキッドのクローム（メニュー・上部・タブ）を中立色に（v2.5.22-demo）
 
 メニューバー(sidebar)・上部(topbar)が背景グラデの青を拾い、saturate で増幅されて「青い」印象だった。クローム3種（topbar / sidebar / tabs）だけ背景を中立色に上書き（blur/sheen/枠線はガラスのまま）。色付きガラスはコンテンツのカードに残す。（`css/base.css` `?v=292`）

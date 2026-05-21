@@ -301,6 +301,38 @@
   color:var(--blue);
 }
 
+/* v2.5.23-demo: ヘッダーの4テーマ循環ボタン（AAAの右隣）。AAA群と同じ並び・質感に。 */
+/*   現場ビュー（body.mobile / mobile-admin / 狭幅）は専用トグル #tb-theme-toggle を使うので非表示にして被りを防ぐ。 */
+.tb-theme-cycle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-left:6px;
+  height:33px;
+  box-sizing:border-box;
+  padding:0 11px;
+  min-width:34px;
+  border:1px solid rgba(55,138,221,.3);
+  border-radius:var(--r);
+  background:rgba(55,138,221,.08);
+  color:var(--text2);
+  font-size:15px;
+  line-height:1;
+  cursor:pointer;
+  font-family:inherit;
+  transition:.15s;
+  flex-shrink:0;
+}
+.tb-theme-cycle:hover{background:rgba(55,138,221,.18);color:var(--text)}
+.tb-theme-cycle:active{transform:scale(.94)}
+:root[data-theme="light"] .tb-theme-cycle{border-color:rgba(30,95,194,.4);background:rgba(30,95,194,.08)}
+:root[data-theme="light"] .tb-theme-cycle:hover{background:rgba(30,95,194,.15)}
+body.mobile .tb-theme-cycle,
+body.mobile-admin .tb-theme-cycle{display:none !important}
+@media (max-width: 768px){
+  .tb-theme-cycle{display:none !important}
+}
+
 
 /* ========================================
    v1.0.30: 設定パネル再構成（サイドバー型）
