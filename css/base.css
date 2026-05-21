@@ -66,12 +66,13 @@
   --r:8px;--r2:12px;
   --shadow-card:0 4px 16px rgba(0,0,0,.45);
   /* ガラス効果用の追加変数 */
-  --liquid-bg-image: radial-gradient(circle at 18% 22%, #3A3F70 0%, transparent 45%),
-                     radial-gradient(circle at 82% 80%, #5C3F8F 0%, transparent 50%),
-                     linear-gradient(135deg, #1B2240 0%, #14182C 100%);
-  --panel-bg-overlay: rgba(255,255,255,0.06);
-  --panel-blur: 22px;
-  --panel-border-overlay: rgba(255,255,255,0.14);
+  --liquid-bg-image: radial-gradient(circle at 18% 20%, #323A63 0%, transparent 46%),
+                     radial-gradient(circle at 84% 82%, #47356A 0%, transparent 51%),
+                     linear-gradient(135deg, #1B2033 0%, #11131F 100%);
+  --panel-bg-overlay: rgba(255,255,255,0.10);
+  --panel-blur: 16px;
+  --panel-border-overlay: rgba(255,255,255,0.22);
+  --panel-sheen: rgba(255,255,255,0.30);
 }
 
 /* ===== ④ ライト・リキッド（淡パステルグラデ＋ガラス） ===== */
@@ -89,12 +90,13 @@
   --r:8px;--r2:12px;
   --shadow-card:0 4px 16px rgba(31,41,55,.08);
   /* ガラス効果用の追加変数 */
-  --liquid-bg-image: radial-gradient(circle at 18% 22%, #C8DEFB 0%, transparent 50%),
-                     radial-gradient(circle at 82% 80%, #E2D4F8 0%, transparent 55%),
-                     linear-gradient(135deg, #EAF1FB 0%, #FBF4F0 100%);
-  --panel-bg-overlay: rgba(255,255,255,0.55);
-  --panel-blur: 22px;
-  --panel-border-overlay: rgba(255,255,255,0.7);
+  --liquid-bg-image: radial-gradient(circle at 18% 20%, #D4E3F9 0%, transparent 50%),
+                     radial-gradient(circle at 84% 82%, #E7DDF6 0%, transparent 54%),
+                     linear-gradient(135deg, #EBF1F9 0%, #F4EFF1 100%);
+  --panel-bg-overlay: rgba(255,255,255,0.40);
+  --panel-blur: 16px;
+  --panel-border-overlay: rgba(255,255,255,0.85);
+  --panel-sheen: rgba(255,255,255,0.6);
 }
 
 /* ===== リキッド共通：背景画像と半透明パネル ===== */
@@ -115,9 +117,10 @@
 :root[data-theme$="-liquid"] .bn-card,
 :root[data-theme$="-liquid"] .kanban-card{
   background: var(--panel-bg-overlay) !important;
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--panel-blur)) saturate(180%);
   border-color: var(--panel-border-overlay) !important;
+  box-shadow: inset 0 1px 0 var(--panel-sheen);
 }
 
 /* ===== ライトモード（light / light-liquid 共通）：バッジ・チップを白背景でくっきり ===== */

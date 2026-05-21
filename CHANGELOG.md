@@ -31,6 +31,22 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：リキッドグラスの透明感UP＋背景グラデを上質な青紫トーンに（v2.5.20-demo）
+
+**ガラス効果強化**（`css/base.css` `?v=290`、dark-liquid / light-liquid）：背後の色がにじむ「ガラスらしさ」が弱かったので —
+- `backdrop-filter` に `saturate(180%)` を追加（背後の色を透かして発色UP。これが最大の効き目）
+- `--panel-blur` 22px → 16px（ぼかしを軽く＝透け感UP）
+- 上端の光るフチ（sheen）を追加：`box-shadow: inset 0 1px 0 var(--panel-sheen)`（`--panel-sheen`：dark=`rgba(255,255,255,.30)` / light=`rgba(255,255,255,.6)`）
+- パネルの白被せ・枠線を調整：dark overlay `.06→.10` / border `.14→.22`、light overlay `.55→.40`（透け感UP）/ border `.7→.85`
+
+**背景グラデ**（`--liquid-bg-image`）：「鮮やかなオーロラ」と「ほぼモノクロ＋微差し色」の中間の、上質な青紫トーンに変更。
+- dark：青 `#323A63` ＋ 紫 `#47356A` の radial を `#1B2033→#11131F` のベースに
+- light：青 `#D4E3F9` ＋ 藤 `#E7DDF6` の radial を `#EBF1F9→#F4EFF1` のベースに
+
+バージョン表記：`v2.5.20-demo`
+
+---
+
 ### 2026-05-21：カレンダー上部カードにホバーシャドウを追加（v2.5.19-demo）
 
 納車カレンダー上部の納車カウントダウンカード（`.countdown-card`）のホバーは枠線色＋わずかな浮き上がり(translateY)のみだったので、カンバンのカード（`.car-card:hover`）と同じ `box-shadow:0 3px 12px rgba(0,0,0,.35)` を追加。ホバーで持ち上がって影が落ちる挙動に統一。`css/calendar.css` `?v=287`、バージョン `v2.5.19-demo`。
