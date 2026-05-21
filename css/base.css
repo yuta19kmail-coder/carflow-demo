@@ -66,9 +66,9 @@
   --r:8px;--r2:12px;
   --shadow-card:0 4px 16px rgba(0,0,0,.45);
   /* ガラス効果用の追加変数 */
-  --liquid-bg-image: radial-gradient(circle at 18% 20%, #323A63 0%, transparent 46%),
-                     radial-gradient(circle at 84% 82%, #47356A 0%, transparent 51%),
-                     linear-gradient(135deg, #1B2033 0%, #11131F 100%);
+  --liquid-bg-image: radial-gradient(circle at 15% 14%, #2A3150 0%, transparent 40%),
+                     radial-gradient(circle at 86% 86%, #342A4C 0%, transparent 44%),
+                     linear-gradient(135deg, #14161E 0%, #0C0E13 100%);
   --panel-bg-overlay: rgba(255,255,255,0.10);
   --panel-blur: 16px;
   --panel-border-overlay: rgba(255,255,255,0.22);
@@ -90,9 +90,9 @@
   --r:8px;--r2:12px;
   --shadow-card:0 4px 16px rgba(31,41,55,.08);
   /* ガラス効果用の追加変数 */
-  --liquid-bg-image: radial-gradient(circle at 18% 20%, #D4E3F9 0%, transparent 50%),
-                     radial-gradient(circle at 84% 82%, #E7DDF6 0%, transparent 54%),
-                     linear-gradient(135deg, #EBF1F9 0%, #F4EFF1 100%);
+  --liquid-bg-image: radial-gradient(circle at 15% 14%, #CFE1F7 0%, transparent 40%),
+                     radial-gradient(circle at 86% 86%, #E8DCF5 0%, transparent 44%),
+                     linear-gradient(135deg, #F6F8FC 0%, #FBF8FA 100%);
   --panel-bg-overlay: rgba(255,255,255,0.40);
   --panel-blur: 16px;
   --panel-border-overlay: rgba(255,255,255,0.85);
