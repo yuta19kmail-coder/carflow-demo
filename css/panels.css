@@ -362,6 +362,26 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .log-carnum{color:var(--blue);cursor:pointer}
 .log-carnum:hover{text-decoration:underline}
 
+/* ===== v2.5.25: お知らせ（受信箱） ===== */
+.anc-list{margin-top:12px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg2)}
+.anc-item{border-bottom:1px solid var(--border)}
+.anc-item:last-child{border-bottom:none}
+.anc-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background .15s}
+.anc-head:hover{background:var(--bg3)}
+.anc-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;visibility:hidden}
+.anc-item.is-unread .anc-dot{visibility:visible}
+.anc-title{flex:1;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.anc-item.is-unread .anc-title{font-weight:700}
+.anc-item.is-read .anc-title{color:var(--text2)}
+.anc-date{font-size:11px;color:var(--text3);flex-shrink:0}
+.anc-caret{font-size:10px;color:var(--text3);flex-shrink:0}
+.anc-body{padding:4px 16px 16px 32px;font-size:13px;color:var(--text2);line-height:1.7}
+.anc-body p{margin:6px 0}
+.anc-body ul{margin:6px 0 6px 18px}
+.anc-body li{margin:3px 0}
+.anc-body b{color:var(--text)}
+.anc-empty{padding:20px;text-align:center;color:var(--text3);font-size:13px}
+
 
 /* ========================================
    v1.0.30: 設定パネル再構成（サイドバー型）

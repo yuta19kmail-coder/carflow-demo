@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="css/demo.css?v=285">
 <link rel="stylesheet" href="css/layout.css?v=284">
 <link rel="stylesheet" href="css/components.css?v=321">
-<link rel="stylesheet" href="css/panels.css?v=366">
+<link rel="stylesheet" href="css/panels.css?v=367">
 <link rel="stylesheet" href="css/kanban.css?v=321">
 <link rel="stylesheet" href="css/calendar.css?v=287">
 <link rel="stylesheet" href="css/modal.css?v=316">
@@ -102,7 +102,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v2.5.24-demo</div>
+    <div class="login-ver">CarFlow v2.5.25-demo</div>
   </div>
 </div>
 
@@ -113,7 +113,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.5.24-demo</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.5.25-demo</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替">🌙</button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
@@ -161,6 +161,8 @@
         <div class="sb-item" id="si-members" onclick="showPanel('members',this)"><span class="sb-icon">👥</span>メンバー</div>
         <div class="sb-sec">システム</div>
         <div class="sb-item" id="si-settings" onclick="showPanel('settings',this)"><span class="sb-icon">⚙️</span>設定</div>
+        <!-- v2.5.25: お知らせ（新機能の使い方などをメール的に配信／未読バッジ） -->
+        <div class="sb-item" id="si-announce" onclick="showPanel('announce',this)"><span class="sb-icon">📢</span>お知らせ<span class="sb-badge" id="announce-badge"></span></div>
         <!-- v1.6.1: 「テンプレ編集」サイドバーは廃止。設定 → タスク・進捗 → 詳細作成ON → 編集 から入る統一動線へ -->
         <div class="sb-item sb-help" id="si-help" onclick="showPanel('help',this)"><span class="sb-icon">❓</span>ヘルプ</div>
       </div>
@@ -242,6 +244,15 @@
             <button class="btn-sm btn-danger" onclick="clearAuditLogsFromUI()" data-perm="canEditSettings" style="margin-top:4px">🗑 操作ログを消去</button>
           </div>
           <div class="panel-card"><h3>最新ログ</h3><div id="log-list"></div></div>
+        </div>
+
+        <!-- v2.5.25: 📢 お知らせ（新機能の使い方などをメール的に配信／アカウントごとに既読管理） -->
+        <div id="panel-announce" class="side-panel">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div><div class="panel-title">📢 お知らせ</div><div class="panel-sub">新機能の使い方やアップデート情報が届きます</div></div>
+            <button class="btn-sm" onclick="markAllAnnounceRead()" style="margin-top:4px">すべて既読にする</button>
+          </div>
+          <div class="anc-list" id="announce-list"></div>
         </div>
 
         <!-- v2.1.0: バックオフィス（売約後の事務処理）— 4段（当月/先月/先々月/それより前）横スクロール -->
@@ -2000,12 +2011,13 @@
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=284"></script>
 <script src="js/auth.js?v=329"></script>
-<script src="js/navigation.js?v=312"></script>
+<script src="js/navigation.js?v=313"></script>
 <script src="js/archive.js?v=325"></script>
 <script src="js/settings.js?v=359"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=350"></script>
+<script src="js/announcements.js?v=1"></script>
 <script src="js/members.js?v=313"></script>
 <script src="js/kanban.js?v=324"></script>
 <script src="js/car-detail.js?v=320"></script>

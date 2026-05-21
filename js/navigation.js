@@ -19,6 +19,7 @@ function showPanel(name, el) {
   document.body.classList.remove('tab-view-active');
   document.body.classList.remove('action-area-collapsed');
   if (name === 'log') renderLogPanel();
+  if (name === 'announce' && typeof renderAnnounce === 'function') renderAnnounce();
   if (name === 'members') renderMembers();
   if (name === 'dashboard') renderDashboard();
   if (name === 'archive') renderArchive();
