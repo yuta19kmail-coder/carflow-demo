@@ -23,26 +23,26 @@
   --panel-border-overlay: transparent;
 }
 
-/* ===== ② ライト・スタンダード（v2.4.0-demo：モダンSaaS風 白グレー系） ===== */
+/* ===== ② ライト・スタンダード（v2.5.16-demo：くっきりSaaS。ページ背景を少し濃いグレーにして白カードを浮かせ、枠線・影で輪郭を立てる） ===== */
 :root[data-theme="light"]{
-  --bg:#F4F6F9;
-  --bg1:#F4F6F9;
+  --bg:#EBEEF3;
+  --bg1:#EBEEF3;
   --bg2:#FFFFFF;
-  --bg3:#EFF2F6;
-  --bg4:#E5E8EE;
-  --border:#E5E8EE;
-  --border2:#CBD2DC;
-  --text:#1F2937;
-  --text2:#6B7280;
-  --text3:#9AA3B0;
+  --bg3:#E3E7EE;
+  --bg4:#D6DCE5;
+  --border:#D4DAE3;
+  --border2:#B6BFCC;
+  --text:#1A2230;
+  --text2:#5A6677;
+  --text3:#8B95A6;
   --green:#10B981;
-  --blue:#3A82F6;
+  --blue:#2563EB;
   --orange:#F59E0B;
   --red:#EF4444;
-  --accent:#3A82F6;
+  --accent:#2563EB;
   --sidebar:220px;--topbar:54px;--tabs:46px;--action:56px;
   --r:8px;--r2:12px;
-  --shadow-card:0 2px 8px rgba(31,41,55,.06);
+  --shadow-card:0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
   /* v2.4.0-demo: リキッド用変数（標準テーマでは無効化） */
   --liquid-bg-image: none;
   --panel-bg-overlay: transparent;
