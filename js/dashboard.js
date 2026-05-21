@@ -47,12 +47,12 @@ function renderSummaryCards() {
   ).length;
 
   document.getElementById('stat-grid').innerHTML = `
-    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">総車両数</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--orange)">${active}</div><div class="stat-label">管理中</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${contracted}</div><div class="stat-label">売約済</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#c4b5fd">${order}</div><div class="stat-label">📦 オーダー車両</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#6ee7b7">${deliverThisMonth}</div><div class="stat-label">今月納車予定</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--text3)">${done}</div><div class="stat-label">納車完了</div></div>`;
+    <div class="stat-box"><div class="stat-num sn-total">${total}</div><div class="stat-label">総車両数</div></div>
+    <div class="stat-box"><div class="stat-num sn-active" style="color:var(--orange)">${active}</div><div class="stat-label">管理中</div></div>
+    <div class="stat-box"><div class="stat-num sn-contract" style="color:var(--blue)">${contracted}</div><div class="stat-label">売約済</div></div>
+    <div class="stat-box"><div class="stat-num sn-order" style="color:#c4b5fd">${order}</div><div class="stat-label">📦 オーダー車両</div></div>
+    <div class="stat-box"><div class="stat-num sn-deliver" style="color:#6ee7b7">${deliverThisMonth}</div><div class="stat-label">今月納車予定</div></div>
+    <div class="stat-box"><div class="stat-num sn-done" style="color:var(--text3)">${done}</div><div class="stat-label">納車完了</div></div>`;
 }
 
 // v1.8.79: 在庫日数警告 — appSettings.invWarn の tier ごとに「○日以上 N台」を1チップずつ集計表示

@@ -15,6 +15,12 @@
 .stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
 .stat-num{font-size:26px;font-weight:700;color:var(--blue)}
 .stat-label{font-size:11px;color:var(--text3);margin-top:3px}
+/* v2.5.17-demo: ライトモード（light/light-liquid）でサマリー数字を白背景で読める濃さに。 */
+/*   ダーク時はインライン色のまま、ライト時のみ !important で上書き。 */
+:root[data-theme^="light"] .stat-num.sn-active{color:#D97706 !important}
+:root[data-theme^="light"] .stat-num.sn-order{color:#7C3AED !important}
+:root[data-theme^="light"] .stat-num.sn-deliver{color:#059669 !important}
+:root[data-theme^="light"] .stat-num.sn-done{color:#64748B !important}
 
 /* 設定画面の行 */
 .setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
