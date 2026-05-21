@@ -21,6 +21,9 @@
 :root[data-theme^="light"] .stat-num.sn-order{color:#7C3AED !important}
 :root[data-theme^="light"] .stat-num.sn-deliver{color:#059669 !important}
 :root[data-theme^="light"] .stat-num.sn-done{color:#64748B !important}
+/* v2.5.18-demo: 着地予想「目標達成まで N台」の黄/緑をライトで可読に */
+:root[data-theme^="light"] .kpi-remain-todo{color:#B45309 !important}
+:root[data-theme^="light"] .kpi-remain-done{color:#059669 !important}
 
 /* 設定画面の行 */
 .setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}

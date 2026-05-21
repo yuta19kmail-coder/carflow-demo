@@ -469,7 +469,7 @@ function renderLanding() {
       <div class="kpi-box"><div class="kpi-label">売上見込み <span style="font-size:9px;color:var(--text3)">（${dashTax}）</span></div><div class="kpi-value">${((L.fixed.sales+L.likely.sales)/10000).toFixed(0)}<span style="font-size:12px;color:var(--text3)">万円</span></div>
         <div class="kpi-sub">目標まで ${(remainSalesToGoal/10000).toFixed(0)}万円</div></div>
       <div class="kpi-box"><div class="kpi-label">着地予想（レンジ）</div><div class="kpi-value">${L.predictLow}〜${L.predictHigh}<span style="font-size:12px;color:var(--text3)">台</span></div>
-        <div class="kpi-sub">目標達成まで<strong style="color:${remainToGoal===0?'#6ee7b7':'#fcd34d'}">${remainToGoal}台</strong></div></div>
+        <div class="kpi-sub">目標達成まで<strong class="kpi-remain ${remainToGoal===0?'kpi-remain-done':'kpi-remain-todo'}" style="color:${remainToGoal===0?'#6ee7b7':'#fcd34d'}">${remainToGoal}台</strong></div></div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">${L.paceNote}</div>
   `;
