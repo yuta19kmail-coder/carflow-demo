@@ -130,6 +130,11 @@
     // バナー
     _showDemoBanner();
 
+    // v2.5.27: 新着お知らせがあればポップアップ（ログイン直後・1回）
+    if (typeof maybeShowAnnouncePopup === 'function') {
+      setTimeout(function () { try { maybeShowAnnouncePopup(); } catch (e) { console.warn('[demo-auth] announce popup:', e); } }, 600);
+    }
+
     console.log('[demo-auth] demo login complete');
   }
 

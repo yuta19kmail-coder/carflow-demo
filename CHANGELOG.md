@@ -31,6 +31,19 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：お知らせ ログイン後ポップアップ方式に＋既読リセット（v2.5.27-demo）
+
+- **未読バッジが出ない／全部確認済みになる問題を解消**：旧版の「開いたら既読」挙動で localStorage に全件既読が記録され、未読0でバッジが出なくなっていた。既読の意味が変わったため保存キーを `carflow_announce_read` → `carflow_announce_read_v2` に変更してリセット（全件が再び未読に＝バッジ3が出る）。
+- **「確認」をログイン後ポップアップ方式に**（よくあるソフトの What's New 挙動）：ログイン直後、未読があればメイン画面の上にポップアップが出て、新着お知らせ一覧＋「確認」ボタンを表示。「確認」で全既読化＆バッジが消える。「後で」で閉じると次回ログイン時に再表示。
+  - 実装：`announcements.js` に `maybeShowAnnouncePopup`/`showAnnouncePopup`/`confirmAnnouncePopup`/`closeAnnouncePopup`。`demo-auth-mock.js` のログイン完了直後（renderDashboard・バナーの後）に 0.6秒後トリガー。`.overlay`/`.modal` の既存パターンを流用。
+  - お知らせパネル（受信箱）側の個別「確認する」ボタンも残置（ポップアップを「後で」で閉じた場合のフォールバック）。
+- CSS：`.anc-popup*` を追加（`css/panels.css`）。
+
+`js/announcements.js`(?v=3) / `js/demo-auth-mock.js`(?v=2) / `css/panels.css`(?v=369)。バージョン `v2.5.27-demo`。
+**※本体反映時**：ポップアップ方式＋アカウント単位の既読（Firestore）で実装予定。
+
+---
+
 ### 2026-05-21：お知らせ 改善（バッジ修正／確認ボタン／バージョン記載）（v2.5.26-demo）
 
 - **未読バッジが出ないバグを修正**：`.sb-badge` は CSS で `display:none` 固定のため、表示時に `style.display=''` だと none に戻っていた。`inline-block` を明示するよう修正（`refreshAnnounceBadge`）。

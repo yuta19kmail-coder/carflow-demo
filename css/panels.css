@@ -388,6 +388,28 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .anc-confirm-btn:hover{filter:brightness(1.08)}
 .anc-confirm-btn:active{transform:scale(.97)}
 .anc-confirmed{font-size:12px;color:var(--green);font-weight:600}
+/* 新着お知らせポップアップ（ログイン後の What's New） */
+.anc-popup{width:560px;max-width:96vw;padding:0;display:flex;flex-direction:column;max-height:86vh}
+.anc-popup-head{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.anc-popup-title{font-size:18px;font-weight:700;color:var(--text)}
+.anc-popup-sub{font-size:12px;color:var(--text3);margin-top:3px}
+.anc-popup-body{padding:4px 20px;overflow-y:auto;flex:1}
+.anc-popup-item{padding:14px 0;border-bottom:1px solid var(--border)}
+.anc-popup-item:last-child{border-bottom:none}
+.anc-popup-item-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.anc-popup-item-title{flex:1;font-size:14px;font-weight:700;color:var(--text)}
+.anc-popup-item-date{font-size:11px;color:var(--text3);flex-shrink:0}
+.anc-popup-item-body{font-size:13px;color:var(--text2);line-height:1.7}
+.anc-popup-item-body p{margin:6px 0}
+.anc-popup-item-body ul{margin:6px 0 6px 18px}
+.anc-popup-item-body li{margin:3px 0}
+.anc-popup-item-body b{color:var(--text)}
+.anc-popup-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.anc-popup-later{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s}
+.anc-popup-later:hover{background:var(--bg4);color:var(--text)}
+.anc-popup-ok{background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:8px 26px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+.anc-popup-ok:hover{filter:brightness(1.08)}
+.anc-popup-ok:active{transform:scale(.97)}
 
 
 /* ========================================

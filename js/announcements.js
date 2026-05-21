@@ -65,7 +65,8 @@ const ANNOUNCEMENTS = [
 ];
 
 // ----- 既読状態（デモ＝localStorage。本体ではここをFirestoreに差し替え） -----
-const ANNOUNCE_READ_KEY = 'carflow_announce_read';
+// v2.5.27: 既読の意味が「確認ボタン」方式に変わったため、旧キーの既読は引き継がず別キーに（リセット）
+const ANNOUNCE_READ_KEY = 'carflow_announce_read_v2';
 
 function _getReadAnnounce() {
   try {
@@ -144,6 +145,62 @@ function toggleAnnounce(id) {
 function confirmAnnounce(id) {
   _markAnnounceRead(id);
   renderAnnounce();
+}
+
+// ----- ログイン後の「新着お知らせ」ポップアップ（よくあるソフトの What's New 挙動） -----
+function _ancPopupEl() {
+  let el = document.getElementById('announce-popup-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'overlay';
+    el.id = 'announce-popup-overlay';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+// 未読があればポップアップを出す（ログイン直後に1回）
+function maybeShowAnnouncePopup() {
+  if (window._ancPopupShown) return;
+  const read = _getReadAnnounce();
+  const unread = ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1);
+  if (!unread.length) return;
+  window._ancPopupShown = true;
+  showAnnouncePopup(unread);
+}
+function showAnnouncePopup(unread) {
+  if (!unread) {
+    const read = _getReadAnnounce();
+    unread = ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1);
+  }
+  if (!unread.length) return;
+  const items = unread.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const itemsHtml = items.map(a => {
+    const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
+    return '<div class="anc-popup-item">'
+      + '<div class="anc-popup-item-head">' + verTag
+      + '<span class="anc-popup-item-title">' + _ancEsc(a.title) + '</span>'
+      + '<span class="anc-popup-item-date">' + _ancEsc(a.date || '') + '</span></div>'
+      + '<div class="anc-popup-item-body">' + (a.body || '') + '</div>'
+      + '</div>';
+  }).join('');
+  const el = _ancPopupEl();
+  el.innerHTML = '<div class="modal anc-popup">'
+    + '<div class="anc-popup-head"><div class="anc-popup-title">📢 新着のお知らせ</div>'
+    + '<div class="anc-popup-sub">' + items.length + '件の新しいお知らせがあります</div></div>'
+    + '<div class="anc-popup-body">' + itemsHtml + '</div>'
+    + '<div class="anc-popup-foot">'
+    + '<button type="button" class="anc-popup-later" onclick="closeAnnouncePopup()">後で</button>'
+    + '<button type="button" class="anc-popup-ok" onclick="confirmAnnouncePopup()">確認</button>'
+    + '</div></div>';
+  el.classList.add('open');
+}
+function closeAnnouncePopup() {
+  const el = document.getElementById('announce-popup-overlay');
+  if (el) el.classList.remove('open');
+}
+function confirmAnnouncePopup() {
+  markAllAnnounceRead();   // 全既読＋バッジ更新＋（パネルが開いていれば再描画）
+  closeAnnouncePopup();
 }
 
 // ----- 初期化：起動時にバッジを表示 -----
