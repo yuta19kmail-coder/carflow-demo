@@ -31,6 +31,27 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：消えていた4テーマ（ライト白グレー＋リキッド2種）を復元（v2.5.14-demo）
+
+**背景**：v2.5.13-demo の全面反映時、本体 `css/base.css` をバルクコピーしたことで、デモ独自の以下が巻き添えで消えていた（本体には存在しない要素のため）。
+
+- **ライト・スタンダードの配色**：デモ独自のモダンSaaS風 白グレー系（`--bg:#F4F6F9` 等）が、本体のベージュ系（`#f5f1ea`）に上書きされていた
+- **ダーク・リキッド / ライト・リキッド**：配色2ブロック＋ `:root[data-theme$="-liquid"]` のガラス効果（背景グラデ＋ `backdrop-filter: blur`）が丸ごと消失
+- **テーマピッカー**：`index.html` のボタンが dark/light の2つに減り、`.theme-picker-4`（2×2グリッド）CSS も消失
+
+`theme.js`（4テーマロジック）は v2.5.13-demo のマージ時に維持されていたため、リキッドを選んでも対応CSSが無く表示が壊れる状態だった。
+
+**復元方法**：旧コミット `1ac6878 v2.4.0-demo` から該当CSS／HTMLを正確に復元。
+
+- `css/base.css`：dark/light に `--liquid-bg-image` 等のリキッド用変数を再追加、light を白グレーに戻し、`dark-liquid` / `light-liquid` ブロックと `[data-theme$="-liquid"]` 共通ルールを復元（`?v=285`）
+- `css/panels.css`：`.theme-picker-4`（2列グリッド）を復元（`?v=362`）
+- `index.html`：テーマピッカーに ✨ダーク・リキッド / 💎ライト・リキッド の2ボタンを再追加、`theme-picker-4` クラス付与
+- バージョン表記：`v2.5.14-demo`
+
+**⚠️ 次回同期時の注意**：本体 `base.css` をバルクコピーすると、また 4テーマ（白グレーライト＋リキッド）が消える。同期後は必ず base.css の `dark-liquid`/`light-liquid` ブロックと panels.css の `.theme-picker-4`、index.html のリキッド2ボタンを再注入すること。
+
+---
+
 ### 2026-05-19：本体 v2.4.1 〜 v2.5.13 を全面反映（v2.5.13-demo）
 
 **反映方法**：本体 `carflow/` の `js/` `css/` 配下を `demo-carflow/` にバルクコピー（`demo-*.js` と `demo.css` は除外）。`theme.js` は 4 テーマ実装を維持しつつ本体 v2.5.7+ の `toggleTheme()` と `tb-theme-toggle` 連動を手動マージ。`index.html` は本体ファイルを丸ごとコピーした上で以下のデモ差分を再注入：

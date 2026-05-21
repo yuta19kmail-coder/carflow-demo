@@ -14,13 +14,13 @@
 <script src="js/ios-safe-pad.js?v=284"></script>
 
 <!-- ========== CSS ========== -->
-<link rel="stylesheet" href="css/base.css?v=284">
+<link rel="stylesheet" href="css/base.css?v=285">
 <link rel="stylesheet" href="css/login.css?v=284">
 <!-- デモ版専用：デモバナー＋ログイン画面＋デモロール切替などのスタイル -->
 <link rel="stylesheet" href="css/demo.css?v=285">
 <link rel="stylesheet" href="css/layout.css?v=284">
 <link rel="stylesheet" href="css/components.css?v=320">
-<link rel="stylesheet" href="css/panels.css?v=361">
+<link rel="stylesheet" href="css/panels.css?v=362">
 <link rel="stylesheet" href="css/kanban.css?v=321">
 <link rel="stylesheet" href="css/calendar.css?v=286">
 <link rel="stylesheet" href="css/modal.css?v=316">
@@ -102,7 +102,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v2.5.13-demo</div>
+    <div class="login-ver">CarFlow v2.5.14-demo</div>
   </div>
 </div>
 
@@ -113,7 +113,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
     <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.5.13-demo</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.5.14-demo</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替">🌙</button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
@@ -354,9 +354,11 @@
                 <p class="settings-section-desc">画面の見え方を調整できます。設定はこのブラウザに保存されます</p>
                 <div class="settings-card">
                   <h3 class="settings-card-title">テーマ</h3>
-                  <div class="theme-picker" id="theme-picker">
-                    <button class="theme-btn" data-theme="dark"  onclick="setTheme('dark')">🌙 ダーク</button>
-                    <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀️ ライト</button>
+                  <div class="theme-picker theme-picker-4" id="theme-picker">
+                    <button class="theme-btn" data-theme="dark"          onclick="setTheme('dark')">🌙 ダーク</button>
+                    <button class="theme-btn" data-theme="light"         onclick="setTheme('light')">☀️ ライト</button>
+                    <button class="theme-btn" data-theme="dark-liquid"   onclick="setTheme('dark-liquid')">✨ ダーク・リキッド</button>
+                    <button class="theme-btn" data-theme="light-liquid"  onclick="setTheme('light-liquid')">💎 ライト・リキッド</button>
                   </div>
                 </div>
                 <div class="settings-card">

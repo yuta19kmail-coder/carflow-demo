@@ -16,28 +16,107 @@
   --sidebar:220px;--topbar:54px;--tabs:46px;--action:56px;
   --r:8px;--r2:12px;
   --shadow-card:0 3px 12px rgba(0,0,0,.35);
+  /* v2.4.0-demo: リキッド用変数（標準テーマでは無効化） */
+  --liquid-bg-image: none;
+  --panel-bg-overlay: transparent;
+  --panel-blur: 0;
+  --panel-border-overlay: transparent;
 }
 
-/* ===== ライトテーマ（v0.9.7 で再調整：薄ベージュ系） ===== */
+/* ===== ② ライト・スタンダード（v2.4.0-demo：モダンSaaS風 白グレー系） ===== */
 :root[data-theme="light"]{
-  --bg:#f5f1ea;
-  --bg1:#f5f1ea;
-  --bg2:#fffdf8;
-  --bg3:#ece5d6;
-  --bg4:#ddd4bf;
-  --border:#c8bfa8;
-  --border2:#a89d80;
-  --text:#2a2620;
-  --text2:#5a4f3f;
-  --text3:#8a7d65;
-  /* v0.9.8: オレンジを更に濃く（焦茶系）。「注意」「要対応」が読みやすい */
-  --green:#057a5b;
-  --blue:#1e5fc2;
-  --orange:#9a4a05;
-  --red:#a31818;
+  --bg:#F4F6F9;
+  --bg1:#F4F6F9;
+  --bg2:#FFFFFF;
+  --bg3:#EFF2F6;
+  --bg4:#E5E8EE;
+  --border:#E5E8EE;
+  --border2:#CBD2DC;
+  --text:#1F2937;
+  --text2:#6B7280;
+  --text3:#9AA3B0;
+  --green:#10B981;
+  --blue:#3A82F6;
+  --orange:#F59E0B;
+  --red:#EF4444;
+  --accent:#3A82F6;
   --sidebar:220px;--topbar:54px;--tabs:46px;--action:56px;
   --r:8px;--r2:12px;
-  --shadow-card:0 2px 8px rgba(80,60,30,.12);
+  --shadow-card:0 2px 8px rgba(31,41,55,.06);
+  /* v2.4.0-demo: リキッド用変数（標準テーマでは無効化） */
+  --liquid-bg-image: none;
+  --panel-bg-overlay: transparent;
+  --panel-blur: 0;
+  --panel-border-overlay: transparent;
+}
+
+/* ===== ③ ダーク・リキッド（紫青グラデ＋ガラス） ===== */
+:root[data-theme="dark-liquid"]{
+  --bg:#0f1117;
+  --bg1:#0f1117;
+  --bg2:#1a1d27;
+  --bg3:#222536;
+  --bg4:#2a2e42;
+  --border:#3a3f5e;--border2:#4d537a;
+  --text:#E8ECF7;--text1:#E8ECF7;--text2:#B5BEE0;--text3:#7E87B0;
+  --green:#34D399;--blue:#60A5FA;--orange:#FBBF24;--red:#F87171;
+  --accent:#3A82F6;
+  --sidebar:220px;--topbar:54px;--tabs:46px;--action:56px;
+  --r:8px;--r2:12px;
+  --shadow-card:0 4px 16px rgba(0,0,0,.45);
+  /* ガラス効果用の追加変数 */
+  --liquid-bg-image: radial-gradient(circle at 18% 22%, #3A3F70 0%, transparent 45%),
+                     radial-gradient(circle at 82% 80%, #5C3F8F 0%, transparent 50%),
+                     linear-gradient(135deg, #1B2240 0%, #14182C 100%);
+  --panel-bg-overlay: rgba(255,255,255,0.06);
+  --panel-blur: 22px;
+  --panel-border-overlay: rgba(255,255,255,0.14);
+}
+
+/* ===== ④ ライト・リキッド（淡パステルグラデ＋ガラス） ===== */
+:root[data-theme="light-liquid"]{
+  --bg:#F4F6F9;
+  --bg1:#F4F6F9;
+  --bg2:#FFFFFF;
+  --bg3:#EFF2F6;
+  --bg4:#E5E8EE;
+  --border:#DDE3EC;--border2:#C6CFDC;
+  --text:#1F2937;--text2:#6B7280;--text3:#9AA3B0;
+  --green:#10B981;--blue:#3A82F6;--orange:#F59E0B;--red:#EF4444;
+  --accent:#3A82F6;
+  --sidebar:220px;--topbar:54px;--tabs:46px;--action:56px;
+  --r:8px;--r2:12px;
+  --shadow-card:0 4px 16px rgba(31,41,55,.08);
+  /* ガラス効果用の追加変数 */
+  --liquid-bg-image: radial-gradient(circle at 18% 22%, #C8DEFB 0%, transparent 50%),
+                     radial-gradient(circle at 82% 80%, #E2D4F8 0%, transparent 55%),
+                     linear-gradient(135deg, #EAF1FB 0%, #FBF4F0 100%);
+  --panel-bg-overlay: rgba(255,255,255,0.55);
+  --panel-blur: 22px;
+  --panel-border-overlay: rgba(255,255,255,0.7);
+}
+
+/* ===== リキッド共通：背景画像と半透明パネル ===== */
+:root[data-theme$="-liquid"] body{
+  background: var(--liquid-bg-image), var(--bg) !important;
+  background-attachment: fixed !important;
+}
+/* パネル類にガラス効果。主要なパネル・カード・モーダルに適用 */
+:root[data-theme$="-liquid"] .topbar,
+:root[data-theme$="-liquid"] .sidebar,
+:root[data-theme$="-liquid"] .tabs,
+:root[data-theme$="-liquid"] .action-area,
+:root[data-theme$="-liquid"] .panel-card,
+:root[data-theme$="-liquid"] .settings-card,
+:root[data-theme$="-liquid"] .pv-card,
+:root[data-theme$="-liquid"] .bo-card,
+:root[data-theme$="-liquid"] .modal,
+:root[data-theme$="-liquid"] .bn-card,
+:root[data-theme$="-liquid"] .kanban-card{
+  background: var(--panel-bg-overlay) !important;
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border-color: var(--panel-border-overlay) !important;
 }
 
 /* ===== v0.9.8: ライトモードでハードコードの黄色系・オレンジ系を上書き ===== */
