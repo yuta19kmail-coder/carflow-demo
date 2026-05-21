@@ -16,8 +16,66 @@
 //   markAllAnnounceRead()    すべて既読
 // ========================================
 
-// ----- お知らせデータ（新しいものほど上に。date は YYYY-MM-DD） -----
+// ----- お知らせデータ（version は対応バージョン、date は YYYY-MM-DD） -----
+//   seed:true … 公開時点で「既読扱い」（過去機能のまとめ）。ポップアップは出さず受信箱では確認済み表示。
+//   ※デモでは直近3件（4テーマ/メモ/ログ）は seed を付けず、ポップアップのデモンストレーション用に残す。
 const ANNOUNCEMENTS = [
+  {
+    id: 'a-hist-realtime',
+    seed: true,
+    version: '1.8',
+    date: '2026-05-16',
+    title: '🔄 リアルタイム同期',
+    body: `<p>複数の端末・スタッフで同時に使っても、カードの変更が<b>リアルタイムで全員の画面に反映</b>されるようになりました。</p>`,
+  },
+  {
+    id: 'a-hist-tax',
+    seed: true,
+    version: '1.8',
+    date: '2026-05-16',
+    title: '💴 税モード（税抜／税込の切り替え）',
+    body: `<p>金額を<b>税抜／税込</b>で切り替えて表示できるようになりました（設定 → 税扱い）。本体価格と総額の併記にも対応しています。</p>`,
+  },
+  {
+    id: 'a-hist-line',
+    seed: true,
+    version: '1.8',
+    date: '2026-05-16',
+    title: '🔔 LINE通知＆2軸期日（目標ライン／限界ライン）',
+    body: `<p>タスクに<b>「目標ライン」「限界ライン」</b>の2段階の期日を設定できるようになりました。期日が近づくと<b>社内LINEグループへ自動通知</b>が飛びます（設定 → 通知）。</p>`,
+  },
+  {
+    id: 'a-hist-dashboard',
+    seed: true,
+    version: '1.8',
+    date: '2026-05-16',
+    title: '📊 ダッシュボード刷新（サマリー6カード＋着地予測）',
+    body: `<p>ダッシュボード上部に在庫・売約・納車の<b>サマリー6カード</b>を追加。さらに今月の販売<b>着地予測</b>（確定／見込み／実績予測）を表示するようにしました。</p>`,
+  },
+  {
+    id: 'a-hist-backoffice',
+    seed: true,
+    version: '2.1',
+    date: '2026-05-18',
+    title: '🗂 バックオフィス（売約後の事務処理）',
+    body: `<p>売約後の事務処理（原価処理・書類整理など）を専用の<b>「🗂 バックオフィス」</b>ビューで管理できるようになりました（左メニュー）。当月／先月／先々月で整理して見られます。</p>`,
+  },
+  {
+    id: 'a-hist-taskmemo',
+    seed: true,
+    version: '2.2',
+    date: '2026-05-18',
+    title: '📝 タスク個別メモ＋自動付箋',
+    body: `<p>各大タスクに<b>個別メモ</b>（自由文／日付／時刻）を付けられるようになりました（設定 → タスク・進捗 → 📝メモ設定）。日付メモは全体タスクの<b>緑付箋に自動表示</b>されます。</p>`,
+  },
+  {
+    id: 'a-hist-taskpattern',
+    seed: true,
+    version: '2.5',
+    date: '2026-05-19',
+    title: '📦 タスクパターン＆小タスク制',
+    body: `<p>大タスクの中身（小タスクのチェックリスト）を<b>「タスクパターン」</b>として管理・編集できるようになりました（設定 → 📦タスクパターン）。各タスクの<b>小タスク制 ON/OFF</b> も自由に切り替えられます。</p>`,
+  },
   {
     id: 'a-20260521-theme',
     version: '2.6',
@@ -77,9 +135,15 @@ function _getReadAnnounce() {
 function _setReadAnnounce(arr) {
   try { localStorage.setItem(ANNOUNCE_READ_KEY, JSON.stringify(arr)); } catch (e) {}
 }
+// seed:true（公開時点で既読扱い）か、保存済み既読に含まれていれば「既読」とみなす
+function _isAncRead(id, readArr) {
+  if (readArr && readArr.indexOf(id) !== -1) return true;
+  const a = ANNOUNCEMENTS.find(x => x.id === id);
+  return !!(a && a.seed);
+}
 function announceUnreadCount() {
   const read = _getReadAnnounce();
-  return ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1).length;
+  return ANNOUNCEMENTS.filter(a => !_isAncRead(a.id, read)).length;
 }
 function _markAnnounceRead(id) {
   const read = _getReadAnnounce();
@@ -131,7 +195,7 @@ function renderAnnounce() {
     return;
   }
   host.innerHTML = items.map(a => {
-    const isRead = read.indexOf(a.id) !== -1;
+    const isRead = _isAncRead(a.id, read);
     const isOpen = window._ancOpen === a.id;
     const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
     const footer = isRead
@@ -184,7 +248,7 @@ function maybeShowAnnouncePopup() {
 // 未読を「古い順（バージョン昇順→日付昇順）」で返す
 function _unreadAncSorted() {
   const read = _getReadAnnounce();
-  return ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1)
+  return ANNOUNCEMENTS.filter(a => !_isAncRead(a.id, read))
     .sort((a, b) => _verCmp(a.version, b.version) || String(a.date || '').localeCompare(String(b.date || '')));
 }
 // 後方互換：直接呼ばれてもキュー表示にする
