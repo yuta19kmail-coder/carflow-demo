@@ -128,6 +128,55 @@
     };
   }
 
+  // v2.7-demo: 小タスクのパターン（タスクパターン＝variant）をデモ用に注入
+  //   再生(t_regen)・展示(t_exhibit)に「簡易/フル」などのバリアントを追加（既存アイテムの部分集合なので進捗計算と整合）
+  //   デモはテンプレを Firestore に seed せず in-memory の ChecklistTemplates をそのまま使うため、ここで足せば反映される。
+  function _injectDemoVariants() {
+    if (typeof ChecklistTemplates === 'undefined') return;
+    const addVariants = (tplId, defs) => {
+      const tpl = ChecklistTemplates[tplId];
+      if (!tpl || !Array.isArray(tpl.variants) || !tpl.variants[0]) return;
+      if (tpl.variants.length > 1) return; // 既に注入済みならスキップ（多重防止）
+      const baseItems = [];
+      (tpl.variants[0].sections || []).forEach((s) => (s.items || []).forEach((it) => baseItems.push(it)));
+      defs.forEach((def) => {
+        const items = (def.count ? baseItems.slice(0, def.count) : baseItems.slice()).map((it) => ({ ...it }));
+        tpl.variants.push({ id: def.id, name: def.name, sections: [{ title: def.name, items }] });
+      });
+    };
+    addVariants('tpl_regen_t_regen', [
+      { id: 'regen_quick', name: '簡易コース', count: 4 },
+      { id: 'regen_full',  name: '入念フルコース' },
+    ]);
+    addVariants('tpl_regen_t_exhibit', [
+      { id: 'exh_basic', name: '基本セット', count: 2 },
+      { id: 'exh_full',  name: 'フル展示' },
+    ]);
+  }
+  // バリアントの小タスクid一覧（variantId未指定/未存在ならデフォルト=variants[0]）
+  function _variantItemIds(tplId, variantId) {
+    if (typeof ChecklistTemplates === 'undefined') return [];
+    const tpl = ChecklistTemplates[tplId];
+    if (!tpl || !Array.isArray(tpl.variants) || !tpl.variants.length) return [];
+    const v = (variantId && tpl.variants.find((x) => x.id === variantId)) || tpl.variants[0];
+    const ids = [];
+    (v.sections || []).forEach((s) => (s.items || []).forEach((it) => ids.push(it.id)));
+    return ids;
+  }
+  // 車に variant を割当て、完了状態（complete/partial/none）の小タスクデータを作る
+  function _applyVariantState(car, phaseKey, taskId, tplId, variantId, state) {
+    car.taskVariants = car.taskVariants || {};
+    if (variantId && variantId !== 'default') car.taskVariants[taskId] = variantId;
+    else if (car.taskVariants[taskId]) delete car.taskVariants[taskId];
+    const ids = _variantItemIds(tplId, variantId);
+    const obj = {};
+    if (state === 'complete') ids.forEach((id) => { obj[id] = true; });
+    else if (state === 'partial') ids.forEach((id, k) => { if (k % 2 === 0) obj[id] = true; });
+    // 'none' は空（やってない）
+    car[phaseKey] = car[phaseKey] || {};
+    car[phaseKey][taskId] = obj;
+  }
+
   // 車両ごとに「あるべき進捗状態」のタスクを設定
   function _applyTasksByCol(car, col) {
     car.regenTasks = {};
@@ -201,6 +250,7 @@
   ];
 
   function _makeCarsByPlan() {
+    _injectDemoVariants();   // 小タスクのパターン（variant）を ChecklistTemplates に注入
     const list = [];
     let idx = 1;
     CAR_PLAN.forEach(({ col, count, invDays }) => {
@@ -305,6 +355,38 @@
       c.taskMemos = c.taskMemos || {};
       c.taskMemos.d_register = { value: _daysFromNow(2 + i * 2), createdBy: 'demo-staff-003', ..._stamp };
       if (i % 2 === 0) c.taskMemos.d_maint = { value: ['09:30', '13:00', '15:30'][i % 3], createdBy: 'demo-staff-006', ..._stamp };
+    });
+
+    // 小タスクのパターン（variant）×進捗状態（完了/やりかけ/やってない）のバリエーション
+    //   再生車：再生中なので 完了・やりかけ・未着手 を散らす（パターンも複数）
+    const REGEN_SPREAD = [
+      { v: 'default',     s: 'complete' },
+      { v: 'regen_quick', s: 'partial' },
+      { v: 'regen_full',  s: 'none' },
+      { v: 'regen_quick', s: 'complete' },
+      { v: 'default',     s: 'partial' },
+      { v: 'regen_full',  s: 'partial' },
+      { v: 'default',     s: 'none' },
+    ];
+    const EXHIBIT_SPREAD = [
+      { v: 'exh_full',  s: 'partial' },
+      { v: 'default',   s: 'none' },
+      { v: 'exh_basic', s: 'complete' },
+      { v: 'exh_full',  s: 'complete' },
+      { v: 'default',   s: 'partial' },
+      { v: 'exh_basic', s: 'none' },
+      { v: 'exh_full',  s: 'complete' },
+    ];
+    byCol('regen').forEach((c, j) => {
+      const rg = REGEN_SPREAD[j % REGEN_SPREAD.length];
+      _applyVariantState(c, 'regenTasks', 't_regen', 'tpl_regen_t_regen', rg.v, rg.s);
+      const ex = EXHIBIT_SPREAD[j % EXHIBIT_SPREAD.length];
+      _applyVariantState(c, 'regenTasks', 't_exhibit', 'tpl_regen_t_exhibit', ex.v, ex.s);
+    });
+    // 展示車：再生は完了済みだが、使ったパターンは多様に（complete のまま）
+    byCol('exhibit').forEach((c, j) => {
+      _applyVariantState(c, 'regenTasks', 't_regen', 'tpl_regen_t_regen', ['default', 'regen_quick', 'regen_full'][j % 3], 'complete');
+      _applyVariantState(c, 'regenTasks', 't_exhibit', 'tpl_regen_t_exhibit', ['default', 'exh_basic', 'exh_full'][j % 3], 'complete');
     });
     return list;
   }

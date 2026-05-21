@@ -31,6 +31,20 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：小タスクのパターン（タスクパターン/variant）をデモに追加（v2.5.32-demo）
+
+再生(t_regen)・展示(t_exhibit)に「複数パターン」が無かったので追加し、車を 完了/やりかけ/やってない に散らした。
+
+- **バリアント注入**：`_injectDemoVariants()` で in-memory `ChecklistTemplates['tpl_regen_t_regen']`/`['tpl_regen_t_exhibit']` に variant を追加。
+  - 再生：デフォルト／「簡易コース」(先頭4項目)／「入念フルコース」(全項目)
+  - 展示：デフォルト／「基本セット」(先頭2項目)／「フル展示」(全項目)
+  - ※既存アイテムの部分集合なので進捗計算と整合。デモはテンプレを Firestore に seed せず in-memory をそのまま使う（`refreshTemplates` は空Firestoreでは上書きしない）ため、注入で反映される。
+- **車への割当**：再生車7台に `car.taskVariants` でパターンを割当て、`_applyVariantState()` で 完了(全項目true)／やりかけ(半分true)／やってない(空) を散らす。展示車にもパターンの多様性（再生完了済みなので complete）。
+
+`js/demo-sample-data.js`(?v=4)。バージョン `v2.5.32-demo`。
+
+---
+
 ### 2026-05-21：デモ用サンプルデータを新機能モリモリに全面再生成（v2.5.31-demo）
 
 `js/demo-sample-data.js` を刷新。当時（初版）に無かった新機能を実際に使った状態のデータに。
