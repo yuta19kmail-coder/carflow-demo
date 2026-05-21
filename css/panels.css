@@ -388,13 +388,14 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .anc-confirm-btn:hover{filter:brightness(1.08)}
 .anc-confirm-btn:active{transform:scale(.97)}
 .anc-confirmed{font-size:12px;color:var(--green);font-weight:600}
-/* 新着お知らせポップアップ（ログイン後の What's New） */
-.anc-popup{width:560px;max-width:96vw;padding:0;display:flex;flex-direction:column;max-height:86vh}
-.anc-popup-head{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
-.anc-popup-title{font-size:18px;font-weight:700;color:var(--text)}
-.anc-popup-sub{font-size:12px;color:var(--text3);margin-top:3px}
-.anc-popup-body{padding:4px 20px;overflow-y:auto;flex:1}
-.anc-popup-item{padding:14px 0;border-bottom:1px solid var(--border)}
+/* 新着お知らせポップアップ（ログイン後の What's New）— 目立つ青ヘッダー帯＋強い影＋アクセント枠 */
+.anc-popup{width:460px;max-width:96vw;padding:0;display:flex;flex-direction:column;max-height:86vh;border:2px solid var(--blue);box-shadow:0 18px 56px rgba(0,0,0,.55)}
+.anc-popup-head{padding:15px 20px;background:var(--blue);color:#fff;display:flex;align-items:center;gap:10px}
+.anc-popup-icon{font-size:22px;line-height:1;flex-shrink:0}
+.anc-popup-title{font-size:17px;font-weight:700;color:#fff;flex:1}
+.anc-popup-progress{font-size:12px;font-weight:600;color:#fff;background:rgba(255,255,255,.22);padding:2px 10px;border-radius:10px;flex-shrink:0}
+.anc-popup-body{padding:16px 20px;overflow-y:auto;flex:1}
+.anc-popup-item{padding:0}
 .anc-popup-item:last-child{border-bottom:none}
 .anc-popup-item-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .anc-popup-item-title{flex:1;font-size:14px;font-weight:700;color:var(--text)}

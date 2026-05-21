@@ -113,11 +113,18 @@ function _ancEsc(s) {
   if (typeof escapeHtml === 'function') return escapeHtml(s);
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+// バージョン比較（"2.7" > "2.6"）。昇順差分を返す。
+function _verNum(v) {
+  const p = String(v == null ? '0' : v).split('.').map(n => parseInt(n, 10) || 0);
+  return (p[0] || 0) * 10000 + (p[1] || 0) * 100 + (p[2] || 0);
+}
+function _verCmp(a, b) { return _verNum(a) - _verNum(b); }
 function renderAnnounce() {
   const host = document.getElementById('announce-list');
   if (!host) return;
   const read = _getReadAnnounce();
-  const items = ANNOUNCEMENTS.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // 受信箱：バージョンが新しい順（同点は日付が新しい順）
+  const items = ANNOUNCEMENTS.slice().sort((a, b) => _verCmp(b.version, a.version) || String(b.date || '').localeCompare(String(a.date || '')));
   if (!items.length) {
     host.innerHTML = '<div class="anc-empty">お知らせはありません</div>';
     refreshAnnounceBadge();
@@ -164,39 +171,52 @@ function _ancPopupEl() {
   }
   return el;
 }
-// 未読があればポップアップを出す（ログイン直後に1回）
+// 未読があればポップアップを出す（ログイン直後・1回）。複数あれば「古い順」に1件ずつ表示。
 function maybeShowAnnouncePopup() {
   if (window._ancPopupShown) return;
-  const read = _getReadAnnounce();
-  const unread = ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1);
+  const unread = _unreadAncSorted();
   if (!unread.length) return;
   window._ancPopupShown = true;
-  showAnnouncePopup(unread);
+  window._ancQueue = unread;
+  window._ancQueueIdx = 0;
+  _showAncQueueItem();
 }
-function showAnnouncePopup(unread) {
-  if (!unread) {
-    const read = _getReadAnnounce();
-    unread = ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1);
-  }
+// 未読を「古い順（バージョン昇順→日付昇順）」で返す
+function _unreadAncSorted() {
+  const read = _getReadAnnounce();
+  return ANNOUNCEMENTS.filter(a => read.indexOf(a.id) === -1)
+    .sort((a, b) => _verCmp(a.version, b.version) || String(a.date || '').localeCompare(String(b.date || '')));
+}
+// 後方互換：直接呼ばれてもキュー表示にする
+function showAnnouncePopup() {
+  const unread = _unreadAncSorted();
   if (!unread.length) return;
-  const items = unread.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
-  const itemsHtml = items.map(a => {
-    const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
-    return '<div class="anc-popup-item">'
-      + '<div class="anc-popup-item-head">' + verTag
-      + '<span class="anc-popup-item-title">' + _ancEsc(a.title) + '</span>'
-      + '<span class="anc-popup-item-date">' + _ancEsc(a.date || '') + '</span></div>'
-      + '<div class="anc-popup-item-body">' + (a.body || '') + '</div>'
-      + '</div>';
-  }).join('');
+  window._ancQueue = unread;
+  window._ancQueueIdx = 0;
+  _showAncQueueItem();
+}
+// キューの現在位置の1件を表示
+function _showAncQueueItem() {
+  const q = window._ancQueue || [];
+  const i = window._ancQueueIdx || 0;
+  if (i >= q.length) { closeAnnouncePopup(); return; }
+  const a = q[i];
+  const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
+  const progress = (q.length > 1) ? '<span class="anc-popup-progress">' + (i + 1) + ' / ' + q.length + '</span>' : '';
+  const okLabel = (i + 1 < q.length) ? '確認して次へ ▶' : '確認';
   const el = _ancPopupEl();
   el.innerHTML = '<div class="modal anc-popup">'
-    + '<div class="anc-popup-head"><div class="anc-popup-title">📢 新着のお知らせ</div>'
-    + '<div class="anc-popup-sub">' + items.length + '件の新しいお知らせがあります</div></div>'
-    + '<div class="anc-popup-body">' + itemsHtml + '</div>'
+    + '<div class="anc-popup-head"><span class="anc-popup-icon">📢</span>'
+    + '<span class="anc-popup-title">新着のお知らせ</span>' + progress + '</div>'
+    + '<div class="anc-popup-body">'
+    + '<div class="anc-popup-item-head">' + verTag
+    + '<span class="anc-popup-item-title">' + _ancEsc(a.title) + '</span>'
+    + '<span class="anc-popup-item-date">' + _ancEsc(a.date || '') + '</span></div>'
+    + '<div class="anc-popup-item-body">' + (a.body || '') + '</div>'
+    + '</div>'
     + '<div class="anc-popup-foot">'
     + '<button type="button" class="anc-popup-later" onclick="closeAnnouncePopup()">後で</button>'
-    + '<button type="button" class="anc-popup-ok" onclick="confirmAnnouncePopup()">確認</button>'
+    + '<button type="button" class="anc-popup-ok" onclick="confirmAnnouncePopup()">' + okLabel + '</button>'
     + '</div></div>';
   el.classList.add('open');
 }
@@ -204,9 +224,18 @@ function closeAnnouncePopup() {
   const el = document.getElementById('announce-popup-overlay');
   if (el) el.classList.remove('open');
 }
+// 「確認」：今表示中の1件を既読にし、次の1件（より新しい方）へ。なければ閉じる。
 function confirmAnnouncePopup() {
-  markAllAnnounceRead();   // 全既読＋バッジ更新＋（パネルが開いていれば再描画）
-  closeAnnouncePopup();
+  const q = window._ancQueue || [];
+  const i = window._ancQueueIdx || 0;
+  if (q[i]) _markAnnounceRead(q[i].id);
+  window._ancQueueIdx = i + 1;
+  if (window._ancQueueIdx < q.length) {
+    _showAncQueueItem();
+  } else {
+    closeAnnouncePopup();
+    if (typeof renderAnnounce === 'function') renderAnnounce();
+  }
 }
 
 // ----- 初期化：起動時にバッジを表示 -----
