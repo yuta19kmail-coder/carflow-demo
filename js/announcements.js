@@ -91,6 +91,12 @@ function markAllAnnounceRead() {
   refreshAnnounceBadge();
   renderAnnounce();
 }
+// デモ用：既読をすべてリセット（「最初からやり直す」で呼ぶ → 新着ポップアップが再び出る）
+function resetAnnounceRead() {
+  try { localStorage.removeItem(ANNOUNCE_READ_KEY); } catch (e) {}
+  window._ancPopupShown = false;
+  refreshAnnounceBadge();
+}
 
 // ----- サイドバーの未読バッジ -----
 function refreshAnnounceBadge() {

@@ -147,7 +147,7 @@
     banner.id = 'demo-banner';
     banner.innerHTML = `
       <span>🧪 <strong>デモ版</strong>　保存されません・本物のLINE通知は飛びません　</span>
-      <button onclick="location.reload()">最初からやり直す</button>
+      <button onclick="if(typeof resetAnnounceRead==='function')resetAnnounceRead();location.reload()">最初からやり直す</button>
     `;
     document.body.insertBefore(banner, document.body.firstChild);
     document.body.classList.add('demo-mode');
