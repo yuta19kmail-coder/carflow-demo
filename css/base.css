@@ -119,50 +119,54 @@
   border-color: var(--panel-border-overlay) !important;
 }
 
-/* ===== v0.9.8: ライトモードでハードコードの黄色系・オレンジ系を上書き ===== */
-:root[data-theme="light"] .dw,
-:root[data-theme="light"] .cc-bigday.dw{color:#7a3a05 !important;background:rgba(154,74,5,.15) !important}
-:root[data-theme="light"] .dr,
-:root[data-theme="light"] .cc-bigday.dr{color:#7a0d0d !important;background:rgba(163,24,24,.15) !important}
-:root[data-theme="light"] .dg,
-:root[data-theme="light"] .cc-bigday.dg{color:#054934 !important;background:rgba(5,122,91,.15) !important}
+/* ===== ライトモード（light / light-liquid 共通）：バッジ・チップを白背景でくっきり ===== */
+/* v2.5.15-demo: ダーク用の薄い半透明色を、淡色ベタ塗り＋濃い文字＋枠線に置換。 */
+/*   [data-theme^="light"] で light と light-liquid の両方にマッチさせる。 */
 
-/* tbl-group / inv-group の黄色系名前色を可読に */
-:root[data-theme="light"] .tbl-group.g-warn .tbl-group-name,
-:root[data-theme="light"] .inv-group.g-warn .tbl-group-name{color:#7a3a05}
-:root[data-theme="light"] .tbl-group.g-warn .tbl-group-count,
-:root[data-theme="light"] .inv-group.g-warn .tbl-group-count{background:rgba(154,74,5,.12);color:#7a3a05;border-color:rgba(154,74,5,.35)}
-:root[data-theme="light"] .tbl-group.g-warn,
-:root[data-theme="light"] .inv-group.g-warn{border-left-color:#9a4a05}
+/* 在庫日数バッジ（緑＝good / 琥珀＝注意 / 赤＝危険） */
+:root[data-theme^="light"] .dg,
+:root[data-theme^="light"] .cc-bigday.dg{color:#047857 !important;background:#D1FAE5 !important;border:1px solid #6EE7B7 !important}
+:root[data-theme^="light"] .dw,
+:root[data-theme^="light"] .cc-bigday.dw{color:#B45309 !important;background:#FEF3C7 !important;border:1px solid #FCD34D !important}
+:root[data-theme^="light"] .dr,
+:root[data-theme^="light"] .cc-bigday.dr{color:#B91C1C !important;background:#FEE2E2 !important;border:1px solid #FCA5A5 !important}
+/* 売約バッジ（青）— 淡い水色文字をやめて濃い青に */
+:root[data-theme^="light"] .db,
+:root[data-theme^="light"] .cc-bigday.db{color:#1D4ED8 !important;background:#DBEAFE !important;border:1px solid #93C5FD !important}
+/* その他カードの仕入バッジ（ニュートラル） */
+:root[data-theme^="light"] .cc-bigday.cc-other-day{background:#EFF2F6 !important;color:#5F6B7A !important;border:1px solid #CBD2DC !important}
 
-:root[data-theme="light"] .tbl-group.g-action .tbl-group-name,
-:root[data-theme="light"] .inv-group.g-action .tbl-group-name{color:#9a4a05}
-:root[data-theme="light"] .tbl-group.g-action .tbl-group-count,
-:root[data-theme="light"] .inv-group.g-action .tbl-group-count{background:rgba(154,74,5,.15);color:#7a3a05;border-color:rgba(154,74,5,.4)}
+/* 進捗ドット：緑(完了)/オレンジ(途中)。茶色上書きを撤去し、kanban.css の var(--green)/var(--orange) をそのまま使う（ダークと同じ意味分け） */
 
-:root[data-theme="light"] .tbl-group.g-danger .tbl-group-name,
-:root[data-theme="light"] .inv-group.g-danger .tbl-group-name{color:#a31818}
-:root[data-theme="light"] .tbl-group.g-danger .tbl-group-count,
-:root[data-theme="light"] .inv-group.g-danger .tbl-group-count{background:rgba(163,24,24,.12);color:#7a0d0d;border-color:rgba(163,24,24,.4)}
+/* 下段帯（納車警告色） */
+:root[data-theme^="light"] .cc-bottom-bar.bw{background:#FEF3C7 !important;color:#B45309 !important;border-top-color:#FCD34D !important}
+:root[data-theme^="light"] .cc-bottom-bar.br{background:#FEE2E2 !important;color:#B91C1C !important;border-top-color:#FCA5A5 !important}
+:root[data-theme^="light"] .cc-bottom-bar.bb{background:#DBEAFE !important;color:#1D4ED8 !important;border-top-color:#93C5FD !important}
 
-/* arc-achv（販売実績の達成バッジ）も */
-:root[data-theme="light"] .arc-achv.miss{background:rgba(154,74,5,.12);color:#7a3a05;border-color:rgba(154,74,5,.4)}
-:root[data-theme="light"] .arc-achv.hit{background:rgba(5,122,91,.12);color:#054934;border-color:rgba(5,122,91,.4)}
+/* 全体一覧 tbl-group / inv-group の見出し・件数 */
+:root[data-theme^="light"] .tbl-group.g-warn .tbl-group-name,
+:root[data-theme^="light"] .inv-group.g-warn .tbl-group-name{color:#B45309}
+:root[data-theme^="light"] .tbl-group.g-warn .tbl-group-count,
+:root[data-theme^="light"] .inv-group.g-warn .tbl-group-count{background:#FEF3C7;color:#B45309;border-color:#FCD34D}
+:root[data-theme^="light"] .tbl-group.g-warn,
+:root[data-theme^="light"] .inv-group.g-warn{border-left-color:#F59E0B}
 
-/* cc-bottom-bar（下段帯）の納車警告色 */
-:root[data-theme="light"] .cc-bottom-bar.bw{background:rgba(154,74,5,.15) !important;color:#7a3a05 !important;border-top-color:rgba(154,74,5,.35) !important}
-:root[data-theme="light"] .cc-bottom-bar.br{background:rgba(163,24,24,.15) !important;color:#7a0d0d !important;border-top-color:rgba(163,24,24,.4) !important}
-:root[data-theme="light"] .cc-bottom-bar.bb{background:rgba(30,95,194,.12) !important;color:#1e5fc2 !important;border-top-color:rgba(30,95,194,.3) !important}
+:root[data-theme^="light"] .tbl-group.g-action .tbl-group-name,
+:root[data-theme^="light"] .inv-group.g-action .tbl-group-name{color:#C2410C}
+:root[data-theme^="light"] .tbl-group.g-action .tbl-group-count,
+:root[data-theme^="light"] .inv-group.g-action .tbl-group-count{background:#FFEDD5;color:#C2410C;border-color:#FDBA74}
 
-/* cc-other-day（その他カード仕入バッジ）もライトで濃く */
-:root[data-theme="light"] .cc-bigday.cc-other-day{background:rgba(138,125,101,.18);color:#5a4f3f;border-color:rgba(138,125,101,.4)}
+:root[data-theme^="light"] .tbl-group.g-danger .tbl-group-name,
+:root[data-theme^="light"] .inv-group.g-danger .tbl-group-name{color:#B91C1C}
+:root[data-theme^="light"] .tbl-group.g-danger .tbl-group-count,
+:root[data-theme^="light"] .inv-group.g-danger .tbl-group-count{background:#FEE2E2;color:#B91C1C;border-color:#FCA5A5}
 
-/* 進捗ドット（オレンジ→焦茶） */
-:root[data-theme="light"] .cc-dot.done,
-:root[data-theme="light"] .cc-dot.partial{background:#9a4a05;border-color:#9a4a05}
+/* 販売実績の達成バッジ */
+:root[data-theme^="light"] .arc-achv.miss{background:#FEF3C7;color:#B45309;border-color:#FCD34D}
+:root[data-theme^="light"] .arc-achv.hit{background:#D1FAE5;color:#047857;border-color:#6EE7B7}
 
 /* ヘルプWIP帯 */
-:root[data-theme="light"] .help-wip{background:rgba(154,74,5,.10);border-color:rgba(154,74,5,.4);color:#7a3a05}
+:root[data-theme^="light"] .help-wip{background:#FEF3C7;border-color:#FCD34D;color:#B45309}
 
 /* ===== フォントサイズ切替（zoomベース） ===== */
 :root,

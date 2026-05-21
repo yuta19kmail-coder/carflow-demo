@@ -20,6 +20,16 @@
 .chip-count{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:16px;font-size:12px;border:1px solid transparent;cursor:default}
 .chip-count .chip-count-num{font-weight:700;margin-left:2px}
 
+/* v2.5.15-demo: ライトモード（light / light-liquid）で要対応チップを白背景でくっきり。 */
+/*   ダーク時はインラインの薄い色のまま。ライト時だけ !important で濃い文字＋淡色ベタ塗りに上書き。 */
+:root[data-theme^="light"] .chip-yellow,
+:root[data-theme^="light"] .chip-count.sev-warn{background:#FEF3C7 !important;border-color:#FCD34D !important;color:#B45309 !important}
+:root[data-theme^="light"] .chip-orange,
+:root[data-theme^="light"] .chip-count.sev-action{background:#FFEDD5 !important;border-color:#FDBA74 !important;color:#C2410C !important}
+:root[data-theme^="light"] .chip-red,
+:root[data-theme^="light"] .chip-count.sev-danger{background:#FEE2E2 !important;border-color:#FCA5A5 !important;color:#B91C1C !important}
+:root[data-theme^="light"] .chip-count.sev-prep{background:#DBEAFE !important;border-color:#93C5FD !important;color:#1D4ED8 !important}
+
 /* ピル（ステータスラベル） */
 .pill{font-size:11px;padding:3px 8px;border-radius:8px;font-weight:600;display:inline-block}
 .pill-blue{background:rgba(55,138,221,.2);color:#93c5fd}

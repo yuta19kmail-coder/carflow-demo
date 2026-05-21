@@ -69,9 +69,24 @@ function _buildInventoryWarningChips() {
     });
     if (list.length === 0) return;
     const style = `background:${t.bg};border:1px solid ${t.color};color:${t.color}`;
-    chips.push(`<div class="chip-count" style="${style}" title="${t.label} — 在庫${t.days}日以上">📦 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
+    // v2.5.15-demo: ライトモード用 severity クラス（tier色から判定）。ダーク時はインライン色のまま、
+    //   ライト時のみ CSS(components.css)が !important で読みやすい色に上書きする。
+    const sev = _chipCountSevClass(t.color);
+    chips.push(`<div class="chip-count${sev ? ' ' + sev : ''}" style="${style}" title="${t.label} — 在庫${t.days}日以上">📦 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
   });
   return chips;
+}
+
+// v2.5.15-demo: 在庫集計チップの tier 色 → severity クラス対応（ライトモードの可読色上書き用）
+function _chipCountSevClass(color) {
+  const c = String(color || '').toLowerCase();
+  const map = {
+    '#fcd34d': 'sev-warn',   // 注意（黄）
+    '#fb923c': 'sev-action', // 要対応（橙）
+    '#fca5a5': 'sev-danger', // 危険（赤）
+    '#93c5fd': 'sev-prep',   // 準備（青）
+  };
+  return map[c] || '';
 }
 
 // v1.8.80: 車両ごとに「最も切迫したタスク」を1チップにまとめる（目標/限界の2軸判定）
