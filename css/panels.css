@@ -333,6 +333,35 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
   .tb-theme-cycle{display:none !important}
 }
 
+/* ===== v2.6: 車両メモ一覧（ダッシュボード・付箋の下） ===== */
+.vml-card{margin-top:14px}
+.vml-header{display:flex;align-items:center;gap:10px;cursor:pointer}
+.vml-title{margin:0;font-size:15px;flex-shrink:0}
+.vml-total{font-size:12px;color:var(--text3);font-weight:600;margin-left:2px}
+.vml-peek{font-size:12px;color:var(--text3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vml-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:12px;padding:4px 12px;cursor:pointer;font-family:inherit;flex-shrink:0;transition:.15s}
+.vml-toggle:hover{background:var(--bg4);color:var(--text)}
+.vml-body{margin-top:10px}
+.vml-colhead, .vml-row{display:grid;grid-template-columns:96px 72px 112px 1.1fr 1.1fr 1.4fr;gap:10px;align-items:center}
+.vml-colhead{font-size:11px;color:var(--text3);font-weight:600;padding:4px 8px;border-bottom:1px solid var(--border2)}
+.vml-group{margin-top:8px}
+.vml-group-head{font-size:12px;font-weight:700;color:var(--text2);padding:6px 8px 3px;display:flex;align-items:center;gap:6px}
+.vml-group-count{font-size:11px;background:var(--bg3);color:var(--text2);border-radius:8px;padding:1px 8px;font-weight:600}
+.vml-row{font-size:12px;padding:6px 8px;border-bottom:1px solid var(--border)}
+.vml-row:hover{background:var(--bg3)}
+.vml-num{color:var(--blue);cursor:pointer;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vml-num:hover{text-decoration:underline}
+.vml-maker, .vml-model{color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vml-cell{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vml-empty{color:var(--text3)}
+.vml-tms{display:flex;gap:6px;overflow:hidden}
+.vml-tm{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap;font-size:11px;flex-shrink:0}
+.vml-tm-lbl{color:var(--text3);margin-right:4px}
+.vml-empty-all{font-size:12px;color:var(--text3);padding:8px 4px}
+/* 操作ログの管理番号リンク */
+.log-carnum{color:var(--blue);cursor:pointer}
+.log-carnum:hover{text-decoration:underline}
+
 
 /* ========================================
    v1.0.30: 設定パネル再構成（サイドバー型）

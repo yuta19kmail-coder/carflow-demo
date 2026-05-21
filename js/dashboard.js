@@ -679,9 +679,97 @@ function renderDashboard() {
   // v1.7.2: 順序入れ替え — 全体タスクが上、要対応アクションが下
   if (typeof renderBoardNotes === 'function') renderBoardNotes();
   renderActionChips();
+  renderVehicleMemoList();
   renderLanding();
   renderKPIs();
   renderWarningsSummary();
+}
+
+// ========================================
+// v2.6: 車両メモ一覧（ダッシュボード・付箋の下）
+//   コアメモ(car.memo) / 作業メモ(car.workMemo) / 大タスク付帯メモ(car.taskMemos) を
+//   一か所で確認するための折りたたみパネル。メモのある車だけ、3グループ表示。
+// ========================================
+function _carHasAnyMemo(car) {
+  if (!car) return false;
+  if ((car.memo || '').trim()) return true;
+  if ((car.workMemo || '').trim()) return true;
+  if (car.taskMemos && Object.keys(car.taskMemos).some(k => car.taskMemos[k] && String(car.taskMemos[k].value || '').trim())) return true;
+  return false;
+}
+function _carMemoGroup(car) {
+  if (car.col === 'other') return 'other';
+  if (car.col === 'delivery' || car.col === 'done' || car.contract) return 'sold';
+  return 'stock';
+}
+function _vmlTaskMemosHtml(car) {
+  if (!car.taskMemos) return '';
+  const parts = [];
+  Object.keys(car.taskMemos).forEach(id => {
+    const m = car.taskMemos[id];
+    const val = m && String(m.value || '').trim();
+    if (!val) return;
+    const info = (typeof getTaskInfoById === 'function') ? getTaskInfoById(id) : null;
+    const phase = info ? info.phase : 'regen';
+    let label = (typeof getTaskMemoLabel === 'function') ? getTaskMemoLabel(id, phase) : '';
+    if (!label) label = info ? info.name : id;
+    parts.push(`<span class="vml-tm"><span class="vml-tm-lbl">${escapeHtml(label)}</span>${escapeHtml(val.replace(/\n/g, ' '))}</span>`);
+  });
+  return parts.join('');
+}
+function toggleVehicleMemoList() {
+  window._vmlOpen = !(window._vmlOpen === true);
+  renderVehicleMemoList();
+}
+function renderVehicleMemoList() {
+  const host = document.getElementById('vehicle-memo-area');
+  if (!host) return;
+  if (typeof cars === 'undefined' || !Array.isArray(cars)) { host.innerHTML = ''; return; }
+  const memoCars = cars.filter(_carHasAnyMemo);
+  const groups = { other: [], stock: [], sold: [] };
+  memoCars.forEach(c => groups[_carMemoGroup(c)].push(c));
+  const byNum = (a, b) => String(a.num || '').localeCompare(String(b.num || ''), 'ja', { numeric: true });
+  groups.other.sort(byNum); groups.stock.sort(byNum); groups.sold.sort(byNum);
+  const total = memoCars.length;
+  const open = window._vmlOpen === true;
+
+  const GROUPS = [
+    { key: 'other', label: 'その他' },
+    { key: 'stock', label: '在庫車（仕入・準備・展示）' },
+    { key: 'sold',  label: '売約車（納車準備・納車済み）' },
+  ];
+  const rowHtml = (c) => {
+    const core = (c.memo || '').trim().replace(/\n/g, ' ');
+    const work = (c.workMemo || '').trim().replace(/\n/g, ' ');
+    const tms = _vmlTaskMemosHtml(c);
+    const dash = '<span class="vml-empty">—</span>';
+    return '<div class="vml-row">'
+      + `<a class="vml-num" onclick="event.stopPropagation();openDetail('${c.id}')" title="車両を開く">${escapeHtml(c.num || '—')}</a>`
+      + `<span class="vml-maker">${escapeHtml(c.maker || '')}</span>`
+      + `<span class="vml-model">${escapeHtml(c.model || '')}</span>`
+      + `<span class="vml-cell" title="${escapeHtml(core)}">${core ? escapeHtml(core) : dash}</span>`
+      + `<span class="vml-cell" title="${escapeHtml(work)}">${work ? escapeHtml(work) : dash}</span>`
+      + `<span class="vml-cell vml-tms">${tms || dash}</span>`
+      + '</div>';
+  };
+  const colhead = '<div class="vml-colhead"><span class="vml-num">管理番号</span><span class="vml-maker">メーカー</span><span class="vml-model">車種</span><span class="vml-cell">コアメモ</span><span class="vml-cell">作業メモ</span><span class="vml-cell">大タスクメモ</span></div>';
+  let groupsHtml = '';
+  GROUPS.forEach(g => {
+    const list = groups[g.key];
+    if (!list.length) return;
+    groupsHtml += `<div class="vml-group"><div class="vml-group-head">${g.label}<span class="vml-group-count">${list.length}</span></div>${list.map(rowHtml).join('')}</div>`;
+  });
+  const body = groupsHtml ? (colhead + groupsHtml) : '<div class="vml-empty-all">メモのある車両はありません</div>';
+  const peek = total ? `その他 ${groups.other.length}・在庫 ${groups.stock.length}・売約 ${groups.sold.length}` : 'メモのある車両はありません';
+
+  host.innerHTML = '<div class="panel-card vml-card">'
+    + '<div class="vml-header" onclick="toggleVehicleMemoList()" title="クリックで開閉">'
+    + `<h3 class="vml-title">📝 車両メモ一覧 <span class="vml-total">${total}台</span></h3>`
+    + `<span class="vml-peek">${peek}</span>`
+    + `<button type="button" class="vml-toggle">${open ? '閉じる ▲' : '詳細 ▼'}</button>`
+    + '</div>'
+    + `<div class="vml-body" style="${open ? '' : 'display:none'}">${body}</div>`
+    + '</div>';
 }
 
 // v1.7.2: 重要ビュー（タブ「📌 重要」用）— 全体タスク + 要対応アクションのみ表示
@@ -717,8 +805,18 @@ function renderLogPanel() {
     }
     return (l && l.user) || '—';
   };
+  // 管理番号：carId があれば車両モーダルを開くリンクに
+  const _logCarHtml = (l) => {
+    const num = l.carNum || '—';
+    if (l.carId && num !== '—') {
+      return `<a class="log-carnum" onclick="event.stopPropagation();openDetail('${l.carId}')" title="車両を開く">${num}</a>`;
+    }
+    return num;
+  };
+  // action 内の大タスクID（t_webup 等）を日本語名に置換して表示
+  const _logActionHtml = (l) => (typeof humanizeTaskIds === 'function') ? humanizeTaskIds(l.action || '') : (l.action || '');
   document.getElementById('log-list').innerHTML = globalLogs.length
-    ? globalLogs.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${l.carNum} — ${l.action}</span></div>`).join('')
+    ? globalLogs.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${_logCarHtml(l)} — ${_logActionHtml(l)}</span></div>`).join('')
     : '<div style="font-size:13px;color:var(--text3)">ログなし</div>';
 }
 

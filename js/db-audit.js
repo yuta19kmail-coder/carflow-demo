@@ -87,6 +87,7 @@
         list.push({
           time: timeStr,
           user: data.userName || '—',
+          carId: data.carId || null,
           carNum: data.carNum || '—',
           action: data.action || '',
         });

@@ -230,6 +230,18 @@
         idx++;
       }
     });
+    // v2.6: 車両メモ一覧デモ用に数台へサンプルメモを付与（コア／作業／大タスク付帯を網羅）
+    const _firstOf = (pred) => list.find(pred);
+    const _o = _firstOf(c => c.col === 'other');
+    if (_o) { _o.memo = '名義変更書類を要確認。前オーナーと連絡待ち。'; _o.workMemo = 'バッテリー弱め→交換見積り'; }
+    const _s = _firstOf(c => c.col === 'regen');
+    if (_s) { _s.memo = '内装の臭い気になる。再施工検討。'; _s.taskMemos = { t_webup: { value: 'サイト未掲載（写真待ち）' } }; }
+    const _s2 = _firstOf(c => c.col === 'exhibit');
+    if (_s2) { _s2.workMemo = '商談2件あり。価格交渉中。'; }
+    const _d = _firstOf(c => c.col === 'delivery');
+    if (_d) { _d.memo = '納車時にマット・ETCセットアップ忘れずに。'; _d.workMemo = '車検証の住所変更が未対応'; }
+    const _done = _firstOf(c => c.col === 'done');
+    if (_done) { _done.memo = '納車済み。1ヶ月点検の案内予定。'; }
     return list;
   }
 

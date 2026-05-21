@@ -31,6 +31,24 @@
 
 ## 📝 反映履歴
 
+### 2026-05-21：①車両メモ一覧 ②操作ログ修正（デモ先行）（v2.5.24-demo）
+
+**① 車両メモ一覧（ダッシュボード・付箋の下）**：カードを開かないと見られなかった車両メモを一か所で確認できる折りたたみパネルを追加。
+- メモのある車だけを「その他／在庫車（仕入・準備・展示）／売約車（納車準備・納車済み）」の3グループで表示。
+- 各行：管理番号（クリックで車両モーダル）／メーカー／車種／コアメモ(`car.memo`)／作業メモ(`car.workMemo`)／大タスク付帯メモ(`car.taskMemos`)。コンパクトに横スクロールなしで一覧。
+- 通常は折りたたみ（グループ件数のpeek表示）、「詳細 ▼」で展開。
+- 実装：`js/dashboard.js`（`renderVehicleMemoList` ＋ `renderDashboard` 組込）、`index.html`（`#vehicle-memo-area`）、`css/panels.css`（`.vml-*`）。
+- デモ用に `js/demo-sample-data.js` の数台へサンプルメモを付与（3グループを体感できるよう）。
+
+**② 操作ログ修正**：
+- 管理番号を**車両モーダルを開くリンク**に（`db-audit.js` でログ読み込み時に `carId` を載せ、`renderLogPanel` でリンク化）。
+- アクション文中の大タスクID（`t_webup` 等）を**日本語のタスク名**に置換して表示（`tasks-def.js` に `getTaskInfoById`/`getTaskNameById`/`humanizeTaskIds` を追加。過去ログも表示時に日本語化）。
+
+影響ファイル：`js/tasks-def.js`(?v=355) / `js/db-audit.js`(?v=285) / `js/dashboard.js`(?v=350) / `css/panels.css`(?v=366) / `js/demo-sample-data.js`(?v=2) / `index.html`。バージョン `v2.5.24-demo`。
+**※本体未反映**（デモで確認後に本体へ反映予定）。
+
+---
+
 ### 2026-05-21：ヘッダーに4テーマ循環ボタンを追加（v2.5.23-demo）
 
 文字サイズの「AAA」群（`#tb-fontsize-group`）の右隣に、テーマ循環ボタン（`#tb-theme-cycle`）を追加。AAA群と同じ並び・質感。

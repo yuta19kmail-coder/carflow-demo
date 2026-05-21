@@ -594,6 +594,40 @@ function _sortByTaskOrder(tasks, phase) {
   return indexed.map(x => x.t);
 }
 
+// ========================================
+// v2.5.x: 大タスクID → 情報（名前・フェーズ）。操作ログの日本語化／車両メモ一覧のラベルに使う。
+// ========================================
+function getTaskInfoById(id) {
+  let t = REGEN_TASKS.find(x => x.id === id);     if (t) return { name: t.name, phase: 'regen' };
+  t = DELIVERY_TASKS.find(x => x.id === id);       if (t) return { name: t.name, phase: 'delivery' };
+  t = BACKOFFICE_TASKS.find(x => x.id === id);     if (t) return { name: t.name, phase: 'backoffice' };
+  if (typeof appCustomTasks !== 'undefined' && Array.isArray(appCustomTasks)) {
+    t = appCustomTasks.find(x => x && x.id === id);
+    if (t) return { name: t.name || id, phase: t.phase || 'regen' };
+  }
+  return null;
+}
+function getTaskNameById(id) {
+  const info = getTaskInfoById(id);
+  return info ? info.name : id;
+}
+// 文字列中の大タスクID（t_xxx / d_xxx / bo_xxx / カスタム）を日本語のタスク名に置換（操作ログ表示用）
+function humanizeTaskIds(str) {
+  if (!str) return str;
+  let out = String(str);
+  const lists = [REGEN_TASKS, DELIVERY_TASKS, BACKOFFICE_TASKS];
+  if (typeof appCustomTasks !== 'undefined' && Array.isArray(appCustomTasks)) lists.push(appCustomTasks);
+  lists.forEach(arr => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(t => {
+      if (t && t.id && t.name && t.id !== t.name && out.indexOf(t.id) !== -1) {
+        out = out.split(t.id).join(t.name);
+      }
+    });
+  });
+  return out;
+}
+
 function _allTasksForPhase(phase) {
   // v1.8.112: backoffice フェーズ追加
   let builtinSrc;
