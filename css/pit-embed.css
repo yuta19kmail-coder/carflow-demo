@@ -1,0 +1,186 @@
+/* ========================================
+   pit-embed.css  -  PitFlow の「車販作業」を CarFlow に出すための見た目（CarFlow v2.33.0）
+   ----------------------------------------
+   ⚠ 上半分は PitFlow `css/polish.css` の **写し**（.pit-card.pcm / .pcm-* / .cs-*）。
+     🔴 PitFlow 側のカードの見た目を直したら、ここも直す。
+     CSS変数（--bg2 --bg3 --border --border2 --text --text2 --text3 --green --r --shadow-card）は
+     CarFlow と PitFlow で **同じ名前**なので、そのまま使える（--brand だけは無いので使わない）。
+   下半分（.pe-*）は CarFlow だけのもの＝ダッシュボードの「今日・明日の整備依頼」。
+   ======================================== */
+
+/* ===== ここから PitFlow の写し（コンパクトカード） ===== */
+.pit-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-left:3px solid var(--green);
+  border-radius:var(--r);
+  padding:8px 10px;
+  user-select:none;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  box-shadow:var(--shadow-card);
+  transition:transform .08s, box-shadow .08s;
+}
+.pit-card:hover{ transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.4); }
+.pit-card.pcm{
+  position:relative;
+  min-width:0;
+  padding:8px 10px;
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-left-width:4px;
+  border-radius:8px;
+  cursor:pointer;                 /* PitFlowはドラッグできるが、こちらは「開くだけ」 */
+}
+.pcm-r{ display:flex; align-items:center; gap:6px; min-width:0; }
+.pcm-r + .pcm-r{ margin-top:3px; }
+/* ⚠ ここだけ PitFlow と少しだけ違う：min-width を入れてある。
+   PitFlow のままだと、印（代車・待・作業タイプ2つ）が4つ並んだ時に
+   **お客様名が0幅まで潰れて「様」だけ**になる。CarFlow では最低3文字ぶんは残す。
+   → PitFlow 側にも同じ手当てをするなら polish.css の .pcm-name に min-width を足す。 */
+.pcm-name{ flex:1 1 auto; min-width:3em; font-weight:800; font-size:15px; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pcm-car{ flex:1 1 auto; min-width:0; font-size:15px; font-weight:700; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pcm-badges{ flex:0 0 auto; display:flex; gap:4px; align-items:center; }
+.pcm-badges > span, .pcm-front{ flex:0 0 auto; font-size:13px; line-height:1.42; padding:0 6px;
+  border-radius:6px; font-weight:700; white-space:nowrap; }
+.pcm-wt{ border:1px solid; }
+.pcm-drop{ border:1px solid; }
+.pcm-loaner{ background:rgba(245,158,11,.16); color:#f59e0b; border:1px solid rgba(245,158,11,.55); }
+.pcm-front{ background:var(--bg3); color:var(--text); border:1px solid var(--border2); }
+.pcm-wash{ flex:0 0 auto; font-size:13px; line-height:1.42; padding:0 7px; border-radius:6px;
+  font-weight:800; white-space:nowrap; background:#2563eb; color:#fff; border:1px solid #2563eb; }
+.pcm-wt, .pcm-wash{ position:relative; overflow:visible; }
+.pcm-done::after{ content:"済"; position:absolute; top:-7px; right:-4px; transform:rotate(-12deg);
+  font-size:10px; font-weight:900; color:#fff; background:#ef4444; border-radius:3px; padding:0 1.5px;
+  line-height:1.25; box-shadow:0 1px 3px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); pointer-events:none; }
+.pit-card.pcm.pcm-claim{ border-color:#ef4444 !important; }
+.pcm-loaner.pcm-dead{ background:#ef4444 !important; color:#fff !important; border-color:#ef4444 !important;
+  box-shadow:0 0 8px rgba(239,68,68,.7); animation:pcmDeadPulse 1.2s ease-in-out infinite; }
+@keyframes pcmDeadPulse{ 0%,100%{ box-shadow:0 0 6px rgba(239,68,68,.6); } 50%{ box-shadow:0 0 13px rgba(239,68,68,.95); } }
+.pcm-out{ margin-top:5px; display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+  color:#f59e0b; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.4);
+  border-radius:6px; padding:2px 7px; }
+.pcm-outn{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pcm-outd{ flex:0 0 auto; font-size:10px; font-weight:800; color:#1c1300; background:#f59e0b;
+  border-radius:4px; padding:0 5px; }
+.pit-card.pcm.pcm-tab{ border-top-left-radius:0; margin-top:9px; }
+.pcm-ear{ position:absolute; top:-14px; left:-4px; width:66px; height:17px; display:flex; align-items:center;
+  overflow:hidden; font:800 9.5px/1 ui-monospace,monospace; letter-spacing:.6px; color:var(--text2);
+  background:var(--bg2); border:1px solid var(--border2); border-bottom:none; border-left:4px solid var(--green);
+  border-radius:8px 0 0 0; padding:0 16px 2px 9px;
+  clip-path:polygon(0 0, calc(100% - 11px) 0, 100% 100%, 0 100%); }
+.pcm-ear-slide{ position:absolute; top:-13px; left:51px; width:1px; height:15.5px; background:var(--border2);
+  transform:rotate(-32.9deg); transform-origin:top left; pointer-events:none; }
+.pit-card.pcm.pcm-claim .pcm-ear-slide{ background:#ef4444; }
+.pcm-cau{ position:absolute; top:-13px; right:6px; display:flex; gap:3px; z-index:3; white-space:nowrap; pointer-events:none; }
+.pcm-cau .pcm-caut{ flex:0 0 auto; height:16px; display:flex; align-items:center; white-space:nowrap;
+  padding:0 6px 1px; font:800 9px/1 -apple-system,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
+  color:#1c1300; background:#f59e0b; border:1px solid #f59e0b; border-bottom:none; border-radius:6px 6px 0 0; }
+.pit-card.is-tentative{ border-left-style:dashed; }
+.pcm-nm2{ display:flex; align-items:center; min-width:0; flex:1 1 auto; }
+.pcm-nm2 .pcm-name{ flex:0 1 auto; }
+.pcm-sama{ flex:0 0 auto; font-weight:800; font-size:15px; color:var(--text); margin-left:3px; }
+.kari-name{ flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+  width:19px; height:19px; margin-left:4px; border:1.5px solid #d97706; color:#fff; background:#f59e0b;
+  border-radius:50%; font-family:serif; font-weight:900; font-size:12px; line-height:1; }
+.dbpair{ display:inline-flex; gap:1px; align-items:center; vertical-align:middle; }
+.dbpair > span{ font-size:9px !important; padding:1px 3px !important; line-height:1.5 !important; border-radius:5px !important; }
+
+/* ===== ここから PitFlow の写し（車販作業の枠） ===== */
+.cs-cols{ display:flex; flex-direction:column; gap:14px; padding:4px 2px 30px; }
+.cs-sec{ width:100%; box-sizing:border-box; background:var(--bg2); border:1px solid var(--border);
+  border-radius:12px; padding:10px 12px; }
+.cs-sec-h{ font-size:13.5px; font-weight:800; color:var(--text); margin-bottom:8px;
+  display:flex; align-items:baseline; gap:6px; }
+.cs-sec-h small{ font-size:10.5px; font-weight:600; color:var(--text3); }
+.cs-sec-body{ display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start; }
+.cs-subh{ flex:1 1 100%; font-size:11px; font-weight:700; color:var(--text2); margin-top:4px;
+  display:flex; align-items:center; gap:5px; }
+.cs-empty{ flex:1 1 100%; font-size:11px; color:var(--text3); padding:8px 2px; }
+.cs-item{ width:224px; flex:0 0 224px; display:flex; flex-direction:column; gap:4px; }
+.cs-cardwrap{ position:relative; }
+.cs-extra{ font-size:11px; color:var(--text2); margin-top:3px; line-height:1.5;
+  display:flex; align-items:center; gap:4px; }
+.cs-done,.cs-undo{ align-self:stretch; font-size:12px; font-weight:700; padding:5px 0; border-radius:7px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+.cs-done{ background:var(--green); color:#fff; border:1px solid var(--green); }
+.cs-undo{ background:var(--bg3); color:var(--text2); border:1px solid var(--border2); }
+.cs-done:hover,.cs-undo:hover{ filter:brightness(1.08); }
+.cs-done-strip{ margin-top:10px; border-top:1px dashed var(--border); padding-top:8px; }
+.cs-done-lb{ font-size:10.5px; font-weight:700; color:var(--text3); margin-bottom:6px; }
+.cs-done-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.cs-doneitem{ opacity:.5; }
+
+/* ===== ここから CarFlow だけのもの ===== */
+.pe-note{ font-size:12.5px; color:var(--text3); padding:10px 2px; }
+
+/* ダッシュボード：今日・明日の整備依頼 */
+.pe-today h3{ display:flex; align-items:center; gap:8px; }
+.pe-cnt{ font-size:11px; font-weight:800; min-width:20px; text-align:center; padding:1px 6px;
+  border-radius:9px; background:var(--bg3); color:var(--text3); border:1px solid var(--border2); }
+.pe-cnt.on{ background:var(--orange); color:#1c1300; border-color:var(--orange); }
+.pe-more{ margin-left:auto; font-size:11px; font-weight:700; color:var(--text2);
+  background:var(--bg3); border:1px solid var(--border2); border-radius:7px; padding:3px 9px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:3px; }
+.pe-more:hover{ filter:brightness(1.1); }
+.pe-none{ font-size:13px; color:var(--text3); padding:8px 0; display:flex; align-items:center; gap:6px; }
+.pe-rows{ display:flex; flex-direction:column; gap:5px; margin-top:6px; }
+.pe-row{ display:flex; align-items:center; gap:8px; min-width:0;
+  background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+  padding:5px 8px; cursor:pointer; }
+.pe-row:hover{ border-color:var(--border2); background:var(--bg3); }
+.pe-when{ flex:0 0 auto; font-size:11px; font-weight:800; padding:1px 7px; border-radius:6px; }
+.pe-when.today{ background:#ef4444; color:#fff; }
+.pe-when.tomorrow{ background:var(--bg3); color:var(--text2); border:1px solid var(--border2); }
+.pe-what{ flex:0 0 auto; font-size:11.5px; font-weight:800; padding:1px 7px; border-radius:6px; border:1px solid; }
+.pe-t-wash     { background:rgba(37,99,235,.14);  color:#3b82f6; border-color:rgba(37,99,235,.5); }
+.pe-t-headlight{ background:rgba(234,179,8,.14);  color:#eab308; border-color:rgba(234,179,8,.5); }
+.pe-t-coating  { background:rgba(139,92,246,.14); color:#8b5cf6; border-color:rgba(139,92,246,.5); }
+.pe-t-salesReq { background:rgba(29,185,122,.14); color:#1db97a; border-color:rgba(29,185,122,.5); }
+.pe-nm{ flex:0 1 auto; min-width:0; font-size:13px; font-weight:800; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pe-car{ flex:1 1 auto; min-width:0; font-size:12.5px; color:var(--text2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pe-time{ flex:0 0 auto; font-size:11.5px; color:var(--text3); font-variant-numeric:tabular-nums; }
+.pe-ok{ flex:0 0 auto; font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:7px;
+  background:var(--green); color:#fff; border:1px solid var(--green); cursor:pointer;
+  display:inline-flex; align-items:center; gap:4px; }
+.pe-ok:hover{ filter:brightness(1.08); }
+.pe-rest{ margin-top:8px; font-size:11.5px; color:var(--text3); display:flex; align-items:center; gap:8px; }
+.pe-restbtn{ font-size:11px; font-weight:700; color:var(--text2); background:var(--bg3);
+  border:1px solid var(--border2); border-radius:6px; padding:2px 8px; cursor:pointer; }
+
+/* 整備依頼業務パネルの見出し */
+.pe-panel-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pe-src{ font-size:10.5px; font-weight:700; color:var(--text3); background:var(--bg3);
+  border:1px solid var(--border2); border-radius:6px; padding:2px 8px; }
+
+@media (max-width: 760px){
+  .pe-car,.pe-time{ display:none; }
+  .cs-item{ width:100%; flex:1 1 100%; }
+}
+
+/* ==========================================================================
+   🆕 v2.45.0（PitFlow v1.152.0 と同じ見せ方）返車予定の「どのくらい確かか」の札
+   　　＝ 洗車の一覧に、完TELを通っていない車も出すようにしたので、
+   　　　 **どの日で出ているのかを札で必ず伝える**。
+   🔴 色を増やさない。**同じオレンジの3段階**（塗り → 枠 → 破線）で確からしさを出す。
+      （赤＝緊急・クレーム／青＝当日返し／緑＝国産 と役割がぶつからないため）
+   🔴 言葉と形の本体は `_shared/coreflow-return-plan.js`。ここは見た目だけ。
+   ========================================================================== */
+.ret-pend, .ret-plan, .ret-tbd{
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight:800; letter-spacing:.5px; white-space:nowrap; border-radius:5px;
+}
+/* 未完＝確定返車日は入っているが完TEL前（いちばん強い） */
+.ret-pend{ background:#f59e0b; color:#fff; border:1px solid #b45309; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+/* 暫定＝受注のときのお客様への約束（日が動くことがある） */
+.ret-plan{ background:rgba(245,158,11,.14); color:#b45309; border:1px solid #f59e0b; }
+/* 未定＝完TELまで来たのに日が決まっていない（日を決めに行く車） */
+.ret-tbd { background:transparent; color:#b45309; border:1px dashed #f59e0b; }
+.ret-pend-mini{ font-size:9.5px; line-height:1; padding:2px 4px; }
+.ret-pend-std { font-size:10.5px; line-height:1; padding:3px 6px; }
+.ret-pend-row { font-size:10.5px; padding:3px 6px; line-height:1.25; }

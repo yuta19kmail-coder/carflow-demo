@@ -23,8 +23,12 @@ function showPanel(name, el) {
   if (name === 'members') renderMembers();
   if (name === 'dashboard') renderDashboard();
   if (name === 'archive') renderArchive();
+  // v2.16.0: 管理番号リスト
+  if (name === 'numlist' && typeof renderNumList === 'function') renderNumList();
   // v2.1.0: バックオフィスパネル
   if (name === 'backoffice' && typeof renderBackoffice === 'function') renderBackoffice();
+  // v2.33.0: 整備依頼業務（PitFlow の車販作業）
+  if (name === 'pitsales' && window.PitEmbed) PitEmbed.renderPanel();
   if (name === 'help') {
     if (typeof initHelpPanel === 'function') initHelpPanel();
   }
@@ -32,11 +36,11 @@ function showPanel(name, el) {
     if (typeof renderTemplateEditor === 'function') renderTemplateEditor();
   }
   if (name === 'settings') {
-    renderClosedDaysPicker();
+    // v2.38.0: 定休日・営業時間は MHS が基準。ここは「いま届いているもの」を見せるだけ
+    if (typeof window.renderMhsCalCard === 'function') window.renderMhsCalCard();
     renderSizeEditor();
     renderInvWarnEditor();
     renderDelWarnEditor();
-    renderClosedRulesList();
     renderGoalsEditor();
     refreshLeadDaysUI();
     if (typeof refreshPriceTaxUI === 'function') refreshPriceTaxUI();
@@ -97,3 +101,14 @@ function switchTab(name, el) {
     if (typeof renderMeeting === 'function') renderMeeting();
   }
 }
+
+// ========================================
+// v2.38.0 設定「店舗運営」の中身＝MHSから届いている営業日・営業時間（見るだけ）
+// ========================================
+// 🔴 中身は共通部品 js/cal-pit.js の pitCalCardHtml() 1本。ここに書き写さないこと。
+window.renderMhsCalCard = function () {
+  var el = document.getElementById('mhs-cal-card');
+  if (!el) return;
+  try { el.innerHTML = (typeof pitCalCardHtml === 'function') ? pitCalCardHtml() : ''; }
+  catch (e) { el.innerHTML = ''; }
+};

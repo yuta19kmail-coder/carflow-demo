@@ -4,6 +4,45 @@
 // 日付計算、価格整形、トースト表示、モーダル開閉、ログ追加
 // ========================================
 
+// v2.20.1: simpleモード（チェックリスト無し）の大タスク完了判定。
+//   state[taskId] は boolean（toggle）／mkTaskStateの空オブジェクト{}／旧チェックリストの{item:true,…}。
+//   ⚠ 空オブジェクト{} や 全false の {item:false} は「未完了」とする（!!{}が常にtrueになる罠を回避）。
+//   これがないと、納車準備に入った瞬間に simple な大タスク（納車整備/納車準備など）が
+//   自動で「完了」表示になる（ログ無し）バグが起きる。
+function _simpleTaskDone(v) {
+  if (v === true) return true;
+  if (v && typeof v === 'object') return Object.values(v).some(Boolean);
+  return false;
+}
+
+// v2.26.1: 顧客名のスペースは半角に統一。全角スペース(　)も半角に、連続スペースは1個に、前後は除去。
+//   （\s は全角スペース U+3000 も含むので一括で半角化できる）
+function normCustomerName(name) {
+  return String(name == null ? '' : name).replace(/\s+/g, ' ').trim();
+}
+// v2.26.0: 顧客名の表示。保存は名前だけ（例：山田 たろう）、表示時に「様」を自動付与。
+//   既に 様/さま/御中/殿/さん 等で終わる場合は二重付与しない（法人「○○御中」などに対応）。
+function formatCustomerName(name) {
+  const s = normCustomerName(name);
+  if (!s) return '';
+  if (/(様|さま|御中|殿|どの|さん|ちゃん|くん)$/.test(s)) return s;
+  return s + ' 様';
+}
+// 顧客名チップのHTML（スレート配色・人アイコン・長い名前は…省略＋ホバーで全文）。
+//   variant: 省略時=カード用 / 'title'=詳細モーダルのタイトル横。空名なら空文字を返す（＝出さない）。
+function customerChipHTML(name, variant) {
+  const disp = formatCustomerName(name);
+  if (!disp) return '';
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x == null ? '' : x));
+  const big = variant === 'title';
+  const cls = big ? 'cc-customer cc-customer-title' : 'cc-customer';
+  const sz = big ? 15 : 14;
+  return `<span class="${cls}" title="${esc(disp)}">`
+    + `<svg class="cc-customer-ic" viewBox="0 0 24 24" width="${sz}" height="${sz}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path></svg>`
+    + `<span class="cc-customer-name">${esc(disp)}</span>`
+    + `</span>`;
+}
+
 // タスクの初期状態を生成
 function mkTaskState(tasks) {
   const s = {};
@@ -191,11 +230,14 @@ function _amountFromCarWithSnapshot(car, dashboardSource, dashboardMode) {
 }
 
 // トースト通知
-const showToast = msg => {
+//   🔢 2026-08-17 第2引数＝エラー番号（'CF-0412'）。渡すと2行目の右端に error：CF-0412 と出て、押すとコピーできる。
+//   ⚠ 付けるのは「通らなかった」時だけ（決めごとは js/errcode-cf.js の頭）。
+const showToast = (msg, code) => {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
   t.classList.add('show');
+  if (code && window.CFErr) CFErr.toast(t, code);
   setTimeout(() => t.classList.remove('show'), 2200);
 };
 
@@ -227,12 +269,47 @@ function addLog(carId, action) {
     car.logs.unshift(entry);
   }
   globalLogs.unshift(entry);
-  if (globalLogs.length > 200) globalLogs.length = 200;
+  if (globalLogs.length > 1000) globalLogs.length = 1000; // v2.27.0: 200→1000（読込上限と揃える）
   // v1.7.24: 操作ログの新規お知らせバッジは廃止（ゆうた指示）
   // v1.5.4: 横断 auditLogs collection にも append（fire-and-forget）
   if (window.dbAudit) {
     window.dbAudit.appendAuditLog(entry);
   }
+}
+
+// ========================================
+// 管理番号の表記ゆれ吸収＆文中リンク化（付箋・操作ログで共用）
+// v2.7.1 で付箋に導入したルールを v2.7.2 で共通化。
+// ========================================
+// 全角英数字／全角ハイフンを半角化 → 大文字化 → ハイフン・空白を除去。
+//   例：KM-0100 / km-0100 / KM0100 / ＫＭ－0100 → すべて "KM0100"
+//   数字はゼロ込みでそのまま保持するため、KM100 と KM-0100 は別物として扱う。
+function normCarNum(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)) // 全角英数→半角
+    .replace(/[－ー−―‐]/g, '-')   // 各種ハイフンを半角ハイフンに
+    .toUpperCase()
+    .replace(/[-\s]/g, '');        // ハイフン・空白を除去
+}
+
+// 文中の管理番号（例 KM-0100）を車両詳細リンクに変換する共通関数。
+//   ・付箋（タイトル/本文）・操作ログのメッセージで共用
+//   ・該当する在庫車（cars）がある場合のみリンク化。なければただの文字のまま
+//   ・引数は未エスケープの生文字列を渡す（内部で HTML エスケープしてから処理）
+function linkifyCarNums(text) {
+  const esc = (typeof escapeHtml === 'function')
+    ? escapeHtml(text == null ? '' : text)
+    : String(text == null ? '' : text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (typeof cars === 'undefined' || !Array.isArray(cars)) return esc;
+  // K/M（半角・全角・大小）＋任意のハイフン＋数字（半角/全角）を拾う
+  const re = /[KkＫｋ][MmＭｍ][-－ー−―‐]?[0-9０-９]{1,6}/g;
+  return esc.replace(re, (m) => {
+    const norm = normCarNum(m);
+    const car = cars.find(c => normCarNum(c.num) === norm);
+    if (!car) return m;
+    return `<a class="bn-carlink" onclick="event.stopPropagation();if(typeof openDetail==='function')openDetail('${car.id}');">${m}</a>`;
+  });
 }
 
 // ========================================
@@ -308,35 +385,11 @@ function delWarnTier(diff) {
 }
 
 // ========================================
-// 定休日ルール判定
+// 定休日の判定は CarFlow では持たない（v2.38.0）
 // ========================================
-// 指定日（YYYY-MM-DD）が定休日ルールにマッチするか
-function isClosedByRules(dateStr) {
-  if (typeof closedRules === 'undefined' || !closedRules.length) {
-    // 旧方式フォールバック
-    const dow = new Date(dateStr).getDay();
-    return (typeof closedDays !== 'undefined') && closedDays.includes(dow);
-  }
-  const d = new Date(dateStr);
-  const dow = d.getDay();
-  const dom = d.getDate();
-  const nth = Math.ceil(dom / 7); // 第N週
-  for (const r of closedRules) {
-    if (r.dow !== dow) continue;
-    if (r.pattern === 'weekly') return true;
-    if (r.pattern === 'biweekly') {
-      // anchorYM から偶数週/奇数週を判定
-      if (!r.anchorYM) return true;
-      const [ay, am] = r.anchorYM.split('-').map(Number);
-      const anchor = new Date(ay, am-1, 1);
-      const diffDays = Math.floor((d - anchor) / 86400000);
-      const week = Math.floor(diffDays / 7);
-      if (week % 2 === 0) return true;
-    }
-    if (r.pattern === 'nth' && r.nth === nth) return true;
-  }
-  return false;
-}
+// 🔴 休みかどうかは MHS の営業日カレンダー 1本＝ PitCal.isClosed(日付)（js/cal-pit.js）。
+//    毎週の定休だけでなく、臨時休業・お盆・年末年始・特別営業・午前休み／早締めまで入っている。
+//    ⚠ ここに自前の判定を作り直さないこと（二重管理に戻る）。撤去＝ isClosedByRules()
 
 // ========================================
 // 年月キー関連

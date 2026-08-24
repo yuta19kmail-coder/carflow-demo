@@ -114,22 +114,22 @@ function renderEquipmentView(car, opts) {
     html += '<div class="deal-eq-back" onclick="' + opts.backHandler + '">← 戻る</div>';
   }
   if (sections === null) {
-    html += '<div class="eq-view-empty"><div class="big">📋</div><div>先にタスクパターンを選んでください</div></div>';
+    html += '<div class="eq-view-empty"><div class="big">'+ic('clipboard','📋',16)+'</div><div>先にタスクパターンを選んでください</div></div>';
     return '<div class="eq-view">' + html + '</div>';
   }
   if (!Array.isArray(sections) || sections.length === 0) {
-    html += '<div class="eq-view-empty"><div class="big">📋</div><div>装備品チェックの項目が定義されていません</div></div>';
+    html += '<div class="eq-view-empty"><div class="big">'+ic('clipboard','📋',16)+'</div><div>装備品チェックの項目が定義されていません</div></div>';
     return '<div class="eq-view">' + html + '</div>';
   }
   const state = getEquipmentState(car);
   const prog = calcEquipmentProgress(car);
   if (prog.filled === 0) {
-    html += '<div class="eq-view-empty"><div class="big">📋</div><div>まだ装備品チェックが行われていません</div><div style="margin-top:6px;font-size:11px">スマホでチェックを開始してください</div></div>';
+    html += '<div class="eq-view-empty"><div class="big">'+ic('clipboard','📋',16)+'</div><div>まだ装備品チェックが行われていません</div><div style="margin-top:6px;font-size:11px">スマホでチェックを開始してください</div></div>';
     return '<div class="eq-view">' + html + '</div>';
   }
   // v1.8.46: 商談モード（opts.hidePrint）では印刷ボタンを出さない
   if (!opts.hidePrint) {
-    html += '<div class="eq-print-bar"><button class="eq-print-btn" onclick="printEquipmentSheet(\'' + car.id + '\')">🖨️ お客様用に印刷</button></div>';
+    html += '<div class="eq-print-bar"><button class="eq-print-btn" onclick="printEquipmentSheet(\'' + car.id + '\')">'+ic('printer','🖨️',16)+' お客様用に印刷</button></div>';
   }
   sections.forEach(sec => {
     const items = (sec.items || []).filter(it => !it._disabled);
@@ -186,7 +186,7 @@ function printEquipmentSheet(carId) {
   if (!car) return;
   const sections = _eqActiveSections(car);
   if (!Array.isArray(sections)) {
-    if (typeof showToast === 'function') showToast('先にタスクパターンを選んでください');
+    if (typeof showToast === 'function') showToast('先にタスクパターンを選んでください', 'CF-3001');
     return;
   }
   _psActiveCarId = carId;
@@ -316,9 +316,9 @@ function _buildPrintSheetHtml(car) {
   let toolbar = '';
   toolbar += '<div class="ps-toolbar no-print">';
   toolbar += '<button class="ps-btn" onclick="closePrintSheet()">← 戻る</button>';
-  toolbar += '<button class="ps-btn ps-btn-options" onclick="togglePrintOptions()">⚙️ 表示項目</button>';
+  toolbar += '<button class="ps-btn ps-btn-options" onclick="togglePrintOptions()">'+ic('settings','⚙️',16)+' 表示項目</button>';
   toolbar += '<div class="ps-toolbar-spacer"></div>';
-  toolbar += '<button class="ps-btn ps-btn-print" onclick="window.print()">🖨️ 印刷する</button>';
+  toolbar += '<button class="ps-btn ps-btn-print" onclick="window.print()">'+ic('printer','🖨️',16)+' 印刷する</button>';
   toolbar += '</div>';
 
   // オプションパネル
@@ -344,7 +344,7 @@ function _buildPrintSheetHtml(car) {
   // ヘッダー（車両情報）
   const photoHtml = photo
     ? '<img src="' + _eqEscape(photo) + '" alt="vehicle">'
-    : '<div class="ps-photo-fallback">🚗</div>';
+    : '<div class="ps-photo-fallback">'+ic('car','🚗',16)+'</div>';
 
   let statsHtml = '';
   if (cfg.year && yr)        statsHtml += '<div class="ps-stat"><span class="ps-stat-lbl">年式</span><span class="ps-stat-val">' + _eqEscape(String(yr)) + '</span></div>';
@@ -409,7 +409,7 @@ function _buildPrintSheetHtml(car) {
       c.rows.forEach(r => {
         const valPart = r.value ? '：<span class="ps-val">' + r.value + '</span>' : '';
         let row = '<div class="ps-row">';
-        row += '<div class="ps-row-main"><span class="ps-check">✓</span><span class="ps-name">' + _eqEscape(r.name) + valPart + '</span></div>';
+        row += '<div class="ps-row-main"><span class="ps-check">'+ic('check','✓',14)+'</span><span class="ps-name">' + _eqEscape(r.name) + valPart + '</span></div>';
         if (r.desc) row += '<div class="ps-desc">' + _eqEscape(r.desc) + '</div>';
         row += '</div>';
         rowsHtml += row;

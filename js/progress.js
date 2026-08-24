@@ -75,7 +75,11 @@ function calcProg(car) {
 // 単一タスクの進捗を計算
 function calcSingleProg(car, taskId, tasks) {
   const isD = car.col === 'delivery' || car.col === 'done';
-  const state = isD ? car.deliveryTasks : car.regenTasks;
+  // v2.28.1: 一部の車に regenTasks / deliveryTasks フィールドが無い場合、
+  //   state[taskId] 参照で「Cannot read properties of undefined」例外が発生し、
+  //   _onSignedIn が中断 → ログイン直後に画面が進まない不具合になっていた。
+  //   _calcChecklistProg と同様に未定義は空オブジェクトへフォールバックして堅牢化。
+  const state = (isD ? car.deliveryTasks : car.regenTasks) || {};
   const task = tasks.find(t => t.id === taskId);
   if (!task) return {pct:0, done:0, total:0};
   // v1.7.17: t_equip も通常の workflow と同じく ChecklistTemplate 経由で計算（特殊扱い撤去）
@@ -107,9 +111,15 @@ function calcSingleProg(car, taskId, tasks) {
   const phaseW = isD ? 'delivery' : 'regen';
   // v2.5.10: 解放対象 workflow（t_regen / t_exhibit / d_prep / d_maint）が simple モードに
   //           設定されている場合は boolean トグルとして扱う
+  // v2.7.3: 完了判定を「=== true」から「truthy（!!v）」に変更。
+  //   小タスク（チェックリスト）付きだった頃にチェックして state[taskId] が
+  //   オブジェクト（例 {item1:true}）になっている車を、その後 simple モードへ切替えると、
+  //   画面表示は !!state＝true で「100%・緑チェック」なのに、ここだけ === true で 0% 扱いになり、
+  //   「全タスク100%なのに全体進捗が9/11」のような食い違いが発生していた（KM-0516 等）。
+  //   表示（car-detail の !!state）・トグル系の判定とルールを揃え、見た目と集計を一致させる。
   if (typeof hasTaskChecklist === 'function' && !hasTaskChecklist(taskId, phaseW)) {
-    const v = state[taskId];
-    const isDone = (v === true);
+    // v2.20.1: 空オブジェクト{}を done 扱いしてしまうバグ修正（_simpleTaskDoneで統一）
+    const isDone = (typeof _simpleTaskDone === 'function') ? _simpleTaskDone(state[taskId]) : (state[taskId] === true);
     return { pct: isDone ? 100 : 0, done: isDone ? 1 : 0, total: 1 };
   }
   const cpW = _calcChecklistProg(car, taskId, phaseW);

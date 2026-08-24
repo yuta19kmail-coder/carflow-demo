@@ -15,13 +15,12 @@
 .stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
 .stat-num{font-size:26px;font-weight:700;color:var(--blue)}
 .stat-label{font-size:11px;color:var(--text3);margin-top:3px}
-/* v2.5.17-demo: ライトモード（light/light-liquid）でサマリー数字を白背景で読める濃さに。 */
-/*   ダーク時はインライン色のまま、ライト時のみ !important で上書き。 */
+/* ライトモード（light / light-liquid）でサマリー数字を白背景で読める濃さに。ダーク時はインライン色のまま。 */
 :root[data-theme^="light"] .stat-num.sn-active{color:#D97706 !important}
 :root[data-theme^="light"] .stat-num.sn-order{color:#7C3AED !important}
 :root[data-theme^="light"] .stat-num.sn-deliver{color:#059669 !important}
 :root[data-theme^="light"] .stat-num.sn-done{color:#64748B !important}
-/* v2.5.18-demo: 着地予想「目標達成まで N台」の黄/緑をライトで可読に */
+/* 着地予想「目標達成まで N台」の黄/緑をライトで可読に */
 :root[data-theme^="light"] .kpi-remain-todo{color:#B45309 !important}
 :root[data-theme^="light"] .kpi-remain-done{color:#059669 !important}
 
@@ -177,9 +176,10 @@
 .arc-achv.miss{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid rgba(245,158,11,.35)}
 
 .arc-cars{margin-top:10px;border-top:1px dashed var(--border);padding-top:8px}
-.arc-car-row{display:grid;grid-template-columns:80px 1fr 70px 90px 100px 80px;gap:10px;align-items:center;padding:7px 4px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)}
+.arc-car-row{display:grid;grid-template-columns:80px 120px 1fr 70px 90px 100px 80px;gap:10px;align-items:center;padding:7px 4px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)}
 .arc-car-row:last-child{border-bottom:none}
 .arc-car-row .mono{font-family:'SF Mono','Consolas',monospace;color:var(--blue);font-weight:600}
+.arc-car-row .arc-cust{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 
 /* ========================================
    v0.9.6 表示設定（テーマ・フォントサイズ）
@@ -189,7 +189,7 @@
   gap:8px;
   flex-wrap:wrap;
 }
-/* v2.4.0-demo: 4テーマピッカーは 2列x2行 グリッドに */
+/* 4テーマピッカーは 2列x2行 グリッドに */
 .theme-picker-4{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -301,7 +301,7 @@
   color:var(--blue);
 }
 
-/* v2.5.23-demo: ヘッダーの4テーマ循環ボタン（AAAの右隣）。AAA群と同じ並び・質感に。 */
+/* ヘッダーの4テーマ循環ボタン（AAAの右隣）。AAA群と同じ並び・質感に。 */
 /*   現場ビュー（body.mobile / mobile-admin / 狭幅）は専用トグル #tb-theme-toggle を使うので非表示にして被りを防ぐ。 */
 .tb-theme-cycle{
   display:inline-flex;
@@ -333,7 +333,7 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
   .tb-theme-cycle{display:none !important}
 }
 
-/* ===== v2.6: 車両メモ一覧（ダッシュボード・付箋の下） ===== */
+/* ===== v2.7: 車両メモ一覧（ダッシュボード・付箋の下） ===== */
 .vml-card{margin-top:14px}
 .vml-header{display:flex;align-items:center;gap:10px;cursor:pointer}
 .vml-title{margin:0;font-size:15px;flex-shrink:0}
@@ -362,7 +362,7 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .log-carnum{color:var(--blue);cursor:pointer}
 .log-carnum:hover{text-decoration:underline}
 
-/* ===== v2.5.25: お知らせ（受信箱） ===== */
+/* ===== v2.7: お知らせ（受信箱） ===== */
 .anc-list{margin-top:12px;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--bg2)}
 .anc-item{border-bottom:1px solid var(--border)}
 .anc-item:last-child{border-bottom:none}
@@ -395,8 +395,6 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .anc-popup-title{font-size:17px;font-weight:700;color:#fff;flex:1}
 .anc-popup-progress{font-size:12px;font-weight:600;color:#fff;background:rgba(255,255,255,.22);padding:2px 10px;border-radius:10px;flex-shrink:0}
 .anc-popup-body{padding:16px 20px;overflow-y:auto;flex:1}
-.anc-popup-item{padding:0}
-.anc-popup-item:last-child{border-bottom:none}
 .anc-popup-item-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .anc-popup-item-title{flex:1;font-size:14px;font-weight:700;color:var(--text)}
 .anc-popup-item-date{font-size:11px;color:var(--text3);flex-shrink:0}
@@ -411,6 +409,33 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
 .anc-popup-ok{background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:8px 26px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
 .anc-popup-ok:hover{filter:brightness(1.08)}
 .anc-popup-ok:active{transform:scale(.97)}
+
+/* ===== v2.10.9: 納車予定（ダッシュボード最上部・横スクロール） ===== */
+.ds-head{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
+.ds-head h3{margin:0;font-size:15px}
+.ds-count{font-size:12px;color:var(--text3)}
+.ds-empty{font-size:13px;color:var(--text3);padding:2px 2px 12px}
+.ds-scroll{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:10px}
+.ds-card{flex:0 0 156px;width:156px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;position:relative;transition:.15s}
+.ds-card:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.ds-badge{position:absolute;top:6px;right:6px;z-index:2;font-size:11px;font-weight:700;padding:2px 9px;border-radius:9px;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ds-ready{background:var(--green)}
+.ds-hurry{background:var(--red)}
+.ds-photo{width:100%;height:84px;border-radius:7px;background-size:cover;background-position:center;background-color:var(--bg3)}
+.ds-photo-none{display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--text3)}
+.ds-maker{margin-top:7px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-num{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-pct{font-size:26px;font-weight:800;line-height:1.1;margin-top:4px}
+.ds-pct-u{font-size:13px;font-weight:700;margin-left:1px}
+.ds-date{font-size:19px;font-weight:800;color:var(--text);margin-top:2px}
+.ds-date-w{font-size:12px;font-weight:600;color:var(--text2);margin-left:2px}
+.ds-date-w.ds-dow-red{color:var(--red)}
+.ds-date-w.ds-dow-blue{color:var(--blue)}
+.ds-time-row{display:flex;align-items:center;gap:6px;margin-top:7px}
+.ds-time{flex:1;min-width:0;font-size:13px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
+.ds-confirm-btn{flex-shrink:0;width:30px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.ds-confirm-btn.on{background:var(--red);color:#fff;border-color:var(--red)}
+.ds-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
 
 
 /* ========================================

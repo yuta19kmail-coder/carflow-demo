@@ -458,6 +458,11 @@ let appTaskRename  = { regen: {}, delivery: {}, backoffice: {} };
 //   - freeword は label を使わず「メモ」固定
 //   - 値（実データ）は車両側 car.taskMemos[taskId].value に入る
 let appTaskMemoConfig = { regen: {}, delivery: {}, backoffice: {} };
+// v2.8.0: 大タスクごとの「完了時 LINE 通知」ON/OFF。
+//   appTaskNotify[phase][taskId] === false なら、その大タスクが完了しても通知しない。
+//   未設定（既定）は通知する＝ON。保存には OFF（false）のものだけ入る。
+//   LINE設定の「大タスク完了通知」が全体ONのとき、このスイッチがONのタスクだけ完了通知が飛ぶ。
+let appTaskNotify = { regen: {}, delivery: {}, backoffice: {} };
 
 // v2.2.1: タスクごとのメモ設定取得（未設定時は OFF を返す）
 function getTaskMemoConfig(taskId, phase) {
@@ -540,6 +545,22 @@ window.isTaskOptional = isTaskOptional;
 window.isTaskOptedInForCar = isTaskOptedInForCar;
 window.setTaskOptional = setTaskOptional;
 
+// v2.8.0: 大タスク完了時に LINE 通知するか（既定 ON）。
+//   自動判定タスク（t_complete / d_complete）も対象に含む（完了で飛ばしたくない場合は OFF にできる）。
+function isTaskNotifyEnabled(taskId, phase) {
+  const map = (appTaskNotify && appTaskNotify[phase]) || {};
+  return map[taskId] !== false; // 未設定＝ON。明示的に false のときだけ OFF
+}
+// v2.8.0: 設定→各大タスクの「LINE通知」トグル
+function setTaskNotify(taskId, phase, on) {
+  if (!appTaskNotify[phase]) appTaskNotify[phase] = {};
+  if (on) delete appTaskNotify[phase][taskId]; // ON は既定なので保存しない（OFF だけ記録）
+  else appTaskNotify[phase][taskId] = false;
+  if (window.saveSettings) saveSettings();
+}
+window.isTaskNotifyEnabled = isTaskNotifyEnabled;
+window.setTaskNotify = setTaskNotify;
+
 // v1.8.80: 各大タスクの期日は { target: 目標ライン日数, limit: 限界ライン日数 } の2値構造。
 //   後方互換：appTaskDeadline[phase][taskId] が「数値」の場合は target のみ設定された旧データ扱い。
 //   limit が未設定の場合、要対応判定は旧挙動（target 超過＝赤一発）と等価になる。
@@ -595,7 +616,7 @@ function _sortByTaskOrder(tasks, phase) {
 }
 
 // ========================================
-// v2.5.x: 大タスクID → 情報（名前・フェーズ）。操作ログの日本語化／車両メモ一覧のラベルに使う。
+// 大タスクID → 情報（名前・フェーズ）。操作ログの日本語化／車両メモ一覧のラベルに使う。
 // ========================================
 function getTaskInfoById(id) {
   let t = REGEN_TASKS.find(x => x.id === id);     if (t) return { name: t.name, phase: 'regen' };

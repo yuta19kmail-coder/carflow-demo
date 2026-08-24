@@ -221,7 +221,7 @@ function openWorksheet(carId, taskId, phaseHint) {
         ? window.getCarTaskVariantId(car, taskId) : null;
       if (!sel) {
         if (typeof showToast === 'function') {
-          showToast('先にタスクパターンを選んでください');
+          showToast('先にタスクパターンを選んでください', 'CF-3001');
         } else {
           alert('先にタスクパターンを選んでください');
         }
@@ -276,11 +276,11 @@ function markWorksheetComplete() {
   if (!car || !taskDef) return;
   const p = _wsCalcProgress(car, taskDef);
   if (p.done < p.total) {
-    if (typeof showToast === 'function') showToast(`あと ${p.total - p.done} 項目残っています`);
+    if (typeof showToast === 'function') showToast(`あと ${p.total - p.done} 項目残っています`, 'CF-3003');
     return;
   }
   if (typeof addLog === 'function') addLog(car.id, `${taskDef.name}を完了`);
-  if (typeof showToast === 'function') showToast(`✓ ${taskDef.name}を完了にしました`);
+  if (typeof showToast === 'function') showToast(`${taskDef.name}を完了にしました`);
   closeWorksheet();
 }
 
@@ -296,7 +296,7 @@ function _renderWorksheetPage(car, taskDef) {
       thumb.textContent = '';
     } else {
       thumb.style.backgroundImage = '';
-      thumb.textContent = (typeof carEmoji === 'function') ? carEmoji(car.size) : '🚗';
+      thumb.innerHTML = icoE((typeof carEmoji === 'function') ? carEmoji(car.size) : '🚗');
     }
   }
   document.getElementById('ws-vehicle-name').textContent = `${car.maker || ''} ${car.model || ''}`.trim();
@@ -391,11 +391,11 @@ function _renderWsSections(car, taskDef, sections) {
     return `
       <div class="ws-section ws-section-accordion" data-section-id="${escapeHtml(sec.id)}" data-open="${isOpen ? 1 : 0}">
         <div class="ws-section-head" onclick="toggleWsSection('${escapeHtml(sec.id)}')">
-          ${sec.icon ? `<span class="ws-section-icon">${escapeHtml(sec.icon)}</span>` : ''}
+          ${sec.icon ? `<span class="ws-section-icon">${icoE(escapeHtml(sec.icon))}</span>` : ''}
           <span class="ws-section-num">${String(sIdx + 1).padStart(2, '0')}</span>
           <span class="ws-section-title">${escapeHtml(sec.title)}</span>
           <span class="ws-section-count">${filled}/${total}</span>
-          <span class="ws-section-toggle">${isOpen ? '▲' : '▼'}</span>
+          <span class="ws-section-toggle">${isOpen ? ''+ic('chevUp','▲',14)+'' : ''+ic('chevDown','▼',14)+''}</span>
         </div>
         <div class="ws-section-body">${itemsHtml}</div>
       </div>`;
@@ -461,7 +461,7 @@ function _renderWsItemHtml(car, taskDef, item) {
   if (inputType === 'check') {
     controlHtml = `
       <button class="ws-item-chk-btn" onclick="toggleWsItem('${itemIdAttr}')" aria-label="完了切替">
-        <div class="ws-item-chk">${filled ? '✓' : ''}</div>
+        <div class="ws-item-chk">${filled ? ''+ic('check','✓',14)+'' : ''}</div>
       </button>`;
   } else if (inputType === 'tri') {
     const cur = (value === 'on' || value === 'off') ? value : 'none';
@@ -855,7 +855,7 @@ function _refreshWsCompleteBtn(car, taskDef) {
   if (allDone) {
     btn.disabled = false;
     btn.classList.remove('disabled');
-    btn.textContent = `✓ 完了する（全${p.total}項目）`;
+    btn.innerHTML = icoE(`✓ 完了する（全${p.total}項目）`);
   } else {
     btn.disabled = true;
     btn.classList.add('disabled');

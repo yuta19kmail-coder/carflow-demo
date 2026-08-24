@@ -9,7 +9,7 @@
 //   - バックオフィスタスクのチェックはカード詳細モーダル内（car-detail.js）で行う
 //
 // 表示対象:
-//   1) cars のうち col='delivery' or col='done' かつ !c.backofficeCompleted、!c.isOrder
+//   1) cars のうち col='delivery' or col='done' かつ !c.backofficeCompleted（v2.26.2: オーダー車両も対象に含める）
 //   2) archivedCars のうち !c.backofficeCompleted
 //   → 納車日（deliveryDate）の年月で 4 段に振り分け
 //
@@ -75,7 +75,7 @@
       cars.forEach(c => {
         if (!c) return;
         if (c.backofficeCompleted) return;
-        if (c.isOrder) return; // オーダー車両は対象外
+        // v2.26.2: オーダー車両も「販売が決まったお客様の車」なので、納車準備/納車完了に来たら書類対象に含める（旧版は除外していた）。
         if (c.col !== 'delivery' && c.col !== 'done') return;
         out.push(c);
       });
@@ -110,7 +110,7 @@
       <div class="bo-row-head">
         <span class="bo-row-label">${_esc(label)}</span>
         <span class="bo-row-count">${list.length}台</span>
-        ${idx === 3 && list.length > 0 ? '<span class="bo-row-warn">⚠ 3ヶ月以上経過</span>' : ''}
+        ${idx === 3 && list.length > 0 ? '<span class="bo-row-warn">'+ic('warn','⚠',14)+' 3ヶ月以上経過</span>' : ''}
       </div>
       <div class="bo-row-scroll">${cards}</div>
     </div>`;
@@ -139,11 +139,11 @@
     // ステータスpill
     let statusPill;
     if (car._fromArchive) {
-      statusPill = '<span class="bo-status-pill bo-pill-archived">📦 アーカイブ済</span>';
+      statusPill = '<span class="bo-status-pill bo-pill-archived">'+ic('box','📦',16)+' アーカイブ済</span>';
     } else if (car.col === 'done') {
-      statusPill = '<span class="bo-status-pill bo-pill-done">✅ 納車完了</span>';
+      statusPill = '<span class="bo-status-pill bo-pill-done">'+ic('check','✅',15)+' 納車完了</span>';
     } else {
-      statusPill = '<span class="bo-status-pill bo-pill-prep">🔧 納車準備中</span>';
+      statusPill = '<span class="bo-status-pill bo-pill-prep">'+ic('wrench','🔧',16)+' 納車準備中</span>';
     }
 
     // バックオフィスタスクの進捗（ドット＋％）

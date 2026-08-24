@@ -213,12 +213,44 @@ function _carCurrentProgressPct(car) {
   }
 }
 
+// v2.36.0 (A-2): 1本にまとめた記録（appSummaries/carflowProgress）を画面が持っておく置き場。
+//   形：{ days: { 'YYYY-MM-DD': { carId: pct } } }
+//   🔴 ここに無い日は、昔の車ごとの記録（car.progressHistory）で我慢する。
+//      昔のぶんを書き換えたり、代わりの値で埋めたりはしない。
+let _progSnapDoc = null;   // 読めていなければ null（＝「まだ分かっていない」）
+
+function _progSnapDayKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function _progSnapRef() {
+  if (!window.fb || !window.fb.db || !window.fb.currentCompanyId) return null;
+  return window.fb.db
+    .collection('companies').doc(window.fb.currentCompanyId)
+    .collection('appSummaries').doc('carflowProgress');
+}
+
 // 期間先頭時点のスナップショット％ を取得（無ければ null）
 function _carSnapshotPct(car, period) {
-  if (!car || !Array.isArray(car.progressHistory)) return null;
+  if (!car) return null;
   const start = _worklogPeriodStart(period);
-  // 期間先頭の "前夜" に当たるスナップショットを探す（start 以前で最新のもの）
   const startMs = start.getTime();
+
+  // ① まず1本にまとめた記録から。期間の開始日「以前」で いちばん新しい日を探す。
+  if (_progSnapDoc && _progSnapDoc.days) {
+    const startKey = _progSnapDayKey(start);
+    let bestKey = null;
+    for (const k in _progSnapDoc.days) {
+      if (k >= startKey) continue;              // 期間に入ってからの記録は「前の値」ではない
+      if (!bestKey || k > bestKey) bestKey = k;
+    }
+    if (bestKey) {
+      const v = _progSnapDoc.days[bestKey][car.id];
+      if (typeof v === 'number') return v;
+    }
+  }
+
+  // ② 無ければ昔の車ごとの記録（v2.35.1 まではこちらに書いていた）
+  if (!Array.isArray(car.progressHistory)) return null;
   let best = null;
   car.progressHistory.forEach(s => {
     if (!s || typeof s.snapshotAt !== 'number') return;
@@ -259,21 +291,21 @@ function renderWorklog() {
   else cheerMsg = '🎉 神回！お疲れさま！';
 
   summaryEl.innerHTML = `
-    <div class="worklog-summary-title">🤝 ${periodLabel}のチームの動き</div>
+    <div class="worklog-summary-title">${ic('handshake','🤝',16)} ${periodLabel}のチームの動き</div>
     <div class="worklog-summary-stats">
       <div class="worklog-stat">
-        <div class="worklog-stat-icon">✅</div>
+        <div class="worklog-stat-icon">${ic('check','✅',15)}</div>
         <div class="worklog-stat-num">${totalTasks}</div>
         <div class="worklog-stat-label">完了タスク</div>
       </div>
       <div class="worklog-stat">
-        <div class="worklog-stat-icon">🚗</div>
+        <div class="worklog-stat-icon">${ic('car','🚗',16)}</div>
         <div class="worklog-stat-num">${movedCarsCount}</div>
         <div class="worklog-stat-label">動いた車</div>
       </div>
       ${completedCount > 0 ? `
       <div class="worklog-stat worklog-stat-shine">
-        <div class="worklog-stat-icon">✨</div>
+        <div class="worklog-stat-icon">${ic('sparkle','✨',15)}</div>
         <div class="worklog-stat-num">${completedCount}</div>
         <div class="worklog-stat-label">完成した車</div>
       </div>` : ''}
@@ -283,7 +315,7 @@ function renderWorklog() {
   // (2) 動きのあった車（中段、これが終礼の話題のメイン） ─────────────
   const carAgg = _aggregateByCar(logs);
   if (carAgg.length === 0) {
-    carsEl.innerHTML = '<div class="worklog-empty">😴 この期間はまだ動きがないみたい。<br>明日いっしょにがんばろう！</div>';
+    carsEl.innerHTML = '<div class="worklog-empty">'+ic('bed','😴',15)+' この期間はまだ動きがないみたい。<br>明日いっしょにがんばろう！</div>';
   } else {
     carsEl.innerHTML = carAgg.map(c => {
       const car = (typeof cars !== 'undefined') ? cars.find(x => x.id === c.carId) : null;
@@ -312,7 +344,7 @@ function renderWorklog() {
           oneMore = '<span class="worklog-car-onemore">💪 あと一息！</span>';
         }
       }
-      const cheer = isCompletedDelivery ? '<span class="worklog-car-shine">✨ 完成！おめでとう</span>' : oneMore;
+      const cheer = isCompletedDelivery ? '<span class="worklog-car-shine">'+ic('sparkle','✨',15)+' 完成！おめでとう</span>' : oneMore;
       return `
         <div class="worklog-car-row" onclick="openWorklogCar('${escapeHtml(c.carId)}')">
           <div class="worklog-car-main">
@@ -334,7 +366,7 @@ function renderWorklog() {
   //     順位やメダルは外し、シンプルに「人＋件数」を横並びで。
   const userAgg = _aggregateByUser(logs);
   if (userAgg.length === 0) {
-    mvpEl.innerHTML = '<div class="worklog-empty-sub">記録待ち 🌱</div>';
+    mvpEl.innerHTML = '<div class="worklog-empty-sub">記録待ち '+ic('sparkle','🌱',15)+'</div>';
   } else {
     mvpEl.innerHTML = userAgg.map(u => `
       <div class="worklog-person">
@@ -357,34 +389,67 @@ window.openWorklogCar = openWorklogCar;
 // 進捗スナップショット（毎日0時時点の進捗を保存）
 // ========================================
 
-// 各車の現在進捗% を「今日のスナップショット」として保存。
-// すでに今日のスナップショットがあれば上書きしない（一度確定した値を尊重）。
-// ログイン時に呼ばれる想定。
-function captureProgressSnapshotsIfNew() {
+// v2.36.0 (A-2) 🔴 ここが「朝いちばんに開いた人の画面が数秒固まる」の元だった。
+//
+//   【前】ログインするたび、在庫の車を1台ずつ保存し直していた（50台なら50回の書き込み）。
+//         しかも1台保存するたびに updatedAt / updatedBy が変わるので、
+//         自分の書き込みが跳ね返ってきて描き直しが50回連発していた。
+//         全員がログインするので、1日に何百回も同じことが起きていた。
+//
+//   【今】記録は会社で1本の書類（appSummaries/carflowProgress）にまとめた。
+//         ・その日のぶんが既にあれば **1文字も書かない**（＝2人目以降はタダ）
+//         ・無ければ **1回だけ** まとめて書く（何台あっても1回）
+//         ・🔴 車のデータには一切触らない ＝ 跳ね返りの描き直しがゼロになる
+//
+//   ⚠ 昔の車ごとの記録（car.progressHistory）は **消していない**。読む側が今も見に行く。
+//      新しく書き足さないだけ。
+async function captureProgressSnapshotsIfNew() {
+  const ref = _progSnapRef();
+  if (!ref) return;
+
+  // まず読む（読めなければ何もしない。からっぽを本物として扱わない）
+  let doc = null;
+  try {
+    const snap = await ref.get();
+    doc = snap.exists ? (snap.data() || {}) : { days: {} };
+  } catch (e) {
+    console.warn('[worklog] 進捗の記録が読めなかったので、今日のぶんは書かない', e);
+    return;
+  }
+  if (!doc.days) doc.days = {};
+  _progSnapDoc = doc;   // 画面が使う
+
+  const todayKey = _progSnapDayKey(new Date());
+  if (doc.days[todayKey]) return;               // 🔴 今日のぶんは誰かが書いた ＝ 書き込みゼロ
+
   if (typeof cars === 'undefined' || !Array.isArray(cars)) return;
-  const now = Date.now();
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  let savedAny = false;
+  const today = {};
   cars.forEach(car => {
-    if (!car) return;
-    if (!Array.isArray(car.progressHistory)) car.progressHistory = [];
-    // 今日のスナップショットが既にあるならスキップ
-    const exists = car.progressHistory.some(s => s && s.date === todayKey);
-    if (exists) return;
+    if (!car || !car.id) return;
     const pct = _carCurrentProgressPct(car);
     if (pct == null) return;
-    car.progressHistory.push({ date: todayKey, pct, snapshotAt: now });
-    // 古いスナップショットを 60 件で頭打ちに（おおよそ2か月分）
-    if (car.progressHistory.length > 60) {
-      car.progressHistory = car.progressHistory.slice(-60);
-    }
-    savedAny = true;
-    // fire-and-forget で保存
-    if (typeof saveCarById === 'function') {
-      try { saveCarById(car.id); } catch (e) { /* ignore */ }
-    }
+    today[car.id] = pct;
   });
-  if (savedAny) console.log('[worklog] 進捗スナップショットを保存しました');
+  if (Object.keys(today).length === 0) return;
+
+  // 古い日を落とす（60日ぶんで頭打ち。書類が無限に太らないように）
+  const keys = Object.keys(doc.days).sort();
+  const drop = keys.slice(0, Math.max(0, keys.length - 59));
+
+  const payload = { days: {} };
+  payload.days[todayKey] = today;
+  try {
+    await ref.set(payload, { merge: true });    // 🔴 1回だけ
+    doc.days[todayKey] = today;
+    if (drop.length) {
+      const FieldValue = window.firebase.firestore.FieldValue;
+      const del = {};
+      drop.forEach(k => { del['days.' + k] = FieldValue.delete(); delete doc.days[k]; });
+      await ref.update(del);
+    }
+    console.log('[worklog] 進捗の記録を1本にまとめて保存しました（' + Object.keys(today).length + '台ぶん・書き込み1回）');
+  } catch (e) {
+    console.warn('[worklog] 進捗の記録を保存できなかった', e);
+  }
 }
 window.captureProgressSnapshotsIfNew = captureProgressSnapshotsIfNew;

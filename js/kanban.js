@@ -28,6 +28,10 @@ function renderKanban() {
   expandedCards = {};
   const wrap = document.getElementById('kanban-wrap');
   wrap.innerHTML = '';
+
+  // v2.19.0: 一番左に「仮登録車両」列（通常の cars とは別の tentativeCars から描画）
+  _renderTentativeColumn(wrap);
+
   COLS.forEach(col => {
     let colCars = cars.filter(c => c.col === col.id);
     // v1.0.14: 全列に一斉ソート（done＝納車完了は対象外）
@@ -51,6 +55,20 @@ function renderKanban() {
     cd.addEventListener('drop', e => {
       e.preventDefault();
       cd.classList.remove('drag-over');
+      // v2.19.0/1: 仮登録カードを「仕入れ」「その他」に落としたら昇格確認（管理番号採番）
+      if (dragTentative) {
+        if (col.id === 'purchase' || col.id === 'other') {
+          askPromoteTentative(dragTentative, col.id);
+        } else {
+          showToast('仮登録は「仕入れ」か「その他」にだけ移せます');
+        }
+        return;
+      }
+      // v2.19.1: 登録済みカードを「仮登録」列へ落とした＝あり得ない逆流。2段階確認で戻す。
+      if (dragCard && col.id === 'tentative') {
+        askRevertToTentative(dragCard);
+        return;
+      }
       if (!dragCard || dragCard.col === col.id) return;
       handleKanbanMove(dragCard, col.id);
     });
@@ -114,16 +132,355 @@ function _refreshKanbanToolbar() {
       btn.classList.add('active');
       const arrow = document.createElement('span');
       arrow.className = 'kt-arrow';
-      arrow.textContent = kanbanSort.dir === 'asc' ? '▲' : '▼';
+      arrow.innerHTML = icoE(kanbanSort.dir === 'asc' ? '▲' : '▼');
       btn.appendChild(arrow);
     }
   });
   const btn = document.getElementById('kt-expand-btn');
   if (btn) {
-    btn.textContent = kanbanForceExpand ? '▲ 縮小表示に戻す' : '▼ すべてのカードを開く';
+    btn.innerHTML = icoE(kanbanForceExpand ? '▲ 縮小表示に戻す' : '▼ すべてのカードを開く');
     btn.classList.toggle('active', kanbanForceExpand);
   }
 }
+
+// ========================================
+// v2.19.0: 仮登録車両 列・カード・昇格処理
+// ========================================
+function _tentativeReasonLabel(id) {
+  const r = (typeof TENTATIVE_REASONS !== 'undefined') ? TENTATIVE_REASONS.find(x => x.id === id) : null;
+  return r ? r.label : (id || '');
+}
+
+function _renderTentativeColumn(wrap) {
+  const list = (typeof tentativeCars !== 'undefined' && Array.isArray(tentativeCars)) ? tentativeCars : [];
+  const col = (typeof TENTATIVE_COL !== 'undefined') ? TENTATIVE_COL : { id:'tentative', label:'仮登録車両', color:'#ec4899' };
+  const div = document.createElement('div');
+  div.className = 'k-col k-col-tentative';
+  div.innerHTML = `<div class="k-col-hdr"><div class="k-col-dot" style="background:${col.color}"></div><div class="k-col-title">${col.label}</div><div class="k-col-count">${list.length}</div></div><div class="k-cards" id="kc-tentative" data-col="tentative"></div>`;
+  wrap.appendChild(div);
+  const cd = div.querySelector('.k-cards');
+  list.forEach(t => cd.appendChild(_makeTentativeCard(t)));
+  const spacer = document.createElement('div');
+  spacer.className = 'k-col-spacer';
+  cd.appendChild(spacer);
+  // 登録済みカードがこの列に落とされた場合だけ「あり得ない逆流」の確認を出す（仮登録同士は無視）
+  cd.addEventListener('dragover', e => { e.preventDefault(); cd.classList.add('drag-over'); });
+  cd.addEventListener('dragleave', () => cd.classList.remove('drag-over'));
+  cd.addEventListener('drop', e => {
+    e.preventDefault();
+    cd.classList.remove('drag-over');
+    if (dragTentative) return;                 // 仮登録→仮登録は何もしない
+    if (dragCard) askRevertToTentative(dragCard);
+  });
+}
+
+function _makeTentativeCard(t) {
+  const reason = _tentativeReasonLabel(t.reason);
+  const memo = (t.memo || '').trim();
+  const div = document.createElement('div');
+  div.className = 'car-card cc-tentative';
+  div.draggable = true;
+  div.dataset.tentId = t.id;
+  div.innerHTML = `
+    <div class="cc-body">
+      <div class="cc-info-row">
+        <div class="cc-info-left">
+          <div class="cc-maker">${escapeHtml(t.maker || '')}</div>
+          <div class="cc-model">${escapeHtml(t.model || '（車種未入力）')}</div>
+        </div>
+        ${reason ? `<span class="cc-reason-badge">${escapeHtml(reason)}</span>` : ''}
+      </div>
+      <div class="cc-tent-memo">
+        <span class="cc-tent-memo-icon">${ic('pencil','📝',16)}</span>
+        <span class="cc-tent-memo-body${memo ? '' : ' empty'}">${memo ? escapeHtml(memo).replace(/\n/g, '<br>') : 'メモなし'}</span>
+      </div>
+    </div>`;
+  div.addEventListener('dragstart', () => { dragTentative = t; dragCard = null; div.classList.add('dragging'); });
+  div.addEventListener('dragend', () => { dragTentative = null; div.classList.remove('dragging'); });
+  div.addEventListener('click', () => openTentativeModal(t.id));
+  return div;
+}
+
+// v2.19.1: 昇格の確認ダイアログ（前向き・1回）
+let _pendingPromote = null;
+function askPromoteTentative(t, targetCol) {
+  _pendingPromote = { t, targetCol };
+  let num = '';
+  try { num = (window.numHelpers && window.numHelpers.nextNum) ? window.numHelpers.nextNum() : ''; } catch (e) {}
+  const toLabel = COLS.find(c => c.id === targetCol)?.label || targetCol;
+  const name = `${(t.maker || '')} ${(t.model || '（車種未入力）')}`.trim();
+  document.getElementById('promote-sub').innerHTML =
+    `<b style="color:var(--text)">${escapeHtml(name)}</b> を「${toLabel}」に登録します。<br>` +
+    `この時点で管理番号 <b style="font-family:monospace;color:var(--text)">${escapeHtml(num || '（自動）')}</b> を自動で振ります。<br>在庫日数のカウントも今日から始まります。`;
+  document.getElementById('confirm-promote').classList.add('open');
+}
+window.askPromoteTentative = askPromoteTentative;
+
+function closePromoteConfirm(ok) {
+  document.getElementById('confirm-promote').classList.remove('open');
+  const p = _pendingPromote; _pendingPromote = null;
+  if (!ok || !p) { showToast('キャンセルしました'); return; }
+  promoteTentative(p.t, p.targetCol);
+}
+window.closePromoteConfirm = closePromoteConfirm;
+
+// v2.19.1: 登録済み→仮登録への逆流（あり得ない）。2段階で確認して戻す。
+let _pendingRevert = null;
+function askRevertToTentative(car) {
+  _pendingRevert = car;
+  const name = `${(car.maker || '')} ${(car.model || '')}`.trim();
+  document.getElementById('revert1-sub').innerHTML =
+    `すでに登録済みの <b style="color:var(--text)">${escapeHtml(name)}</b>（${escapeHtml(car.num || '番号なし')}）を「仮登録車両」に戻そうとしています。<br><br>` +
+    `<b style="color:var(--text)">仮登録から間違えて移動したのを戻したい</b>のですか？`;
+  document.getElementById('confirm-revert1').classList.add('open');
+}
+window.askRevertToTentative = askRevertToTentative;
+
+function closeRevert1(yes) {
+  document.getElementById('confirm-revert1').classList.remove('open');
+  if (!yes) { _pendingRevert = null; showToast('やめました', 'CF-2002'); return; }
+  const car = _pendingRevert;
+  if (!car) return;
+  document.getElementById('revert2-sub').innerHTML =
+    `管理番号 <b style="font-family:monospace;color:var(--text)">${escapeHtml(car.num || '番号なし')}</b> が外れ、この車は「来る前の仮の状態」に戻ります。<br>在庫日数・進捗もリセットされます。`;
+  document.getElementById('confirm-revert2').classList.add('open');
+}
+window.closeRevert1 = closeRevert1;
+
+async function closeRevert2(ok) {
+  document.getElementById('confirm-revert2').classList.remove('open');
+  const car = _pendingRevert; _pendingRevert = null;
+  if (!ok || !car) { showToast('キャンセルしました'); return; }
+  // 仮登録に戻す：tentativeCars に作り直し、cars から削除。番号は手放す。
+  /* 🔴 2026-08-05 修正：昇格と同じ理由。**仮登録の保存が成功してから、本登録を消す。** */
+  const rec = { id: 't' + Date.now() + Math.floor(Math.random() * 1000), maker: car.maker || '', model: car.model || '', reason: 'other', memo: car.memo || '' };
+  tentativeCars.push(rec);
+  if (window.dbTentative && window.dbTentative.saveTentativeCar) {
+    try {
+      await window.dbTentative.saveTentativeCar(rec);
+    } catch (e) {
+      console.error('[kanban] 仮登録への差し戻し保存に失敗', e);
+      const back = tentativeCars.findIndex(x => x.id === rec.id);
+      if (back >= 0) tentativeCars.splice(back, 1);
+      if (typeof renderAll === 'function') renderAll();
+      showToast('仮登録に戻せませんでした。元のまま残しています（通信または権限を確認してください）', 'CF-2003');
+      return;                                        /* ⚠ 本登録は消さない */
+    }
+  }
+  const idx = cars.findIndex(c => c.id === car.id);
+  if (idx >= 0) cars.splice(idx, 1);
+  let _carLeft = false;
+  if (window.dbCars && window.dbCars.deleteCar) {
+    try {
+      await window.dbCars.deleteCar(car.id);
+    } catch (e) {
+      console.error('[kanban] 元の車両の削除に失敗', e);
+      cars.push(car);
+      _carLeft = true;
+    }
+  }
+  if (typeof addLog === 'function') addLog(rec.id, `登録済み（${car.num || '番号なし'}）を仮登録に戻した`);
+  if (typeof renderAll === 'function') renderAll();
+  showToast(_carLeft ? '仮登録に戻しましたが、元の車が消せませんでした（両方に出ています）' : '仮登録に戻しました');
+}
+window.closeRevert2 = closeRevert2;
+
+// 仮登録 → 「仕入れ」or「その他」へ昇格：この時点で管理番号を振り、通常 cars に追加。
+// 在庫日数などのカウントは purchaseDate=今日 からスタート。
+async function promoteTentative(t, targetCol) {
+  if (!t) return;
+  let num = '';
+  try { num = (window.numHelpers && window.numHelpers.nextNum) ? window.numHelpers.nextNum() : ''; } catch (e) {}
+  const car = {
+    id: 'c' + Date.now() + Math.floor(Math.random() * 1000),
+    num: num,
+    maker: t.maker || '',
+    model: t.model || '',
+    grade: '',
+    col: targetCol,                 // 'purchase' or 'other'
+    purchaseDate: todayStr(),       // ★カウントはここから
+    memo: t.memo || '',
+    workMemo: '',
+    photo: '',
+    price: '', totalPrice: '',
+    contract: 0,
+    // v2.28.1: 昇格時に作業タスク欄を初期化（通常の新規登録と揃える）。
+    //   これが無いと progress.js の進捗計算で state が undefined になり、
+    //   ログイン直後にクラッシュする不具合の根本原因だった（KM-0535 で発生）。
+    regenTasks: (typeof mkTaskState === 'function' && typeof REGEN_TASKS !== 'undefined') ? mkTaskState(REGEN_TASKS) : {},
+    deliveryTasks: (typeof mkTaskState === 'function' && typeof DELIVERY_TASKS !== 'undefined') ? mkTaskState(DELIVERY_TASKS) : {},
+    logs: [],
+  };
+  /* 🔴 2026-08-05 修正：ここは以前、保存の失敗を空の catch で握りつぶしたまま
+     **仮登録の方を消していた**。電波が悪い・権限が足りない・端末の保存領域が不調だと、
+     画面には「◯◯ で仕入れに登録しました」と出るのに、
+     **次に開くと仮登録からも一覧からも車が消えている**（管理番号だけ食われる）。
+     🔴 決めごと＝**新しい方の保存が成功してから、古い方を消す。**
+        失敗したら何も消さずに中断して、はっきり伝える。 */
+  cars.push(car);
+  if (window.dbCars && window.dbCars.saveCar) {
+    try {
+      await window.dbCars.saveCar(car);
+    } catch (e) {
+      console.error('[kanban] 昇格の保存に失敗', e);
+      const back = cars.findIndex(x => x.id === car.id);
+      if (back >= 0) cars.splice(back, 1);          // 画面からも戻す（幻の車を残さない）
+      if (typeof renderAll === 'function') renderAll();
+      if (typeof showToast === 'function') showToast('登録できませんでした。仮登録のまま残しています（通信または権限を確認してください）', 'CF-2004');
+      return;                                        /* ⚠ ここで必ず止まる。仮登録は消さない */
+    }
+  }
+  if (typeof addLog === 'function') addLog(car.id, `仮登録から${COLS.find(c=>c.id===targetCol)?.label || targetCol}へ（${num} を採番）`);
+  // 仮登録を削除（★保存が成功した後だけ）
+  const idx = tentativeCars.findIndex(x => x.id === t.id);
+  if (idx >= 0) tentativeCars.splice(idx, 1);
+  let _tentLeft = false;
+  if (window.dbTentative && window.dbTentative.deleteTentativeCar) {
+    try {
+      await window.dbTentative.deleteTentativeCar(t.id);
+    } catch (e) {
+      /* 車は保存できている＝データは失われていない。仮登録の方が残るだけなので、
+         画面からは消さずに戻して「両方に出ている」と分かる状態にする。 */
+      console.error('[kanban] 仮登録の削除に失敗', e);
+      tentativeCars.push(t);
+      _tentLeft = true;
+    }
+  }
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof showToast === 'function') {
+    showToast(_tentLeft
+      ? `${num} で登録しました（仮登録の方が消せませんでした。あとで消してください）`
+      : `${num} で${COLS.find(c=>c.id===targetCol)?.label || ''}に登録しました`);
+  }
+}
+
+// 仮登録モーダル：追加（id無し）／編集（id有り）
+let _editingTentId = null;
+function openTentativeModal(tentId) {
+  _editingTentId = tentId || null;
+  const t = _editingTentId ? (tentativeCars || []).find(x => x.id === _editingTentId) : null;
+  /* ⚠ textContent はアイコン（<i data-ic>）ごと中身を消してしまい、絵文字に戻る。innerHTML でアイコンを入れ直す。 */
+  document.getElementById('tent-modal-title').innerHTML = ic('clock', '🕗', 15) + ' 仮登録車両を' + (t ? '編集' : '追加');
+  document.getElementById('tent-maker').value  = t ? (t.maker || '') : '';
+  document.getElementById('tent-model').value  = t ? (t.model || '') : '';
+  document.getElementById('tent-reason').value = t ? (t.reason || 'trade') : 'trade';
+  document.getElementById('tent-memo').value   = t ? (t.memo || '') : '';
+  document.getElementById('tent-del-btn').style.display = t ? '' : 'none';
+  document.getElementById('modal-tentative').classList.add('open');
+  _setupTentativeAutocomplete();   // メーカー・車種の過去データ補完（他フォームと同じ）
+}
+window.openTentativeModal = openTentativeModal;
+
+// E201（端末にオフライン保存できない）でやむなく再読み込みした場合、入力中だった仮登録を復元する。
+//   再読み込み後はネット直書きモードなので、そのまま「保存」を押せば確実に登録できる。
+(function () {
+  function _restoreTentDraft() {
+    var raw;
+    try { raw = sessionStorage.getItem('cf_tent_draft'); } catch (_) { return; }
+    if (!raw) return;
+    try { sessionStorage.removeItem('cf_tent_draft'); } catch (_) {}
+    var d; try { d = JSON.parse(raw); } catch (_) { return; }
+    if (!d) return;
+    try {
+      if (typeof openTentativeModal === 'function') openTentativeModal(null);
+      var set = function (id, v) { var el = document.getElementById(id); if (el) el.value = v || ''; };
+      set('tent-maker', d.maker); set('tent-model', d.model);
+      set('tent-reason', d.reason || 'trade'); set('tent-memo', d.memo);
+      if (typeof showToast === 'function') showToast('オフライン保存を切替えました。もう一度「保存」を押してください');
+    } catch (_) {}
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(_restoreTentDraft, 1400);
+  else window.addEventListener('DOMContentLoaded', function () { setTimeout(_restoreTentDraft, 1400); });
+})();
+
+// 仮登録モーダルのメーカー/車種にオートコンプリートを付ける（1回だけ配線）
+let _tentAcDone = false;
+function _setupTentativeAutocomplete() {
+  if (_tentAcDone || !window.CarFlowAC || !window.CarFlowAC.setup) return;
+  const maker = document.getElementById('tent-maker');
+  const model = document.getElementById('tent-model');
+  if (maker) window.CarFlowAC.setup(maker, { getDict: window.CarFlowAC.makerDict });
+  if (model) window.CarFlowAC.setup(model, { getDict: () => window.CarFlowAC.modelDict(maker ? maker.value : '') });
+  _tentAcDone = true;
+}
+
+function closeTentativeModal() {
+  document.getElementById('modal-tentative').classList.remove('open');
+  _editingTentId = null;
+}
+window.closeTentativeModal = closeTentativeModal;
+
+async function saveTentativeFromModal() {
+  const maker  = document.getElementById('tent-maker').value.trim();
+  const model  = document.getElementById('tent-model').value.trim();
+  const reason = document.getElementById('tent-reason').value;
+  const memo   = document.getElementById('tent-memo').value.trim();
+  if (!maker && !model) { showToast('メーカーか車種を入れてください', 'CF-2005'); return; }
+  // v2.24.0：成功表示はサーバー保存が確認できた時だけ。失敗はコード付きで通知し、
+  //          画面に幽霊カードを残さない（新規は成功時のみ一覧に足す）。
+  const isNew = !_editingTentId;
+  let rec, _bak = null;
+  if (_editingTentId) {
+    rec = (tentativeCars || []).find(x => x.id === _editingTentId);
+    if (!rec) { closeTentativeModal(); return; }
+    _bak = { maker: rec.maker, model: rec.model, reason: rec.reason, memo: rec.memo };
+    rec.maker = maker; rec.model = model; rec.reason = reason; rec.memo = memo;
+  } else {
+    rec = { id: 't' + Date.now() + Math.floor(Math.random() * 1000), maker, model, reason, memo };
+  }
+  if (!(window.dbTentative && window.dbTentative.saveTentativeCar)) { closeTentativeModal(); return; }
+  try {
+    window.__appBusy = true;
+    await window.dbTentative.saveTentativeCar(rec);
+  } catch (e) {
+    // 失敗：成功表示は出さない。入力中の編集は元に戻す。モーダルは開いたまま再試行可。
+    if (_editingTentId && _bak) { rec.maker = _bak.maker; rec.model = _bak.model; rec.reason = _bak.reason; rec.memo = _bak.memo; }
+    const code = window.CoreSave ? window.CoreSave.toastError(e) : (showToast('保存に失敗しました', 'CF-0018'), 0);
+    // E201＝この端末はオフライン保存(IndexedDB)が使えない。core-saveが既に「次回はネット直書き」に
+    //   切替済みなので、入力内容を退避して再読み込みすれば確実に保存できる。入力は引き継ぐ。
+    if (code === 201 && window.CoreSave && window.CoreSave.offlineDisabled && window.CoreSave.offlineDisabled()) {
+      try { sessionStorage.setItem('cf_tent_draft', JSON.stringify({ maker: maker, model: model, reason: reason, memo: memo })); } catch (_) {}
+      setTimeout(function () {
+        if (confirm('この端末はオフライン保存が使えないようです。\n設定を切り替えました（次回からネット直書き）。\n\n画面を再読み込みすると確実に保存できます。今すぐ再読み込みしますか？\n（入力内容は引き継がれます）')) {
+          location.reload();
+        }
+      }, 150);
+    }
+    return;
+  } finally {
+    window.__appBusy = false;
+  }
+  // 成功（サーバー保存を確認済み）
+  if (isNew) tentativeCars.push(rec);
+  closeTentativeModal();
+  if (typeof renderKanban === 'function') renderKanban();
+  showToast(isNew ? '仮登録を追加しました' : '仮登録を更新しました');
+}
+window.saveTentativeFromModal = saveTentativeFromModal;
+
+async function deleteTentativeFromModal() {
+  if (!_editingTentId) return;
+  if (!confirm('この仮登録を削除しますか？')) return;
+  const id = _editingTentId;
+  if (!(window.dbTentative && window.dbTentative.deleteTentativeCar)) { closeTentativeModal(); return; }
+  try {
+    window.__appBusy = true;
+    await window.dbTentative.deleteTentativeCar(id);
+  } catch (e) {
+    // 失敗：サーバーで消せていない。一覧からは外さず、コード付きで通知。
+    if (window.CoreSave) window.CoreSave.toastError(e); else showToast('削除に失敗しました', 'CF-0019');
+    return;
+  } finally {
+    window.__appBusy = false;
+  }
+  // 成功（サーバーで削除を確認済み）
+  const idx = (tentativeCars || []).findIndex(x => x.id === id);
+  if (idx >= 0) tentativeCars.splice(idx, 1);
+  closeTentativeModal();
+  if (typeof renderKanban === 'function') renderKanban();
+  showToast('仮登録を削除しました');
+}
+window.deleteTentativeFromModal = deleteTentativeFromModal;
 
 // v0.9.1: その他カード（右上は仕入Nバッジのみ、下段帯なし）
 function _makeOtherCard(car, isCompact) {
@@ -134,11 +491,11 @@ function _makeOtherCard(car, isCompact) {
   const memoBlock = `
     <div class="cc-other-memos">
       <div class="cc-other-memo-row">
-        <span class="cc-other-memo-icon">📌</span>
+        <span class="cc-other-memo-icon">${ic('pin','📌',14)}</span>
         <span class="cc-other-memo-body${coreMemo ? '' : ' empty'}">${coreMemo ? escapeHtml(coreMemo).replace(/\n/g,' ') : '未記入'}</span>
       </div>
       <div class="cc-other-memo-row">
-        <span class="cc-other-memo-icon">📝</span>
+        <span class="cc-other-memo-icon">${ic('pencil','📝',16)}</span>
         <span class="cc-other-memo-body${workMemo ? '' : ' empty'}">${workMemo ? escapeHtml(workMemo).replace(/\n/g,' ') : '未記入'}</span>
       </div>
     </div>`;
@@ -200,7 +557,7 @@ function makeCarCard(car, isCompact) {
     topDayTag = `<div class="cc-bigday cc-done-day">${md}<span class="cc-done-suffix">納車</span></div>`;
   } else if (car.isOrder) {
     // v1.8.72: オーダー車両は在庫扱いせず「オーダー車両」固定表示
-    topDayTag = `<div class="cc-bigday cc-order-day" title="オーダー車両：在庫日数にカウントしない">📦 オーダー</div>`;
+    topDayTag = `<div class="cc-bigday cc-order-day" title="オーダー車両：在庫日数にカウントしない">${ic('box','📦',16)} オーダー</div>`;
   } else if (car.contract) {
     topDayTag = `<div class="cc-bigday db">売約<span class="cc-bigday-num">${contractedDays}</span>日</div>`;
   } else {
@@ -253,6 +610,7 @@ function makeCarCard(car, isCompact) {
             }
             return `<div class="cc-price-wrap"><span class="cc-price cc-price-empty">価格未設定</span></div>`;
           })()}
+          ${(typeof customerChipHTML === 'function') ? customerChipHTML(car.customerName) : ''}
         </div>
         <div class="cc-info-right">
           ${topDayTag}
@@ -291,7 +649,7 @@ function handleKanbanMove(car, targetCol) {
 
   if ((car.col === 'other' && (targetCol === 'delivery' || targetCol === 'done')) ||
       ((car.col === 'delivery' || car.col === 'done') && targetCol === 'other')) {
-    showToast(`${fromLabel}と${toLabel}の間は移動できません`);
+    showToast(`${fromLabel}と${toLabel}の間は移動できません`, 'CF-2006');
     return;
   }
 
@@ -300,6 +658,7 @@ function handleKanbanMove(car, targetCol) {
     pendingTargetCol = targetCol;
     const lead = (typeof appSettings !== 'undefined' && appSettings.deliveryLeadDays) || 14;
     document.getElementById('sell-date').value = car.deliveryDate || dateAddDays(todayStr(), lead);
+    { const _cn = document.getElementById('sell-customer-name'); if (_cn) _cn.value = car.customerName || ''; } // v2.26.0
     _renderSellOptionalTaskPickers(car); // v1.8.57
     document.getElementById('confirm-sell').classList.add('open');
     return;
@@ -310,6 +669,7 @@ function handleKanbanMove(car, targetCol) {
     pendingTargetCol = targetCol;
     const lead = (typeof appSettings !== 'undefined' && appSettings.deliveryLeadDays) || 14;
     document.getElementById('sell-date').value = car.deliveryDate || dateAddDays(todayStr(), lead);
+    { const _cn = document.getElementById('sell-customer-name'); if (_cn) _cn.value = car.customerName || ''; } // v2.26.0
     _renderSellOptionalTaskPickers(car); // v1.8.57
     document.getElementById('confirm-sell').classList.add('open');
     return;
@@ -327,7 +687,7 @@ function handleKanbanMove(car, targetCol) {
     pendingDragCar = car;
     pendingTargetCol = targetCol;
     const sub = document.getElementById('uncontract-sub');
-    if (sub) sub.textContent = `${fromLabel} → ${toLabel} に戻します。売約日・納車予定日・納車準備の進捗もすべてリセットされます。`;
+    if (sub) sub.innerHTML = icoE(`${fromLabel} → ${toLabel} に戻します。売約日・納車予定日・納車準備の進捗もすべてリセットされます。`);
     document.getElementById('confirm-uncontract').classList.add('open');
     return;
   }
@@ -371,6 +731,8 @@ function closeSellConfirm(sell) {
   car.contract = 1;
   if (!car.contractDate) car.contractDate = todayStr();
   car.deliveryDate = document.getElementById('sell-date').value || '';
+  // v2.26.0: 売約のお客様（顧客名）。空入力なら既存値は消さず維持。
+  { const _cn = document.getElementById('sell-customer-name'); if (_cn) { const v = (typeof normCustomerName === 'function') ? normCustomerName(_cn.value) : _cn.value.trim(); if (v) car.customerName = v; } }
   car.workMemo = '';
   // v1.8.57: ポップアップで選択された選択制タスクを保存
   _saveSellOptionalTaskSelection(car);
@@ -534,13 +896,13 @@ function _renderSellOptionalTaskPickers(car) {
     html += `
       <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;border-bottom:1px dashed var(--border)">
         <input type="checkbox" data-task-id="${(t.id || '').replace(/"/g,'&quot;')}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
-        <span style="font-size:14px">${t.icon || '📋'}</span>
+        <span style="font-size:14px">${icoE(t.icon) || ic('clipboard','📋',16)}</span>
         <span>${(t.name || '').replace(/</g,'&lt;')}</span>
       </label>`;
   });
   head.style.display = '';
   body.style.display = '';
-  body.innerHTML = html + '<div style="font-size:11px;color:var(--text3);margin-top:4px">※ あとからカード詳細→「✏️ 車両情報を編集」でも変更できます</div>';
+  body.innerHTML = html + '<div style="font-size:11px;color:var(--text3);margin-top:4px">※ あとからカード詳細→「'+ic('pencil','✏️',15)+' 車両情報を編集」でも変更できます</div>';
 }
 
 function _saveSellOptionalTaskSelection(car) {

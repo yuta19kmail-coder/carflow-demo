@@ -49,7 +49,12 @@ function updateClosePreview() {
   el.innerHTML = `<div style="font-weight:600;color:var(--text);margin-bottom:6px">対象 ${targets.length}台 / 売上 ${(totalSales/10000).toFixed(0)}万円</div>` +
     targets.map(c => `<div style="padding:3px 0;font-size:11px">・${c.maker} ${c.model} <span style="color:var(--text3)">(${c.num}) ${fmtPrice(c.price)}</span></div>`).join('');
 }
-function executeCloseMonth() {
+/* 🔴 2026-08-05 修正：月次集計締めは「実績へコピー」と「在庫から削除」を
+   **成功したか確かめずに同時に**走らせていた。実績への保存が失敗して削除だけ通ると、
+   **売れた1台が実績にも在庫にも無くなる（完全に消える）**のに「◯台をアーカイブしました」と出ていた。
+   🔴 決めごと＝**1台ずつ「実績に入ったこと」を確かめてから、その台だけ在庫から消す。**
+      失敗した台は在庫に残す＝データは絶対に失わない。何台できて何台できなかったかを画面に出す。 */
+async function executeCloseMonth() {
   const y = parseInt(document.getElementById('close-month-year').value, 10);
   const m = parseInt(document.getElementById('close-month-month').value, 10);
   const targets = getCloseMonthTargets(y, m);
@@ -67,23 +72,42 @@ function executeCloseMonth() {
     //   バックオフィスビュー（書類スキャン等）で archive 後も写真が必要なため、
     //   _archivedAt から 90日経過後に backoffice.js の cleanupExpiredArchivedPhotos
     //   で自動削除する方式に変更した。
+  });
+
+  /* ① 実績へコピー（1台ずつ結果を見る）。成功した台だけ次に進む。 */
+  const moved = [], failed = [];
+  for (const c of targets) {
+    if (window.dbArchive && window.dbArchive.saveArchivedCar) {
+      try {
+        await window.dbArchive.saveArchivedCar(c);
+      } catch (e) {
+        console.error('[archive] 実績への保存に失敗', c.num, e);
+        failed.push(c);
+        continue;                       /* ⚠ この台は在庫に残す＝消さない */
+      }
+    }
     archivedCars.push(c);
     addLog(c.id, `月次集計締め（${y}年${m}月）でアーカイブ`);
-    // v1.5.3: archivedCars コレクションへ Firestore 保存
-    if (window.dbArchive) {
-      window.dbArchive.saveArchivedCar(c).catch(e => console.error('[archive] save failed', e));
-    }
-  });
-  // cars 配列から除去
-  const ids = new Set(targets.map(c => c.id));
-  for (let i = cars.length - 1; i >= 0; i--) {
-    if (ids.has(cars[i].id)) cars.splice(i, 1);
+    moved.push(c);
   }
-  // v1.5.1: Firestore の cars コレクションからも削除（v1.5.3 で archivedCars に移動済み）
-  if (window.dbCars) {
-    ids.forEach(id => {
-      window.dbCars.deleteCar(id).catch(e => console.error('[archive] delete failed', e));
-    });
+
+  /* ② 実績に入ったことを確かめた台だけ、在庫から消す。 */
+  const okIds = new Set(moved.map(c => c.id));
+  const notDeleted = [];
+  if (window.dbCars && window.dbCars.deleteCar) {
+    for (const c of moved) {
+      try {
+        await window.dbCars.deleteCar(c.id);
+      } catch (e) {
+        /* 実績には入っているので数字は正しい。在庫にも残るので二重に見えるだけ。 */
+        console.error('[archive] 在庫からの削除に失敗', c.num, e);
+        okIds.delete(c.id);
+        notDeleted.push(c);
+      }
+    }
+  }
+  for (let i = cars.length - 1; i >= 0; i--) {
+    if (okIds.has(cars[i].id)) cars.splice(i, 1);
   }
   closeCloseMonth();
   // v2.1.0: 締めボタン押下時に 90日超え archived の写真をクリーンアップ
@@ -94,7 +118,17 @@ function executeCloseMonth() {
   renderAll();
   renderDashboard();
   const cleanedMsg = cleanedCount > 0 ? `（同時に古い写真${cleanedCount}枚をクリーンアップ）` : '';
-  showToast(`${y}年${m}月の${targets.length}台をアーカイブしました${cleanedMsg}`);
+  /* 🔴 「できた数」を正直に出す。全部できた時だけ今までどおりの文言。 */
+  if (failed.length || notDeleted.length) {
+    let msg = `${y}年${m}月：${moved.length}台をアーカイブしました`;
+    if (failed.length)     msg += `／${failed.length}台は実績に移せませんでした（在庫に残しています・もう一度お試しください）`;
+    if (notDeleted.length) msg += `／${notDeleted.length}台は在庫から消せませんでした（実績には入っています）`;
+    showToast(msg);
+    console.warn('[archive] 実績へ移せなかった:', failed.map(c => c.num),
+                 '／在庫から消せなかった:', notDeleted.map(c => c.num));
+  } else {
+    showToast(`${y}年${m}月の${moved.length}台をアーカイブしました${cleanedMsg}`);
+  }
 }
 
 // ========================================
@@ -164,15 +198,20 @@ function renderArchive() {
         const conv = sumCar(c);
         const snap = (typeof getCarPriceTax === 'function') ? getCarPriceTax(c) : null;
         const snapNote = snap
-          ? `<span style="font-size:9px;color:var(--text3);margin-left:4px" title="販売時の税扱い：${dashSource==='total'?'総額':'本体'}=${(dashSource==='total'?snap.total:snap.body)==='excl'?'税抜':'税込'}／税率${snap.rate}%${snap.capturedAt?'／'+snap.capturedAt:''}">📋</span>`
+          ? `<span style="font-size:9px;color:var(--text3);margin-left:4px" title="販売時の税扱い：${dashSource==='total'?'総額':'本体'}=${(dashSource==='total'?snap.total:snap.body)==='excl'?'税抜':'税込'}／税率${snap.rate}%${snap.capturedAt?'／'+snap.capturedAt:''}">${ic('clipboard','📋',16)}</span>`
           : '';
         // v1.8.72: オーダー車両は在庫日数欄に「オーダー車両」表記
         const invDisp = c.isOrder
-          ? `<span style="color:#c084fc;font-weight:600" title="オーダー車両：在庫としてカウントしない">📦 オーダー</span>`
+          ? `<span style="color:#c084fc;font-weight:600" title="オーダー車両：在庫としてカウントしない">${ic('box','📦',16)} オーダー</span>`
           : `在庫${inv}日`;
-        const orderMark = c.isOrder ? '<span style="font-size:9px;color:#c084fc;margin-left:4px" title="オーダー車両">📦</span>' : '';
+        const orderMark = c.isOrder ? '<span style="font-size:9px;color:#c084fc;margin-left:4px" title="オーダー車両">'+ic('box','📦',16)+'</span>' : '';
+        const custName = (typeof formatCustomerName === 'function') ? formatCustomerName(c.customerName) : (c.customerName || '');
+        const custCell = custName
+          ? `<span class="arc-cust" title="${(typeof escapeHtml==='function')?escapeHtml(custName):custName}">${(typeof escapeHtml==='function')?escapeHtml(custName):custName}</span>`
+          : `<span style="color:var(--text3)">—</span>`;
         return `<div class="arc-car-row">
           <span class="mono">${c.num}${orderMark}</span>
+          <span>${custCell}</span>
           <span style="color:var(--text)">${c.maker} ${c.model}${c.grade?' '+c.grade:''}</span>
           <span>${c.size||'—'}</span>
           <span>${Number(c.km||0).toLocaleString()}km</span>
@@ -187,14 +226,14 @@ function renderArchive() {
           <div class="arc-month-stat">${list.length}台 / ${(sales/10000).toFixed(0)}万円</div>
           <span class="arc-achv ${salesHit?'hit':'miss'}" title="売上目標">売${salesPct}%</span>
           <span class="arc-achv ${countHit?'hit':'miss'}" title="台数目標">台${countPct}%</span>
-          <button class="arc-print-btn" onclick="event.stopPropagation(); if(window.forecastPrint) window.forecastPrint.open('month','0',${y},${parseInt(m,10)})" title="この月のレポートを印刷">🖨</button>
+          <button class="arc-print-btn" onclick="event.stopPropagation(); if(window.forecastPrint) window.forecastPrint.open('month','0',${y},${parseInt(m,10)})" title="この月のレポートを印刷">${ic('printer','🖨',16)}</button>
         </div>
         <div style="font-size:11px;color:var(--text3);padding:4px 0 6px">
           目標：${(goal.sales/10000).toFixed(0)}万円 / ${goal.count}台　実績：${(sales/10000).toFixed(0)}万円 / ${list.length}台
         </div>
         <div class="arc-cars" style="display:none">
           <div class="arc-car-row" style="color:var(--text3);font-weight:600;font-size:10px;border-bottom:1px solid var(--border)">
-            <span>管理番号</span><span>車両</span><span>ボディ</span><span>走行距離</span><span>販売価格（${dashTaxLbl}換算）</span><span style="text-align:right">在庫日数</span>
+            <span>管理番号</span><span>顧客名</span><span>車両</span><span>ボディ</span><span>走行距離</span><span>販売価格（${dashTaxLbl}換算）</span><span style="text-align:right">在庫日数</span>
           </div>
           ${carRows}
         </div>

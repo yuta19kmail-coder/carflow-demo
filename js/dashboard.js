@@ -50,7 +50,7 @@ function renderSummaryCards() {
     <div class="stat-box"><div class="stat-num sn-total">${total}</div><div class="stat-label">総車両数</div></div>
     <div class="stat-box"><div class="stat-num sn-active" style="color:var(--orange)">${active}</div><div class="stat-label">管理中</div></div>
     <div class="stat-box"><div class="stat-num sn-contract" style="color:var(--blue)">${contracted}</div><div class="stat-label">売約済</div></div>
-    <div class="stat-box"><div class="stat-num sn-order" style="color:#c4b5fd">${order}</div><div class="stat-label">📦 オーダー車両</div></div>
+    <div class="stat-box"><div class="stat-num sn-order" style="color:#c4b5fd">${order}</div><div class="stat-label">${ic('box','📦',16)} オーダー車両</div></div>
     <div class="stat-box"><div class="stat-num sn-deliver" style="color:#6ee7b7">${deliverThisMonth}</div><div class="stat-label">今月納車予定</div></div>
     <div class="stat-box"><div class="stat-num sn-done" style="color:var(--text3)">${done}</div><div class="stat-label">納車完了</div></div>`;
 }
@@ -69,15 +69,15 @@ function _buildInventoryWarningChips() {
     });
     if (list.length === 0) return;
     const style = `background:${t.bg};border:1px solid ${t.color};color:${t.color}`;
-    // v2.5.15-demo: ライトモード用 severity クラス（tier色から判定）。ダーク時はインライン色のまま、
+    // ライトモード用 severity クラス（tier色から判定）。ダーク時はインライン色のまま、
     //   ライト時のみ CSS(components.css)が !important で読みやすい色に上書きする。
     const sev = _chipCountSevClass(t.color);
-    chips.push(`<div class="chip-count${sev ? ' ' + sev : ''}" style="${style}" title="${t.label} — 在庫${t.days}日以上">📦 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
+    chips.push(`<div class="chip-count${sev ? ' ' + sev : ''}" style="${style}" title="${t.label} — 在庫${t.days}日以上">${ic('box','📦',16)} 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
   });
   return chips;
 }
 
-// v2.5.15-demo: 在庫集計チップの tier 色 → severity クラス対応（ライトモードの可読色上書き用）
+// 在庫集計チップの tier 色 → severity クラス対応（ライトモードの可読色上書き用）
 function _chipCountSevClass(color) {
   const c = String(color || '').toLowerCase();
   const map = {
@@ -155,14 +155,14 @@ function _buildTaskUrgencyChips() {
     let cls, msg;
     if (top.severity === 'red') {
       cls = 'chip-red';
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 限界ライン超過（${top.overdueDays}日）`;
+      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 限界ライン超過（${top.overdueDays}日）`;
     } else if (top.severity === 'orange') {
       cls = 'chip-orange';
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 限界ライン本日`;
+      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 限界ライン本日`;
     } else {
       cls = 'chip-yellow';
       const daysToLimit = Math.max(0, top.toLimit);
-      msg = `${top.icon} ${car.maker} ${car.model} ${top.name} 目標ライン超過（限界まであと${daysToLimit}日）`;
+      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 目標ライン超過（限界まであと${daysToLimit}日）`;
     }
     out.push(`<div class="chip ${cls}" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${msg}</div>`);
   });
@@ -184,9 +184,12 @@ function _buildActionChipsHtml() {
     cars.forEach(car => {
       if (car.col === 'done') return;
       if (!car.contract || !car.deliveryDate) return;
+      // v2.18.7: 納車フェーズの大タスクが100%なら直前警告を出さない
+      //（納車予定ダッシュボードで「万全！」なのに要対応に残日数が出る矛盾の解消）
+      if (car.col === 'delivery' && typeof calcProg === 'function' && (calcProg(car).pct || 0) >= 100) return;
       const d = daysDiff(car.deliveryDate);
       if (d !== null && d <= notif.pre.days && d >= 0) {
-        chips.push(`<div class="chip chip-red" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>🚨 ${car.maker} ${car.model} 納車${d===0?'本日':d+'日後'}</div>`);
+        chips.push(`<div class="chip chip-red" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${ic('siren','🚨',16)} ${car.maker} ${car.model} 納車${d===0?'本日':d+'日後'}</div>`);
       }
     });
   }
@@ -203,7 +206,7 @@ function renderActionChips() {
   if (!el) return;
   el.innerHTML = chips.length
     ? `<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:4px">${chips.join('')}</div>`
-    : '<div style="font-size:13px;color:var(--text3);padding:8px 0">要対応アクションなし ✓</div>';
+    : '<div style="font-size:13px;color:var(--text3);padding:8px 0">要対応アクションなし '+ic('check','✓',14)+'</div>';
 }
 
 // v1.2.4: 下部アクションエリア（ダッシュボード以外でも常時表示される要対応バー）
@@ -362,13 +365,13 @@ function onLandingPeriodChange(){
 
 function openForecastPrint(){
   if (!_landingSelected) _initLandingPeriodSelect();
-  if (!_landingSelected || !window.forecastPrint) { showToast('印刷モジュールが読み込めません'); return; }
+  if (!_landingSelected || !window.forecastPrint) { showToast('印刷モジュールが読み込めません', 'CF-4001'); return; }
   window.forecastPrint.open(_landingSelected.mode, _landingSelected.periodId, _landingSelected.year, _landingSelected.month);
 }
 
 function openForecastTargets(){
   if (!_landingSelected) _initLandingPeriodSelect();
-  if (!_landingSelected || !window.forecastTargets) { showToast('集計対象モジュールが読み込めません'); return; }
+  if (!_landingSelected || !window.forecastTargets) { showToast('集計対象モジュールが読み込めません', 'CF-4002'); return; }
   window.forecastTargets.open(_landingSelected.mode, _landingSelected.periodId, _landingSelected.year, _landingSelected.month);
 }
 
@@ -427,7 +430,7 @@ function renderLanding() {
       <div class="land-bar-row" style="display:flex;gap:1px;align-items:stretch">
         <div class="land-bar" style="flex:100; min-width:0">
           ${fixedOverCount
-            ? `<div class="land-overshoot" style="width:100%" title="確定で目標達成：${L.fixed.count}台">${totalGoalCount}台 ✨</div>`
+            ? `<div class="land-overshoot" style="width:100%" title="確定で目標達成：${L.fixed.count}台">${totalGoalCount}台 ${ic('sparkle','✨',15)}</div>`
             : `
               ${L.fixed.count   ? `<div class="land-fixed"   style="width:${pctFixed}%"  title="${L.fixed.label}：${L.fixed.count}台">${L.fixed.count>0&&pctFixed>10?L.fixed.count+'台':''}</div>`   : ''}
               ${L.likely.count  ? `<div class="land-likely"  style="width:${pctLikely}%" title="${L.likely.label}：${L.likely.count}台">${L.likely.count>0&&pctLikely>10?L.likely.count+'台':''}</div>`  : ''}
@@ -438,14 +441,14 @@ function renderLanding() {
         </div>
         ${fixedOverCount && overshootCount > 0 ? `<div class="land-overshoot" style="flex:${overshootCountRatio}; min-width:32px" title="目標超過 +${overshootCount}台">+${overshootCount}</div>` : ''}
       </div>
-      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${L.predictLow}〜${L.predictHigh}台 / ${totalGoalCount}台${fixedOverCount?' ✨':''}</div>
+      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${L.predictLow}〜${L.predictHigh}台 / ${totalGoalCount}台${fixedOverCount?' '+ic('sparkle','✨',15)+'':''}</div>
     </div>
     <div style="display:grid;grid-template-columns:32px 1fr 120px;gap:8px;align-items:center;margin-bottom:8px">
       <div style="font-size:11px;font-weight:600;color:var(--text2);text-align:right">売上</div>
       <div class="land-bar-row" style="display:flex;gap:1px;align-items:stretch">
         <div class="land-bar" style="flex:100; min-width:0">
           ${fixedOverSales
-            ? `<div class="land-overshoot" style="width:100%" title="確定売上で目標達成：${Math.round(fxSales/10000)}万円">${Math.round(totalGoalSales/10000)}万 ✨</div>`
+            ? `<div class="land-overshoot" style="width:100%" title="確定売上で目標達成：${Math.round(fxSales/10000)}万円">${Math.round(totalGoalSales/10000)}万 ${ic('sparkle','✨',15)}</div>`
             : `
               ${fxSales ? `<div class="land-fixed"    style="width:${slFx}%" title="確定売上：${Math.round(fxSales/10000)}万円">${slFx>14?Math.round(fxSales/10000)+'万':''}</div>` : ''}
               ${lkSales ? `<div class="land-likely"   style="width:${slLk}%" title="見込み売上：${Math.round(lkSales/10000)}万円">${slLk>14?Math.round(lkSales/10000)+'万':''}</div>` : ''}
@@ -456,7 +459,7 @@ function renderLanding() {
         </div>
         ${fixedOverSales && overshootSales > 0 ? `<div class="land-overshoot" style="flex:${overshootSalesRatio}; min-width:40px" title="目標超過 +${Math.round(overshootSales/10000)}万">+${Math.round(overshootSales/10000)}万</div>` : ''}
       </div>
-      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${Math.round((fxSales+lkSales)/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(totalGoalSales/10000).toLocaleString()}万${fixedOverSales?' ✨':''}</div>
+      <div style="font-size:11px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums">${Math.round((fxSales+lkSales)/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(totalGoalSales/10000).toLocaleString()}万${fixedOverSales?' '+ic('sparkle','✨',15)+'':''}</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin-bottom:10px">
       <span><span style="display:inline-block;width:10px;height:10px;background:#1db97a;border-radius:2px;vertical-align:middle;margin-right:4px"></span>確定 ${L.fixed.count}台</span>
@@ -494,6 +497,23 @@ function renderLanding() {
       ` : ''}
     `;
   }
+}
+
+// LINE通知用スナップショット：ダッシュボードの確定数値（recogDateAny＋_dashAmount＝画面と同じ計算）を
+// Firestoreに残し、LINEのスケジュール通知（月次サマリー）はこれを読んで送る＝LINE＝画面の数字が必ず一致する。
+let _lineSnapSig = null;
+function _writeLineSnapshot(y, m, prevDate, thisCount, thisSales, lastCount, lastSales){
+  if (!(window.fb && window.fb.db && window.fb.currentCompanyId)) return;
+  const thisYM = `${y}-${String(m).padStart(2,'0')}`;
+  const lastYM = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+  const sig = `${thisYM}:${thisCount}:${thisSales}|${lastYM}:${lastCount}:${lastSales}`;
+  if (sig === _lineSnapSig) return;   // 同じ値なら再書き込みしない（書込み回数の節約）
+  _lineSnapSig = sig;
+  window.fb.db.collection('companies').doc(window.fb.currentCompanyId)
+    .collection('integrations').doc('dashboardSnapshot')
+    .set({ monthly: { [thisYM]: { count: thisCount, sales: thisSales }, [lastYM]: { count: lastCount, sales: lastSales } },
+           updatedAt: window.fb.serverTimestamp() }, { merge: true })
+    .catch(e => console.warn('[lineSnapshot] write failed', e));
 }
 
 // ========================================
@@ -559,6 +579,9 @@ function renderKPIs() {
   const yearSales = sumBy(lastYear, c => _dashAmount(c));
   const yoySales = yearSales ? Math.round((thisSales - yearSales)/yearSales*100) : null;
   const momSales = lastSales ? Math.round((thisSales - lastSales)/lastSales*100) : null;
+
+  // LINE通知用：今月・先月の確定数値をスナップショット保存（LINEの月次サマリーがこれを送る）
+  try { _writeLineSnapshot(y, m, prev, thisMonth.length, Math.round(thisSales), lastMonth.length, Math.round(lastSales)); } catch (e) { /* noop */ }
 
   // v1.8.59: ダッシュボード金額の税扱いラベル
   const dashTax = (typeof getTaxLabel === 'function') ? getTaxLabel('dashboard') : '税込';
@@ -658,7 +681,7 @@ function renderWarningsSummary() {
     const list = cars.filter(c => c.col !== 'done' && c.contract && c.deliveryDate && (()=>{const d=daysDiff(c.deliveryDate); return d!=null && d<=t.days && d>=0;})());
     if (list.length) rows.push(`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><div class="wr-dot" style="background:${t.color}"></div><div style="flex:1;font-size:12px">納車残${t.days}日以下・${t.label}</div><div style="font-size:12px;font-weight:700;color:${t.color}">${list.length}台</div></div>`);
   });
-  el.innerHTML = rows.length ? rows.join('') : '<div style="font-size:13px;color:var(--text3);padding:8px 0">警告対象の車両はありません ✓</div>';
+  el.innerHTML = rows.length ? rows.join('') : '<div style="font-size:13px;color:var(--text3);padding:8px 0">警告対象の車両はありません '+ic('check','✓',14)+'</div>';
 }
 
 // ========================================
@@ -675,10 +698,13 @@ function toggleDashDetail(key) {
 // ========================================
 function renderDashboard() {
   if (!document.getElementById('stat-grid')) return;
+  renderDeliverySchedule();   // v2.10.9: 最上部の納車予定
   renderSummaryCards();
   // v1.7.2: 順序入れ替え — 全体タスクが上、要対応アクションが下
   if (typeof renderBoardNotes === 'function') renderBoardNotes();
   renderActionChips();
+  // v2.33.0: 今日・明日の整備依頼（PitFlow）＝要対応アクションの上
+  if (window.PitEmbed) PitEmbed.renderToday();
   renderVehicleMemoList();
   renderLanding();
   renderKPIs();
@@ -686,7 +712,124 @@ function renderDashboard() {
 }
 
 // ========================================
-// v2.6: 車両メモ一覧（ダッシュボード・付箋の下）
+// v2.10.9: 納車予定（ダッシュボード最上部・横スクロール）
+//   納車準備(col=delivery)の車を「納車日 → 同日は確定・時間を先に」で並べる。
+//   納車時間はカードから直接入力／確定トグルあり（進捗の細かい管理はしない）。
+// ========================================
+// v2.11.3: 納車時間の値（''／'before'／'after'／'HH:MM'）を並び替え用の比較値に
+function _dsTimeForSort(t) {
+  if (t === 'before') return '00:00';   // 営業前 → その日の先頭
+  if (t === 'after')  return '23:59';   // 営業後 → その日の末尾
+  if (!t)             return '99:99';   // 時間未定 → 最後
+  return t;                              // HH:MM
+}
+function _deliverySortKey(car) {
+  const d = car.deliveryDate || '9999-99-99';
+  const confirmed = !!(car.deliveryTimeConfirmed && car.deliveryTime);
+  const hasTime = !!car.deliveryTime;
+  const rank = confirmed ? 0 : (hasTime ? 1 : 2);  // 確定 → 時間あり → 時間なし
+  return d + '_' + rank + '_' + _dsTimeForSort(car.deliveryTime);
+}
+// v2.11.3: 営業時間内（15分刻み）の納車時間プルダウン。前後は「◯時以前／以降」
+// 🔴 v2.38.0 営業時間は **MHS の営業日カレンダー**から。CarFlow 側の設定は撤去した。
+//    日付を渡せば、その日の時間で出す＝**午前休み・午後休み・早締めの日は選べる幅が自動で変わる**。
+//    ⚠ 届いていない時は PitCal が予備値を返す（画面は止まらない）。
+function _deliveryTimeOptions(sel, ds) {
+  const h = (window.PitCal && PitCal.hours) ? PitCal.hours(ds || '') : null;
+  const open  = (h && h.open)  || '09:00';
+  const close = (h && h.close) || '19:00';
+  const toMin = s => (parseInt(String(s).slice(0,2),10) || 0) * 60 + (parseInt(String(s).slice(3,5),10) || 0);
+  let start = toMin(open), end = toMin(close);
+  if (end < start) end = start;  // 閉店が開店より前なら開店のみ
+  const opt = (v, label) => '<option value="' + v + '"' + (sel === v ? ' selected' : '') + '>' + label + '</option>';
+  let html = opt('', '時間未定');
+  html += opt('before', open + ' 以前');
+  for (let t = start; t <= end; t += 15) {
+    const hh = String(Math.floor(t / 60)).padStart(2, '0');
+    const mm = String(t % 60).padStart(2, '0');
+    html += opt(hh + ':' + mm, hh + ':' + mm);
+  }
+  html += opt('after', close + ' 以降');
+  return html;
+}
+function renderDeliverySchedule() {
+  const host = document.getElementById('delivery-schedule-area');
+  if (!host) return;
+  if (typeof cars === 'undefined' || !Array.isArray(cars)) { host.innerHTML = ''; return; }
+  const list = cars.filter(c => c && c.col === 'delivery')
+    .sort((a, b) => _deliverySortKey(a) < _deliverySortKey(b) ? -1 : 1);
+  const head = '<div class="ds-head"><h3>'+ic('van','🚚',16)+' 納車予定</h3><span class="ds-count">' + list.length + '台</span></div>';
+  if (!list.length) {
+    // v2.11.2: 外枠（panel-card）なしで付箋エリアのように直置き
+    host.innerHTML = head + '<div class="ds-empty">納車準備中の車両はありません '+ic('check','✓',14)+'</div>';
+    return;
+  }
+  host.innerHTML = head + '<div class="ds-scroll">' + list.map(_deliveryCardHtml).join('') + '</div>';
+}
+function _deliveryCardHtml(car) {
+  const prog = (typeof calcProg === 'function') ? calcProg(car) : { pct: 0 };
+  const pct = prog.pct || 0;
+  const pctColor = pct >= 100 ? 'var(--green)' : (pct > 0 ? 'var(--orange)' : 'var(--text3)');
+  const photo = car.photo
+    ? '<div class="ds-photo" style="background-image:url(\'' + car.photo + '\')"></div>'
+    : '<div class="ds-photo ds-photo-none">'+ic('car','🚗',16)+'</div>';
+  const dateBig = car.deliveryDate ? _dsDateLabel(car.deliveryDate) : '<span style="color:var(--text3)">日付未定</span>';
+  const time = car.deliveryTime || '';
+  const confirmed = !!(car.deliveryTimeConfirmed && car.deliveryTime);
+  // v2.11.2: バッジは「確」を押した車だけに表示（確印の代わり）。進捗100%なら万全！(緑)、未満なら急げ！(赤)
+  const ready = pct >= 100;
+  const badge = confirmed
+    ? '<div class="ds-badge ' + (ready ? 'ds-ready' : 'ds-hurry') + '">' + (ready ? '万全！' : '急げ！') + '</div>'
+    : '';
+  return '<div class="ds-card" onclick="openDetail(\'' + escapeHtml(car.id) + '\')">'
+    + badge
+    + photo
+    + '<div class="ds-maker">' + escapeHtml((car.maker || '') + ' ' + (car.model || '')) + '</div>'
+    + '<div class="ds-num">' + escapeHtml(car.num || '—') + '</div>'
+    + '<div class="ds-pct" style="color:' + pctColor + '">' + pct + '<span class="ds-pct-u">%</span></div>'
+    + '<div class="ds-date">' + dateBig + '</div>'
+    + '<div class="ds-time-row" onclick="event.stopPropagation()">'
+    +   '<select class="ds-time" onclick="event.stopPropagation()" onchange="setCarDeliveryTime(\'' + escapeHtml(car.id) + '\',this.value)">' + _deliveryTimeOptions(time, car.deliveryDate) + '</select>'
+    +   '<button class="ds-confirm-btn' + (confirmed ? ' on' : '') + '"' + (time ? '' : ' disabled') + ' onclick="toggleCarDeliveryConfirm(\'' + escapeHtml(car.id) + '\')" title="時間が確定したら押す">確</button>'
+    + '</div>'
+    + '</div>';
+}
+function _dsDateLabel(d) {
+  const dt = new Date(String(d) + 'T00:00:00');
+  if (isNaN(dt.getTime())) return escapeHtml(String(d));
+  const dow = dt.getDay();
+  const w = ['日','月','火','水','木','金','土'][dow];
+  // 🔴 v2.38.0 祝日は共通部品（Holidays）から。休みの日も赤くする（MHS 基準）。
+  const isHol = !!(window.Holidays && Holidays.name && Holidays.name(String(d)));
+  const isOff = !!(window.PitCal && PitCal.isClosed && PitCal.isClosed(String(d)));
+  // 曜日部分だけ色付け：日曜・祝日・休業日＝赤、土曜＝青
+  const cls = (dow === 0 || isHol || isOff) ? ' ds-dow-red' : (dow === 6 ? ' ds-dow-blue' : '');
+  return (dt.getMonth() + 1) + '/' + dt.getDate() + '<span class="ds-date-w' + cls + '">(' + w + ')</span>';
+}
+function setCarDeliveryTime(carId, val) {
+  const car = cars.find(c => c.id === carId);
+  if (!car) return;
+  car.deliveryTime = val || '';
+  if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTime'], car.deliveryTime);
+  if (!val && car.deliveryTimeConfirmed) {  // 時間を消したら確定も外す
+    car.deliveryTimeConfirmed = false;
+    if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTimeConfirmed'], false);
+  }
+  const _lbl = (val === 'before') ? '営業時間前' : (val === 'after') ? '営業時間後' : (val || '未定');
+  if (typeof addLog === 'function') addLog(carId, '納車時間を更新（' + _lbl + '）');
+  renderDeliverySchedule();
+}
+function toggleCarDeliveryConfirm(carId) {
+  const car = cars.find(c => c.id === carId);
+  if (!car || !car.deliveryTime) return;
+  car.deliveryTimeConfirmed = !car.deliveryTimeConfirmed;
+  if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTimeConfirmed'], !!car.deliveryTimeConfirmed);
+  if (typeof addLog === 'function') addLog(carId, car.deliveryTimeConfirmed ? '納車時間を確定' : '納車時間の確定を解除');
+  renderDeliverySchedule();
+}
+
+// ========================================
+// v2.7: 車両メモ一覧（ダッシュボード・付箋の下）
 //   コアメモ(car.memo) / 作業メモ(car.workMemo) / 大タスク付帯メモ(car.taskMemos) を
 //   一か所で確認するための折りたたみパネル。メモのある車だけ、3グループ表示。
 // ========================================
@@ -764,9 +907,9 @@ function renderVehicleMemoList() {
 
   host.innerHTML = '<div class="panel-card vml-card">'
     + '<div class="vml-header" onclick="toggleVehicleMemoList()" title="クリックで開閉">'
-    + `<h3 class="vml-title">📝 車両メモ一覧 <span class="vml-total">${total}台</span></h3>`
+    + `<h3 class="vml-title">${ic('pencil','📝',16)} 車両メモ一覧 <span class="vml-total">${total}台</span></h3>`
     + `<span class="vml-peek">${peek}</span>`
-    + `<button type="button" class="vml-toggle">${open ? '閉じる ▲' : '詳細 ▼'}</button>`
+    + `<button type="button" class="vml-toggle">${open ? '閉じる '+ic('chevUp','▲',14)+'' : '詳細 '+ic('chevDown','▼',14)+''}</button>`
     + '</div>'
     + `<div class="vml-body" style="${open ? '' : 'display:none'}">${body}</div>`
     + '</div>';
@@ -782,12 +925,14 @@ function renderOverview() {
     const chips = (typeof _buildActionChipsHtml === 'function') ? _buildActionChipsHtml() : [];
     el.innerHTML = chips.length
       ? `<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:4px">${chips.join('')}</div>`
-      : '<div style="font-size:13px;color:var(--text3);padding:8px 0">要対応アクションなし ✓</div>';
+      : '<div style="font-size:13px;color:var(--text3);padding:8px 0">要対応アクションなし '+ic('check','✓',14)+'</div>';
   }
 }
 
 // 操作ログパネル描画
 // v1.7.31: 古い user 文字列も最新のスタッフ表示名に解決して表示する
+// v2.21.0: 検索（KM番号・付箋・人・内容）／新旧ソート／全件テキストコピーに対応
+let _logSortDesc = true;   // true=新しい順（globalLogsはunshiftなのでindex0が最新）
 function renderLogPanel() {
   document.getElementById('log-badge').style.display = 'none';
   const staffList = (typeof window._getBoardNotesStaffCache === 'function')
@@ -813,12 +958,113 @@ function renderLogPanel() {
     }
     return num;
   };
-  // action 内の大タスクID（t_webup 等）を日本語名に置換して表示
-  const _logActionHtml = (l) => (typeof humanizeTaskIds === 'function') ? humanizeTaskIds(l.action || '') : (l.action || '');
-  document.getElementById('log-list').innerHTML = globalLogs.length
-    ? globalLogs.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${_logCarHtml(l)} — ${_logActionHtml(l)}</span></div>`).join('')
-    : '<div style="font-size:13px;color:var(--text3)">ログなし</div>';
+  // action 内の大タスクID（t_webup 等）を日本語名に置換し、文中の管理番号（KM-0100 等）を
+  // 車両詳細リンクに変換して表示（v2.7.2：付箋と同じ linkifyCarNums ルールを共用）。
+  const _logActionHtml = (l) => {
+    const txt = (typeof humanizeTaskIds === 'function') ? humanizeTaskIds(l.action || '') : (l.action || '');
+    return (typeof linkifyCarNums === 'function') ? linkifyCarNums(txt) : txt;
+  };
+  // v2.21.0: 検索＆ソートを反映
+  const _searchEl = document.getElementById('log-search');
+  const _term = ((_searchEl && _searchEl.value) || '').trim().toLowerCase();
+  const _rowText = (l) => `${l.time || ''} ${resolveByLog(l)} ${l.carNum || ''} ${(typeof humanizeTaskIds === 'function' ? humanizeTaskIds(l.action || '') : (l.action || ''))}`.toLowerCase();
+  let list = (globalLogs || []).slice();          // 既定＝新しい順
+  if (!_logSortDesc) list.reverse();              // 古い順
+  if (_term) list = list.filter(l => _rowText(l).includes(_term));
+  window._logVisibleCache = list;                 // 全件コピー用に保持
+  const cntEl = document.getElementById('log-count');
+  if (cntEl) cntEl.textContent = _term ? `${list.length} / ${(globalLogs || []).length} 件` : `${(globalLogs || []).length} 件`;
+  document.getElementById('log-list').innerHTML = list.length
+    ? list.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${_logCarHtml(l)} — ${_logActionHtml(l)}</span></div>`).join('')
+    : (globalLogs && globalLogs.length ? '<div style="font-size:13px;color:var(--text3)">該当ログなし</div>' : '<div style="font-size:13px;color:var(--text3)">ログなし</div>');
 }
+
+// v2.21.0: ソート切替（新しい順 ⇄ 古い順）
+function toggleLogSort() {
+  _logSortDesc = !_logSortDesc;
+  const b = document.getElementById('log-sort-btn');
+  if (b) b.innerHTML = icoE(_logSortDesc ? '新しい順 ▼' : '古い順 ▲');
+  renderLogPanel();
+}
+window.toggleLogSort = toggleLogSort;
+
+// v2.21.0: 表示中（検索絞り込み・並び順反映）のログを全件テキストでクリップボードへ
+function copyAllLogs() {
+  const list = Array.isArray(window._logVisibleCache) ? window._logVisibleCache : (globalLogs || []);
+  const staffList = (typeof window._getBoardNotesStaffCache === 'function') ? (window._getBoardNotesStaffCache() || []) : [];
+  const nameOf = (l) => {
+    let uid = l && l.userUid;
+    if (!uid && l && l.user && typeof _resolveStaffUidByName === 'function') uid = _resolveStaffUidByName(l.user, staffList);
+    if (uid) { const s = staffList.find(x => x && x.uid === uid); if (s && typeof resolveStaffDisplayName === 'function') return resolveStaffDisplayName(s, null); }
+    return (l && l.user) || '—';
+  };
+  const text = list.map(l => `${l.time || ''}\t${nameOf(l)}\t${l.carNum || '—'} — ${(typeof humanizeTaskIds === 'function' ? humanizeTaskIds(l.action || '') : (l.action || ''))}`).join('\n');
+  const done = () => { if (typeof showToast === 'function') showToast(`ログ ${list.length}件をコピーしました`); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => _fallbackCopyLogs(text, done));
+  } else {
+    _fallbackCopyLogs(text, done);
+  }
+}
+function _fallbackCopyLogs(text, cb) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); ta.remove();
+    cb && cb();
+  } catch (e) { alert('コピーに失敗しました'); }
+}
+window.copyAllLogs = copyAllLogs;
+
+// v2.27.0: DB全体からログを検索（手元の1000件を超えて＝古い履歴・削除済みの車も出す）
+//   検索欄の文字を使って dbAudit.searchAuditLogs を呼び、結果を同じログ一覧に表示する。
+//   ・KM番号 → その車の全履歴（件数無制限・削除済みでも残る）
+//   ・人/内容 → 直近5000件の中から部分一致
+async function dbSearchLogs() {
+  const searchEl = document.getElementById('log-search');
+  const term = ((searchEl && searchEl.value) || '').trim();
+  const listEl = document.getElementById('log-list');
+  const cntEl = document.getElementById('log-count');
+  if (!term) { if (typeof showToast === 'function') showToast('検索ワード（KM番号・人・内容）を入れてからDB検索を押してください', 'CF-4003'); return; }
+  if (!window.dbAudit || !window.dbAudit.searchAuditLogs) { if (typeof showToast === 'function') showToast('検索機能が読み込めていません'); return; }
+  if (listEl) listEl.innerHTML = '<div style="font-size:13px;color:var(--text3)">DB全体を検索中…（少し時間がかかることがあります）</div>';
+  if (cntEl) cntEl.textContent = '検索中…';
+
+  let rows = [];
+  try {
+    rows = await window.dbAudit.searchAuditLogs(term);
+  } catch (e) {
+    console.error('[dashboard] dbSearchLogs error:', e);
+    if (listEl) listEl.innerHTML = '<div style="font-size:13px;color:#dc2626">DB検索に失敗しました</div>';
+    if (cntEl) cntEl.textContent = '';
+    return;
+  }
+  window._logVisibleCache = rows; // 📋全件コピーの対象にする
+
+  const staffList = (typeof window._getBoardNotesStaffCache === 'function') ? (window._getBoardNotesStaffCache() || []) : [];
+  const resolveByLog = (l) => {
+    let uid = l && l.userUid;
+    if (!uid && l && l.user && typeof _resolveStaffUidByName === 'function') uid = _resolveStaffUidByName(l.user, staffList);
+    if (uid) { const s = staffList.find(x => x && x.uid === uid); if (s && typeof resolveStaffDisplayName === 'function') return resolveStaffDisplayName(s, null); }
+    return (l && l.user) || '—';
+  };
+  const carHtml = (l) => {
+    const num = l.carNum || '—';
+    if (l.carId && num !== '—') return `<a class="log-carnum" onclick="event.stopPropagation();openDetail('${l.carId}')" title="車両を開く">${num}</a>`;
+    return num;
+  };
+  const actHtml = (l) => {
+    const txt = (typeof humanizeTaskIds === 'function') ? humanizeTaskIds(l.action || '') : (l.action || '');
+    return (typeof linkifyCarNums === 'function') ? linkifyCarNums(txt) : txt;
+  };
+
+  if (cntEl) cntEl.textContent = `DB検索「${term}」: ${rows.length}件`;
+  if (listEl) listEl.innerHTML = rows.length
+    ? rows.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${carHtml(l)} — ${actHtml(l)}</span></div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3)">DB全体にも該当ログなし</div>';
+}
+window.dbSearchLogs = dbSearchLogs;
 
 // メンバー一覧描画
 // v1.5.5: Firestore staff コレクションから動的取得に切替（旧 MEMBERS 配列は廃止）

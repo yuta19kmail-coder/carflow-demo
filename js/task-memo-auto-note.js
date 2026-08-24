@@ -15,9 +15,9 @@
 //     - date型メモが存在: 付箋を作成 or 更新
 //     - メモが存在しない or 型がdateじゃない: 付箋を削除
 //   window.taskMemoAutoNote.markDone(car, taskId, isDone)
-//     - タスク完了で付箋に status='done' をセット（archiveOldDoneNotes(7)で7日後に自動削除）
+//     - タスク完了で付箋に status='done' をセット（archiveOldDoneNotes(3)で3日後に自動削除）
 //   window.taskMemoAutoNote.cleanup()
-//     - 完了から7日以上経った付箋を削除（自動付箋に限らず全done付箋対象）
+//     - 完了から3日以上経った付箋を削除（自動付箋に限らず全done付箋対象）
 // ========================================
 
 (function () {
@@ -148,7 +148,7 @@
 
   // ----------------------------------------
   // タスクの完了/未完了に合わせて付箋ステータスを同期
-  //   isDone=true: status='done' をセット（doneAt 時点から 7日後に自動削除）
+  //   isDone=true: status='done' をセット（doneAt 時点から 3日後に自動削除）
   //   isDone=false: status を解除（再アクティブ化）
   // ----------------------------------------
   async function markDoneIfNeeded(car, taskId, isDone) {
@@ -179,13 +179,13 @@
   }
 
   // ----------------------------------------
-  // 起動時クリーンアップ：完了から7日以上経過したdone付箋を削除
+  // 起動時クリーンアップ：完了から3日以上経過したdone付箋を削除（v2.10.4で7日→3日）
   //   自動付箋に限らず全done付箋が対象（既存仕様）
   // ----------------------------------------
   async function cleanup() {
     if (!window.dbBoardNotes || !window.dbBoardNotes.archiveOldDoneNotes) return 0;
     try {
-      const ids = await window.dbBoardNotes.archiveOldDoneNotes(7);
+      const ids = await window.dbBoardNotes.archiveOldDoneNotes(3);
       if (Array.isArray(ids) && ids.length && Array.isArray(boardNotes)) {
         ids.forEach(id => {
           const idx = boardNotes.findIndex(n => n && n.id === id);

@@ -204,7 +204,7 @@ function renderLineMessageSummary() {
 function onLineMsgRareRateChange(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || n > 100) {
-    if (typeof showToast === 'function') showToast('0〜100 の数値を入力してください');
+    if (typeof showToast === 'function') showToast('0〜100 の数値を入力してください', 'CF-6001');
     return;
   }
   setLineMessageRareRate(n / 100);
@@ -265,7 +265,7 @@ function onLineMsgCSVFileSelected(input) {
       const text = String(e.target.result || '');
       const parsed = _parseLineMessagesCSV(text);
       if (!parsed) {
-        if (typeof showToast === 'function') showToast('CSV の形式が不正です（ヘッダ：category,type,index,template）');
+        if (typeof showToast === 'function') showToast('CSV の形式が不正です（ヘッダ：category,type,index,template）', 'CF-6002');
         input.value = '';
         return;
       }
@@ -288,13 +288,13 @@ function onLineMsgCSVFileSelected(input) {
       if (typeof showToast === 'function') showToast('文言を CSV から取り込みました');
     } catch (err) {
       console.error('[line-messages] CSV import error:', err);
-      if (typeof showToast === 'function') showToast('CSV の読み込みに失敗しました');
+      if (typeof showToast === 'function') showToast('CSV の読み込みに失敗しました', 'CF-6003');
     } finally {
       input.value = '';
     }
   };
   reader.onerror = () => {
-    if (typeof showToast === 'function') showToast('ファイルの読み込みに失敗しました');
+    if (typeof showToast === 'function') showToast('ファイルの読み込みに失敗しました', 'CF-6004');
     input.value = '';
   };
   reader.readAsText(file, 'utf-8');

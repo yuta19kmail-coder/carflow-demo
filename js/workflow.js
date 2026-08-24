@@ -55,7 +55,7 @@ function renderWfBody(car, task, isD) {
         <div class="wf-det" id="wfd-${item.id}">
           <p>${item.detail}</p>
           <ul>${(item.points||[]).map(pt => `<li><span class="wf-dot"></span>${pt}</li>`).join('')}</ul>
-          <button class="wf-cbtn${isDone?' done':''}" id="wfb-${item.id}" onclick="toggleWfStep('${item.id}')">${isDone?'完了済み ✓':'このステップを完了にする'}</button>
+          <button class="wf-cbtn${isDone?' done':''}" id="wfb-${item.id}" onclick="toggleWfStep('${item.id}')">${isDone?'完了済み '+ic('check','✓',14)+'':'このステップを完了にする'}</button>
         </div>`;
       body.appendChild(el);
     });
@@ -97,7 +97,7 @@ function toggleWfStep(itemId) {
   if (nm) nm.className = 'wf-step-name' + (isDone ? ' done' : '');
   if (btn) {
     btn.className = 'wf-cbtn' + (isDone ? ' done' : '');
-    btn.textContent = isDone ? '完了済み ✓' : 'このステップを完了にする';
+    btn.innerHTML = icoE(isDone ? '完了済み ✓' : 'このステップを完了にする');
   }
   const p = calcSingleProg(car, taskId, tasks);
   const tb = document.getElementById('wf-tb');
@@ -107,7 +107,7 @@ function toggleWfStep(itemId) {
   if (ob) ob.style.width = op.pct + '%';
   updateWfBtn(car, task, isDelivery);
   renderAll();
-  showToast(isDone ? '✓ 完了' : '未完了に戻しました');
+  showToast(isDone ? '完了' : '未完了に戻しました');
 }
 
 // 完了ボタンの有効/無効更新
@@ -115,7 +115,7 @@ function updateWfBtn(car, task, isD) {
   const p = calcSingleProg(car, task.id, (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car)));
   const btn = document.getElementById('wf-done-btn');
   btn.disabled = p.pct < 100;
-  btn.textContent = p.pct === 100 ? '✓ 全完了！ボードに戻る' : '全ステップを完了してから戻る';
+  btn.innerHTML = icoE(p.pct === 100 ? '✓ 全完了！ボードに戻る' : '全ステップを完了してから戻る');
 }
 
 // ワークフロー完了

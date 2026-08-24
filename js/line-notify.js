@@ -370,7 +370,8 @@
     if (!fns) { _setStatus('Functions SDKが読み込まれていません', 'err'); return; }
 
     const btn = document.getElementById('line-test-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '送信中…'; }
+    /* ⚠ textContent はアイコンごと消える。innerHTML でアイコンを付けたまま文言だけ変える。 */
+    if (btn) { btn.disabled = true; btn.innerHTML = ic('upload', '📤', 16) + ' 送信中…'; }
     _setStatus('テスト送信中…', '');
 
     try {
@@ -390,7 +391,7 @@
       console.error('[line-notify] test send error', err);
       _setStatus('❌ 送信失敗：' + _explainErr(err), 'err');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '📤 接続テスト送信'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = ic('upload', '📤', 16) + ' 接続テスト送信'; }
     }
   }
 
@@ -459,11 +460,8 @@
     return TEST_HEADER + (body || '');
   }
 
-  // v1.8.107: 各種テスト送信。サンプル文面をクライアント側で組み立てて送る
-  async function sendTestForTrigger(kind) {
-    if (!_assertReady()) return;
-    const fns = _functions();
-    if (!fns) { _setStatus('Functions SDKが読み込まれていません', 'err'); return; }
+  // v2.18.11: サンプル文面の組み立て（テスト送信・プレビュー共用）
+  function _buildSampleBody(kind) {
     let body = '';
     const car = { num: 'KMxxxx', maker: '（サンプル）', model: 'ノアX' };
     const senderName = _myDisplayName();
@@ -474,9 +472,19 @@
       case 'redBoardNote':
         body = `🚨 緊急付箋が立ちました\n\n📝 KMxxxx 明日来店予定\n\n💬 13:00 にナガヨシ様来店予定\n午前中のうちに洗車してほしい\n\n🙋 作成者\n${senderName}`;
         break;
-      case 'taskComplete':
-        body = `🎉 ${senderName}さんが「再生」を完了しました！\n\n🚗 ${car.num} ${car.maker} ${car.model}\n\nがんばってください！💪`;
+      case 'taskComplete': {
+        // v2.18.11: 実際のランダム文言システムでプレビュー（カテゴリは目標内の例）
+        let head = '';
+        try {
+          if (typeof pickLineMessage === 'function') {
+            const cat = (typeof judgeLineMessageCategory === 'function') ? judgeLineMessageCategory(5, 7, 10) : 'within_target';
+            head = pickLineMessage(cat, { T: '再生', vehicle: `${car.maker} ${car.model}`, worker: senderName, days: 5 });
+          }
+        } catch (e) {}
+        if (!head) head = `🎉 ${senderName}さんが「再生」を完了しました！`;
+        body = `${head}\n\n🚗 ${car.num} ${car.maker} ${car.model}\n残りタスク：\n　▽ 再生\n　□ 板金\n　□ 塗装`;
         break;
+      }
       case 'exhibitReady':
         body = `✨ 仕上がりました！\n\n🚗 ${car.num} ${car.maker} ${car.model}\n再生フェーズの全大タスクが完了 → 展示準備完了です。\nお疲れさまでした！`;
         break;
@@ -510,10 +518,62 @@
       default:
         body = `（${kind} のテスト送信です）`;
     }
+    return body;
+  }
+
+  // v2.18.11: 送信せず画面上で文面を確認するプレビュー
+  function previewTrigger(kind) {
+    const body = _buildSampleBody(kind);
+    const isTask = (kind === 'taskComplete');
+    _showPreviewModal(kind, body, isTask);
+  }
+
+  function _showPreviewModal(kind, body, canReroll) {
+    let ov = document.getElementById('line-preview-overlay');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'line-preview-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    const reroll = canReroll
+      ? `<button class="btn-sm" id="line-preview-reroll" style="font-size:12px;padding:5px 12px">🎲 別の文言で再表示</button>`
+      : '';
+    ov.innerHTML = `
+      <div style="background:var(--card,#fff);border-radius:14px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border,#eee);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-weight:700;font-size:13px">📱 送信プレビュー</div>
+          <button class="btn-sm" id="line-preview-close" style="font-size:12px;padding:3px 10px">閉じる</button>
+        </div>
+        <div style="padding:16px;background:#7494c0">
+          <div style="font-size:11px;color:#e8eefb;margin-bottom:6px">CarFlow Bot</div>
+          <div id="line-preview-bubble" style="background:#fff;border-radius:4px 16px 16px 16px;padding:11px 13px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#222"></div>
+        </div>
+        <div style="padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid var(--border,#eee)">
+          ${reroll}
+          <span style="font-size:11px;color:var(--text3,#999)">※実際は送信されません</span>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    document.getElementById('line-preview-bubble').textContent = body;
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    document.getElementById('line-preview-close').onclick = () => ov.remove();
+    if (canReroll) {
+      document.getElementById('line-preview-reroll').onclick = () => {
+        document.getElementById('line-preview-bubble').textContent = _buildSampleBody(kind);
+      };
+    }
+  }
+
+  // v1.8.107: 各種テスト送信。サンプル文面をクライアント側で組み立てて送る
+  async function sendTestForTrigger(kind) {
+    if (!_assertReady()) return;
+    const fns = _functions();
+    if (!fns) { _setStatus('Functions SDKが読み込まれていません', 'err'); return; }
+    const body = _buildSampleBody(kind);
     const message = _withTestHeader(body);
     const btnId = 'line-test-btn-' + kind;
     const btn = document.getElementById(btnId);
-    if (btn) { btn.disabled = true; btn.textContent = '送信中…'; }
+    /* ⚠ textContent はアイコンごと消える。innerHTML でアイコンを付けたまま文言だけ変える。 */
+    if (btn) { btn.disabled = true; btn.innerHTML = ic('upload', '📤', 16) + ' 送信中…'; }
     try {
       const callable = fns.httpsCallable('sendLineNotification');
       await callable({
@@ -527,7 +587,7 @@
       console.error('[line-notify] test send error', kind, err);
       _setStatus('❌ テスト送信失敗：' + _explainErr(err), 'err');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '📤 テスト送信'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = ic('upload', '📤', 16) + ' テスト'; }
     }
   }
 
@@ -576,6 +636,8 @@
   window.sendLineMessage = sendLineMessage;
   // v1.8.107: 各トリガー別のテスト送信
   window.sendTestForTrigger = sendTestForTrigger;
+  // v2.18.11: 送信プレビュー（送信せず画面確認）
+  window.previewTrigger = previewTrigger;
   // v1.8.110: スケジュール通知の時刻変更
   window.onTriggerTimeChange = onTriggerTimeChange;
 

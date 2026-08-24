@@ -17,9 +17,9 @@ function renderSizeEditor() {
   el.innerHTML = SIZES.map((s,i) => `
     <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;margin-bottom:6px">
       <input type="text" value="${s.replace(/"/g,'&quot;')}" onchange="renameSizeOption(${i}, this.value)" style="flex:1;padding:4px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;outline:none">
-      <button onclick="moveSizeOption(${i},-1)" ${i===0?'disabled':''} style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;cursor:pointer">▲</button>
-      <button onclick="moveSizeOption(${i},1)" ${i===SIZES.length-1?'disabled':''} style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;cursor:pointer">▼</button>
-      <button onclick="removeSizeOption(${i})" style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--red);font-size:11px;cursor:pointer">✕</button>
+      <button onclick="moveSizeOption(${i},-1)" ${i===0?'disabled':''} style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;cursor:pointer">${ic('chevUp','▲',14)}</button>
+      <button onclick="moveSizeOption(${i},1)" ${i===SIZES.length-1?'disabled':''} style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;cursor:pointer">${ic('chevDown','▼',14)}</button>
+      <button onclick="removeSizeOption(${i})" style="padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--red);font-size:11px;cursor:pointer">${ic('close','✕',15)}</button>
     </div>
   `).join('');
 }
@@ -28,7 +28,7 @@ function addSizeOption() {
   const inp = document.getElementById('size-add-inp');
   const v = (inp.value||'').trim();
   if (!v) return;
-  if (SIZES.includes(v)) { showToast('同じ区分が既にあります'); return; }
+  if (SIZES.includes(v)) { showToast('同じ区分が既にあります', 'CF-1002'); return; }
   SIZES.push(v);
   inp.value = '';
   renderSizeEditor();
@@ -169,16 +169,49 @@ function onSellSwitchClick() {
   updateSellUI();
 }
 
+// v2.10.8: 納車準備前フェーズで売約ONにした時の2段階確認
+//   1段目「納車準備に移動しますか？」→ はい＝移動して売約 / いいえ＝2段目へ / キャンセル＝戻る
+//   2段目「このフェーズのまま売約にしますか？」→ はい＝フェーズ据え置きで売約（従来挙動）/ キャンセル＝戻る
+let _sellMoveToDelivery = false;
+
 function showEarlySellConfirm(col) {
-  const label = COLS.find(c => c.id === col)?.label || col;
-  document.getElementById('early-sell-sub').innerHTML =
-    `まだ「${label}」ステータスです。<br>このタイミングで売約フラグを立てますか？`;
+  _sellMoveToDelivery = false;
+  _earlySellStep1(col);
   document.getElementById('confirm-early-sell').classList.add('open');
 }
-
+function _earlySellStep1(col) {
+  const label = COLS.find(c => c.id === col)?.label || col;
+  document.getElementById('early-sell-title').textContent = '売約にしますか？';
+  document.getElementById('early-sell-sub').innerHTML =
+    `いまは「${label}」です。<br>売約にすると同時に「納車準備」へ移動しますか？`;
+  document.getElementById('early-sell-btns').innerHTML =
+    '<button class="btn-sm" onclick="closeEarlySellConfirm(false)">キャンセル</button>'
+    + '<button class="btn-sm" onclick="_earlySellStep2()">いいえ</button>'
+    + '<button class="btn-primary" onclick="_earlySellChooseMove()">はい、納車準備へ</button>';
+}
+function _earlySellStep2() {
+  const car = editingCarId ? cars.find(c => c.id === editingCarId) : null;
+  const col = car ? car.col : 'purchase';
+  const label = COLS.find(c => c.id === col)?.label || col;
+  document.getElementById('early-sell-title').textContent = 'このまま売約にしますか？';
+  document.getElementById('early-sell-sub').innerHTML =
+    `「${label}」の状態のまま、売約だけ立てます。<br>（フェーズは移動しません）`;
+  document.getElementById('early-sell-btns').innerHTML =
+    '<button class="btn-sm" onclick="closeEarlySellConfirm(false)">キャンセル</button>'
+    + '<button class="btn-primary" onclick="_earlySellChooseStay()">このまま売約にする</button>';
+}
+function _earlySellChooseMove() { _sellMoveToDelivery = true;  _earlySellApplyOn(); }
+function _earlySellChooseStay() { _sellMoveToDelivery = false; _earlySellApplyOn(); }
+function _earlySellApplyOn() {
+  document.getElementById('confirm-early-sell').classList.remove('open');
+  document.getElementById('sell-switch').classList.add('on');
+  updateSellUI();
+}
 function closeEarlySellConfirm(ok) {
+  // ok=false：キャンセル（変更なし＝車両詳細に戻る）。ok=true は旧互換（このまま売約）
   document.getElementById('confirm-early-sell').classList.remove('open');
   if (ok) {
+    _sellMoveToDelivery = false;
     document.getElementById('sell-switch').classList.add('on');
     updateSellUI();
   }
@@ -187,11 +220,21 @@ function closeEarlySellConfirm(ok) {
 function openCarModal(carId) {
   editingCarId = carId || null;
   formPhotoData = null;
+  _sellMoveToDelivery = false;
   const car = carId ? cars.find(c => c.id === carId) : null;
   refreshSizeOptions(car?.size || 'コンパクト');
   refreshYearDatalist();
   refreshKmDatalist();
-  document.getElementById('inp-num').value      = car?.num || '';
+  // v2.16.0: 新規登録なら「次の番号」を自動プリセット。編集時は既存値を維持。
+  const numInp = document.getElementById('inp-num');
+  if (!carId) {
+    numInp.value = (window.numHelpers && typeof window.numHelpers.nextNum === 'function')
+      ? window.numHelpers.nextNum() : '';
+  } else {
+    numInp.value = car?.num || '';
+  }
+  _attachNumDupCheck();
+  _runNumDupCheck();
   document.getElementById('inp-maker').value    = car?.maker || '';
   document.getElementById('inp-model').value    = car?.model || '';
   const gradeEl = document.getElementById('inp-grade');
@@ -213,13 +256,14 @@ function openCarModal(carId) {
   if (lblT) lblT.textContent = `総額 (${tlt}・円)`;
   const btnP = document.getElementById('btn-alt-price');
   const btnT = document.getElementById('btn-alt-total-price');
-  if (btnP) btnP.textContent = (tlb === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄');
-  if (btnT) btnT.textContent = (tlt === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄');
+  if (btnP) btnP.innerHTML = icoE((tlb === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄'));
+  if (btnT) btnT.innerHTML = icoE((tlt === '税抜' ? '税込で逆入力 ⇄' : '税抜で逆入力 ⇄'));
   // v1.8.51: 選択制タスクのチェックUI（Phase B）
   _renderOptionalTaskPickers(car);
   document.getElementById('inp-purchase').value = car?.purchaseDate || todayStr();
   document.getElementById('inp-contract-date').value = car?.contractDate || '';
   document.getElementById('inp-delivery').value = car?.deliveryDate || '';
+  { const _cn = document.getElementById('inp-customer-name'); if (_cn) _cn.value = car?.customerName || ''; } // v2.26.0
   document.getElementById('inp-memo').value     = car?.memo || '';
   const sw = document.getElementById('sell-switch');
   if (car?.contract) sw.classList.add('on'); else sw.classList.remove('on');
@@ -295,7 +339,7 @@ function _updateFormPhotoPreview(src) {
     hero.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block">`;
     hero.classList.add('has-photo');
   } else {
-    hero.innerHTML = '<div class="hero-empty">📷<br><span>写真未設定</span></div>';
+    hero.innerHTML = '<div class="hero-empty">'+ic('camera','📷',16)+'<br><span>写真未設定</span></div>';
     hero.classList.remove('has-photo');
   }
 }
@@ -348,6 +392,7 @@ function _getSelectedRegisterType() {
 }
 
 async function saveCarModal(initialCol) {
+  let _saveFailed = false;   /* 🔴 2026-08-05：保存できたかどうか。最後のメッセージを正直に出すために使う */
   // v1.8.73: 引数省略時は登録区分カードから選択値を読む（新規登録）
   if (!initialCol) {
     initialCol = editingCarId ? '__edit__' : _getSelectedRegisterType();
@@ -368,6 +413,7 @@ async function saveCarModal(initialCol) {
   const sellOn = document.getElementById('sell-switch').classList.contains('on');
   const contractDate = sellOn ? (document.getElementById('inp-contract-date').value || todayStr()) : '';
   const deliveryDate = sellOn ? (document.getElementById('inp-delivery').value || '') : '';
+  const customerName = (typeof normCustomerName === 'function') ? normCustomerName(document.getElementById('inp-customer-name')?.value || '') : (document.getElementById('inp-customer-name')?.value || '').trim(); // v2.26.0/2.26.1: スペース半角化
   const yearNorm = normalizeYear(document.getElementById('inp-year').value);
   const kmInp = String(document.getElementById('inp-km').value || '').replace(/[,\s]/g, '').replace(/km$/i, '');
 
@@ -401,6 +447,13 @@ async function saveCarModal(initialCol) {
     car.contract     = sellOn ? 1 : 0;
     car.contractDate = contractDate;
     car.deliveryDate = deliveryDate;
+    car.customerName = customerName; // v2.26.0: 売約のお客様（名前のみ保存・表示時に「様」付与）
+    // v2.10.8: 売約と同時に「納車準備」へ移動を選んだ場合だけフェーズを動かす（手動ドラッグと同じ状態）
+    if (sellOn && _sellMoveToDelivery && car.col !== 'delivery' && car.col !== 'done') {
+      car.col = 'delivery';
+      addLog(editingCarId, '売約に伴い納車準備へ移動');
+    }
+    _sellMoveToDelivery = false;
     car.memo         = document.getElementById('inp-memo').value;
     if (formPhotoData) {
       // v1.5.10: 新規 data:URL なら Storage にアップロード
@@ -418,15 +471,27 @@ async function saveCarModal(initialCol) {
       }
     }
     addLog(editingCarId, '車両情報を編集');
+    /* 🔴 2026-08-05 修正：保存の結果を待たずに「更新しました」と出していた。
+       オフライン・権限不足・端末の保存領域の不調でも同じ緑のメッセージが出るので、
+       次に開いたら直したはずの内容が戻っている、が起こりうる。
+       → **サーバーに届いたか確かめてから**メッセージを出す。 */
     if (window.dbCars) {
-      window.dbCars.saveCar(car).catch(e => console.error('[car-modal] save failed', e));
+      try {
+        await window.dbCars.saveCar(car);
+      } catch (e) {
+        console.error('[car-modal] save failed', e);
+        _saveFailed = true;
+      }
     }
     closeModal('modal-car');
     if (document.getElementById('modal-detail').classList.contains('open')) renderDetailBody(car);
   } else {
     // v1.8.72: 'order' は購入列スタート＋ isOrder=true。売約フラグは自動セットしない（手動）。
     const isOrder = (initialCol === 'order');
-    const startCol = (initialCol === 'other') ? 'other' : 'purchase';
+    let startCol = (initialCol === 'other') ? 'other' : 'purchase';
+    // v2.10.8: 新規でも「納車準備へ移動して売約」を選んだ場合はそのフェーズで作る
+    if (sellOn && _sellMoveToDelivery) startCol = 'delivery';
+    _sellMoveToDelivery = false;
     const newId = uid();
     let photoUrl = formPhotoData;
     // v1.5.10: 新規登録時も Storage 化
@@ -450,6 +515,7 @@ async function saveCarModal(initialCol) {
       contract: sellOn ? 1 : 0,
       contractDate,
       deliveryDate,
+      customerName, // v2.26.0
       memo : document.getElementById('inp-memo').value,
       photo: photoUrl,
       isOrder: isOrder, // v1.8.72: オーダー車両フラグ
@@ -463,13 +529,31 @@ async function saveCarModal(initialCol) {
     const regKind = isOrder ? 'オーダー車両' : (startCol === 'other' ? 'その他' : '仕入れ');
     addLog(car.id, `新規登録（${regKind}として）`);
     cars.push(car);
+    /* 🔴 2026-08-05 修正：新規登録も同じ。**保存できていないのに「登録しました」**が出ると、
+       その端末にだけ車がある状態になり、リロードで消える＝入力し直しになる。
+       ここでは画面からも取り消して「登録できませんでした」と伝える。 */
     if (window.dbCars) {
-      window.dbCars.saveCar(car).catch(e => console.error('[car-modal] save failed', e));
+      try {
+        await window.dbCars.saveCar(car);
+      } catch (e) {
+        console.error('[car-modal] save failed', e);
+        const back = cars.findIndex(x => x.id === car.id);
+        if (back >= 0) cars.splice(back, 1);        // 幻の車を残さない
+        closeModal('modal-car');
+        renderAll();
+        renderDashboard();
+        showToast('登録できませんでした。もう一度お試しください（通信または権限を確認してください）', 'CF-1003');
+        return;
+      }
     }
     closeModal('modal-car');
     renderDashboard();
   }
   renderAll();
+  if (_saveFailed) {
+    showToast('保存できませんでした。画面の内容は端末に残っていますが、まだ全員には反映されていません（通信または権限を確認してください）', 'CF-1004');
+    return;
+  }
   const okMsg = editingCarId
     ? '情報を更新しました'
     : (initialCol === 'other' ? `${maker} ${model} を「その他」として登録しました`
@@ -499,7 +583,7 @@ function promptAltPrice(which) {
   const cleaned = String(raw).replace(/[,\s]/g, '').replace(/円$/, '');
   const n = parseInt(cleaned, 10);
   if (!Number.isFinite(n) || n <= 0) {
-    if (typeof showToast === 'function') showToast('数値を入力してください');
+    if (typeof showToast === 'function') showToast('数値を入力してください', 'CF-1005');
     return;
   }
   let converted;
@@ -545,7 +629,7 @@ function _renderOptionalTaskPickers(car) {
       html += `
         <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:13px;border-bottom:1px dashed var(--border)">
           <input type="checkbox" data-phase="${ph.key}" data-task-id="${t.id.replace(/"/g,'&quot;')}" ${carSel ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
-          <span style="font-size:14px">${t.icon || '📋'}</span>
+          <span style="font-size:14px">${icoE(t.icon) || ic('clipboard','📋',16)}</span>
           <span>${(t.name || '').replace(/</g,'&lt;')}</span>
         </label>`;
     });
@@ -575,4 +659,59 @@ function _readOptionalTaskSelection() {
     if (inp.checked) out[ph][id] = true;
   });
   return out;
+}
+
+// ========================================
+// v2.16.0: 管理番号の重複リアルタイム警告＋保存ボタン制御
+// ========================================
+let _numDupCheckAttached = false;
+
+function _attachNumDupCheck() {
+  if (_numDupCheckAttached) return;
+  const inp = document.getElementById('inp-num');
+  if (!inp) return;
+  inp.addEventListener('input', _runNumDupCheck);
+  _numDupCheckAttached = true;
+}
+
+function _runNumDupCheck() {
+  const inp = document.getElementById('inp-num');
+  const warn = document.getElementById('inp-num-warn');
+  const saveBtn = document.getElementById('car-save-btn');
+  if (!inp || !warn) return;
+
+  const value = (inp.value || '').trim();
+  if (!value) {
+    warn.style.display = 'none';
+    warn.textContent = '';
+    warn.classList.remove('error', 'soft');
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+  if (!window.numHelpers) return;
+
+  const dup = window.numHelpers.findDuplicate(value, editingCarId);
+  if (!dup) {
+    warn.style.display = 'none';
+    warn.textContent = '';
+    warn.classList.remove('error', 'soft');
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+
+  if (dup.source === 'deleted') {
+    // 過去に「正式削除」された番号への上書き＝警告のみ（保存はできる）
+    warn.style.display = 'block';
+    warn.className = 'inp-num-warn soft';
+    warn.innerHTML = icoE('⚠ この番号は過去に「正式削除」されています。再利用すると管理番号リストに重複表示されます。');
+    if (saveBtn) saveBtn.disabled = false;
+  } else {
+    // 在庫中 or アーカイブ済の番号と被ったら保存ブロック
+    const label = dup.source === 'cars' ? '在庫中' : 'アーカイブ済';
+    const r = dup.record || {};
+    warn.style.display = 'block';
+    warn.className = 'inp-num-warn error';
+    warn.innerHTML = icoE(`❌ この番号は既に使われています（${label}：${r.maker || ''} ${r.model || ''}）`);
+    if (saveBtn) saveBtn.disabled = true;
+  }
 }

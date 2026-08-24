@@ -15,6 +15,17 @@ const COLS = [
   {id:'done',     label:'納車完了', color:'#6b7280'},
 ];
 
+// v2.19.0: 仮登録車両の列（COLSには入れない＝通常の業務ロジックから独立）。色＝ピンク
+const TENTATIVE_COL = { id:'tentative', label:'仮登録車両', color:'#ec4899' };
+
+// 仮登録の理由（プルダウン）
+const TENTATIVE_REASONS = [
+  { id:'buy',    label:'買取予定' },
+  { id:'trade',  label:'下取り予定' },
+  { id:'ship',   label:'陸送予定' },
+  { id:'other',  label:'その他' },
+];
+
 // ボディサイズの選択肢（設定画面から編集可能）
 const SIZES_DEFAULT = ['軽自動車','コンパクト','ミニバン','SUV','セダン','トラック'];
 let SIZES = [...SIZES_DEFAULT];

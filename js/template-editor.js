@@ -154,10 +154,10 @@
       const isAuto = (tid === 't_complete' || tid === 'd_complete');
       const isProtectedOn = (tid === 't_equip' || tid === 'd_register');
       if (isAuto) {
-        return `<span class="tpl-card-mode-chip locked" title="自動判定タスクのため切替不可">🔒 自動判定</span>`;
+        return `<span class="tpl-card-mode-chip locked" title="自動判定タスクのため切替不可">${ic('lock','🔒',15)} 自動判定</span>`;
       }
       if (isProtectedOn) {
-        return `<span class="tpl-card-mode-chip locked" title="他機能と連動するため強制ON">🔒 小タスク制 ON</span>`;
+        return `<span class="tpl-card-mode-chip locked" title="他機能と連動するため強制ON">${ic('lock','🔒',15)} 小タスク制 ON</span>`;
       }
       const on = !!taskInfo.hasChecklist;
       const cls = on ? 'on' : 'off';
@@ -197,11 +197,11 @@
               </div>
             </div>
             <div class="tpl-variant-row-actions">
-              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(t.id)}', '${_esc(v.id)}')">✏️ 中身を編集</button>
-              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターン名を変更">📝 名前</button>
-              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを複製">📋 複製</button>
-              <button class="btn-sm" onclick="resetVariantToDefault('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを初期状態に戻す">↺ 初期化</button>
-              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" ${deleteAttrs}>🗑 削除</button>
+              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(t.id)}', '${_esc(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
+              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
+              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
+              <button class="btn-sm" onclick="resetVariantToDefault('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを初期状態に戻す">${ic('refresh','↺',15)} 初期化</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" ${deleteAttrs}>${ic('trash','🗑',16)} 削除</button>
             </div>
           </div>`;
       }).join('');
@@ -212,7 +212,7 @@
 
       const isBuiltin = (t.sourceType === 'worksheet' || t.sourceType === 'equipment');
       const resetTaskBtn = isBuiltin
-        ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">↺ このタスクを初期化</button>`
+        ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>`
         : '';
       const modeChip = _modeChipHtml(taskInfo, phase);
 
@@ -227,7 +227,7 @@
         <div class="tpl-card-v2">
           <div class="tpl-card-header tpl-card-header-v2">
             <div class="tpl-card-header-top">
-              <span class="tpl-card-icon">${_esc(t.icon || '📋')}</span>
+              <span class="tpl-card-icon">${icoE(_esc(t.icon)) || ic('clipboard','📋',16)}</span>
               <div class="tpl-card-name">${_esc(t.name || '(無題)')}</div>
             </div>
             <div class="tpl-card-header-bottom">
@@ -236,7 +236,7 @@
             </div>
           </div>
           <div class="tpl-variant-list">
-            <div class="tpl-variant-list-label">📦 タスクパターン</div>
+            <div class="tpl-variant-list-label">${ic('box','📦',16)} タスクパターン</div>
             ${variantsHtml}
             ${emptyHint}
             <div class="tpl-variant-add-row">
@@ -260,7 +260,7 @@
           <div class="tpl-card-v2 tpl-card-checkonly tpl-card-checkonly-locked">
             <div class="tpl-card-header tpl-card-header-v2">
               <div class="tpl-card-header-top">
-                <span class="tpl-card-icon">${_esc(taskInfo.icon || '📋')}</span>
+                <span class="tpl-card-icon">${icoE(_esc(taskInfo.icon)) || ic('clipboard','📋',16)}</span>
                 <div class="tpl-card-name">${_esc(taskInfo.name || '(無題)')}</div>
               </div>
               <div class="tpl-card-header-bottom">
@@ -303,10 +303,10 @@
               </div>
             </div>
             <div class="tpl-variant-row-actions">
-              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(tplId)}', '${_esc(v.id)}')">✏️ 中身を編集</button>
-              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターン名を変更">📝 名前</button>
-              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを複製">📋 複製</button>
-              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを削除">🗑 削除</button>
+              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(tplId)}', '${_esc(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
+              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
+              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを削除">${ic('trash','🗑',16)} 削除</button>
             </div>
           </div>`;
       }).join('');
@@ -320,7 +320,7 @@
         <div class="tpl-card-v2 tpl-card-checkonly">
           <div class="tpl-card-header tpl-card-header-v2">
             <div class="tpl-card-header-top">
-              <span class="tpl-card-icon">${_esc(taskInfo.icon || '📋')}</span>
+              <span class="tpl-card-icon">${icoE(_esc(taskInfo.icon)) || ic('clipboard','📋',16)}</span>
               <div class="tpl-card-name">${_esc(taskInfo.name || '(無題)')}</div>
             </div>
             <div class="tpl-card-header-bottom">
@@ -331,7 +331,7 @@
             </div>
           </div>
           <div class="tpl-variant-list">
-            <div class="tpl-variant-list-label">📦 タスクパターン</div>
+            <div class="tpl-variant-list-label">${ic('box','📦',16)} タスクパターン</div>
             ${variantsHtml}
             ${emptyHint}
             <div class="tpl-variant-add-row">
@@ -391,15 +391,15 @@
           <div class="tpl-list-sub">全大タスクをフェーズ別に表示（小タスク制ONのものはパターン編集可能）</div>
         </div>
         <div style="margin-left:auto">
-          <button class="btn-sm btn-danger" onclick="resetAllTemplatesToDefault()" title="全タスクを初期状態に戻す">↺ 全タスクを初期化</button>
+          <button class="btn-sm btn-danger" onclick="resetAllTemplatesToDefault()" title="全タスクを初期状態に戻す">${ic('refresh','↺',15)} 全タスクを初期化</button>
         </div>
       </div>
       ${groupsHtml}
       <div class="tpl-help">
-        <strong>💡 ヒント</strong><br>
-        ・「✏️ 中身を編集」でセクション・小タスクを編集できます。<br>
+        <strong>${ic('bulb','💡',15)} ヒント</strong><br>
+        ・「${ic('pencil','✏️',15)} 中身を編集」でセクション・小タスクを編集できます。<br>
         ・「+ パターンを追加」で同じテンプレに複数パターン（A/B/C など）を持てます。<br>
-        ・「チェックのみ」表示のタスクは「📝 小タスク制をONにする」で編集可能になります。<br>
+        ・「チェックのみ」表示のタスクは「${ic('pencil','📝',16)} 小タスク制をONにする」で編集可能になります。<br>
         ・「↺ 初期化」は元の組込内容に戻します（カスタム編集は消えます）。
       </div>
     `;
@@ -519,7 +519,13 @@
     window._tplEditor.activeTplId = null;
     window._tplEditor.expandedSectionId = null;
     window._tplEditor.backTo = 'list';
-    _renderList();
+    // v2.11.1: 設定パネル内なら設定側の一覧を再描画（見えない tpl-editor-body に描かないように）
+    const settingsEl = document.getElementById('task-patterns-editor');
+    if (settingsEl && settingsEl.offsetParent !== null) {
+      _renderListIntoElement(settingsEl, { standalone: false });
+    } else {
+      _renderList();
+    }
   }
   window.backToTemplateList = backToTemplateList;
 
@@ -642,7 +648,7 @@
     const otherText = otherCount > 0 ? `（他に ${otherCount} 個のパターンあり）` : '';
     return `
       <div class="tpl-variant-bar tpl-variant-bar-simple">
-        <span class="tpl-variant-label">📦 編集中のパターン：</span>
+        <span class="tpl-variant-label">${ic('box','📦',16)} 編集中のパターン：</span>
         <span class="tpl-variant-current-name">${_esc(cur.name || '(無題)')}</span>
         <span class="tpl-variant-other-count">${otherText}</span>
         <span style="margin-left:auto;font-size:11px;color:var(--text3)">パターンの追加・切替はテンプレ一覧から</span>
@@ -768,7 +774,7 @@
   // 全テンプレを built-in 初期状態に戻す
   async function resetAllTemplatesToDefault() {
     if (!_can()) { _toast('管理者権限が必要です'); return; }
-    if (!confirm('⚠️ 全タスクの中身を初期状態に戻します。\n各タスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？')) return;
+    if (!confirm('全タスクの中身を初期状態に戻します。\n各タスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？')) return;
     if (!confirm('もう一度確認します。\nこの操作は元に戻せません。\n本当に全タスクをデフォルトに戻しますか？')) return;
     if (typeof window.rebuildAllBuiltinTemplates !== 'function') return;
     const list = window.rebuildAllBuiltinTemplates();
@@ -783,7 +789,7 @@
         }
       } catch (e) { console.error('[reset-all]', id, e); }
     }
-    _toast(`✅ ${saved} 件のタスクを初期状態に戻しました`);
+    _toast(`${saved} 件のタスクを初期状態に戻しました`);
     if (window._tplEditor) {
       window._tplEditor.view = 'list';
       window._tplEditor.activeTplId = null;
@@ -805,14 +811,14 @@
       _toast('このタスクは初期データを持たないため戻せません（カスタムタスク）');
       return;
     }
-    if (!confirm(`⚠️「${tpl.name}」を初期状態に戻します。\nこのタスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？`)) return;
+    if (!confirm(`「${tpl.name}」を初期状態に戻します。\nこのタスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？`)) return;
     // メモリ置換
     if (typeof ChecklistTemplates !== 'undefined') ChecklistTemplates[tplId] = fresh;
     try {
       if (window.dbTemplates && window.dbTemplates.saveTemplate) {
         await window.dbTemplates.saveTemplate(fresh);
       }
-      _toast(`✅「${fresh.name}」を初期状態に戻しました`);
+      _toast(`「${fresh.name}」を初期状態に戻しました`);
       window._tplEditor.activeVariantId = (fresh.variants && fresh.variants[0]) ? fresh.variants[0].id : null;
       window._tplEditor.expandedSectionId = null;
       _renderDetail();
@@ -837,7 +843,7 @@
     }
     const freshDefault = (fresh.variants && fresh.variants[0]) ? fresh.variants[0] : null;
     if (!freshDefault) return;
-    if (!confirm(`⚠️ パターン「${cur.name}」の中身を、初期状態のデフォルト内容で上書きします。\nこのパターンの今の中身は全部消えます。\n（パターン名「${cur.name}」は維持されます）\n本当に実行しますか？`)) return;
+    if (!confirm(`パターン「${cur.name}」の中身を、初期状態のデフォルト内容で上書きします。\nこのパターンの今の中身は全部消えます。\n（パターン名「${cur.name}」は維持されます）\n本当に実行しますか？`)) return;
     // 中身（sections）だけ差し替え。name と id は維持。
     cur.sections = JSON.parse(JSON.stringify(freshDefault.sections || []));
     // active なら tpl.sections も同期
@@ -845,7 +851,7 @@
       _setActiveSections(tpl, cur.sections);
     }
     if (await _saveTpl(tpl)) {
-      _toast(`✅ パターン「${cur.name}」を初期状態に戻しました`);
+      _toast(`パターン「${cur.name}」を初期状態に戻しました`);
       window._tplEditor.expandedSectionId = null;
       // L1 か L2 か、現在の view に応じて再描画
       if (window._tplEditor.view === 'detail') _renderDetail();
@@ -956,7 +962,12 @@
   // L2: 1テンプレの中身
   // -----------------------------------------
   function _renderDetail() {
-    const root = document.getElementById('tpl-editor-body');
+    // v2.11.1: 設定パネル内（task-patterns-editor）から開いた時は、そちらに描画する。
+    //   以前は常に tpl-editor-body に描いていたため、設定の「中身を編集」が見えない場所に描画され無反応に見えていた。
+    const settingsEl = document.getElementById('task-patterns-editor');
+    const root = (settingsEl && settingsEl.offsetParent !== null)
+      ? settingsEl
+      : document.getElementById('tpl-editor-body');
     if (!root) return;
     const tpl = _getTpl(window._tplEditor.activeTplId);
     if (!tpl) { backToTemplateList(); return; }
@@ -980,10 +991,10 @@
     root.innerHTML = `
       <div class="tpl-breadcrumb">
         ${settingsLink}
-        <a class="tpl-bc-link" onclick="backToTemplateList()">📋 タスクパターン一覧</a>
+        <a class="tpl-bc-link" onclick="backToTemplateList()">${ic('clipboard','📋',16)} タスクパターン一覧</a>
         <span class="tpl-bc-sep">/</span>
-        <span class="tpl-bc-current">${_esc(tpl.icon || '')} ${_esc(tpl.name || '(無題)')}</span>
-        ${variantName ? `<span class="tpl-bc-sep">/</span><span class="tpl-bc-variant">📦 ${_esc(variantName)}</span>` : ''}
+        <span class="tpl-bc-current">${icoE(_esc(tpl.icon || ''))} ${_esc(tpl.name || '(無題)')}</span>
+        ${variantName ? `<span class="tpl-bc-sep">/</span><span class="tpl-bc-variant">${ic('box','📦',16)} ${_esc(variantName)}</span>` : ''}
       </div>
 
       ${variantBarHtml}
@@ -992,19 +1003,19 @@
         <!-- v1.6.2: テンプレ名はタスク一覧側で扱うので削除。代わりにプレビュー / インポート/エクスポートを追加 -->
         <!-- v1.7.19: 表示スタイルボタンは廃止（中身の構造で自動決定） -->
         <!-- v1.7.20: 「+ セクション追加」は廃止し、大→中→小それぞれの追加ボタンに分離 -->
-        <button class="btn-sm" onclick="previewTemplate('${_esc(tpl.id)}')" title="作業画面に近い形でプレビュー">👁 プレビュー</button>
+        <button class="btn-sm" onclick="previewTemplate('${_esc(tpl.id)}')" title="作業画面に近い形でプレビュー">${ic('eye','👁',15)} プレビュー</button>
         ${(tpl.sourceType === 'worksheet' || tpl.sourceType === 'equipment')
-          ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(tpl.id)}')" title="このタスク全体を初期状態に戻す（追加パターン含めて消えます）">↺ このタスクを初期化</button>
-             <button class="btn-sm" onclick="resetVariantToDefault('${_esc(tpl.id)}', '${_esc(window._tplEditor.activeVariantId || '')}')" title="今編集中のパターンの中身を初期状態に戻す">↺ このパターンを初期化</button>`
+          ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(tpl.id)}')" title="このタスク全体を初期状態に戻す（追加パターン含めて消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>
+             <button class="btn-sm" onclick="resetVariantToDefault('${_esc(tpl.id)}', '${_esc(window._tplEditor.activeVariantId || '')}')" title="今編集中のパターンの中身を初期状態に戻す">${ic('refresh','↺',15)} このパターンを初期化</button>`
           : ''}
         <span class="tpl-toolbar-spacer"></span>
         <!-- v1.6.2: Excel 連携（既存テンプレの構造をそのまま編集してから取込み） -->
-        <button class="btn-sm" onclick="exportTemplateXlsx('${_esc(tpl.id)}')" title="現在の項目を Excel にダウンロード">⬇ Excel書き出し</button>
-        <label class="btn-sm tpl-import-label" title="Excel から項目を一括取込（既存項目は置き換え）">⬆ Excel取込
+        <button class="btn-sm" onclick="exportTemplateXlsx('${_esc(tpl.id)}')" title="現在の項目を Excel にダウンロード">${ic('down','⬇',14)} Excel書き出し</button>
+        <label class="btn-sm tpl-import-label" title="Excel から項目を一括取込（既存項目は置き換え）">${ic('up','⬆',14)} Excel取込
           <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importTemplateXlsx('${_esc(tpl.id)}', this.files[0]); this.value=''">
         </label>
         <!-- v1.7.14: 書式テンプレ DL（列の説明＋記入例つき空ファイル） -->
-        <button class="btn-sm" onclick="downloadTemplateBlank()" title="記入例と列の説明が入った空のテンプレを書き出す">📋 書式テンプレDL</button>
+        <button class="btn-sm" onclick="downloadTemplateBlank()" title="記入例と列の説明が入った空のテンプレを書き出す">${ic('clipboard','📋',16)} 書式テンプレDL</button>
       </div>
 
       <div class="tpl-tab-blocks">${tabBlocksHtml || '<div class="tpl-empty">まだ何もありません。下のボタンから始めてください。<br><span style="font-size:11px;color:var(--text3)">シンプルに項目だけ並べたいなら一番右の「+ 小タスクだけ追加」、フォルダ分けしたいなら左から</span></div>'}</div>
@@ -1045,10 +1056,10 @@
     return `
       <div class="tpl-tab-block" data-tab="${tabKey}">
         <div class="tpl-tab-block-head">
-          <span class="tpl-tab-block-icon">📑</span>
+          <span class="tpl-tab-block-icon">${ic('files','📑',15)}</span>
           <span class="tpl-tab-block-name">${tabDisplay}</span>
-          <button class="btn-sm" onclick="renameTemplateTab('${_esc(tpl.id)}', '${tabKey}')">✏️ 名前変更</button>
-          <button class="btn-sm btn-danger" onclick="deleteTemplateTab('${_esc(tpl.id)}', '${tabKey}')">🗑 削除</button>
+          <button class="btn-sm" onclick="renameTemplateTab('${_esc(tpl.id)}', '${tabKey}')">${ic('pencil','✏️',15)} 名前変更</button>
+          <button class="btn-sm btn-danger" onclick="deleteTemplateTab('${_esc(tpl.id)}', '${tabKey}')">${ic('trash','🗑',16)} 削除</button>
         </div>
         <div class="tpl-tab-block-body">
           ${innerHtml}
@@ -1081,18 +1092,18 @@
            ondrop="tplSectionDrop(this, event)">
         <div class="tpl-section-block-head" onclick="toggleTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">
           <div class="tpl-section-arrows">
-            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', -1)" ${isFirstInTab ? 'disabled' : ''}>▲</button>
-            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', 1)" ${isLastInTab ? 'disabled' : ''}>▼</button>
+            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', -1)" ${isFirstInTab ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
+            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', 1)" ${isLastInTab ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
           </div>
           <span class="tpl-section-block-name">${titleDisplay}</span>
           <span class="tpl-section-count">${enabledCount}/${itemCount}項目</span>
-          <span class="tpl-section-toggle">${isOpen ? '▲' : '▼'}</span>
+          <span class="tpl-section-toggle">${isOpen ? ''+ic('chevUp','▲',14)+'' : ''+ic('chevDown','▼',14)+''}</span>
         </div>
         ${isOpen ? `
           <div class="tpl-section-toolbar">
-            <button class="btn-sm" onclick="renameTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">✏️ 中カテゴリ名</button>
+            <button class="btn-sm" onclick="renameTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">${ic('pencil','✏️',15)} 中カテゴリ名</button>
             <button class="btn-sm btn-primary" onclick="addTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}')">+ 小タスク追加</button>
-            <button class="btn-sm btn-danger" onclick="deleteTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">🗑 中カテゴリ削除</button>
+            <button class="btn-sm btn-danger" onclick="deleteTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">${ic('trash','🗑',16)} 中カテゴリ削除</button>
           </div>
           <div class="tpl-items">${itemsHtml || '<div class="tpl-empty">小タスクがありません。「+ 小タスク追加」から作成してください。<br><span class="tpl-drop-hint">他の中カテゴリからドラッグして持ってくることもできます</span></div>'}</div>
         ` : ''}
@@ -1115,8 +1126,8 @@
            ondragend="tplItemDragEnd(this, event)">
         <div class="tpl-item-handle" title="ドラッグして移動">⋮⋮</div>
         <div class="tpl-item-arrows">
-          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
-          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, 1)" ${idx === (sec.items || []).length - 1 ? 'disabled' : ''}>▼</button>
+          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
+          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, 1)" ${idx === (sec.items || []).length - 1 ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
         </div>
         <div class="tpl-item-id">${_esc(item.id)}</div>
         <div class="tpl-item-body">
@@ -1128,8 +1139,8 @@
           ${disabled ? '<span class="tpl-item-disabled">無効</span>' : ''}
         </div>
         <div class="tpl-item-actions">
-          <button class="btn-sm" onclick="openTemplateItemEditor('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">✏️ 編集</button>
-          <button class="btn-sm" onclick="toggleTemplateItemDisabled('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${disabled ? '✅ 有効化' : '🚫 無効化'}</button>
+          <button class="btn-sm" onclick="openTemplateItemEditor('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${ic('pencil','✏️',15)} 編集</button>
+          <button class="btn-sm" onclick="toggleTemplateItemDisabled('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${disabled ? ''+ic('check','✅',15)+' 有効化' : ''+ic('ban','🚫',15)+' 無効化'}</button>
         </div>
       </div>
     `;
@@ -1345,7 +1356,7 @@
       const [movedSame] = fromSec.items.splice(itemIdx, 1);
       fromSec.items.push(movedSame);
       if (await _saveTpl(tpl)) {
-        _toast('項目を末尾に移動しました（同枠内の細かい並び替えは ▲▼ で）');
+        _toast('項目を末尾に移動しました（同枠内の細かい並び替えは で）');
         _renderDetail();
       }
       return;
@@ -1676,7 +1687,7 @@
         <input type="text" class="tpl-media-caption-inp" value="${cap}"
                placeholder="キャプション（任意）"
                oninput="updateTemplateItemMediaCaption(${idx}, this.value)">
-        <button class="tpl-media-del-btn" onclick="removeTemplateItemMedia(${idx})" title="削除">🗑</button>
+        <button class="tpl-media-del-btn" onclick="removeTemplateItemMedia(${idx})" title="削除">${ic('trash','🗑',16)}</button>
       </div>`;
   }
 
@@ -1744,12 +1755,12 @@
       if (!url) throw new Error('upload returned null');
       window._tplEditor.editingMedia.push({ type: 'image', url, caption: '' });
       _renderTemplateItemMediaList();
-      if (hint) hint.textContent = '✓ アップロード完了';
+      if (hint) hint.innerHTML = icoE('✓ アップロード完了');
       setTimeout(() => { if (hint) hint.textContent = ''; }, 2000);
     } catch (err) {
       console.error('[addTemplateItemMediaFile]', err);
       _toast('アップロードに失敗しました');
-      if (hint) hint.textContent = '✕ 失敗';
+      if (hint) hint.innerHTML = icoE('✕ 失敗');
       setTimeout(() => { if (hint) hint.textContent = ''; }, 3000);
     }
   }
@@ -1871,7 +1882,7 @@
         const head = hasTitle ? `
           <div class="tpl-preview-section-head">
             <span class="tpl-preview-section-num">${String(sIdx + 1).padStart(2, '0')}</span>
-            <span class="tpl-preview-section-icon">${_esc(sec.icon || '📂')}</span>
+            <span class="tpl-preview-section-icon">${icoE(_esc(sec.icon)) || ic('folderOpen','📂',16)}</span>
             <span class="tpl-preview-section-title">${_esc(sec.title)}</span>
             <span class="tpl-preview-section-count">${items.filter(i => !i._disabled).length}/${items.length}</span>
           </div>` : '';
@@ -1888,7 +1899,7 @@
         tabOrder.forEach(tabName => {
           const secs = tabMap.get(tabName) || [];
           html += `<div class="tpl-preview-tab-block">
-            <div class="tpl-preview-tab-head">📑 ${_esc(tabName || '(タブなし)')}</div>`;
+            <div class="tpl-preview-tab-head">${ic('files','📑',15)} ${_esc(tabName || '(タブなし)')}</div>`;
           secs.forEach((sec, sIdx) => { html += renderSecHtml(sec, sIdx); });
           html += `</div>`;
         });
@@ -1913,7 +1924,7 @@
     const badge = disabled ? '<span class="tpl-preview-badge-disabled">無効</span>' : '';
     const itype = item.inputType || 'check';
     const mockInput = (itype === 'select')
-      ? '<span class="tpl-preview-mock-select">▼ 選択</span>'
+      ? '<span class="tpl-preview-mock-select">'+ic('chevDown','▼',14)+' 選択</span>'
       : (itype === 'status' || itype === 'tri')
         ? '<span class="tpl-preview-mock-status">未／OK／NG</span>'
         : '<span class="tpl-preview-mock-check">○</span>';
@@ -2193,7 +2204,7 @@
       const ok = await _saveTpl(tpl);
       if (ok) {
         const totalItems = newSections.reduce((a, s) => a + s.items.length, 0);
-        _toast(`✅ 取込完了：${newSections.length}セクション / ${totalItems}項目`);
+        _toast(`取込完了：${newSections.length}セクション / ${totalItems}項目`);
         window._tplEditor.expandedSectionId = null;
         _renderDetail();
       }

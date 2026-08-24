@@ -33,6 +33,15 @@ body.ios-safe-pad {
   box-sizing:border-box;
 }
 .topbar-logo{font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px;width:calc(var(--sidebar) - 14px);flex-shrink:0}
+/* v2.31.0: トップバーを文字ロゴ画像に。テーマ(dark/light)で出し分け */
+/* v2.31.1: 四角いアプリアイコン＋やや小さめの文字ロゴ（他アプリの絵文字＋名前の並びを継承） */
+.topbar-logo .tb-appicon{width:26px;height:26px;border-radius:7px;display:block;flex-shrink:0}
+.topbar-logo .tb-logo-img{height:19px;width:auto;max-width:calc(var(--sidebar) - 46px);object-fit:contain;display:block}
+.topbar-logo .logo-light{display:none}
+:root[data-theme="light"] .topbar-logo .logo-dark,
+:root[data-theme="light-liquid"] .topbar-logo .logo-dark{display:none}
+:root[data-theme="light"] .topbar-logo .logo-light,
+:root[data-theme="light-liquid"] .topbar-logo .logo-light{display:block}
 .logo-dot{width:7px;height:7px;background:var(--green);border-radius:50%}
 .topbar-user{display:flex;align-items:center;gap:8px;margin-left:auto}
 .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
@@ -41,7 +50,12 @@ body.ios-safe-pad {
 .body-row{flex:1;display:flex;overflow:hidden}
 
 /* サイドバー */
-.sidebar{width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar{width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;min-height:0;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(140,150,170,.5) transparent}
+/* v: 拡大表示/小さいモニターでメニューがはみ出しても下まで届くよう縦スクロール＋常時見える細いスクロールバー */
+.sidebar::-webkit-scrollbar{width:9px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(140,150,170,.5);border-radius:5px}
+.sidebar::-webkit-scrollbar-thumb:hover{background:rgba(140,150,170,.82)}
+.sidebar::-webkit-scrollbar-track{background:transparent}
 .sb-sec{padding:10px 12px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
 .sb-item{display:flex;align-items:center;gap:9px;padding:9px 11px;margin:1px 6px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);transition:.15s}
 .sb-item:hover{background:var(--bg3);color:var(--text)}

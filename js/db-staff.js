@@ -1,56 +1,114 @@
 // ========================================
-// db-staff.js (v1.5.5〜)
-// Firestore の staff コレクションに対する CRUD wrapper
+// db-staff.js (v2.18.0：CoreFlow一本化・portalMembers経由)
 // ----------------------------------------
-// パス：companies/{companyId}/staff/{uid}
+// 旧来は companies/{cid}/staff/{uid} を CRUD していたが、
+// v2.18.0 で staff コレクションは廃止し、すべて
+//   companies/{cid}/portalMembers/{uid|autoId}
+// を読み書きするように変更。
 //
-// スキーマ（DB設計書 §2-7 + v1.5.5 拡張）：
-//   uid, email, displayName, photoURL,    // Google から取得
-//   customDisplayName?, customPhotoURL?,  // CarFlow 用カスタム（v1.5.5）
-//   role: 'admin' | 'manager' | 'staff' | 'viewer',
-//   permissions: { canEditTemplates, canEditSettings, canDeleteCars, canCloseMonth, canInviteMembers },
-//   active: bool,
-//   invitedAt, joinedAt, lastSeenAt
+// CarFlow 内部のコードは「staff オブジェクト」のスキーマを期待しているため、
+// portalMembers ドキュメントを仮想 staff に翻訳して返す。
 //
-// 提供関数（window.dbStaff 名前空間）：
-//   loadAllStaff()                           : 自社スタッフ全件取得
-//   getStaff(uid)                            : 1名取得
-//   saveMyProfile({customDisplayName, customPhotoURL})
-//                                            : 自分のプロフィール更新（merge）
-//   clearMyProfileOverride(field)            : 'name' or 'photo' or 'all' でクリア
-//   updateStaff(uid, fields)                 : 他スタッフのフィールド更新（admin 用、v1.5.6 で活用）
-//   touchLastSeen()                          : 自分の lastSeenAt 更新（オプション）
+// 編集系（saveMyProfile / updateStaff / clearMyProfileOverride / touchLastSeen）は
+// すべて廃止。「人と権限は CoreFlow で」というガイダンスを表示。
+//
+// お知らせ既読（readAnnouncements）の保存先は userPrefs/{uid} へ分離（db-user-prefs.js）。
 // ========================================
 
 (function () {
   'use strict';
 
-  function _staffCol() {
+  // v2.18.0：portalMembers を真実のソースに
+  function _pmCol() {
     if (!window.fb || !window.fb.db || !window.fb.currentCompanyId) return null;
     return window.fb.db
       .collection('companies').doc(window.fb.currentCompanyId)
-      .collection('staff');
+      .collection('portalMembers');
   }
 
   function _myUid() {
     return window.fb && window.fb.currentUser && window.fb.currentUser.uid;
   }
 
+  // portalMembers の日本語ロール → CarFlow 内部ロール
+  const ROLE_JP_TO_EN = {
+    '管理者':'admin','マネージャー':'manager','マネージャ':'manager',
+    'スタッフ':'staff','作業者':'worker','閲覧':'viewer','閲覧のみ':'viewer'
+  };
+
+  // portalMembers ドキュメント → 仮想 staff オブジェクト
+  // v2.18.2：_pmDocId（portalMembers のドキュメントID）も付与しておく。
+  // v2.18.4：並び順はアプリ別フィールド（carflow.sortOrder）を優先。
+  function _toStaff(m) {
+    const cf = m.carflow || {};
+    const roleJp = cf.role || 'スタッフ';
+    return {
+      uid: m.uid || m.id,
+      _pmDocId: m.id,                              // ← portalMembers の docId
+      email: m.email || '',
+      displayName: m.gname || m.name || '',
+      photoURL: null,
+      customDisplayName: m.name || '',
+      customPhotoURL: m.photo || null,
+      role: ROLE_JP_TO_EN[roleJp] || 'staff',
+      active: m.active !== false,
+      group: cf.group || '（なし）',
+      // v2.18.6：CarFlow は carflow.sortOrder だけ見る（CoreFlowの並びにフォールバックしない）。
+      //          不足分は admin ログイン時の auto-seed が一気に補完する。
+      sortOrder: (typeof cf.sortOrder === 'number') ? cf.sortOrder : undefined,
+      // 互換用フィールド
+      name: m.name, dept: m.dept, title: m.title,
+    };
+  }
+
   // -----------------------------------------
-  // 全スタッフ取得
-  // v1.7.29: sortOrder（昇順）→ 表示名 の順で並べる。
-  //   sortOrder 未設定のスタッフは末尾に流す（999999）。
+  // v2.35.0：名簿の元は CoreMembers（members-core.js）に移した。
+  //   loadAllStaff()   … CarFlow を【使える人だけ】。車両の担当など、今までどおりの顔ぶれ。
+  //   loadAllMembers() … CoreMembers に載っている【全員】。付箋の担当・メンバー一覧はこちら。
+  //   🔴 どちらも人の番号（uid）の決め方は今までと同じ＝既存の付箋の担当は外れない。
+  //   ⚠ CoreMembers が読めない時は、v2.34.0 までと同じ portalMembers 直読みに落ちる。
   // -----------------------------------------
+  async function _fromCore(which) {
+    if (!window.CFMembers) return null;
+    try {
+      window.CFMembers.start();
+      await window.CFMembers.whenReady(6000);
+      if (!window.CFMembers.ready()) return null;
+      const list = (which === 'all') ? window.CFMembers.all() : window.CFMembers.usable();
+      if (!list.length) return null;      // 1人も居ない＝読めていないとみなして従来ルートへ
+      return list;
+    } catch (e) {
+      console.warn('[db-staff] CoreMembers から名簿を作れませんでした（従来の方法で続けます）', e);
+      return null;
+    }
+  }
+
+  async function loadAllMembers() {
+    const fromCore = await _fromCore('all');
+    if (fromCore) {
+      console.log('[db-staff] loaded', fromCore.length, 'members (CoreMembers 全員)');
+      return fromCore;
+    }
+    return loadAllStaff();               // 落ちた時は「使える人だけ」で我慢する（空にしない）
+  }
+
   async function loadAllStaff() {
-    const col = _staffCol();
+    const fromCore = await _fromCore('usable');
+    if (fromCore) {
+      console.log('[db-staff] loaded', fromCore.length, 'staff (CoreMembers 経由)');
+      return fromCore;
+    }
+    const col = _pmCol();
     if (!col) return [];
     try {
       const snap = await col.get();
       const list = [];
       snap.forEach(d => {
-        const data = d.data() || {};
-        if (!data.uid) data.uid = d.id;
-        list.push(data);
+        const m = d.data() || {};
+        m.id = d.id;
+        if (m.active === false) return;
+        if (!m.carflow || m.carflow.on !== true) return;
+        list.push(_toStaff(m));
       });
       list.sort((a, b) => {
         const sa = (typeof a.sortOrder === 'number') ? a.sortOrder : 999999;
@@ -62,7 +120,7 @@
           ? window.resolveStaffDisplayName(b, null) : (b.customDisplayName || b.displayName || '');
         return String(na).localeCompare(String(nb), 'ja');
       });
-      console.log('[db-staff] loaded', list.length, 'staff');
+      console.log('[db-staff] loaded', list.length, 'staff (from portalMembers)');
       return list;
     } catch (err) {
       console.error('[db-staff] loadAllStaff error:', err);
@@ -71,18 +129,18 @@
   }
 
   // -----------------------------------------
-  // 1名取得
+  // 1名取得（uid 一致のみ・email検索は不要）
   // -----------------------------------------
   async function getStaff(uid) {
     if (!uid) return null;
-    const col = _staffCol();
+    const col = _pmCol();
     if (!col) return null;
     try {
       const snap = await col.doc(uid).get();
       if (!snap.exists) return null;
-      const data = snap.data() || {};
-      if (!data.uid) data.uid = snap.id;
-      return data;
+      const m = snap.data() || {};
+      m.id = snap.id;
+      return _toStaff(m);
     } catch (err) {
       console.error('[db-staff] getStaff error:', err);
       return null;
@@ -90,91 +148,42 @@
   }
 
   // -----------------------------------------
-  // 自分のプロフィール更新（merge）
-  // patch: { customDisplayName?, customPhotoURL? }
-  //   customPhotoURL は data:URL 文字列 or '' でクリア
+  // v2.18.0：編集系はすべて廃止。CoreFlow に誘導する。
   // -----------------------------------------
   async function saveMyProfile(patch) {
-    const uid = _myUid();
-    const col = _staffCol();
-    if (!uid || !col) {
-      console.warn('[db-staff] saveMyProfile: 未ログイン');
-      return;
+    if (typeof showToast === 'function') {
+      showToast('プロフィールの編集は CoreFlow（メンバー管理）から行ってください', 'CF-8001');
     }
-    const out = {};
-    if (typeof patch.customDisplayName !== 'undefined') {
-      out.customDisplayName = patch.customDisplayName;
-    }
-    if (typeof patch.customPhotoURL !== 'undefined') {
-      out.customPhotoURL = patch.customPhotoURL;
-    }
-    out.updatedAt = window.fb.serverTimestamp();
-    try {
-      await col.doc(uid).set(out, { merge: true });
-      // window.fb.currentStaff にも反映
-      if (window.fb.currentStaff) {
-        Object.assign(window.fb.currentStaff, out);
-      }
-    } catch (err) {
-      console.error('[db-staff] saveMyProfile error:', err);
-      if (typeof showToast === 'function') showToast('プロフィール保存に失敗しました');
-      throw err;
-    }
+    console.warn('[db-staff] saveMyProfile is deprecated. Edit in CoreFlow.');
   }
-
-  // -----------------------------------------
-  // 自分のカスタム設定をクリア（Google の値に戻す）
-  // field: 'name' | 'photo' | 'all'
-  // FieldValue.delete() で該当フィールドを削除する
-  // -----------------------------------------
   async function clearMyProfileOverride(field) {
-    const uid = _myUid();
-    const col = _staffCol();
-    if (!uid || !col) return;
-    const del = window.fb.FieldValue.delete();
-    const out = { updatedAt: window.fb.serverTimestamp() };
-    if (field === 'name' || field === 'all') out.customDisplayName = del;
-    if (field === 'photo' || field === 'all') out.customPhotoURL = del;
-    try {
-      await col.doc(uid).update(out);
-      // メモリ側も削る
-      if (window.fb.currentStaff) {
-        if (field === 'name' || field === 'all') delete window.fb.currentStaff.customDisplayName;
-        if (field === 'photo' || field === 'all') delete window.fb.currentStaff.customPhotoURL;
-      }
-    } catch (err) {
-      console.error('[db-staff] clearMyProfileOverride error:', err);
-      throw err;
+    if (typeof showToast === 'function') {
+      showToast('プロフィールの編集は CoreFlow（メンバー管理）から行ってください', 'CF-8001');
     }
+    console.warn('[db-staff] clearMyProfileOverride is deprecated.');
   }
-
-  // -----------------------------------------
-  // 他スタッフのフィールド更新（admin 用・v1.5.6 で活用）
-  // -----------------------------------------
   async function updateStaff(uid, fields) {
-    if (!uid || !fields) return;
-    const col = _staffCol();
-    if (!col) return;
-    const out = { ...fields, updatedAt: window.fb.serverTimestamp() };
-    try {
-      await col.doc(uid).set(out, { merge: true });
-    } catch (err) {
-      console.error('[db-staff] updateStaff error:', err);
-      throw err;
+    if (typeof showToast === 'function') {
+      showToast('メンバー情報の編集は CoreFlow（メンバー管理）から行ってください', 'CF-8002');
     }
+    console.warn('[db-staff] updateStaff is deprecated. Edit in CoreFlow.');
   }
+  async function touchLastSeen() { /* v2.18.0: 廃止 */ }
 
   // -----------------------------------------
-  // 自分の lastSeenAt 更新（在席表示用、オプション）
+  // お知らせ既読の保存（保存先は userPrefs/{uid} に変更）
   // -----------------------------------------
-  async function touchLastSeen() {
-    const uid = _myUid();
-    const col = _staffCol();
-    if (!uid || !col) return;
-    try {
-      await col.doc(uid).update({ lastSeenAt: window.fb.serverTimestamp() });
-    } catch (err) {
-      // 失敗しても無視
+  async function saveMyAnnounceRead(arr) {
+    const list = Array.isArray(arr) ? arr.slice() : [];
+    if (window.dbUserPrefs && window.dbUserPrefs.saveMyAnnounceRead) {
+      try {
+        await window.dbUserPrefs.saveMyAnnounceRead(list);
+        if (window.fb.currentStaff) window.fb.currentStaff.readAnnouncements = list;
+      } catch (err) {
+        console.error('[db-staff] saveMyAnnounceRead error:', err);
+      }
+    } else {
+      console.warn('[db-staff] dbUserPrefs not loaded; cannot save announce read');
     }
   }
 
@@ -183,19 +192,20 @@
   // -----------------------------------------
   window.dbStaff = {
     loadAllStaff,
+    loadAllMembers,
     getStaff,
     saveMyProfile,
     clearMyProfileOverride,
     updateStaff,
     touchLastSeen,
+    saveMyAnnounceRead,
   };
 
-  console.log('[db-staff] ready');
+  console.log('[db-staff] ready (v2.18.0 / portalMembers)');
 })();
 
 // ========================================
-// 表示名・アイコンの解決ヘルパー（auth.js / dashboard.js / settings.js から呼ぶ）
-// staff オブジェクト + 認証ユーザー（user）から、表示すべき名前・アイコンを返す
+// 表示名・アイコンの解決ヘルパー（v2.18.0 でも形は不変）
 // ========================================
 window.resolveStaffDisplayName = function (staff, user) {
   if (staff && staff.customDisplayName) return staff.customDisplayName;
@@ -217,32 +227,10 @@ window.staffInitial = function (name) {
   return String(name).slice(0, 2).toUpperCase();
 };
 
-
 // ========================================
-// v1.5.6: メンバー招待関連 API
-// ----------------------------------------
-// pendingInvites コレクション：
-//   companies/{cid}/pendingInvites/{emailLower} = {
-//     email, role, invitedBy, invitedAt, note?
-//   }
-// 初回ログイン時に email で検索して、該当あれば staff として自動登録する。
+// 権限テーブル（5ロール × 8フラグ）── v2.18.0 でも内部は不変
+// permissions は portalMembers には無いので、常に DEFAULT_PERMISSIONS を使う
 // ========================================
-
-function _pendingCol() {
-  if (!window.fb || !window.fb.db || !window.fb.currentCompanyId) return null;
-  return window.fb.db
-    .collection('companies').doc(window.fb.currentCompanyId)
-    .collection('pendingInvites');
-}
-
-function _normEmail(s) {
-  return String(s || '').trim().toLowerCase();
-}
-
-// v1.5.7: 権限テーブル（5ロール × 8フラグ）
-// canEditCarInfo : 車両情報の編集（メーカー・色・価格・売約日・納車日など）と削除UI表示
-// canCreateCar   : 新規車両登録ボタン
-// canMoveCar     : カンバンの列移動（売約・納車完了などの状態変更）
 const DEFAULT_PERMISSIONS = {
   admin:   { canEditTemplates: true,  canEditSettings: true,  canDeleteCars: true,  canCloseMonth: true,  canInviteMembers: true,  canEditCarInfo: true,  canCreateCar: true,  canMoveCar: true  },
   manager: { canEditTemplates: true,  canEditSettings: true,  canDeleteCars: true,  canCloseMonth: true,  canInviteMembers: true,  canEditCarInfo: true,  canCreateCar: true,  canMoveCar: true  },
@@ -251,136 +239,44 @@ const DEFAULT_PERMISSIONS = {
   viewer:  { canEditTemplates: false, canEditSettings: false, canDeleteCars: false, canCloseMonth: false, canInviteMembers: false, canEditCarInfo: false, canCreateCar: false, canMoveCar: false },
 };
 
-// 権限チェック共通ヘルパー：window.hasPermission('canEditCarInfo') 等
-// admin は全 true・viewer/worker は読み取り中心
 window.hasPermission = function (perm) {
   const staff = window.fb && window.fb.currentStaff;
   if (!staff) return false;
   if (staff.role === 'admin') return true;
-  // staff.permissions が個別オーバーライドされてればそちらを優先
   if (staff.permissions && typeof staff.permissions[perm] !== 'undefined') {
     return !!staff.permissions[perm];
   }
-  // フォールバック：ロールのデフォルト
   const def = DEFAULT_PERMISSIONS[staff.role];
   return !!(def && def[perm]);
 };
 
-// viewer 以外（最低でもタスクチェックや写真変更はできる）かを判定するヘルパー
-// 主に「タスクチェック・写真変更・メモ追記」など、worker でも可な作業 mutation のガード
 window.canMutateWork = function () {
   const staff = window.fb && window.fb.currentStaff;
   if (!staff) return false;
   return staff.role !== 'viewer';
 };
 
-async function addPendingInvite({ email, role, note }) {
-  const col = _pendingCol();
-  if (!col) throw new Error('not authenticated');
-  const e = _normEmail(email);
-  if (!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('invalid_email');
-  const r = (['admin','manager','staff','worker','viewer'].includes(role)) ? role : 'staff';
-  const doc = {
-    email: e,
-    role: r,
-    note: note || '',
-    invitedAt: window.fb.serverTimestamp(),
-    invitedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
-    invitedByName: (window.fb.currentStaff && (window.fb.currentStaff.customDisplayName || window.fb.currentStaff.displayName)) || null,
-  };
-  // 既に staff として参加してるなら拒否
-  // （クライアント側でチェック。サーバー側はセキュリティルールで担保）
-  await col.doc(e).set(doc, { merge: true });
-}
-
-async function loadPendingInvites() {
-  const col = _pendingCol();
-  if (!col) return [];
-  try {
-    const snap = await col.get();
-    const list = [];
-    snap.forEach(d => {
-      const data = d.data() || {};
-      data._id = d.id;
-      list.push(data);
-    });
-    return list;
-  } catch (err) {
-    console.error('[db-staff] loadPendingInvites:', err);
-    return [];
+// ========================================
+// 招待関連 API ── v2.18.0：すべて廃止（CoreFlow で追加）
+// ========================================
+async function addPendingInvite(_x) {
+  if (typeof showToast === 'function') {
+    showToast('メンバー招待は CoreFlow（メンバー管理）から行ってください', 'CF-8003');
   }
+  throw new Error('deprecated: use CoreFlow to add members');
 }
-
-async function removePendingInvite(email) {
-  const col = _pendingCol();
-  if (!col) return;
-  const e = _normEmail(email);
-  if (!e) return;
-  try {
-    await col.doc(e).delete();
-  } catch (err) {
-    console.error('[db-staff] removePendingInvite:', err);
-    throw err;
+async function loadPendingInvites() { return []; }
+async function consumePendingInviteOnLogin() { return { created: false }; }
+async function deletePendingInvite(_x) { /* no-op */ }
+async function setStaffActive(_x, _y) {
+  if (typeof showToast === 'function') {
+    showToast('メンバーの有効/無効は CoreFlow（メンバー管理）から行ってください', 'CF-8004');
   }
+  throw new Error('deprecated: use CoreFlow');
 }
 
-// 招待消費：ユーザーの email にマッチする pendingInvite を探して staff/userMemberships を作成
-// 戻り値：{ created: bool, role?, role が見つかった場合 staff レコードを返す }
-async function consumePendingInviteOnLogin(user, companyId, companyName) {
-  if (!window.fb || !window.fb.db || !user) return { created: false };
-  const col = window.fb.db
-    .collection('companies').doc(companyId)
-    .collection('pendingInvites');
-  const e = _normEmail(user.email);
-  if (!e) return { created: false };
-  try {
-    const snap = await col.doc(e).get();
-    if (!snap.exists) return { created: false };
-    const inv = snap.data() || {};
-    const role = (['admin','manager','staff','worker','viewer'].includes(inv.role)) ? inv.role : 'staff';
-    const permissions = DEFAULT_PERMISSIONS[role];
-
-    // staff/{uid} 作成
-    const staffRef = window.fb.db
-      .collection('companies').doc(companyId)
-      .collection('staff').doc(user.uid);
-    const staff = {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '',
-      photoURL: user.photoURL || '',
-      role,
-      permissions,
-      active: true,
-      invitedAt: inv.invitedAt || window.fb.serverTimestamp(),
-      joinedAt: window.fb.serverTimestamp(),
-    };
-    await staffRef.set(staff, { merge: true });
-
-    // userMemberships/{uid}/memberships/{cid}
-    await window.fb.db
-      .collection('userMemberships').doc(user.uid)
-      .collection('memberships').doc(companyId)
-      .set({
-        companyId,
-        companyName: companyName || companyId,
-        role,
-        joinedAt: window.fb.serverTimestamp(),
-      }, { merge: true });
-
-    // pendingInvites を削除
-    await col.doc(e).delete();
-
-    return { created: true, role, staff };
-  } catch (err) {
-    console.error('[db-staff] consumePendingInviteOnLogin:', err);
-    return { created: false, error: err };
-  }
-}
-
-// 公開
-window.dbStaff.addPendingInvite = addPendingInvite;
-window.dbStaff.loadPendingInvites = loadPendingInvites;
-window.dbStaff.removePendingInvite = removePendingInvite;
-window.dbStaff.consumePendingInviteOnLogin = consumePendingInviteOnLogin;
-window.dbStaff.DEFAULT_PERMISSIONS = DEFAULT_PERMISSIONS;
+// 公開（互換のためAPI形を残す）
+window.dbStaffInvites = {
+  addPendingInvite, loadPendingInvites, consumePendingInviteOnLogin,
+  deletePendingInvite, setStaffActive,
+};

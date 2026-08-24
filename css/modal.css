@@ -8,6 +8,8 @@
 .overlay.open{display:flex}
 
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto}
+/* v2.15.2: 角丸モーダルの右端スクロールバーが上下の角丸からはみ出ないよう、トラックの上下に余白を入れて角丸ぶん内側に寄せる */
+.modal::-webkit-scrollbar-track{margin:16px 0}
 .modal-wide{width:660px}
 
 /* v2.5.6: タスク設定モーダル（行単位のトグル/入力欄） */
@@ -230,6 +232,17 @@ body.mobile .task-item-mv-stack .task-item-variant-sel {
 .confirm-date-row label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600}
 .confirm-date-row input{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none}
 .confirm-btns{display:flex;gap:10px;justify-content:center;margin-top:8px}
+
+/* v2.16.0: 削除確認の「正式削除 / 取り消し」2択ガイド */
+.del-reason-box{display:flex;flex-direction:column;gap:10px;text-align:left;margin:8px 0 18px}
+.del-reason-opt{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.del-reason-head{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.del-reason-desc{font-size:12px;color:var(--text2);line-height:1.6}
+
+/* v2.16.0: 管理番号 入力欄の重複警告 */
+.inp-num-warn{font-size:11.5px;line-height:1.5;margin-top:6px;padding:6px 9px;border-radius:6px}
+.inp-num-warn.error{background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.35);color:#fca5a5}
+.inp-num-warn.soft{background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.35);color:#fcd34d}
 
 /* ========================================
    売約スイッチ（車両モーダル内）

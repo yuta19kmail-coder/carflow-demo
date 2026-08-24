@@ -18,14 +18,18 @@ let pendingTargetCol = null;       // 同上の移動先列
 let globalLogs = [];               // 全操作ログ
 let activeDetailCarId = null;      // 現在詳細モーダル表示中の車両ID
 let wfState = {carId:null, taskId:null, isDelivery:false}; // ワークフロー状態
-let closedDays = [3];              // 定休日の曜日（初期：水曜） ※互換用（毎週のみ）
-let closedRules = [                // 定休日ルール（拡張版）
-  // id, pattern:'weekly'|'biweekly'|'nth', dow:0-6, nth?:1-5, anchorYM?:'YYYY-MM'
-  {id:'r-default', pattern:'weekly', dow:3}
-];
-let customHolidays = [];           // カスタム休業日リスト
-let jpHolidays = {};               // 日本の祝日（APIから取得）
+// 🔴 v2.38.0 定休日・営業時間・休業日は **CarFlow では持たない**。MHS の営業日カレンダーが唯一の真実。
+//    休みかどうか＝PitCal.isClosed(日付) ／ 名前＝PitCal.label(日付) ／ 祝日＝Holidays.name(日付)
+//    直す場所は MHS の 管理 ▸ 定休日カレンダー／設定 だけ。**ここに書き戻さないこと。**
+//    （撤去したもの：closedDays / closedRules / customHolidays / jpHolidays）
 let archivedCars = [];             // 月次集計締めでアーカイブされた車両
+// v2.16.0: 「正式に削除（AA出品・売約不成立・廃車など）」された車両の最小限の番号台帳
+let deletedCars = [];              // { id, num, maker, model, grade, deletedAt, deletedBy }
+// v2.17.0: 管理番号リストでの手入力記録（番号穴埋め・微調整用、業務には影響なし）
+let manualNumbers = [];            // { id, num, model, grade, note, createdAt, createdBy }
+// v2.19.0: 仮登録車両（話が出た段階・管理番号なし・業務カウント対象外）。実到着で cars に昇格
+let tentativeCars = [];            // { id, maker, model, reason, memo, createdAt, createdBy }
+let dragTentative = null;          // カンバンでドラッグ中の仮登録カード
 
 // v1.7.0: 全体タスク（付箋ボード）
 let boardNotes = [];               // 付箋ボードの全件（order asc）
@@ -37,6 +41,14 @@ let boardLabels = {                // 色ごとのラベル（会社共通）。
   blue:   '余裕',
 };
 let dragBoardNoteId = null;        // 付箋 DnD 中の id
+
+// v2.9.0: メンバーグループ（車販／他部署 など）。設定→メンバーで追加・改名・削除できる。
+//   各メンバーは staff.groupId でいずれか1グループに所属（未設定＝未所属）。
+//   付箋の担当指定（v2.10.0〜）でグループ宛て送付に使う。
+let memberGroups = [
+  { id: 'g_sales', name: '車販メンバー' },
+  { id: 'g_other', name: '他部署メンバー' },
+];
 
 // 展示ビューのソート設定（key: 'price'|'invDays'|'year'、dir: 'asc'|'desc'）
 let exhibitSort = { key: 'invDays', dir: 'desc' };
