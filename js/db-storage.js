@@ -168,6 +168,32 @@
     }
   }
 
+  // 付箋ボードのPDFアップロード（画像と違いリサイズ無し・原本をそのまま）
+  async function uploadBoardNotePdf(noteId, file) {
+    const root = _companyRoot();
+    if (!root || !noteId || !file) return null;
+    const ref = root.child('boardNotes/' + noteId + '.pdf');
+    try {
+      await ref.put(file, { contentType: 'application/pdf' });
+      return await ref.getDownloadURL();
+    } catch (err) {
+      console.error('[db-storage] uploadBoardNotePdf:', err);
+      throw err;
+    }
+  }
+  // 付箋ボードのPDF削除
+  async function deleteBoardNotePdf(noteId) {
+    const root = _companyRoot();
+    if (!root || !noteId) return;
+    try {
+      await root.child('boardNotes/' + noteId + '.pdf').delete();
+    } catch (err) {
+      if (err && err.code !== 'storage/object-not-found') {
+        console.warn('[db-storage] deleteBoardNotePdf:', err);
+      }
+    }
+  }
+
   // v1.7.14: チェックリスト項目に貼る写真のアップロード（最大1600px、項目編集モーダルから呼ばれる）
   //   path: companies/{cid}/checklistMedia/{tplId}/{itemId}/{ts}_{rand}.jpg
   //   tplId / itemId が無い場合は misc/ に投入。返り値は downloadURL。
@@ -197,6 +223,8 @@
     deleteProfilePhoto,
     uploadBoardNoteImage,    // v1.7.0
     deleteBoardNoteImage,    // v1.7.0
+    uploadBoardNotePdf,      // PDF添付
+    deleteBoardNotePdf,      // PDF添付
     uploadChecklistMedia,    // v1.7.14
     _resizeImageBlob,
     _dataUrlToBlob,

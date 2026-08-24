@@ -6,7 +6,7 @@
 //
 // 1ドキュメントに以下を集約：
 //   appTaskEnabled / appTaskOrder / appTaskDeadline / appCustomTasks (tasks-def.js)
-//   closedRules / closedDays / customHolidays                       (state.js)
+//   ※ 定休日・営業時間は v2.38.0 で撤去（MHS の営業日カレンダーが唯一の真実）
 //   SIZES                                                            (config.js)
 //   appSettings { invWarn, delWarn, deliveryLeadDays, notif, goals, printEquipment } (state.js)
 //
@@ -57,13 +57,17 @@
     if (typeof appTaskRename   !== 'undefined') out.appTaskRename   = _clone(appTaskRename   || {});
     // v2.2.1: タスク個別メモの種別設定
     if (typeof appTaskMemoConfig !== 'undefined') out.appTaskMemoConfig = _clone(appTaskMemoConfig || {});
+    // v2.8.0: 大タスクごとの完了時LINE通知 ON/OFF
+    if (typeof appTaskNotify   !== 'undefined') out.appTaskNotify   = _clone(appTaskNotify   || {});
     if (typeof appCustomTasks  !== 'undefined') out.appCustomTasks  = _clone(appCustomTasks  || []);
-    if (typeof closedRules     !== 'undefined') out.closedRules     = _clone(closedRules     || []);
-    if (typeof closedDays      !== 'undefined') out.closedDays      = _clone(closedDays      || []);
-    if (typeof customHolidays  !== 'undefined') out.customHolidays  = _clone(customHolidays  || []);
+    // 🔴 v2.38.0 定休日（closedRules / closedDays / customHolidays）と営業時間（appSettings.bizOpen/bizClose）は
+    //    **CarFlow では持たない**。MHS の営業日カレンダーが唯一の真実。ここに書き戻さないこと。
+    //    ⚠ 昔の書類に残っている分は読まないだけ（消していない）。
     if (typeof SIZES           !== 'undefined') out.SIZES           = _clone(SIZES           || []);
     if (typeof appSettings     !== 'undefined') out.appSettings     = _clone(appSettings     || {});
     if (typeof boardLabels     !== 'undefined') out.boardLabels     = _clone(boardLabels     || {});
+    // v2.9.0: メンバーグループ（車販／他部署 など）
+    if (typeof memberGroups    !== 'undefined') out.memberGroups    = _clone(memberGroups    || []);
     return out;
   }
 
@@ -130,10 +134,24 @@
       appTaskMemoConfig.delivery   = (data.appTaskMemoConfig.delivery)   ? {...data.appTaskMemoConfig.delivery}   : {};
       appTaskMemoConfig.backoffice = (data.appTaskMemoConfig.backoffice) ? {...data.appTaskMemoConfig.backoffice} : {};
     }
+    // v2.8.0: 大タスクごとの完了時LINE通知 ON/OFF
+    if (data.appTaskNotify && typeof appTaskNotify !== 'undefined') {
+      appTaskNotify.regen      = (data.appTaskNotify.regen)      ? {...data.appTaskNotify.regen}      : {};
+      appTaskNotify.delivery   = (data.appTaskNotify.delivery)   ? {...data.appTaskNotify.delivery}   : {};
+      appTaskNotify.backoffice = (data.appTaskNotify.backoffice) ? {...data.appTaskNotify.backoffice} : {};
+    }
 
     if (data.boardLabels && typeof boardLabels !== 'undefined') {
       Object.keys(data.boardLabels).forEach(k => {
         boardLabels[k] = data.boardLabels[k];
+      });
+    }
+
+    // v2.9.0: メンバーグループ（保存済みがあれば置換。無ければ既定の2グループのまま）
+    if (Array.isArray(data.memberGroups) && typeof memberGroups !== 'undefined') {
+      memberGroups.length = 0;
+      data.memberGroups.forEach(g => {
+        if (g && g.id) memberGroups.push({ id: String(g.id), name: String(g.name || '') });
       });
     }
 
@@ -142,20 +160,7 @@
       data.appCustomTasks.forEach(t => appCustomTasks.push(t));
     }
 
-    if (Array.isArray(data.closedRules) && typeof closedRules !== 'undefined') {
-      closedRules.length = 0;
-      data.closedRules.forEach(r => closedRules.push(r));
-    }
-
-    if (Array.isArray(data.closedDays) && typeof closedDays !== 'undefined') {
-      closedDays.length = 0;
-      data.closedDays.forEach(d => closedDays.push(d));
-    }
-
-    if (Array.isArray(data.customHolidays) && typeof customHolidays !== 'undefined') {
-      customHolidays.length = 0;
-      data.customHolidays.forEach(h => customHolidays.push(h));
-    }
+    // v2.38.0: closedRules / closedDays / customHolidays は読まない（MHS が基準）
 
     if (Array.isArray(data.SIZES) && typeof SIZES !== 'undefined') {
       SIZES.length = 0;
@@ -167,6 +172,7 @@
       if (Array.isArray(a.invWarn)) appSettings.invWarn = a.invWarn.slice();
       if (Array.isArray(a.delWarn)) appSettings.delWarn = a.delWarn.slice();
       if (typeof a.deliveryLeadDays === 'number') appSettings.deliveryLeadDays = a.deliveryLeadDays;
+      // v2.38.0: bizOpen / bizClose は読まない（営業時間は MHS が基準）
       if (a.notif && typeof a.notif === 'object') {
         appSettings.notif = appSettings.notif || {};
         for (const k in a.notif) {
@@ -243,7 +249,7 @@
       await ref.set(out, { merge: true });
     } catch (err) {
       console.error('[db-settings] saveSettings error:', err);
-      if (typeof showToast === 'function') showToast('設定の保存に失敗しました');
+      if (typeof showToast === 'function') showToast('設定の保存に失敗しました', 'CF-9001');
       throw err;
     }
   }

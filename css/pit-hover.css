@@ -1,0 +1,120 @@
+/* ========================================
+   pit-hover.css  （CarFlow v2.34.0）
+   整備依頼業務・ダッシュボードのカードをマウスオーバーした時に、
+   右側に固定で出る「情報カード」。
+   ----------------------------------------
+   🔴 これは PitFlow の css/card-hover.css の【写し】です。
+      PitFlow を直したら、ここも直してください。
+      test_pit_embed.mjs が両方のソースを見比べて、ずれたら落ちます。
+   ⚠ PitFlow と意図的に違うところ（2つだけ）：
+      ① var(--brand) → var(--accent)  … CarFlow は色の名前が違うだけ。中身は同じ役目。
+      ② 引継ぎメモ・完TEL/返車の【入力欄】が無い（.ph-hoinput / .ph-rt-amt 等）。
+         CarFlow のホバーは **見るだけ** なので、代わりに読み取り専用の行（.ph-ro-*）にしてある。
+         🔴 編集の本体は PitFlow。CarFlow から書くのは「済みフラグ1個」だけ、という決めごとのまま。
+   ======================================== */
+#pit-hovercard{
+  position:fixed; z-index:140; width:300px; display:none;
+  background:var(--bg2); border:1px solid var(--border2); border-radius:14px;
+  box-shadow:0 16px 44px rgba(0,0,0,.6); padding:14px 15px 13px;
+  pointer-events:auto;   /* パネルの上にカーソルを乗せてもすぐ消えない（消えない制御はJS側） */
+  max-height:90vh; overflow:auto;
+}
+#pit-hovercard.show{ display:block; }
+
+.ph-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+.ph-resno{ font-size:12px; font-weight:800; letter-spacing:.04em; color:#0b1a12; background:var(--accent); border-radius:6px; padding:2px 8px; }
+.ph-pill{ font-size:11px; font-weight:700; border-radius:999px; padding:2px 9px; border:1px solid; }
+.ph-team.k{ color:var(--green); background:rgba(29,185,122,.13); border-color:rgba(29,185,122,.5); }
+.ph-team.y{ color:#ec4899; background:rgba(236,72,153,.13); border-color:rgba(236,72,153,.5); }
+.ph-div{ color:var(--text2); background:var(--bg3); border-color:var(--border2); }
+.ph-staffwrap{ margin-left:auto; display:flex; align-items:center; gap:5px; }
+.ph-stafflb{ font-size:10px; color:var(--text3); }
+.ph-staff{ font-size:12.5px; font-weight:700; color:var(--text); background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:2px 9px; white-space:nowrap; }
+
+/* 名前・車種は省略せず全部表示（長くても折り返す） */
+.ph-name{ font-size:21px; font-weight:800; line-height:1.2; color:var(--text); margin-top:2px; overflow-wrap:anywhere; }
+.ph-name small{ font-size:13px; font-weight:600; color:var(--text2); margin-left:3px; }
+.ph-kana{ font-size:12px; color:var(--text3); margin-top:2px; overflow-wrap:anywhere; }
+.ph-car{ font-size:16px; font-weight:700; color:var(--text); margin-top:9px; line-height:1.25; overflow-wrap:anywhere; }
+.ph-plate-row{ margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.ph-plate{ display:inline-block; font-size:12.5px; font-weight:700; color:var(--text2); background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:3px 9px; letter-spacing:.02em; }
+/* カルテNo＝番号直書き（グレー・少し大きめ） */
+.ph-karte{ display:inline-block; font-size:14px; font-weight:800; color:var(--text2); letter-spacing:.04em; }
+.ph-fix{ display:inline-block; font-size:10px; font-weight:800; color:#3a2a00; background:#fbbf24; border-radius:5px; padding:1px 8px; margin-right:6px; vertical-align:middle; }
+.ph-lmemo{ font-size:11.5px; color:var(--text); }
+
+/* ===== 下部メモ群（代車条件・予約内容メモ・引継ぎメモ）＝区切り線つきで統一 ===== */
+.ph-sec{ margin-top:10px; border-top:1px dashed var(--border); padding-top:9px; }
+.ph-sec-lb{ font-size:10.5px; font-weight:700; color:var(--text2); margin-bottom:5px; display:flex; align-items:baseline; gap:4px; }
+.ph-sec-lb small{ font-size:9.5px; font-weight:600; color:var(--text3); }
+.ph-sec-body{ font-size:11.5px; color:var(--text); line-height:1.55; }
+.ph-memo{ overflow-wrap:anywhere; }
+.ph-empty{ color:var(--text3); }
+.ph-sales-line{ font-size:11.5px; color:var(--text); line-height:1.6; overflow-wrap:anywhere; }
+/* バッジ行（該当するもの全部）。済スタンプが他バッジにかぶらないよう上余白＋行間/列間を確保 */
+.ph-badges{ display:flex; flex-wrap:wrap; column-gap:11px; row-gap:12px; margin-top:9px; padding-top:3px; }
+.ph-b{ position:relative; overflow:visible; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid; white-space:nowrap; line-height:1.5; }
+/* 完了＝赤い小さな「済」スタンプを右上角に */
+.ph-b.ph-done::after{
+  content:"済"; position:absolute; top:-7px; right:-4px; transform:rotate(-12deg);
+  font-size:10px; font-weight:900; color:#fff; background:#ef4444;
+  border-radius:3px; padding:0 1.5px; line-height:1.25;
+  box-shadow:0 1px 3px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); pointer-events:none;
+}
+.ph-b-kari{ background:var(--bg3); color:var(--text2); border-color:var(--border2); }
+.ph-b-drop{ background:var(--bg3); color:var(--text2); border-color:var(--border2); }
+.ph-b-loaner{ background:rgba(245,158,11,.16); color:#f59e0b; border-color:rgba(245,158,11,.55); }
+.ph-b-wash{ background:#2563eb; color:#fff; border-color:#2563eb; }
+.ph-b-consult{ background:rgba(234,179,8,.15); color:#a16207; border-color:#eab308; }
+.ph-b-urg{ background:#ef4444; color:#fff; border-color:#ef4444; }
+.ph-b-red{ background:rgba(239,68,68,.14); color:#ef4444; border-color:rgba(239,68,68,.55); }
+.ph-b-td{ background:rgba(29,185,122,.14); color:var(--green); border-color:rgba(29,185,122,.5); }
+.ph-b-hl{ background:rgba(139,92,246,.16); color:#8b5cf6; border-color:rgba(139,92,246,.55); }
+.ph-b-coat{ background:rgba(168,85,247,.16); color:#a855f7; border-color:rgba(168,85,247,.55); }
+.ph-b-sales{ background:rgba(37,99,235,.14); color:#2563eb; border-color:rgba(37,99,235,.5); }
+.ph-b-early{ background:rgba(236,72,153,.16); color:#ec4899; border-color:rgba(236,72,153,.55); }
+.ph-b-cau{ background:#f59e0b; color:#1c1300; border-color:#f59e0b; }   /* 車両注意（耳の土禁/左等と同じ塗りオレンジ） */
+.ph-b-special{ background:rgba(148,163,184,.14); color:#94a3b8; border-color:rgba(148,163,184,.55); }   /* 特殊（保証/保険）＝グレー */
+
+/* ===== 📞 完TEL / 返車 ＝【読むだけ】（CarFlow だけの見た目） =====
+   🔴 PitFlow はここが入力欄。CarFlow は見るだけなので、入力欄を置かず
+      「項目名｜値」の並びにしてある。直したい時は PitFlow を開く。 */
+.ph-ro-row{ display:flex; align-items:baseline; gap:8px; margin-top:5px; }
+.ph-ro-k{ font-size:11px; color:var(--text2); width:64px; flex:0 0 64px; }
+.ph-ro-v{ font-size:12.5px; font-weight:700; color:var(--text); flex:1; min-width:0; overflow-wrap:anywhere; }
+.ph-ro-v.is-empty{ font-weight:600; color:var(--text3); }
+.ph-ro-yn{ display:inline-block; font-size:11px; font-weight:700; border-radius:6px; padding:1px 8px; border:1px solid var(--border2); background:var(--bg3); color:var(--text2); }
+.ph-ro-yn.on{ background:rgba(37,99,235,.14); color:#2563eb; border-color:rgba(37,99,235,.5); }
+/* 「ここは見るだけ」と分かる一言（PitFlow へ誘導する） */
+.ph-ro-hint{ font-size:10px; color:var(--text3); margin-top:8px; line-height:1.5; border-top:1px dashed var(--border); padding-top:7px; }
+
+/* 3つの経過日数 */
+.ph-stats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; margin-top:12px; }
+.ph-stat{ background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:8px 7px 7px; text-align:center; border-top-width:3px; }
+.ph-stat.s-hold{ border-top-color:var(--green); }
+.ph-stat.s-phase{ border-top-color:var(--blue); }
+.ph-stat.s-resv{ border-top-color:var(--accent); }
+.ph-stat.s-resv-loaner{ border-top-color:var(--orange); }
+/* 予約専用：代車なし＝1列／代車あり＝2列（予約・代車） */
+.ph-stats-1{ grid-template-columns:1fr; }
+.ph-stats-2{ grid-template-columns:1fr 1fr; }
+.ph-stat-lb{ font-size:10px; font-weight:700; color:var(--text2); line-height:1.2; min-height:24px; display:flex; align-items:center; justify-content:center; }
+.ph-stat-num{ font-size:20px; font-weight:800; line-height:1.05; margin-top:3px; color:var(--text); }
+.ph-stat-num .u{ font-size:11px; font-weight:700; color:var(--text2); margin-left:1px; }
+.ph-stat-sub{ font-size:10px; color:var(--text3); margin-top:2px; }
+.ph-meter{ height:5px; border-radius:3px; background:var(--bg); overflow:hidden; margin-top:5px; }
+.ph-meter i{ display:block; height:100%; background:var(--green); }
+/* 代車レベル色（green/amber/red/dead/none） */
+.s-loaner.lv-green{ border-top-color:var(--green); } .s-loaner.lv-green .ph-stat-num{ color:var(--green); } .s-loaner.lv-green .ph-meter i{ background:var(--green); }
+.s-loaner.lv-amber{ border-top-color:var(--orange); } .s-loaner.lv-amber .ph-stat-num{ color:var(--orange); } .s-loaner.lv-amber .ph-meter i{ background:var(--orange); }
+.s-loaner.lv-red{ border-top-color:var(--red); } .s-loaner.lv-red .ph-stat-num{ color:var(--red); } .s-loaner.lv-red .ph-meter i{ background:var(--red); }
+.s-loaner.lv-dead{ border-top-color:var(--red); background:rgba(239,68,68,.12); } .s-loaner.lv-dead .ph-stat-num{ color:var(--red); } .s-loaner.lv-dead .ph-meter i{ background:var(--red); }
+.s-loaner.lv-none{ opacity:.5; } .s-loaner.lv-none .ph-stat-num{ color:var(--text3); font-size:13px; }
+/* 実績ホバー：預かり期間(緑)＝s-hold流用／代車(完了)＝橙／確定金額＝ブランド色 */
+.ph-stat.s-ldone{ border-top-color:var(--orange); }
+.ph-stat.s-amt{ border-top-color:var(--accent); } .ph-stat.s-amt .ph-stat-num{ color:var(--accent); }
+
+.ph-note{ font-size:11px; color:var(--text3); margin-top:10px; line-height:1.5; border-top:1px dashed var(--border); padding-top:8px; }
+
+/* ホバーできる場所は指カーソルのまま（クリック＝PitFlow を開く、は今までどおり） */
+.pe-row{ cursor:pointer; }

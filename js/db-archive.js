@@ -79,7 +79,7 @@
       await col.doc(String(car.id)).set(_normalizeForSave(car), { merge: true });
     } catch (err) {
       console.error('[db-archive] saveArchivedCar error:', err, car);
-      if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました');
+      if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました', 'CF-0012');
       throw err;
     }
   }
@@ -95,7 +95,7 @@
       await col.doc(String(carId)).delete();
     } catch (err) {
       console.error('[db-archive] deleteArchivedCar error:', err);
-      if (typeof showToast === 'function') showToast('アーカイブ削除に失敗しました');
+      if (typeof showToast === 'function') showToast('アーカイブ削除に失敗しました', 'CF-0013');
       throw err;
     }
   }

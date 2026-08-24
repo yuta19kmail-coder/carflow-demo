@@ -122,6 +122,6 @@ function _injectAllHelpContents() {
     if (!id) return;
     const html = HELP_CONTENTS[id];
     if (typeof html === 'string') el.innerHTML = html;
-    else el.innerHTML = '<div class="help-wip">📝 このセクションは執筆中です。</div>';
+    else el.innerHTML = '<div class="help-wip">'+ic('pencil','📝',16)+' このセクションは執筆中です。</div>';
   });
 }

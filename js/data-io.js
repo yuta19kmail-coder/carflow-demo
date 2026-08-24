@@ -139,7 +139,7 @@
       `会社ID：${meta.companyId || '不明'}`,
       `件数：cars=${counts.cars || 0} / archived=${counts.archivedCars || 0} / boardNotes=${counts.boardNotes || 0}`,
     ].join('\n');
-    if (!confirm(`このバックアップから復元します：\n\n${summary}\n\n⚠️ 既存の cars / archivedCars / boardNotes / settings / templates / customTasks は全て上書きされます。\n（LINE設定とスタッフは保持されます）\n\n本当によろしいですか？`)) {
+    if (!confirm(`このバックアップから復元します：\n\n${summary}\n\n既存の cars / archivedCars / boardNotes / settings / templates / customTasks は全て上書きされます。\n（LINE設定とスタッフは保持されます）\n\n本当によろしいですか？`)) {
       _toast('復元をキャンセルしました');
       return;
     }
@@ -396,12 +396,12 @@
     const ref = _companyRef();
     if (!ref) { _toast('会社情報が取れません'); return; }
 
-    if (!confirm('🚨 全消去します。\n\n対象：\n・全車両（cars）\n・販売実績（archivedCars）\n・付箋ボード（boardNotes）\n\n設定・テンプレ・スタッフ・LINE連携は残ります。\nこの操作は元に戻せません。続行しますか？')) {
+    if (!confirm('全消去します。\n\n対象：\n・全車両（cars）\n・販売実績（archivedCars）\n・付箋ボード（boardNotes）\n\n設定・テンプレ・スタッフ・LINE連携は残ります。\nこの操作は元に戻せません。続行しますか？')) {
       _toast('全消去をキャンセルしました');
       return;
     }
 
-    const ans = prompt('🚨 最終確認。\n「全消去」と入力してください：');
+    const ans = prompt('最終確認。\n「全消去」と入力してください：');
     const norm = (ans || '').trim();
     if (norm !== '全消去' && norm.toUpperCase() !== 'DELETE ALL') {
       _toast('全消去をキャンセルしました');

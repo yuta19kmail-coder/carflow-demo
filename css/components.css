@@ -20,7 +20,7 @@
 .chip-count{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:16px;font-size:12px;border:1px solid transparent;cursor:default}
 .chip-count .chip-count-num{font-weight:700;margin-left:2px}
 
-/* v2.5.15-demo: ライトモード（light / light-liquid）で要対応チップを白背景でくっきり。 */
+/* ライトモード（light / light-liquid）で要対応チップを白背景でくっきり。 */
 /*   ダーク時はインラインの薄い色のまま。ライト時だけ !important で濃い文字＋淡色ベタ塗りに上書き。 */
 :root[data-theme^="light"] .chip-yellow,
 :root[data-theme^="light"] .chip-count.sev-warn{background:#FEF3C7 !important;border-color:#FCD34D !important;color:#B45309 !important}

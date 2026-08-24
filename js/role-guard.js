@@ -113,7 +113,7 @@
     e.preventDefault();
     e.stopPropagation();
     if (typeof showToast === 'function') {
-      showToast('この操作はあなたの権限ではできません');
+      showToast('この操作はあなたの権限ではできません', 'CF-0027');
     }
   }, true);
 })();

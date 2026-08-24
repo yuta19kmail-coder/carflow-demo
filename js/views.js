@@ -96,7 +96,7 @@ function _makeExhibitColumn(opts) {
   const pctHtml = opts.isStock ? '' : `<span class="ex-col-pct">${opts.pct.toFixed(1)}%</span>`;
   col.innerHTML = `
     <div class="ex-col-hdr">
-      <div class="ex-col-name"><span class="ex-col-icon">${opts.icon}</span>${opts.name}</div>
+      <div class="ex-col-name"><span class="ex-col-icon">${icoE(opts.icon)}</span>${opts.name}</div>
       <div class="ex-col-stats">
         <span class="ex-col-count">${opts.count}</span>
         <span class="ex-col-count-unit">台</span>
@@ -127,7 +127,7 @@ function _refreshExhibitSortBtns() {
       btn.classList.add('active');
       const arrow = document.createElement('span');
       arrow.className = 'sort-arrow';
-      arrow.textContent = exhibitSort.dir === 'asc' ? '▲' : '▼';
+      arrow.innerHTML = icoE(exhibitSort.dir === 'asc' ? '▲' : '▼');
       btn.appendChild(arrow);
     }
   });
@@ -244,7 +244,7 @@ function _makeDealColumn(opts) {
   col.className = 'deal-col' + (opts.isStock ? ' stock' : '');
   col.innerHTML = `
     <div class="deal-col-hdr">
-      <div class="deal-col-name"><span class="deal-col-icon">${opts.icon}</span>${opts.name}</div>
+      <div class="deal-col-name"><span class="deal-col-icon">${icoE(opts.icon)}</span>${opts.name}</div>
     </div>
     <div class="deal-col-body"></div>`;
   const body = col.querySelector('.deal-col-body');
@@ -300,7 +300,7 @@ function openDealPopup(car) {
   if (typeof calcEquipmentProgress === 'function') {
     const p = calcEquipmentProgress(car);
     if (p.filled > 0) {
-      eqBtnHtml = `<button class="deal-eq-trigger" onclick="dealShowEquipment('${car.id}')">📋 装備詳細を見る（${p.filled}/${p.total}）</button>`;
+      eqBtnHtml = `<button class="deal-eq-trigger" onclick="dealShowEquipment('${car.id}')">${ic('clipboard','📋',16)} 装備詳細を見る（${p.filled}/${p.total}）</button>`;
     }
   }
   body.setAttribute('data-eq-mode', '0');
@@ -369,11 +369,11 @@ function _makeProgressCardOther(car, compact) {
   const bodyHtml = compact ? '' : `
     <div class="pv-body">
       <div class="pv-other-memo">
-        <div class="pv-other-memo-label">📌 メモ</div>
+        <div class="pv-other-memo-label">${ic('pin','📌',14)} メモ</div>
         <div class="pv-other-memo-text">${coreMemo ? escapeHtml(coreMemo).replace(/\n/g,'<br>') : '<span class="cc-other-empty">未記入</span>'}</div>
       </div>
       <div class="pv-other-memo">
-        <div class="pv-other-memo-label">📝 作業メモ</div>
+        <div class="pv-other-memo-label">${ic('pencil','📝',16)} 作業メモ</div>
         <div class="pv-other-memo-text">${workMemo ? escapeHtml(workMemo).replace(/\n/g,'<br>') : '<span class="cc-other-empty">未記入</span>'}</div>
       </div>
       <div style="margin-top:9px;font-size:11px;color:var(--text3)">仕入れから ${inv} 日経過</div>
@@ -388,7 +388,7 @@ function _makeProgressCardOther(car, compact) {
       </div>
       <span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span>
     </div>${bodyHtml}
-    <div class="pv-btn" onclick="openDetail('${car.id}')">▶ カードを開く</div>`;
+    <div class="pv-btn" onclick="openDetail('${car.id}')">${ic('chevRight','▶',14)} カードを開く</div>`;
   return card;
 }
 
@@ -403,9 +403,9 @@ function _makeProgressCard(car, compact) {
   card.dataset.carId = car.id;
   const taskRows = compact ? '' : tasks.map(t => {
     const p = calcSingleProg(car, t.id, tasks);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:14px">${t.icon}</span><div style="flex:1;font-size:12px">${t.name}</div><div class="pbar" style="width:52px"><div class="pfill" style="width:${p.pct}%"></div></div><div style="font-size:11px;color:var(--text3);width:30px;text-align:right">${p.pct}%</div></div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:14px">${icoE(t.icon)}</span><div style="flex:1;font-size:12px">${t.name}</div><div class="pbar" style="width:52px"><div class="pfill" style="width:${p.pct}%"></div></div><div style="font-size:11px;color:var(--text3);width:30px;text-align:right">${p.pct}%</div></div>`;
   }).join('');
-  card.innerHTML = `<div class="pv-drag" title="ドラッグして並び替え">⋮⋮</div><div class="pv-head"><div class="pv-thumb">${car.photo?`<img src="${car.photo}">`:carEmoji(car.size)}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${car.maker} ${car.model}</div><div style="font-size:11px;color:var(--text2)">${car.num} · ${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div></div><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></div><div class="pv-body">${taskRows}<div style="margin-top:${compact?'0':'9px'};display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>全体</span><span style="font-weight:700;color:var(--green)">${prog.pct}%</span></div><div class="pbar" style="height:6px;margin-top:5px"><div class="pfill" style="width:${prog.pct}%"></div></div></div><div class="pv-btn" onclick="openDetail('${car.id}')">▶ カードを開く</div>`;
+  card.innerHTML = `<div class="pv-drag" title="ドラッグして並び替え">⋮⋮</div><div class="pv-head"><div class="pv-thumb">${car.photo?`<img src="${car.photo}">`:carEmoji(car.size)}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${car.maker} ${car.model}</div><div style="font-size:11px;color:var(--text2)">${car.num} · ${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div></div><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></div><div class="pv-body">${taskRows}<div style="margin-top:${compact?'0':'9px'};display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>全体</span><span style="font-weight:700;color:var(--green)">${prog.pct}%</span></div><div class="pbar" style="height:6px;margin-top:5px"><div class="pfill" style="width:${prog.pct}%"></div></div></div><div class="pv-btn" onclick="openDetail('${car.id}')">${ic('chevRight','▶',14)} カードを開く</div>`;
   return card;
 }
 
@@ -457,7 +457,7 @@ function renderProgress() {
     const expanded = !!progressExpanded[g.id];
     const compact = isMany && !expanded;
     const toggleBtn = isMany
-      ? `<button class="pv-toggle-btn" onclick="toggleProgressGroup('${g.id}')">${expanded ? '▲ 縮小表示に戻す' : '▼ すべて展開'}</button>`
+      ? `<button class="pv-toggle-btn" onclick="toggleProgressGroup('${g.id}')">${expanded ? ''+ic('chevUp','▲',14)+' 縮小表示に戻す' : ''+ic('chevDown','▼',14)+' すべて展開'}</button>`
       : '';
     const sec = document.createElement('div');
     sec.className = 'pv-group' + (g.id === progressActiveGroup ? ' pv-active' : '');
@@ -614,7 +614,7 @@ function _renderTableSortBar() {
   ];
   bar.innerHTML = `
     <div class="ex-toolbar-label">並び替え</div>
-    ${items.map(it => `<button class="ex-sort-btn" data-key="${it.key}" onclick="setTableSort('${it.key}')">${it.icon} ${it.label}</button>`).join('')}
+    ${items.map(it => `<button class="ex-sort-btn" data-key="${it.key}" onclick="setTableSort('${it.key}')">${icoE(it.icon)} ${it.label}</button>`).join('')}
     <div class="ex-toolbar-spacer"></div>
     <div class="ex-total-label" id="table-total-label"></div>`;
   bar.querySelectorAll('.ex-sort-btn').forEach(btn => {
@@ -622,7 +622,7 @@ function _renderTableSortBar() {
       btn.classList.add('active');
       const arrow = document.createElement('span');
       arrow.className = 'sort-arrow';
-      arrow.textContent = tableSort.dir === 'asc' ? '▲' : '▼';
+      arrow.innerHTML = icoE(tableSort.dir === 'asc' ? '▲' : '▼');
       btn.appendChild(arrow);
     }
   });
@@ -760,7 +760,7 @@ function renderInventory() {
       : '<div class="inv-empty">該当なし</div>';
     sec.innerHTML = `
       <div class="inv-group-head">
-        <span class="tbl-group-icon">${icon}</span>
+        <span class="tbl-group-icon">${icoE(icon)}</span>
         <span class="tbl-group-name">${g.key}</span>
         <span class="tbl-group-desc">${desc}</span>
         <span class="tbl-group-count">${arr.length}台</span>

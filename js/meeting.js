@@ -67,7 +67,7 @@
     const dstW = document.getElementById('meeting-warn-body');
     if (srcW && dstW) {
       if (!srcW.children.length || srcW.textContent.includes('納車準備中の車両がありません')) {
-        dstW.innerHTML = _wrap('<div style="color:var(--text3);font-style:italic;padding:14px;text-align:center">✓ 納車前のカウントダウン対象なし</div>');
+        dstW.innerHTML = _wrap('<div style="color:var(--text3);font-style:italic;padding:14px;text-align:center">'+ic('check','✓',14)+' 納車前のカウントダウン対象なし</div>');
       } else {
         dstW.innerHTML = _wrap(srcW.innerHTML);
       }
@@ -80,7 +80,7 @@
     const dstA = document.getElementById('meeting-actions-body');
     if (srcA && dstA) {
       if (srcA.children.length === 0) {
-        dstA.innerHTML = _wrap('<div style="color:var(--text3);font-style:italic;padding:14px;text-align:center">✓ 要対応のアクションはありません</div>');
+        dstA.innerHTML = _wrap('<div style="color:var(--text3);font-style:italic;padding:14px;text-align:center">'+ic('check','✓',14)+' 要対応のアクションはありません</div>');
       } else {
         dstA.innerHTML = _wrap(srcA.innerHTML);
       }

@@ -127,8 +127,13 @@ function checkTaskCompletionAndNotify(car) {
       if (!isComplete) return;
       // 新たに完了 → 初回チェックでなければ通知、必ず記録
       if (!isFirstCheck) {
-        _sendTaskCompletionNotification(car, t, phase);
+        // v2.8.0: この大タスクの「完了時LINE通知」スイッチがONのものだけ送信。
+        //   全体の「大タスク完了通知」ON/OFF は sendLineMessage 側で判定されるので、
+        //   ここでは個別スイッチだけ見る（両方ONのときだけ実際に飛ぶ）。
+        const notifyOn = (typeof isTaskNotifyEnabled === 'function') ? isTaskNotifyEnabled(t.id, phase) : true;
+        if (notifyOn) _sendTaskCompletionNotification(car, t, phase);
       }
+      // 送信の有無にかかわらず必ず記録（OFF→ON に切替えても過去完了分が遅れて飛ばないように）
       store[phase].push(t.id);
     });
   });

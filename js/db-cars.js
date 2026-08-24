@@ -87,7 +87,7 @@
       await col.doc(String(car.id)).set(_normalizeForSave(car), { merge: true });
     } catch (err) {
       console.error('[db-cars] saveCar error:', err, car);
-      if (typeof showToast === 'function') showToast('保存に失敗しました');
+      if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
       throw err;
     }
   }
@@ -130,7 +130,7 @@
       }
     } catch (err) {
       console.error('[db-cars] saveCarField error:', err, carId, path);
-      if (typeof showToast === 'function') showToast('保存に失敗しました');
+      if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
       throw err;
     }
   }
@@ -168,7 +168,7 @@
       // 失敗時は再生成を許容するためマークを外す
       _confirmPendingDelete(carId);
       console.error('[db-cars] deleteCar error:', err);
-      if (typeof showToast === 'function') showToast('削除に失敗しました');
+      if (typeof showToast === 'function') showToast('削除に失敗しました', 'CF-0019');
       throw err;
     }
   }
@@ -263,7 +263,7 @@
       },
       function (err) {
         console.error('[db-cars] subscribeCars error:', err);
-        if (typeof showToast === 'function') showToast('車両データの同期でエラー');
+        if (typeof showToast === 'function') showToast('車両データの同期でエラー', 'CF-0020');
       }
     );
     return unsub;
@@ -290,18 +290,35 @@
 // ========================================
 // グローバルショートカット
 // ========================================
+/* 🔴 2026-08-05 修正：どちらも失敗を console に出すだけで、**画面には何も出していなかった**。
+   チェック作業（丸付け）・作業シート・詳細の各欄はここを通るので、
+   保存できていないのに画面はチェックが入ったままになり、
+   **翌朝リロードすると全部外れている**、が起こりうる。
+   → 失敗したら画面に1回だけ知らせる。⚠ 連打で何度も出ないよう、6秒に1回だけにまとめる。
+   ⚠ 画面の値は戻さない（作業中に勝手に外れる方が混乱するため）。
+     「まだ全員には反映されていない」ことだけを伝えて、やり直せるようにする。 */
+let _saveWarnAt = 0;
+function _warnSaveFailed(e) {
+  console.error('[saveCar] failed', e);
+  const now = Date.now();
+  if (now - _saveWarnAt < 6000) return;
+  _saveWarnAt = now;
+  if (typeof showToast === 'function') {
+    showToast('保存できていません。この端末には残っていますが、まだ全員には反映されていません（通信または権限を確認してください）', 'CF-0021');
+  }
+}
+
 window.saveCarById = function (carId) {
   if (!window.dbCars || !carId) return;
   const car = (typeof cars !== 'undefined' && Array.isArray(cars))
     ? cars.find(x => x && x.id === carId)
     : null;
   if (!car) return;
-  window.dbCars.saveCar(car).catch(e => console.error('[saveCarById] failed for', carId, e));
+  return window.dbCars.saveCar(car).catch(_warnSaveFailed);
 };
 
 // v1.8.0: 項目単位の保存ショートカット
 window.saveCarField = function (carId, path, value) {
   if (!window.dbCars || !window.dbCars.saveCarField) return;
-  return window.dbCars.saveCarField(carId, path, value)
-    .catch(e => console.error('[saveCarField] failed', carId, path, e));
+  return window.dbCars.saveCarField(carId, path, value).catch(_warnSaveFailed);
 };

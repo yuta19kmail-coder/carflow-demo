@@ -96,7 +96,7 @@
       await col.doc(String(tpl.id)).set(_normalizeForSave(tpl), { merge: true });
     } catch (err) {
       console.error('[db-templates] saveTemplate error:', err, tpl.id);
-      if (typeof showToast === 'function') showToast('テンプレートの保存に失敗しました');
+      if (typeof showToast === 'function') showToast('テンプレートの保存に失敗しました', 'CF-0025');
       throw err;
     }
   }
@@ -112,7 +112,7 @@
       await col.doc(String(tplId)).delete();
     } catch (err) {
       console.error('[db-templates] deleteTemplate error:', err);
-      if (typeof showToast === 'function') showToast('テンプレートの削除に失敗しました');
+      if (typeof showToast === 'function') showToast('テンプレートの削除に失敗しました', 'CF-0026');
       throw err;
     }
   }

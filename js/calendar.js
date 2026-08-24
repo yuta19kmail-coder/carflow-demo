@@ -36,7 +36,8 @@ function _isDeliveryTaskDone(car, taskId) {
     const st = dt[taskId] || {};
     return t.sections.every(sec => sec.items.every(i => st[i.id]));
   }
-  return dt[taskId] === true;
+  // v2.20.1: simpleモードは _simpleTaskDone で統一（空オブジェクト{}は未完了）
+  return (typeof _simpleTaskDone === 'function') ? _simpleTaskDone(dt[taskId]) : (dt[taskId] === true);
 }
 
 // 後方互換：他から呼ばれている可能性に備えてラッパーを残す
@@ -80,19 +81,13 @@ function _getDeliveryMilestonePoints() {
   return points;
 }
 
-// v1.0.46: マイルストーン前倒し判定は「定休日」だけを対象にする
-// 設定の定休日ルール（isClosedByRules / closedDays）＋カレンダー画面で追加した単発休業日（customHolidays）のみ。
-// 祝日（jpHolidays）や日曜の強制扱いは除外（定休にしたい曜日は設定で closedDays に入れてもらう）。
+// 🔴 v2.38.0 その日が休みかどうか＝**MHS の営業日カレンダー1本**（PitCal）。
+//    毎週の定休・臨時休業・お盆・年末年始・特別営業（休みの日に開ける）まで、ぜんぶここに入っている。
+//    ⚠ 祝日は「休み」に数えない（今までどおり）。祝日を休みにしたい時は MHS 側で休業日にする。
+//    ⚠ 届いていない時は PitCal が予備値（前回届いた内容→曜日→水曜）で答える＝画面は止まらない。
+//       そのかわり画面の上に注意帯を出す（renderCalendar の中）。
 function _isCalendarOff(dateStr) {
-  // 設定の定休日ルール
-  if (typeof isClosedByRules === 'function') {
-    if (isClosedByRules(dateStr)) return true;
-  } else if (Array.isArray(closedDays)) {
-    const dow = new Date(dateStr + 'T00:00:00').getDay();
-    if (closedDays.includes(dow)) return true;
-  }
-  // カレンダー画面で追加した単発の休業日
-  if (Array.isArray(customHolidays) && customHolidays.find(h => h.date === dateStr)) return true;
+  if (window.PitCal && PitCal.isClosed) { try { return !!PitCal.isClosed(dateStr); } catch (e) {} }
   return false;
 }
 
@@ -303,15 +298,21 @@ function renderOneMonth(year, month, hostEl) {
       const {dayNum, ds} = cell;
       const dow = colIdx;
       const isSun = dow === 0, isSat = dow === 6;
-      const jpHol = jpHolidays[ds] || null;
-      const custHol = customHolidays.find(h => h.date === ds) || null;
-      const isClosed = (typeof isClosedByRules === 'function') ? isClosedByRules(ds) : closedDays.includes(dow);
-      const isHol = isSun || !!jpHol || !!custHol;
+      // 🔴 v2.38.0 休みの判定も、その日の名前（お盆休み・臨時休業…）も **MHS の営業日カレンダー1本**。
+      //    祝日の名前だけは別の物差し（Holidays）。祝日は「休み」には数えない（今までどおり）。
+      const jpHol   = (window.Holidays && Holidays.name) ? Holidays.name(ds) : null;
+      const calLbl  = (window.PitCal && PitCal.label) ? (PitCal.label(ds) || null) : null;
+      const isClosed = _isCalendarOff(ds);
+      // 短縮営業（午前休み・午後休み・早締め）と特別営業（休みの日に開ける）も見分ける
+      const tone    = (window.PitCal && PitCal.tone) ? PitCal.tone(ds) : '';
+      const isHol = isSun || !!jpHol || isClosed;
 
       let cls = 'cal-cell';
       if (ds === ts) cls += ' today';
       if (isHol) cls += ' hol-day';
       if (isClosed) cls += ' closed-day';
+      if (tone === 'short') cls += ' short-day';
+      if (tone === 'open')  cls += ' open-day';
 
       const cellEl = document.createElement('div');
       cellEl.className = cls;
@@ -345,16 +346,22 @@ function renderOneMonth(year, month, hostEl) {
       numEl.className = 'cal-cell-num ' + (isHol ? 'hol-col' : isSat ? 'sat-col' : 'nor-col');
       numEl.textContent = dayNum;
       hdr.appendChild(numEl);
-      const holName = jpHol || custHol?.name || null;
-      if (holName) {
+      // 🔴 MHS が付けた名前をそのまま出す（「お盆休み」「臨時休業（棚卸し）」「午前休み」「特別営業」…）。
+      //    名前が無い休みだけ「定休日」と書く。祝日名は休みでない日にだけ出す。
+      if (calLbl) {
         const t = document.createElement('span');
-        t.className = 'cal-cell-tag hol-tag';
-        t.textContent = holName;
+        t.className = 'cal-cell-tag ' + (isClosed ? 'closed-tag' : 'hol-tag');
+        t.textContent = calLbl;
         hdr.appendChild(t);
       } else if (isClosed) {
         const t = document.createElement('span');
         t.className = 'cal-cell-tag closed-tag';
         t.textContent = '定休日';
+        hdr.appendChild(t);
+      } else if (jpHol) {
+        const t = document.createElement('span');
+        t.className = 'cal-cell-tag hol-tag';
+        t.textContent = jpHol;
         hdr.appendChild(t);
       }
       cellEl.appendChild(hdr);
@@ -505,7 +512,7 @@ function renderOneMonth(year, month, hostEl) {
             chip.className = 'cal-ev-label-chip cal-ev-memo-chip';
             const iconEl = document.createElement('span');
             iconEl.className = 'cal-ev-label-icon';
-            iconEl.textContent = '📝';
+            iconEl.innerHTML = icoE('📝');
             chip.appendChild(iconEl);
             const nameEl = document.createElement('span');
             nameEl.className = 'cal-ev-label-name';
@@ -535,7 +542,7 @@ function renderOneMonth(year, month, hostEl) {
               chip.className = 'cal-ev-label-chip cal-ev-memo-chip';
               const iconEl = document.createElement('span');
               iconEl.className = 'cal-ev-label-icon';
-              iconEl.textContent = '📝';
+              iconEl.innerHTML = icoE('📝');
               chip.appendChild(iconEl);
               const nameEl = document.createElement('span');
               nameEl.className = 'cal-ev-label-name';
@@ -551,7 +558,7 @@ function renderOneMonth(year, month, hostEl) {
         bar.dataset.carId = s.car.id;
         if (s.isFinal) {
           bar.draggable = true;
-          bar.style.cursor = 'grab';
+          bar.style.cursor = 'pointer';
           bar.addEventListener('dragstart', () => { dragDeliveryCarId = s.car.id; });
           bar.addEventListener('dragend', () => { dragDeliveryCarId = null; });
         }
@@ -567,6 +574,14 @@ function renderOneMonth(year, month, hostEl) {
 
 // カレンダー全体（当月＋翌月）
 function renderCalendar() {
+  /* 🔴 v2.38.0 営業日カレンダーが MHS から届いていない時は、必ず注意帯を出す。
+     「休みが無い」と「まだ届いていない」を混ぜると、臨時休業の日に納車予定を入れてしまう。 */
+  const warnEl = document.getElementById('cal-mhs-warn');
+  if (warnEl) {
+    try { warnEl.innerHTML = (window.PitCal && PitCal.noticeHtml) ? (PitCal.noticeHtml() || '') : ''; }
+    catch (e) { warnEl.innerHTML = ''; }
+  }
+
   const titleEl = document.getElementById('cal-title');
   if (titleEl) {
     let ny = calYear, nm = calMonth + 1;
@@ -635,7 +650,7 @@ function renderCountdown() {
   }
   el.innerHTML = items.map(it => {
     const todayBadge = it.todayDueCount > 0
-      ? `<div class="countdown-today-badge" title="本日期限のタスク">⚠ 本日期限 ${it.todayDueCount}件</div>`
+      ? `<div class="countdown-today-badge" title="本日期限のタスク">${ic('warn','⚠',14)} 本日期限 ${it.todayDueCount}件</div>`
       : '';
     return `
     <div class="countdown-card" onclick="openDetail('${it.car.id}')">

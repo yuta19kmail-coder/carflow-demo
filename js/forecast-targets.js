@@ -21,7 +21,7 @@
       <div class="ft-dialog">
         <div class="ft-header">
           <h3 id="ft-title">集計対象</h3>
-          <button class="ft-close-btn" onclick="window.forecastTargets.close()">✕</button>
+          <button class="ft-close-btn" onclick="window.forecastTargets.close()">${ic('close','✕',15)}</button>
         </div>
         <div class="ft-body" id="ft-body"></div>
       </div>
@@ -68,7 +68,7 @@
 
   function open(mode, periodId, year, month){
     if (!window.periodStats){
-      if (typeof showToast === 'function') showToast('集計モジュール未読込');
+      if (typeof showToast === 'function') showToast('集計モジュール未読込', 'CF-4004');
       return;
     }
     _ensureModal();

@@ -3,53 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CarFlow - 車両管理システム</title>
+<!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
+<meta name="referrer" content="no-referrer">
+<meta name="app-version" content="2.45.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<title>CarFlow - 販売車両管理システム</title>
 
-<!-- ========== ファビコン（v1.5.10） ========== -->
-<link rel="icon" type="image/svg+xml" href="images/favicon.svg">
-<link rel="apple-touch-icon" href="images/favicon.svg">
+<!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
+<link rel="icon" type="image/png" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<link rel="manifest" href="manifest.json?v=1">
 <meta name="theme-color" content="#378ADD">
 
 <!-- v1.8.3: iOS Safari の env() が 0 を返す問題対策。CSS より先に html クラス付与 -->
 <script src="js/ios-safe-pad.js?v=284"></script>
 
 <!-- ========== CSS ========== -->
-<link rel="stylesheet" href="css/base.css?v=292">
-<link rel="stylesheet" href="css/login.css?v=284">
-<!-- デモ版専用：デモバナー＋ログイン画面＋デモロール切替などのスタイル -->
-<link rel="stylesheet" href="css/demo.css?v=285">
-<link rel="stylesheet" href="css/layout.css?v=284">
+<link rel="stylesheet" href="css/base.css?v=293">
+<link rel="stylesheet" href="css/login.css?v=285">
+<link rel="stylesheet" href="css/layout.css?v=287">
 <link rel="stylesheet" href="css/components.css?v=321">
-<link rel="stylesheet" href="css/panels.css?v=370">
-<link rel="stylesheet" href="css/kanban.css?v=321">
+<link rel="stylesheet" href="css/panels.css?v=367">
+<link rel="stylesheet" href="css/kanban.css?v=325">
 <link rel="stylesheet" href="css/calendar.css?v=287">
-<link rel="stylesheet" href="css/modal.css?v=316">
+<link rel="stylesheet" href="css/modal.css?v=318">
 <link rel="stylesheet" href="css/celebrate.css?v=284">
 <link rel="stylesheet" href="css/help.css?v=284">
 <link rel="stylesheet" href="css/mobile.css?v=290">
-<link rel="stylesheet" href="css/deal.css?v=293">
+<link rel="stylesheet" href="css/deal.css?v=294">
 <link rel="stylesheet" href="css/worksheet.css?v=287">
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風） -->
 <link rel="stylesheet" href="css/equipment-view.css?v=310">
-<link rel="stylesheet" href="css/forecast-print.css?v=345">
+<link rel="stylesheet" href="css/forecast-print.css?v=368">
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
-<link rel="stylesheet" href="css/template-editor.css?v=291">
+<link rel="stylesheet" href="css/template-editor.css?v=290">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<link rel="stylesheet" href="css/board-notes.css?v=286">
+<link rel="stylesheet" href="css/board-notes.css?v=292">
+<link rel="stylesheet" href="css/coreflow-note-reply.css?v=b5c2b3fb"><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.css より後ろに読む -->
 <!-- v1.7.42: 作業実績ビュー -->
 <link rel="stylesheet" href="css/worklog.css?v=284">
 <!-- v1.8.1: β版ミーティングビュー -->
 <link rel="stylesheet" href="css/meeting.css?v=284">
-
-<!-- ========== デモ版：mock スクリプト群（Firebase SDK 前に読込で window.firebase をモック） ========== -->
-<script src="js/demo-firestore-mock.js"></script>
-<script src="js/demo-storage-mock.js"></script>
-<script src="js/demo-init.js"></script>
-<script src="js/demo-sample-data.js?v=4"></script>
-<script src="js/demo-line-toast.js"></script>
+<link rel="stylesheet" href="css/launcher.css?v=demo">
+<link rel="stylesheet" href="css/demo.css"><!-- 🟠 デモ版の見た目（make-demo-carflow.ps1 が入れています） -->
+<style id="cf-icon-css">
+  /* 線画アイコン（2026-08-01）。⚠ アイコンが入るボタンは inline-flex にそろえること */
+  i[data-ic]{display:inline-flex;align-items:center;justify-content:center;font-style:normal;line-height:0;vertical-align:-.18em}
+  .sb-item > .sb-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px}
+  .tb-btn,.btn-sm,.tab{align-items:center;gap:6px}
+  .tb-btn,.btn-sm{display:inline-flex;justify-content:center}
+</style>
+<link rel="stylesheet" href="css/autocomplete.css?v=1">
+<link rel="stylesheet" href="css/num-list.css?v=5">
+<link rel="stylesheet" href="css/pit-embed.css?v=2"><!-- v2.33.0 整備依頼業務（PitFlow の車販作業の写し） -->
+<link rel="stylesheet" href="css/pit-hover.css?v=373"><!-- v2.34.0 カードのマウスオーバー詳細（PitFlow card-hover.css の写し） -->
 
 <!-- ========== Firebase SDK (v1.5.10〜) ========== -->
 <!-- compat 版を使用（既存のグローバル window.firebase 経由でアクセス） -->
+<!-- 🟠 ここから下 6本 は make-demo-carflow.ps1 が入れています。手で書かないこと。
+     demo-init.js が window.__DEMO_MODE = true を立てる → 本番 firebase-init.js は
+     冒頭でこれを見て、本物の Firebase には絶対につながらない（本体 v2.5.13 の安全装置）。 -->
+<script src="js/demo-firestore-mock.js"></script>
+<script src="js/demo-storage-mock.js"></script>
+<script src="js/demo-init.js"></script>
+<script src="js/demo-sample-data.js"></script>
+<script src="js/demo-seed-v245.js"></script>
+<script src="js/demo-line-toast.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -66,14 +84,10 @@
 <!-- ========== ログイン画面 ========== -->
 <div id="login-screen">
   <div class="login-box">
+    <!-- v2.31.0: ログイン刷新（アイコン/タイトル/リード/Googleログイン/バージョンのみに統一） -->
     <div class="login-logo">
-      <div class="logo-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-      <h1>CarFlow</h1><p>車両管理システム</p>
-    </div>
-    <!-- v1.5.10: Google サインインに置換（旧パスワード入力は廃止） -->
-    <div class="login-hint" style="margin:18px 0 14px;text-align:center;font-size:13px;line-height:1.6">
-      Google アカウントでログインしてください<br>
-      <span style="font-size:11px;color:var(--text3)">※会社の招待を受けたアカウントのみ利用可</span>
+      <img class="login-appicon" src="apple-touch-icon.png" alt="CarFlow">
+      <h1>CarFlow</h1><p>販売車両管理システム</p>
     </div>
     <!-- v1.7.42: 認証状態の初期確認が終わるまでボタンを出さない（自動ログイン中の二重ポップアップ防止） -->
     <div class="login-loading" id="login-loading" style="text-align:center;padding:14px;font-size:13px;color:var(--text3)">
@@ -81,17 +95,17 @@
     </div>
     <!-- v1.8.11: アプリ内ブラウザ警告（LINE / Instagram など WebView では Google が OAuth をブロックする）-->
     <div id="inapp-warning" style="display:none;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.4);border-radius:10px;padding:14px;margin:8px 0;font-size:12px;line-height:1.7;color:#fcd34d">
-      <div style="font-weight:700;font-size:13px;margin-bottom:8px">⚠ このブラウザではログインできません</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px"><i data-ic="warn" data-s="14">⚠</i> このブラウザではログインできません</div>
       <div style="color:var(--text2);margin-bottom:10px">
         LINE・Instagram などの<strong style="color:#fcd34d">アプリ内ブラウザ</strong>からは、Google のセキュリティポリシーによりログインがブロックされます。
       </div>
-      <div style="color:var(--text2);margin-bottom:10px;font-weight:600">📱 Safari で開いてください：</div>
+      <div style="color:var(--text2);margin-bottom:10px;font-weight:600"><i data-ic="smartphone" data-s="15">📱</i> Safari で開いてください：</div>
       <ol style="color:var(--text2);padding-left:18px;margin:0 0 10px 0">
         <li style="margin-bottom:4px">画面右上の <strong style="color:var(--text)">「…」</strong>または <strong style="color:var(--text)">共有</strong>ボタン</li>
         <li style="margin-bottom:4px"><strong style="color:var(--text)">「Safari で開く」</strong>または <strong style="color:var(--text)">「ブラウザで開く」</strong>を選ぶ</li>
         <li>Safari で開き直してログイン</li>
       </ol>
-      <button onclick="window.copyAppUrl && window.copyAppUrl(this)" style="width:100%;padding:9px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);border-radius:6px;color:#fcd34d;font-size:12px;font-weight:600;cursor:pointer">📋 このページのURLをコピー</button>
+      <button onclick="window.copyAppUrl && window.copyAppUrl(this)" style="width:100%;padding:9px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);border-radius:6px;color:#fcd34d;font-size:12px;font-weight:600;cursor:pointer"><i data-ic="clipboard" data-s="16">📋</i> このページのURLをコピー</button>
     </div>
     <button class="btn-login" id="btn-login" onclick="doLogin()" style="display:none;align-items:center;justify-content:center;gap:10px">
       <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border-radius:2px;padding:2px;box-sizing:content-box">
@@ -102,7 +116,7 @@
       </svg>
       Google でログイン
     </button>
-    <div class="login-ver">CarFlow v2.5.32-demo</div>
+    <div class="login-ver">v2.45.0</div>
   </div>
 </div>
 
@@ -111,20 +125,20 @@
   <!-- トップバー -->
   <div class="topbar">
     <!-- v1.5.10: サイドバー折りたたみトグル -->
-    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉">☰</button>
-    <div class="topbar-logo"><div class="logo-dot"></div>CarFlow</div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.5.32-demo</span>
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
+    <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.45.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
-    <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替">🌙</button>
-    <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))">📈 販売実績</button>
+    <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
+    <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
     <!-- v1.5.10: フォントサイズ3分割クイック切替（A小・A中・A大） -->
     <div class="tb-fontsize-group" id="tb-fontsize-group" title="文字サイズを変更">
       <button class="tb-fontsize-btn" data-fontsize="md" onclick="setFontSize('md')"><span style="font-size:10px;font-weight:600">A</span></button>
       <button class="tb-fontsize-btn" data-fontsize="lg" onclick="setFontSize('lg')"><span style="font-size:14px;font-weight:700">A</span></button>
       <button class="tb-fontsize-btn" data-fontsize="xl" onclick="setFontSize('xl')"><span style="font-size:19px;font-weight:800">A</span></button>
     </div>
-    <!-- v2.5.23-demo: 4テーマ循環ボタン（AAAの右隣・PCのみ表示。現場ビューは専用トグル #tb-theme-toggle を使用） -->
-    <button class="tb-theme-cycle" id="tb-theme-cycle" onclick="cycleTheme()" aria-label="テーマ切替" title="テーマ切替">🌙</button>
+    <!-- 4テーマ循環ボタン（AAAの右隣・PCのみ表示。現場ビューは専用トグル #tb-theme-toggle を使用） -->
+    <button class="tb-theme-cycle" id="tb-theme-cycle" onclick="cycleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <div class="topbar-user">
       <div class="av" id="u-av">YM</div>
       <span style="font-size:13px;color:var(--text2)" id="u-name">山田</span>
@@ -139,39 +153,44 @@
   </div>
 
   <div class="body-row">
-    <!-- サイドバー -->
+    <!-- サイドバー（v2.5.14: 4カテゴリ構成に再編 — 作業／実績／集計／管理） -->
     <div class="sidebar">
       <div style="padding:8px 6px 4px">
-        <div class="sb-sec">メイン</div>
-        <div class="sb-item active" id="si-dashboard" onclick="showPanel('dashboard',this)"><span class="sb-icon">🏠</span>ダッシュボード</div>
+        <div class="sb-sec">作業</div>
+        <div class="sb-item active" id="si-dashboard" onclick="showPanel('dashboard',this)"><span class="sb-icon"><i data-ic="home" data-s="16">🏠</i></span>ダッシュボード</div>
+        <!-- v2.33.0: 整備依頼業務（PitFlow の「車販作業」をそのまま表示・完了もPitFlowに書き戻す） -->
+        <div class="sb-item" id="si-pitsales" onclick="showPanel('pitsales',this)"><span class="sb-icon"><i data-ic="wrench" data-s="16">🔧</i></span>整備依頼業務</div>
         <!-- v2.1.0: バックオフィス（売約後の事務処理を一覧管理） -->
-        <div class="sb-item" id="si-backoffice" onclick="showPanel('backoffice',this)"><span class="sb-icon">🗂</span>バックオフィス</div>
-        <div class="sb-item" onclick="openCarModal(null)"><span class="sb-icon">➕</span>新規車両登録</div>
-        <div class="sb-item" id="si-close" onclick="openCloseMonthDialog()"><span class="sb-icon">📦</span>月次集計締め</div>
-        <!-- v1.8.1: β版ミーティングビュー（壁掛け大型モニター用・打ち合わせ時に4枚同時表示） -->
-        <div class="sb-item" id="si-meeting" onclick="openMeetingFromSidebar(this)"><span class="sb-icon">📺</span>ミーティング<span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:5px;margin-left:4px">β</span></div>
+        <div class="sb-item" id="si-backoffice" onclick="showPanel('backoffice',this)"><span class="sb-icon"><i data-ic="files" data-s="16">🗂</i></span>バックオフィス</div>
+        <div class="sb-item" onclick="openCarModal(null)"><span class="sb-icon"><i data-ic="plus" data-s="15">➕</i></span>新規車両登録</div>
+        <div class="sb-item" onclick="openTentativeModal(null)"><span class="sb-icon"><i data-ic="clock" data-s="15">🕗</i></span>仮登録車両追加</div>
         <div class="sb-div"></div>
         <div class="sb-sec">実績</div>
-        <div class="sb-item" id="si-archive" onclick="showPanel('archive',this)"><span class="sb-icon">📈</span>販売実績</div>
+        <div class="sb-item" id="si-archive" onclick="showPanel('archive',this)"><span class="sb-icon"><i data-ic="chart" data-s="15">📈</i></span>販売実績</div>
         <!-- v1.7.42: 作業実績（モチベUP用・終礼でみんなで見るやつ） -->
-        <div class="sb-item" id="si-worklog" onclick="openWorklogFromSidebar(this)"><span class="sb-icon">🎯</span>作業実績</div>
+        <div class="sb-item" id="si-worklog" onclick="openWorklogFromSidebar(this)"><span class="sb-icon"><i data-ic="target" data-s="16">🎯</i></span>作業実績</div>
+        <!-- v1.8.1: β版ミーティングビュー（壁掛け大型モニター用・打ち合わせ時に4枚同時表示） -->
+        <div class="sb-item" id="si-meeting" onclick="openMeetingFromSidebar(this)"><span class="sb-icon"><i data-ic="monitor" data-s="16">📺</i></span>ミーティング<span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:5px;margin-left:4px">β</span></div>
+        <div class="sb-div"></div>
+        <div class="sb-sec">集計</div>
+        <div class="sb-item" id="si-close" onclick="openCloseMonthDialog()"><span class="sb-icon"><i data-ic="box" data-s="16">📦</i></span>月次集計締め</div>
         <div class="sb-div"></div>
         <div class="sb-sec">管理</div>
-        <div class="sb-item" id="si-log" onclick="showPanel('log',this)"><span class="sb-icon">📋</span>操作ログ<span class="sb-badge" id="log-badge"></span></div>
-        <div class="sb-item" id="si-members" onclick="showPanel('members',this)"><span class="sb-icon">👥</span>メンバー</div>
+        <div class="sb-item" id="si-members" onclick="showPanel('members',this)"><span class="sb-icon"><i data-ic="users" data-s="16">👥</i></span>メンバー</div>
+        <div class="sb-item" id="si-log" onclick="showPanel('log',this)"><span class="sb-icon"><i data-ic="clipboard" data-s="16">📋</i></span>操作ログ<span class="sb-badge" id="log-badge"></span></div>
+        <div class="sb-item" id="si-numlist" onclick="showPanel('numlist',this)"><span class="sb-icon"><i data-ic="numbers" data-s="15">🔢</i></span>管理番号リスト</div>
         <div class="sb-sec">システム</div>
-        <div class="sb-item" id="si-settings" onclick="showPanel('settings',this)"><span class="sb-icon">⚙️</span>設定</div>
-        <!-- v2.5.25: お知らせ（新機能の使い方などをメール的に配信／未読バッジ） -->
-        <div class="sb-item" id="si-announce" onclick="showPanel('announce',this)"><span class="sb-icon">📢</span>お知らせ<span class="sb-badge" id="announce-badge"></span></div>
+        <div class="sb-item" id="si-settings" onclick="showPanel('settings',this)"><span class="sb-icon"><i data-ic="settings" data-s="16">⚙️</i></span>設定</div>
+        <!-- v2.7: お知らせ（新機能の使い方などをメール的に配信／未読バッジ） -->
+        <div class="sb-item" id="si-announce" onclick="showPanel('announce',this)"><span class="sb-icon"><i data-ic="megaphone" data-s="16">📢</i></span>お知らせ<span class="sb-badge" id="announce-badge"></span></div>
         <!-- v1.6.1: 「テンプレ編集」サイドバーは廃止。設定 → タスク・進捗 → 詳細作成ON → 編集 から入る統一動線へ -->
-        <div class="sb-item sb-help" id="si-help" onclick="showPanel('help',this)"><span class="sb-icon">❓</span>ヘルプ</div>
+        <div class="sb-item sb-help" id="si-help" onclick="showPanel('help',this)"><span class="sb-icon"><i data-ic="help" data-s="15">❓</i></span>ヘルプ</div>
       </div>
       <div class="sb-bottom">
+        <!-- v2.14.2: 旧スタッフ情報(sb-user)はトップバー右と重複していたため削除。代わりに CoreFlow アプリランチャー -->
         <div class="sb-div"></div>
-        <div class="sb-user">
-          <div class="av" id="sb-av" style="width:30px;height:30px;font-size:11px">YM</div>
-          <div><div style="font-size:12px;font-weight:600" id="sb-name">山田</div><div style="font-size:10px;color:var(--text3)" id="sb-role">スタッフ</div></div>
-        </div>
+        <!-- CoreFlow アプリランチャー（共通） -->
+        <div data-cf-launcher data-current="carflow"></div>
       </div>
     </div>
 
@@ -180,39 +199,46 @@
       <!-- タブ -->
       <div class="tabs">
         <!-- v1.7.2: 重要（全体タスク + 要対応アクションを一覧で見る）— v1.7.3 でスマホ限定に -->
-        <div class="tab tab-mobile-only" onclick="switchTab('overview',this)">📌 重要</div>
-        <div class="tab" onclick="switchTab('kanban',this)">📋 タスク管理</div>
-        <div class="tab" onclick="switchTab('calendar',this)">📅 納車カレンダー</div>
-        <div class="tab" onclick="switchTab('exhibit',this)">🏪 展示</div>
-        <div class="tab tab-mobile-keep" onclick="switchTab('progress',this)">⚡ 進捗</div>
-        <div class="tab" onclick="switchTab('table',this)">📑 全体一覧</div>
-        <div class="tab" onclick="switchTab('inventory',this)">📦 在庫日数</div>
-        <div class="tab" onclick="switchTab('deal',this)">💼 商談</div>
+        <div class="tab tab-mobile-only" onclick="switchTab('overview',this)"><i data-ic="pin" data-s="14">📌</i> 重要</div>
+        <div class="tab" onclick="switchTab('kanban',this)"><i data-ic="clipboard" data-s="16">📋</i> タスク管理</div>
+        <div class="tab" onclick="switchTab('calendar',this)"><i data-ic="calendar" data-s="16">📅</i> 納車カレンダー</div>
+        <div class="tab" onclick="switchTab('exhibit',this)"><i data-ic="shop" data-s="16">🏪</i> 展示</div>
+        <div class="tab tab-mobile-keep" onclick="switchTab('progress',this)"><i data-ic="bolt" data-s="15">⚡</i> 進捗</div>
+        <div class="tab" onclick="switchTab('table',this)"><i data-ic="files" data-s="15">📑</i> 全体一覧</div>
+        <div class="tab" onclick="switchTab('inventory',this)"><i data-ic="box" data-s="16">📦</i> 在庫日数</div>
+        <div class="tab" onclick="switchTab('deal',this)"><i data-ic="briefcase" data-s="16">💼</i> 商談</div>
         <!-- v1.7.42→v1.7.42: 作業実績タブ。PC ではサイドバーから入るのでタブは隠す（モバイル専用） -->
-        <div class="tab tab-mobile-only" onclick="switchTab('worklog',this)">🎯 作業実績</div>
+        <div class="tab tab-mobile-only" onclick="switchTab('worklog',this)"><i data-ic="target" data-s="16">🎯</i> 作業実績</div>
       </div>
 
       <div class="views">
         <!-- ダッシュボードパネル -->
         <div id="panel-dashboard" class="side-panel open">
+          <!-- v2.10.9: 納車予定（最上部・横スクロール） -->
+          <div id="delivery-schedule-area"></div>
+
+          <!-- v1.7.0: 全体タスク（付箋ボード） -->
+          <div id="board-notes-area"></div>
+
+          <!-- v2.7: 車両メモ一覧（付箋の下・折りたたみ） -->
+          <div id="vehicle-memo-area"></div>
+
+          <!-- v2.33.0: 今日・明日の整備依頼（PitFlow）— 🔴 要対応アクションの「上」。pit-embed.js が中身を作る -->
+          <div id="pit-today-area"></div>
+
+          <div class="panel-card"><h3><i data-ic="siren" data-s="16">🚨</i> 要対応アクション</h3><div id="dash-actions"></div></div>
+
+          <!-- v2.10.9: 概要(6カード)は要対応の下へ移動 -->
           <div><div class="panel-title">ダッシュボード</div><div class="panel-sub">車両管理と販売実績の概要</div></div>
           <div class="stat-grid" id="stat-grid"></div>
 
-          <!-- v1.7.0: 全体タスク（付箋ボード）— v1.7.2 で要対応アクションより上に -->
-          <div id="board-notes-area"></div>
-
-          <!-- v2.6: 車両メモ一覧（付箋の下・折りたたみ） -->
-          <div id="vehicle-memo-area"></div>
-
-          <div class="panel-card"><h3>🚨 要対応アクション</h3><div id="dash-actions"></div></div>
-
           <!-- 今月の着地予測 -->
           <div class="panel-card" id="dash-landing-card">
-            <div class="dash-sec-title"><h3>🎯 今月の着地予測</h3>
+            <div class="dash-sec-title"><h3><i data-ic="target" data-s="16">🎯</i> 今月の着地予測</h3>
               <div class="landing-controls">
                 <select id="landing-period-select" onchange="onLandingPeriodChange()"></select>
-                <button class="landing-print-btn" onclick="openForecastPrint()" title="印刷">🖨 印刷</button>
-                <button class="landing-print-btn" onclick="openForecastTargets()" title="集計対象車両を見る">📋 集計対象</button>
+                <button class="landing-print-btn" onclick="openForecastPrint()" title="印刷"><i data-ic="printer" data-s="16">🖨</i> 印刷</button>
+                <button class="landing-print-btn" onclick="openForecastTargets()" title="集計対象車両を見る"><i data-ic="clipboard" data-s="16">📋</i> 集計対象</button>
               </div>
               <button class="dash-detail-btn" onclick="toggleDashDetail('landing')">詳細 ▾</button>
             </div>
@@ -222,7 +248,7 @@
 
           <!-- 売上・在庫KPI -->
           <div class="panel-card">
-            <div class="dash-sec-title"><h3>📊 販売・在庫サマリー</h3>
+            <div class="dash-sec-title"><h3><i data-ic="chart" data-s="16">📊</i> 販売・在庫サマリー</h3>
               <button class="dash-detail-btn" onclick="toggleDashDetail('kpi')">詳細 ▾</button>
             </div>
             <div id="dash-kpi"></div>
@@ -231,7 +257,7 @@
 
           <!-- 警告サマリー -->
           <div class="panel-card">
-            <div class="dash-sec-title"><h3>⚠️ 警告サマリー</h3></div>
+            <div class="dash-sec-title"><h3><i data-ic="warn" data-s="14">⚠️</i> 警告サマリー</h3></div>
             <div id="dash-warnings"></div>
           </div>
         </div>
@@ -241,24 +267,44 @@
           <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <div><div class="panel-title">操作ログ</div><div class="panel-sub">全車両への操作履歴</div></div>
             <!-- v1.8.24: 操作ログ消去ボタン（admin/manager のみ表示） -->
-            <button class="btn-sm btn-danger" onclick="clearAuditLogsFromUI()" data-perm="canEditSettings" style="margin-top:4px">🗑 操作ログを消去</button>
+            <button class="btn-sm btn-danger" onclick="clearAuditLogsFromUI()" data-perm="canEditSettings" style="margin-top:4px"><i data-ic="trash" data-s="16">🗑</i> 操作ログを消去</button>
           </div>
-          <div class="panel-card"><h3>最新ログ</h3><div id="log-list"></div></div>
+          <div class="panel-card">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+              <input id="log-search" type="text" placeholder="KM番号・付箋・人・内容で検索" oninput="renderLogPanel()"
+                style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-size:13px">
+              <button class="btn-sm" id="log-sort-btn" onclick="toggleLogSort()">新しい順 <i data-ic="chevDown" data-s="14">▼</i></button>
+              <button class="btn-sm" onclick="dbSearchLogs()" title="手元の1000件を超えて、DB全体からその番号・人・内容の履歴を探します（削除済みの車も）"><i data-ic="search" data-s="15">🔎</i> DB全体を検索</button>
+              <button class="btn-sm" onclick="copyAllLogs()"><i data-ic="clipboard" data-s="16">📋</i> 全件コピー</button>
+            </div>
+            <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">最新ログ <span id="log-count" style="font-size:11px;color:var(--text3);font-weight:400"></span></h3>
+            <div id="log-list"></div>
+          </div>
         </div>
 
-        <!-- v2.5.25: 📢 お知らせ（新機能の使い方などをメール的に配信／アカウントごとに既読管理） -->
+        <!-- v2.7: 📢 お知らせ（新機能の使い方などをメール的に配信／アカウントごとに既読管理） -->
         <div id="panel-announce" class="side-panel">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
-            <div><div class="panel-title">📢 お知らせ</div><div class="panel-sub">新機能の使い方やアップデート情報が届きます</div></div>
+            <div><div class="panel-title"><i data-ic="megaphone" data-s="16">📢</i> お知らせ</div><div class="panel-sub">新機能の使い方やアップデート情報が届きます</div></div>
             <button class="btn-sm" onclick="markAllAnnounceRead()" style="margin-top:4px">すべて既読にする</button>
           </div>
           <div class="anc-list" id="announce-list"></div>
         </div>
 
+        <!-- v2.33.0: 整備依頼業務（PitFlow の「車販作業」ビューをそのまま）— 中身は js/pit-embed.js -->
+        <div id="panel-pitsales" class="side-panel">
+          <div>
+            <div class="panel-title pe-panel-head"><i data-ic="wrench" data-s="16">🔧</i> 整備依頼業務
+              <span class="pe-src">PitFlow の「車販作業」と同じ中身</span></div>
+            <div class="panel-sub">洗車・ヘッドライト磨き・コーティング・その他依頼。<b>「✓ 完了」を押すと PitFlow にもそのまま反映</b>されます（カードをクリックすると PitFlow が別タブで開きます）。</div>
+          </div>
+          <div id="pit-sales-body"></div>
+        </div>
+
         <!-- v2.1.0: バックオフィス（売約後の事務処理）— 4段（当月/先月/先々月/それより前）横スクロール -->
         <div id="panel-backoffice" class="side-panel">
           <div>
-            <div class="panel-title">🗂 バックオフィス</div>
+            <div class="panel-title"><i data-ic="files" data-s="16">🗂</i> バックオフィス</div>
             <div class="panel-sub">売約後の事務処理を一覧管理（カードクリックで詳細→バックオフィスタスクをチェック）</div>
           </div>
           <div class="bo-total" id="bo-total-label">対応中 0台</div>
@@ -269,13 +315,13 @@
         <div id="panel-members" class="side-panel">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <div><div class="panel-title">メンバー</div><div class="panel-sub">登録スタッフと招待中のメンバー</div></div>
-            <button class="btn-primary" id="btn-invite-member" onclick="openInviteMemberModal()" style="display:none">＋ メンバーを招待</button>
+            <!-- v2.18.0：メンバー編集はCoreFlowに一本化。招待ボタンは「CoreFlowを開く」に置換 -->
+            <button class="btn-primary" id="btn-invite-member" onclick="window.open('https://coreflow.kobayashi-motors.com/','_blank')"><i data-ic="users" data-s="16">👥</i> CoreFlow メンバー管理を開く</button>
           </div>
           <div class="panel-card"><h3>登録メンバー</h3><div id="member-list"></div></div>
-          <div class="panel-card" id="pending-invite-card" style="display:none">
-            <h3>📨 招待中</h3>
-            <div id="pending-invite-list" style="font-size:12px;color:var(--text2)"></div>
-          </div>
+          <!-- v2.18.3：メンバーグループ作成/編集UI 撤去。グループ管理は CoreFlow へ。
+                          データ（settings.memberGroups）は付箋ボードのグループボタン用に残置 -->
+          <!-- v2.18.3：「招待中」カードも撤去（招待機能廃止） -->
         </div>
 
         <!-- 設定（アコーディオン7枚） -->
@@ -290,34 +336,34 @@
             <!-- 左：項目メニュー -->
             <nav class="settings-nav" id="settings-nav">
               <button class="settings-nav-item active" data-section="profile">
-                <span class="settings-nav-icon">👤</span><span class="settings-nav-label">プロフィール</span>
+                <span class="settings-nav-icon"><i data-ic="user" data-s="15">👤</i></span><span class="settings-nav-label">プロフィール</span>
               </button>
               <button class="settings-nav-item" data-section="display">
-                <span class="settings-nav-icon">🎨</span><span class="settings-nav-label">表示</span>
+                <span class="settings-nav-icon"><i data-ic="palette" data-s="16">🎨</i></span><span class="settings-nav-label">表示</span>
               </button>
               <button class="settings-nav-item" data-section="vehicle">
-                <span class="settings-nav-icon">🚗</span><span class="settings-nav-label">車両・販売</span>
+                <span class="settings-nav-icon"><i data-ic="car" data-s="16">🚗</i></span><span class="settings-nav-label">車両・販売</span>
               </button>
               <!-- v1.6.1: タスク・進捗を独立セクションに -->
               <button class="settings-nav-item" data-section="tasks">
-                <span class="settings-nav-icon">🧩</span><span class="settings-nav-label">タスク・進捗</span>
+                <span class="settings-nav-icon"><i data-ic="puzzle" data-s="15">🧩</i></span><span class="settings-nav-label">タスク・進捗</span>
               </button>
               <!-- v2.5.6: タスクパターンを独立セクションに（全大タスクをフェーズ別に） -->
               <button class="settings-nav-item" data-section="task-patterns">
-                <span class="settings-nav-icon">📦</span><span class="settings-nav-label">タスクパターン</span>
+                <span class="settings-nav-icon"><i data-ic="box" data-s="16">📦</i></span><span class="settings-nav-label">タスクパターン</span>
               </button>
               <button class="settings-nav-item" data-section="store">
-                <span class="settings-nav-icon">🏪</span><span class="settings-nav-label">店舗運営</span>
+                <span class="settings-nav-icon"><i data-ic="shop" data-s="16">🏪</i></span><span class="settings-nav-label">店舗運営</span>
               </button>
               <button class="settings-nav-item" data-section="alert">
-                <span class="settings-nav-icon">🚦</span><span class="settings-nav-label">アラート</span>
+                <span class="settings-nav-icon"><i data-ic="signal" data-s="15">🚦</i></span><span class="settings-nav-label">アラート</span>
               </button>
               <!-- v1.8.19: LINE等の通知連携 -->
               <button class="settings-nav-item" data-section="notify" data-perm="canEditSettings">
-                <span class="settings-nav-icon">🔔</span><span class="settings-nav-label">通知連携</span>
+                <span class="settings-nav-icon"><i data-ic="bell" data-s="15">🔔</i></span><span class="settings-nav-label">通知連携</span>
               </button>
               <button class="settings-nav-item" data-section="data">
-                <span class="settings-nav-icon">💾</span><span class="settings-nav-label">データ</span>
+                <span class="settings-nav-icon"><i data-ic="save" data-s="16">💾</i></span><span class="settings-nav-label">データ</span>
               </button>
             </nav>
 
@@ -326,7 +372,7 @@
 
               <!-- 👤 プロフィール（v1.5.10） -->
               <section class="settings-section active" data-section="profile">
-                <h2 class="settings-section-title">👤 プロフィール</h2>
+                <h2 class="settings-section-title"><i data-ic="user" data-s="15">👤</i> プロフィール</h2>
                 <p class="settings-section-desc">CarFlow 内で使う表示名とアイコンを設定できます。Google アカウントの値が初期値です</p>
 
                 <div class="settings-card">
@@ -336,7 +382,7 @@
                     <div style="flex:1;min-width:200px">
                       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">推奨：正方形・最大2MB（自動でリサイズされます）</div>
                       <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <button class="btn-sm" onclick="document.getElementById('profile-avatar-file').click()">📷 画像を選択</button>
+                        <button class="btn-sm" onclick="document.getElementById('profile-avatar-file').click()"><i data-ic="camera" data-s="16">📷</i> 画像を選択</button>
                         <button class="btn-sm" onclick="resetProfilePhoto()">Google のアイコンに戻す</button>
                       </div>
                       <input type="file" id="profile-avatar-file" accept="image/*" style="display:none" onchange="onProfilePhotoPick(this)">
@@ -357,8 +403,8 @@
                 <div class="settings-card">
                   <h3 class="settings-card-title">アカウント情報</h3>
                   <div style="font-size:12px;color:var(--text2);line-height:1.8">
-                    <div>📧 <span id="profile-email">—</span></div>
-                    <div>🔑 ロール：<span id="profile-role">—</span></div>
+                    <div><i data-ic="send" data-s="15">📧</i> <span id="profile-email">—</span></div>
+                    <div><i data-ic="key" data-s="15">🔑</i> ロール：<span id="profile-role">—</span></div>
                     <div>🆔 UID：<code id="profile-uid" style="font-size:10px;color:var(--text3)">—</code></div>
                   </div>
                 </div>
@@ -366,15 +412,15 @@
 
               <!-- 🎨 表示 -->
               <section class="settings-section" data-section="display">
-                <h2 class="settings-section-title">🎨 表示設定</h2>
+                <h2 class="settings-section-title"><i data-ic="palette" data-s="16">🎨</i> 表示設定</h2>
                 <p class="settings-section-desc">画面の見え方を調整できます。設定はこのブラウザに保存されます</p>
                 <div class="settings-card">
                   <h3 class="settings-card-title">テーマ</h3>
                   <div class="theme-picker theme-picker-4" id="theme-picker">
-                    <button class="theme-btn" data-theme="dark"          onclick="setTheme('dark')">🌙 ダーク</button>
-                    <button class="theme-btn" data-theme="light"         onclick="setTheme('light')">☀️ ライト</button>
-                    <button class="theme-btn" data-theme="dark-liquid"   onclick="setTheme('dark-liquid')">✨ ダーク・リキッド</button>
-                    <button class="theme-btn" data-theme="light-liquid"  onclick="setTheme('light-liquid')">💎 ライト・リキッド</button>
+                    <button class="theme-btn" data-theme="dark"          onclick="setTheme('dark')"><i data-ic="moon" data-s="16">🌙</i> ダーク</button>
+                    <button class="theme-btn" data-theme="light"         onclick="setTheme('light')"><i data-ic="sun" data-s="16">☀️</i> ライト</button>
+                    <button class="theme-btn" data-theme="dark-liquid"   onclick="setTheme('dark-liquid')"><i data-ic="sparkle" data-s="15">✨</i> ダーク・リキッド</button>
+                    <button class="theme-btn" data-theme="light-liquid"  onclick="setTheme('light-liquid')"><i data-ic="gem" data-s="15">💎</i> ライト・リキッド</button>
                   </div>
                 </div>
                 <div class="settings-card">
@@ -389,11 +435,11 @@
 
                 <!-- v1.7.0: 付箋ボードの色ラベル（会社共通） -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📌 付箋ボードの色ラベル</h3>
+                  <h3 class="settings-card-title"><i data-ic="pin" data-s="14">📌</i> 付箋ボードの色ラベル</h3>
                   <p class="settings-card-desc">ダッシュボードの「全体タスク」で使う色ごとのラベル名を会社で共通設定できます。例：赤=緊急 / 橙=営業へ / 黄=今日中 など、自由にカテゴライズしてください</p>
                   <div id="board-labels-editor"></div>
                   <div style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;border-radius:4px;font-size:11px;line-height:1.6;color:var(--text2)">
-                    💡 <strong style="color:#fca5a5">赤色の付箋は新規作成時にLINE社内グループへ自動通知</strong>されます。<br>
+                    <i data-ic="bulb" data-s="15">💡</i> <strong style="color:#fca5a5">赤色の付箋は新規作成時にLINE社内グループへ自動通知</strong>されます。<br>
                     本当に重要な事項（事故・クレーム・即対応必要など）に紐付ける運用がおすすめです。
                   </div>
                 </div>
@@ -401,7 +447,7 @@
 
               <!-- 🚗 車両・販売 -->
               <section class="settings-section" data-section="vehicle">
-                <h2 class="settings-section-title">🚗 車両・販売</h2>
+                <h2 class="settings-section-title"><i data-ic="car" data-s="16">🚗</i> 車両・販売</h2>
                 <p class="settings-section-desc">車両登録時の選択肢や、販売フローのデフォルト値</p>
 
                 <div class="settings-card">
@@ -417,7 +463,7 @@
 
                 <!-- v1.8.59: 金額の税扱い設定 -->
                 <div class="settings-card">
-                  <h3 class="settings-card-title">💴 金額の税扱い（表示ラベル）</h3>
+                  <h3 class="settings-card-title"><i data-ic="money" data-s="16">💴</i> 金額の税扱い（表示ラベル）</h3>
                   <p class="settings-card-desc">入力された金額が「税込」か「税抜」かを各フィールド独立で指定。カード／詳細／印刷シート／ダッシュボードの表示に反映されます</p>
                   <div class="settings-row" style="margin-bottom:8px">
                     <div style="flex:1">
@@ -481,7 +527,7 @@
 
                 <!-- v1.8.75: 店舗情報（装備品印刷シートに反映） -->
                 <div class="settings-card">
-                  <h3 class="settings-card-title">🏪 店舗情報</h3>
+                  <h3 class="settings-card-title"><i data-ic="shop" data-s="16">🏪</i> 店舗情報</h3>
                   <p class="settings-card-desc">装備品の印刷シート（お客様用）のヘッダー／フッターに反映されます</p>
                   <div class="settings-row" style="align-items:flex-start;gap:14px;margin-bottom:10px">
                     <div>
@@ -489,7 +535,7 @@
                       <div id="company-logo-preview" style="width:100px;height:100px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:11px;color:var(--text3);text-align:center;padding:6px">未設定</div>
                       <div style="display:flex;gap:4px;margin-top:6px">
                         <input type="file" id="company-logo-file" accept="image/*" style="display:none" onchange="onCompanyLogoPick(this)">
-                        <button class="btn-sm" onclick="document.getElementById('company-logo-file').click()" style="font-size:11px">📁 選択</button>
+                        <button class="btn-sm" onclick="document.getElementById('company-logo-file').click()" style="font-size:11px"><i data-ic="folder" data-s="16">📁</i> 選択</button>
                         <button class="btn-sm" onclick="clearCompanyLogo()" style="font-size:11px;color:var(--text3)">クリア</button>
                       </div>
                     </div>
@@ -507,7 +553,7 @@
                 </div>
 
                 <div class="settings-card">
-                  <h3 class="settings-card-title">📅 デフォルト納車日（リードタイム）</h3>
+                  <h3 class="settings-card-title"><i data-ic="calendar" data-s="16">📅</i> デフォルト納車日（リードタイム）</h3>
                   <p class="settings-card-desc">売約動作をした時に自動入力される納車予定日の日数。<strong>着地予測の「準備リードタイム」</strong>としても同じ値が使われます</p>
                   <div class="settings-row">
                     <div style="flex:1">
@@ -523,14 +569,14 @@
 
               <!-- v1.6.1: タスク・進捗（独立セクション） -->
               <section class="settings-section" data-section="tasks">
-                <h2 class="settings-section-title">🧩 タスク・進捗</h2>
-                <p class="settings-section-desc">使わないタスクは OFF。チェック型は追加可能。「📝 詳細作成」をONにすると項目チェックリストの編集画面に入れます</p>
+                <h2 class="settings-section-title"><i data-ic="puzzle" data-s="15">🧩</i> タスク・進捗</h2>
+                <p class="settings-section-desc">使わないタスクは OFF。チェック型は追加可能。「<i data-ic="pencil" data-s="16">📝</i> 詳細作成」をONにすると項目チェックリストの編集画面に入れます</p>
 
                 <!-- v1.8.15: 管理者向け詳細マニュアル PDF -->
                 <div class="settings-card" style="border:1px solid rgba(55,138,221,.4);background:rgba(55,138,221,.06)">
-                  <h3 class="settings-card-title">📄 管理者マニュアル（PDF）</h3>
+                  <h3 class="settings-card-title"><i data-ic="fileText" data-s="16">📄</i> 管理者マニュアル（PDF）</h3>
                   <p class="settings-card-desc">タスク・進捗・小タスク・タブ／アコーディオン・パターン・Excel一括編集に加え、⋮メニュー一本化・選択制タスク・タスク個別メモ＋自動付箋・バックオフィスタスクまで網羅した管理者・Web担当者向けマニュアル。約16ページ。</p>
-                  <a href="manuals/task-manual-v6.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none">📥 PDFをダウンロード</a>
+                  <a href="manuals/task-manual-v6.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none"><i data-ic="download" data-s="16">📥</i> PDFをダウンロード</a>
                 </div>
 
                 <div class="settings-card">
@@ -542,7 +588,7 @@
 
               <!-- v2.5.6: 📦 タスクパターン（独立セクション） -->
               <section class="settings-section" data-section="task-patterns">
-                <h2 class="settings-section-title">📦 タスクパターン</h2>
+                <h2 class="settings-section-title"><i data-ic="box" data-s="16">📦</i> タスクパターン</h2>
                 <p class="settings-section-desc">大タスクごとの小タスク（チェックリスト）を編集します。小タスク制 OFF のタスクは「チェックのみ」と表示され、ONにすると編集可能になります。</p>
                 <div class="settings-card" style="padding:0">
                   <div id="task-patterns-editor"></div>
@@ -551,45 +597,42 @@
 
               <!-- 🏪 店舗運営 -->
               <section class="settings-section" data-section="store">
-                <h2 class="settings-section-title">🏪 店舗運営</h2>
+                <h2 class="settings-section-title"><i data-ic="shop" data-s="16">🏪</i> 店舗運営</h2>
                 <p class="settings-section-desc">定休日や売上目標など、店舗の基本ルール</p>
 
-                <div class="settings-card">
-                  <h3 class="settings-card-title">🗓️ 定休日ルール</h3>
-                  <p class="settings-card-desc">毎週の基本定休日。<strong>＋追加</strong>で隔週・第◯週ルールを重ねられます</p>
-                  <div id="closed-days-picker"></div>
-                  <div id="closed-rules-list" style="margin-top:12px"></div>
-                  <button class="btn-sm" onclick="openClosedRuleForm()" style="margin-top:10px">＋ 休業ルールを追加</button>
-                </div>
+                <!-- 🔴 2026-08-16 CarFlow 独自の「定休日ルール」「営業時間」は撤去した。
+                     直す場所は MHS の 管理 ▸ 定休日カレンダー／設定 だけ。ここは見るだけ。
+                     中身は js/cal-pit.js の pitCalCardHtml() が入れる（navigation.js の settings 分岐）。 -->
+                <div id="mhs-cal-card"></div>
 
                 <div class="settings-card">
-                  <h3 class="settings-card-title">🎯 店舗目標・売上計上モード</h3>
+                  <h3 class="settings-card-title"><i data-ic="target" data-s="16">🎯</i> 店舗目標・売上計上モード</h3>
                   <div id="goals-editor"></div>
                 </div>
               </section>
 
               <!-- 🚦 アラート -->
               <section class="settings-section" data-section="alert">
-                <h2 class="settings-section-title">🚦 アラート・警告</h2>
+                <h2 class="settings-section-title"><i data-ic="signal" data-s="15">🚦</i> アラート・警告</h2>
                 <p class="settings-section-desc">在庫・納車・通知の警告色や閾値</p>
 
                 <div class="settings-card">
-                  <h3 class="settings-card-title">⚠️ 在庫日数の警告</h3>
+                  <h3 class="settings-card-title"><i data-ic="warn" data-s="14">⚠️</i> 在庫日数の警告</h3>
                   <p class="settings-card-desc">日数を超えた車両に色付けされます。不要な段階はOFFにできます</p>
                   <div id="inv-warn-editor"></div>
                   <!-- v1.7.42: デフォルトに戻すボタン -->
                   <div class="settings-reset-row">
-                    <button class="btn-sm" onclick="resetInvWarnDefaults()">↺ デフォルトに戻す</button>
+                    <button class="btn-sm" onclick="resetInvWarnDefaults()"><i data-ic="refresh" data-s="15">↺</i> デフォルトに戻す</button>
                   </div>
                 </div>
 
                 <div class="settings-card">
-                  <h3 class="settings-card-title">🚦 納車残日数の警告</h3>
+                  <h3 class="settings-card-title"><i data-ic="signal" data-s="15">🚦</i> 納車残日数の警告</h3>
                   <p class="settings-card-desc">納車予定までの残日数がこの日数以下になったら警告します</p>
                   <div id="del-warn-editor"></div>
                   <!-- v1.7.42: デフォルトに戻すボタン -->
                   <div class="settings-reset-row">
-                    <button class="btn-sm" onclick="resetDelWarnDefaults()">↺ デフォルトに戻す</button>
+                    <button class="btn-sm" onclick="resetDelWarnDefaults()"><i data-ic="refresh" data-s="15">↺</i> デフォルトに戻す</button>
                   </div>
                 </div>
 
@@ -597,7 +640,7 @@
 
               <!-- 🔔 通知連携（v1.8.19〜） -->
               <section class="settings-section" data-section="notify" data-perm="canEditSettings">
-                <h2 class="settings-section-title">🔔 通知連携</h2>
+                <h2 class="settings-section-title"><i data-ic="bell" data-s="15">🔔</i> 通知連携</h2>
                 <p class="settings-section-desc">LINEなど外部サービスへの自動通知</p>
 
                 <div class="settings-card" data-perm="canEditSettings" style="border:1px solid rgba(0,182,76,.35)">
@@ -624,7 +667,7 @@
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">チャネルアクセストークン（長期）</label>
                     <div style="display:flex;gap:6px;align-items:center">
                       <input type="password" id="line-token-inp" placeholder="eyJhbGciOi..." style="flex:1;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:monospace">
-                      <button class="btn-sm" onclick="toggleLineTokenVisibility()" id="line-token-eye" title="表示切替">👁</button>
+                      <button class="btn-sm" onclick="toggleLineTokenVisibility()" id="line-token-eye" title="表示切替"><i data-ic="eye" data-s="15">👁</i></button>
                     </div>
                     <div style="font-size:11px;color:var(--text3);margin-top:4px">
                       LINE Developers Console → Messaging API設定 で発行した200文字程度の文字列
@@ -642,15 +685,15 @@
 
                   <!-- 保存・接続テストボタン -->
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-                    <button class="btn-sm" onclick="saveLineConfig()">💾 保存</button>
-                    <button class="btn-sm" onclick="sendLineTest()" id="line-test-btn">📤 接続テスト送信</button>
+                    <button class="btn-sm" onclick="saveLineConfig()"><i data-ic="save" data-s="16">💾</i> 保存</button>
+                    <button class="btn-sm" onclick="sendLineTest()" id="line-test-btn"><i data-ic="upload" data-s="16">📤</i> 接続テスト送信</button>
                     <span id="line-config-status" style="font-size:11px;color:var(--text3)"></span>
                   </div>
                 </div>
 
                 <!-- v1.8.20: 通知トリガー個別設定 -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📅 日報通知（毎日夕方）</h3>
+                  <h3 class="settings-card-title"><i data-ic="calendar" data-s="16">📅</i> 日報通知（毎日夕方）</h3>
                   <p class="settings-card-desc">
                     指定時刻に「明日の予定 / 明日の納車予定 / 月次売上 / 在庫リミット車両」をまとめて社内グループへ通知。
                   </p>
@@ -660,7 +703,7 @@
                       <div style="font-size:13px;font-weight:600">日報通知を有効化</div>
                       <div style="font-size:11px;color:var(--text3);margin-top:3px">OFFのとき、自動送信もテストもブロック</div>
                     </div>
-                    <button class="btn-sm" id="line-test-btn-dailyReport" onclick="sendTestForTrigger('dailyReport')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('dailyReport')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-dailyReport" onclick="sendTestForTrigger('dailyReport')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-daily-toggle" onclick="toggleLineTrigger('dailyReport')"></div>
                   </div>
 
@@ -680,7 +723,7 @@
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">🚨 赤付箋通知（即時）</h3>
+                  <h3 class="settings-card-title"><i data-ic="siren" data-s="16">🚨</i> 赤付箋通知（即時）</h3>
                   <p class="settings-card-desc">
                     付箋ボードに新しい <strong style="color:#ef4444">赤色</strong> 付箋が作成された瞬間に LINE 通知。<br>
                     タイトル / 内容 / 作成者 / 担当者を送ります。
@@ -691,7 +734,7 @@
                       <div style="font-size:13px;font-weight:600">赤付箋通知を有効化</div>
                       <div style="font-size:11px;color:var(--text3);margin-top:3px">新規作成時＋「済」化時の両方で通知（同じスイッチで動作）</div>
                     </div>
-                    <button class="btn-sm" id="line-test-btn-redBoardNote" onclick="sendTestForTrigger('redBoardNote')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('redBoardNote')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-redBoardNote" onclick="sendTestForTrigger('redBoardNote')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-redboard-toggle" onclick="toggleLineTrigger('redBoardNote')"></div>
                   </div>
                 </div>
@@ -708,7 +751,7 @@
                       <div style="font-size:13px;font-weight:600">大タスク完了通知を有効化</div>
                       <div style="font-size:11px;color:var(--text3);margin-top:3px">頻度の調整は下のモード設定で</div>
                     </div>
-                    <button class="btn-sm" id="line-test-btn-taskComplete" onclick="sendTestForTrigger('taskComplete')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('taskComplete')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-taskComplete" onclick="sendTestForTrigger('taskComplete')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-task-toggle" onclick="toggleLineTrigger('taskComplete')"></div>
                   </div>
 
@@ -733,21 +776,21 @@
 
                 <!-- v1.8.107: 新規トリガー群 -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">✨ 展示準備完了通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="sparkle" data-s="15">✨</i> 展示準備完了通知</h3>
                   <p class="settings-card-desc">再生フェーズの全大タスクが完了した瞬間に「仕上がりました！」通知。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">展示準備完了通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-exhibitReady" onclick="sendTestForTrigger('exhibitReady')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('exhibitReady')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-exhibitReady" onclick="sendTestForTrigger('exhibitReady')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-exhibitReady-toggle" onclick="toggleLineTrigger('exhibitReady')"></div>
                   </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">🚗 納車準備完了通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="car" data-s="16">🚗</i> 納車準備完了通知</h3>
                   <p class="settings-card-desc">納車準備フェーズの全大タスクが完了した瞬間に「いよいよ納車！」通知。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">納車準備完了通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-deliveryReady" onclick="sendTestForTrigger('deliveryReady')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('deliveryReady')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-deliveryReady" onclick="sendTestForTrigger('deliveryReady')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-deliveryReady-toggle" onclick="toggleLineTrigger('deliveryReady')"></div>
                   </div>
                 </div>
@@ -757,37 +800,37 @@
                   <p class="settings-card-desc">納車完了（col='done'）になった瞬間に喜びテイストで通知。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">納車完了通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-deliveryDone" onclick="sendTestForTrigger('deliveryDone')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('deliveryDone')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-deliveryDone" onclick="sendTestForTrigger('deliveryDone')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-deliveryDone-toggle" onclick="toggleLineTrigger('deliveryDone')"></div>
                   </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">🏆 月販目標達成通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="trophy" data-s="16">🏆</i> 月販目標達成通知</h3>
                   <p class="settings-card-desc">確定（納車完了）の台数が月販目標に到達した瞬間、その月で1回だけ祝う。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">月販目標達成通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-monthlyGoalReached" onclick="sendTestForTrigger('monthlyGoalReached')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('monthlyGoalReached')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-monthlyGoalReached" onclick="sendTestForTrigger('monthlyGoalReached')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-monthlyGoalReached-toggle" onclick="toggleLineTrigger('monthlyGoalReached')"></div>
                   </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">💴 売約通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="money" data-s="16">💴</i> 売約通知</h3>
                   <p class="settings-card-desc">売約（contract=1）になった瞬間に通知。営業の手柄をチーム共有。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">売約通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-contractWin" onclick="sendTestForTrigger('contractWin')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('contractWin')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-contractWin" onclick="sendTestForTrigger('contractWin')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-contractWin-toggle" onclick="toggleLineTrigger('contractWin')"></div>
                   </div>
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">🚨 リミット超過アラート</h3>
+                  <h3 class="settings-card-title"><i data-ic="siren" data-s="16">🚨</i> リミット超過アラート</h3>
                   <p class="settings-card-desc">毎日の指定時刻に、限界ライン超過してる車をまとめて通知。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">リミット超過アラートを有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-limitOver" onclick="sendTestForTrigger('limitOver')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('limitOver')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-limitOver" onclick="sendTestForTrigger('limitOver')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-limitOver-toggle" onclick="toggleLineTrigger('limitOver')"></div>
                   </div>
                   <div style="margin-top:6px">
@@ -797,11 +840,11 @@
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📥 仕入れ通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="download" data-s="16">📥</i> 仕入れ通知</h3>
                   <p class="settings-card-desc">新しい車を仕入れ列に追加した瞬間に通知。次の弾の入荷をチーム共有。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">仕入れ通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-carIntake" onclick="sendTestForTrigger('carIntake')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('carIntake')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-carIntake" onclick="sendTestForTrigger('carIntake')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-carIntake-toggle" onclick="toggleLineTrigger('carIntake')"></div>
                   </div>
                 </div>
@@ -811,7 +854,7 @@
                   <p class="settings-card-desc">毎日の指定時刻に、在庫日数が警告閾値を超えてる車をまとめて通知。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">在庫日数警告通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-invDaysAlert" onclick="sendTestForTrigger('invDaysAlert')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('invDaysAlert')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-invDaysAlert" onclick="sendTestForTrigger('invDaysAlert')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-invDaysAlert-toggle" onclick="toggleLineTrigger('invDaysAlert')"></div>
                   </div>
                   <div style="margin-top:6px">
@@ -821,11 +864,11 @@
                 </div>
 
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📊 月末締めサマリー通知</h3>
+                  <h3 class="settings-card-title"><i data-ic="chart" data-s="16">📊</i> 月末締めサマリー通知</h3>
                   <p class="settings-card-desc">毎月1日の指定時刻に先月の納車台数・売上・目標達成率をまとめて通知。定休日に被ったら翌営業日に後ズレ。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">月末サマリー通知を有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-monthlySummary" onclick="sendTestForTrigger('monthlySummary')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('monthlySummary')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-monthlySummary" onclick="sendTestForTrigger('monthlySummary')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-monthlySummary-toggle" onclick="toggleLineTrigger('monthlySummary')"></div>
                   </div>
                   <div style="margin-top:6px">
@@ -836,11 +879,11 @@
 
                 <!-- v1.8.110: 月末集計締めリマインド -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📋 月末締め作業リマインド</h3>
+                  <h3 class="settings-card-title"><i data-ic="clipboard" data-s="16">📋</i> 月末締め作業リマインド</h3>
                   <p class="settings-card-desc">月末日の指定時刻に「締め作業をしてね」リマインド通知。定休日に被ったら前営業日に前ズレ。</p>
                   <div class="setting-row" style="margin-bottom:10px">
                     <div style="flex:1"><div style="font-size:13px;font-weight:600">月末締めリマインドを有効化</div></div>
-                    <button class="btn-sm" id="line-test-btn-monthlyCloseReminder" onclick="sendTestForTrigger('monthlyCloseReminder')" style="margin-right:8px;font-size:11px;padding:4px 10px">📤 テスト</button>
+                    <button class="btn-sm" onclick="previewTrigger('monthlyCloseReminder')" style="margin-right:6px;font-size:11px;padding:4px 10px"><i data-ic="eye" data-s="15">👁</i> プレビュー</button><button class="btn-sm" id="line-test-btn-monthlyCloseReminder" onclick="sendTestForTrigger('monthlyCloseReminder')" style="margin-right:8px;font-size:11px;padding:4px 10px"><i data-ic="upload" data-s="16">📤</i> テスト</button>
                     <div class="toggle" id="line-trig-monthlyCloseReminder-toggle" onclick="toggleLineTrigger('monthlyCloseReminder')"></div>
                   </div>
                   <div style="margin-top:6px">
@@ -851,7 +894,7 @@
 
                 <!-- v1.8.80: タスク完了通知 文言カスタム -->
                 <div class="settings-card" data-perm="canEditSettings" style="margin-top:14px">
-                  <h3 class="settings-card-title">📝 タスク完了通知 文言カスタム</h3>
+                  <h3 class="settings-card-title"><i data-ic="pencil" data-s="16">📝</i> タスク完了通知 文言カスタム</h3>
                   <p class="settings-card-desc">
                     タスク完了時の LINE 文言は、目標内 / 中間 / 限界超 の3カテゴリ × 通常 / レア の6パターン群からランダム選択されます。<br>
                     レア出現率を上げると「神…！」「化石が完成しました」みたいな飛び道具メッセージが出やすくなります。<br>
@@ -866,36 +909,36 @@
                   </div>
                   <div id="line-msg-summary" style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6;padding:8px 12px;background:var(--bg3);border-radius:6px"></div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                    <button class="btn-sm" onclick="exportLineMessagesCSV()">📤 CSV書き出し</button>
+                    <button class="btn-sm" onclick="exportLineMessagesCSV()"><i data-ic="upload" data-s="16">📤</i> CSV書き出し</button>
                     <input type="file" id="line-msg-csv-import" accept=".csv,text/csv" style="display:none" onchange="onLineMsgCSVFileSelected(this)">
-                    <button class="btn-sm" onclick="document.getElementById('line-msg-csv-import').click()">📥 CSV取り込み</button>
-                    <button class="btn-sm" onclick="resetLineMessagesToDefault()" style="color:#fca5a5;border-color:rgba(239,68,68,.35)">🔄 デフォルトに戻す</button>
+                    <button class="btn-sm" onclick="document.getElementById('line-msg-csv-import').click()"><i data-ic="download" data-s="16">📥</i> CSV取り込み</button>
+                    <button class="btn-sm" onclick="resetLineMessagesToDefault()" style="color:#fca5a5;border-color:rgba(239,68,68,.35)"><i data-ic="refresh" data-s="15">🔄</i> デフォルトに戻す</button>
                   </div>
                 </div>
               </section>
 
               <!-- 💾 データ -->
               <section class="settings-section" data-section="data">
-                <h2 class="settings-section-title">💾 データ管理</h2>
+                <h2 class="settings-section-title"><i data-ic="save" data-s="16">💾</i> データ管理</h2>
                 <p class="settings-section-desc">バックアップ・一括編集・初期化</p>
 
                 <!-- v1.8.21: 完全バックアップ（JSON） -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📦 完全バックアップ（JSON）</h3>
+                  <h3 class="settings-card-title"><i data-ic="box" data-s="16">📦</i> 完全バックアップ（JSON）</h3>
                   <p class="settings-card-desc">
                     在庫車・販売実績・付箋・設定・テンプレを丸ごとJSONで書き出し／取り込みできます。<br>
                     <strong>万一に備えたバックアップ用途</strong>。LINE設定とスタッフは含みません。<br>
                     ※ 写真本体（Storage）はバックアップ対象外です（URL/参照のみ含まれます）
                   </p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                    <button class="btn-sm" onclick="exportFullBackup()">📤 書き出し</button>
-                    <button class="btn-sm" onclick="importFullBackup()">📥 取り込み（全置換）</button>
+                    <button class="btn-sm" onclick="exportFullBackup()"><i data-ic="upload" data-s="16">📤</i> 書き出し</button>
+                    <button class="btn-sm" onclick="importFullBackup()"><i data-ic="download" data-s="16">📥</i> 取り込み（全置換）</button>
                   </div>
                 </div>
 
                 <!-- v1.8.21: 車両一括編集（Excel） -->
                 <div class="settings-card" data-perm="canEditSettings">
-                  <h3 class="settings-card-title">📊 車両一括編集（Excel）</h3>
+                  <h3 class="settings-card-title"><i data-ic="chart" data-s="16">📊</i> 車両一括編集（Excel）</h3>
                   <p class="settings-card-desc">
                     在庫車を Excel で書き出し、編集してから取り込み直せます。<br>
                     <strong>編集対象</strong>：管理番号 / メーカー / モデル / 年式 / 色 / サイズ / 走行距離 / 価格 / 仕入日 / 納車予定日 / 状態 / お客様名 / メモ / 作業メモ<br>
@@ -904,19 +947,19 @@
                     ID列は編集禁止。空欄行は新規登録扱いになります。
                   </p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                    <button class="btn-sm" onclick="exportCarsExcel()">📤 Excelで書き出し</button>
-                    <button class="btn-sm" onclick="importCarsExcel()">📥 Excelで取り込み</button>
+                    <button class="btn-sm" onclick="exportCarsExcel()"><i data-ic="upload" data-s="16">📤</i> Excelで書き出し</button>
+                    <button class="btn-sm" onclick="importCarsExcel()"><i data-ic="download" data-s="16">📥</i> Excelで取り込み</button>
                   </div>
                 </div>
 
                 <!-- v1.8.21: 全消去 -->
                 <div class="settings-card" data-perm="canEditSettings" style="border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.03)">
-                  <h3 class="settings-card-title" style="color:#fca5a5">🗑 全消去</h3>
+                  <h3 class="settings-card-title" style="color:#fca5a5"><i data-ic="trash" data-s="16">🗑</i> 全消去</h3>
                   <p class="settings-card-desc">
                     車両・販売実績・付箋ボードを全て削除します（設定・テンプレ・スタッフ・LINE連携は残ります）。<br>
-                    <strong style="color:#fca5a5">⚠️ この操作は元に戻せません。</strong>事前にバックアップを取ってから実行してください。
+                    <strong style="color:#fca5a5"><i data-ic="warn" data-s="14">⚠️</i> この操作は元に戻せません。</strong>事前にバックアップを取ってから実行してください。
                   </p>
-                  <button class="btn-sm btn-danger" onclick="clearAllData()">🗑 全データを消去</button>
+                  <button class="btn-sm btn-danger" onclick="clearAllData()"><i data-ic="trash" data-s="16">🗑</i> 全データを消去</button>
                 </div>
 
                 <!-- v1.8.22: プロミネントなステータスバナー -->
@@ -927,7 +970,7 @@
 
                 <!-- v1.5.12: data:URL → Storage 一括移行 -->
                 <div class="settings-card" id="settings-card-migrate-photos" data-perm="canEditTemplates">
-                  <h3 class="settings-card-title">📦 写真の Storage 移行</h3>
+                  <h3 class="settings-card-title"><i data-ic="box" data-s="16">📦</i> 写真の Storage 移行</h3>
                   <p class="settings-card-desc">v1.5.10 より前にアップロードされた data:URL 形式の写真／アイコンを Firebase Storage に一括移行します。Firestore の容量を節約できます。</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                     <button class="btn-sm" onclick="dryRunMigratePhotos()">対象を確認（dry-run）</button>
@@ -949,11 +992,14 @@
           <div id="archive-list"></div>
         </div>
 
+        <!-- v2.16.0: 管理番号リスト -->
+        <div id="panel-numlist" class="side-panel"></div>
+
 
         <!-- v1.6.0: ChecklistTemplate 編集パネル -->
         <div id="panel-templates" class="side-panel">
           <div>
-            <div class="panel-title">📋 チェックリスト編集</div>
+            <div class="panel-title"><i data-ic="clipboard" data-s="16">📋</i> チェックリスト編集</div>
             <div class="panel-sub">作業項目テンプレートの追加・並び替え・編集（管理者限定）</div>
           </div>
           <div id="tpl-editor-body"></div>
@@ -968,18 +1014,18 @@
         <!-- v1.7.2: 重要ビュー（全体タスク + 要対応アクション） -->
         <div id="view-overview" class="view" style="flex-direction:column;align-items:stretch;overflow:auto;padding:14px 16px 60px">
           <div style="margin-bottom:6px">
-            <div style="font-size:18px;font-weight:700;color:var(--text1)">📌 重要</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text1)"><i data-ic="pin" data-s="14">📌</i> 重要</div>
             <div style="font-size:12px;color:var(--text3);margin-top:2px">今すぐ気にしておきたいこと</div>
           </div>
           <!-- 全体タスク（付箋ボード）— 上 -->
           <div id="overview-board-notes-area"></div>
           <!-- 要対応アクション — 下 -->
-          <div class="panel-card" style="margin-top:14px"><h3>🚨 要対応アクション</h3><div id="overview-actions"></div></div>
+          <div class="panel-card" style="margin-top:14px"><h3><i data-ic="siren" data-s="16">🚨</i> 要対応アクション</h3><div id="overview-actions"></div></div>
         </div>
 
         <div id="view-kanban" class="view" style="flex-direction:column;align-items:stretch;overflow:hidden">
           <div class="kanban-toolbar" id="kanban-toolbar">
-            <button class="kt-expand-btn" id="kt-expand-btn" onclick="toggleKanbanExpandAll()">▼ すべてのカードを開く</button>
+            <button class="kt-expand-btn" id="kt-expand-btn" onclick="toggleKanbanExpandAll()"><i data-ic="chevDown" data-s="14">▼</i> すべてのカードを開く</button>
             <div class="kt-sort-group">
               <span class="kt-label">並び替え</span>
               <button class="kt-sort-btn" data-key="num"      onclick="setKanbanSort('num')">管理番号</button>
@@ -994,22 +1040,14 @@
         </div>
         <div id="view-calendar" class="view">
           <div class="cal-hdr">
-            <button class="cal-nav-btn" onclick="calPrev()">◀</button>
+            <button class="cal-nav-btn" onclick="calPrev()"><i data-ic="chevLeft" data-s="14">◀</i></button>
             <div class="cal-month-title" id="cal-title"></div>
-            <button class="cal-nav-btn" onclick="calNext()">▶</button>
+            <button class="cal-nav-btn" onclick="calNext()"><i data-ic="chevRight" data-s="14">▶</i></button>
             <button class="cal-today-btn" onclick="calToday()">今月</button>
-            <button class="cal-add-btn" onclick="toggleHolidayForm()">＋ 休業日を追加</button>
           </div>
-          <div class="cal-holiday-form" id="cal-holiday-form">
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px">休業日を追加</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px">
-              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">開始日</div><input type="date" id="h-start" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
-              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">終了日（省略可）</div><input type="date" id="h-end" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
-              <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">名称</div><input type="text" id="h-name" placeholder="例：夏季休暇" style="width:100%;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;outline:none"></div>
-              <button onclick="saveHolidayRange()" style="padding:8px 16px;background:var(--green);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;cursor:pointer">追加</button>
-            </div>
-            <div id="holiday-mini-list"></div>
-          </div>
+          <!-- 🔴 営業日カレンダーが MHS から届いていない時の注意帯（cal-pit.js の noticeHtml）。
+               「休みが無い」と「まだ届いていない」を混ぜないための帯。 -->
+          <div id="cal-mhs-warn"></div>
           <div class="cal-countdown" id="cal-countdown"></div>
           <div class="cal-wrap">
             <div class="cal-grid" id="cal-grid"></div>
@@ -1018,9 +1056,9 @@
         <div id="view-exhibit" class="view">
           <div class="ex-toolbar">
             <div class="ex-toolbar-label">並び替え</div>
-            <button class="ex-sort-btn" data-key="price"      onclick="setExhibitSort('price')">💰 金額</button>
-            <button class="ex-sort-btn" data-key="invDays"    onclick="setExhibitSort('invDays')">📦 在庫日数</button>
-            <button class="ex-sort-btn" data-key="year"       onclick="setExhibitSort('year')">📅 年式</button>
+            <button class="ex-sort-btn" data-key="price"      onclick="setExhibitSort('price')"><i data-ic="money" data-s="16">💰</i> 金額</button>
+            <button class="ex-sort-btn" data-key="invDays"    onclick="setExhibitSort('invDays')"><i data-ic="box" data-s="16">📦</i> 在庫日数</button>
+            <button class="ex-sort-btn" data-key="year"       onclick="setExhibitSort('year')"><i data-ic="calendar" data-s="16">📅</i> 年式</button>
             <div class="ex-toolbar-spacer"></div>
             <div class="ex-total-label" id="ex-total-label"></div>
           </div>
@@ -1040,12 +1078,12 @@
         <!-- v1.7.42→v1.7.42: 作業実績ビュー（チーム優先で並び替え／ワイワイ感アップ） -->
         <div id="view-worklog" class="view" style="flex-direction:column;align-items:stretch;overflow-y:auto">
           <div class="worklog-header">
-            <div class="worklog-title">🎯 みんなの作業実績</div>
-            <div class="worklog-sub">🍵 お疲れさま！今日どれだけ進んだか、みんなでチェック</div>
+            <div class="worklog-title"><i data-ic="target" data-s="16">🎯</i> みんなの作業実績</div>
+            <div class="worklog-sub"><i data-ic="cup" data-s="15">🍵</i> お疲れさま！今日どれだけ進んだか、みんなでチェック</div>
           </div>
           <!-- 期間切替 -->
           <div class="worklog-period-row" id="worklog-period-row">
-            <button class="worklog-period-btn active" data-period="today" onclick="switchWorklogPeriod('today')">📅 今日</button>
+            <button class="worklog-period-btn active" data-period="today" onclick="switchWorklogPeriod('today')"><i data-ic="calendar" data-s="16">📅</i> 今日</button>
             <button class="worklog-period-btn" data-period="3day" onclick="switchWorklogPeriod('3day')">3日</button>
             <button class="worklog-period-btn" data-period="week" onclick="switchWorklogPeriod('week')">1週間</button>
             <button class="worklog-period-btn" data-period="month" onclick="switchWorklogPeriod('month')">1か月</button>
@@ -1053,7 +1091,7 @@
           <!-- (1) チーム合計サマリー（一番上） -->
           <div class="worklog-summary" id="worklog-summary"></div>
           <!-- (2) 動きのあった車（中段、終礼の主役） -->
-          <div class="worklog-section-title">🚗 動きのあった車たち</div>
+          <div class="worklog-section-title"><i data-ic="car" data-s="16">🚗</i> 動きのあった車たち</div>
           <div class="worklog-cars-list" id="worklog-cars-list"></div>
           <!-- (3) 個人別（一番下、控えめに） -->
           <div class="worklog-section-title worklog-section-title-sub">👏 ありがとう！</div>
@@ -1064,15 +1102,15 @@
         <div id="view-meeting" class="view">
           <div class="meeting-grid">
             <div class="meeting-cell" id="meeting-cell-progress" style="grid-area:progress">
-              <div class="meeting-cell-title">⚡ 進捗（在庫車）</div>
+              <div class="meeting-cell-title"><i data-ic="bolt" data-s="15">⚡</i> 進捗（在庫車）</div>
               <div class="meeting-cell-body" id="meeting-progress-body"></div>
             </div>
             <div class="meeting-cell" id="meeting-cell-calendar" style="grid-area:calendar">
-              <div class="meeting-cell-title">📅 今月の納車予定</div>
+              <div class="meeting-cell-title"><i data-ic="calendar" data-s="16">📅</i> 今月の納車予定</div>
               <div class="meeting-cell-body" id="meeting-calendar-body"></div>
             </div>
             <div class="meeting-cell" id="meeting-cell-exhibit" style="grid-area:exhibit">
-              <div class="meeting-cell-title">🏪 展示中</div>
+              <div class="meeting-cell-title"><i data-ic="shop" data-s="16">🏪</i> 展示中</div>
               <div class="meeting-cell-body" id="meeting-exhibit-body"></div>
             </div>
             <!-- v1.8.29: 警告ブロック（カレンダー上のカウントダウン） -->
@@ -1081,7 +1119,7 @@
               <div class="meeting-cell-body" id="meeting-warn-body"></div>
             </div>
             <div class="meeting-cell" id="meeting-cell-actions" style="grid-area:actions">
-              <div class="meeting-cell-title">🚨 要対応アクション</div>
+              <div class="meeting-cell-title"><i data-ic="siren" data-s="16">🚨</i> 要対応アクション</div>
               <div class="meeting-cell-body" id="meeting-actions-body"></div>
             </div>
           </div>
@@ -1089,22 +1127,22 @@
 
         <!-- v1.5.10: 商談ビュー（顧客と話すときのアテ用、キオスク的UI） -->
         <div id="view-deal" class="view">
-          <button class="deal-exit-btn" onclick="askExitDealMode()" title="商談モードを終了">✕ 終了</button>
+          <button class="deal-exit-btn" onclick="askExitDealMode()" title="商談モードを終了"><i data-ic="close" data-s="15">✕</i> 終了</button>
           <div class="ex-toolbar">
             <div class="ex-toolbar-label">並び替え</div>
-            <button class="ex-sort-btn" data-key="price"   onclick="setExhibitSort('price')">💰 金額</button>
-            <button class="ex-sort-btn" data-key="invDays" onclick="setExhibitSort('invDays')">📦 在庫日数</button>
-            <button class="ex-sort-btn" data-key="year"    onclick="setExhibitSort('year')">📅 年式</button>
+            <button class="ex-sort-btn" data-key="price"   onclick="setExhibitSort('price')"><i data-ic="money" data-s="16">💰</i> 金額</button>
+            <button class="ex-sort-btn" data-key="invDays" onclick="setExhibitSort('invDays')"><i data-ic="box" data-s="16">📦</i> 在庫日数</button>
+            <button class="ex-sort-btn" data-key="year"    onclick="setExhibitSort('year')"><i data-ic="calendar" data-s="16">📅</i> 年式</button>
           </div>
           <div class="deal-cols" id="deal-cols"></div>
         </div>
       </div>
 
       <div class="action-area">
-        <div class="action-label">⚠ 要確認</div>
+        <div class="action-label"><i data-ic="warn" data-s="14">⚠</i> 要確認</div>
         <div class="action-chips" id="action-chips"></div>
         <!-- v1.7.42: 一時的にエリアを格納するボタン（次のビュー切替などで自動再表示） -->
-        <button class="action-area-collapse-btn" onclick="document.body.classList.add('action-area-collapsed')" title="このビューでは一時的に非表示にする（ビュー切替で自動復帰）">▼</button>
+        <button class="action-area-collapse-btn" onclick="document.body.classList.add('action-area-collapsed')" title="このビューでは一時的に非表示にする（ビュー切替で自動復帰）"><i data-ic="chevDown" data-s="14">▼</i></button>
       </div>
     </div>
   </div>
@@ -1155,7 +1193,7 @@
         <div class="mhdr-title" id="tpl-preview-title">プレビュー</div>
         <div id="tpl-preview-meta" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
       </div>
-      <button class="mclose" onclick="closeTemplatePreview()">✕</button>
+      <button class="mclose" onclick="closeTemplatePreview()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody" id="tpl-preview-body" style="padding:14px 18px;max-height:70vh;overflow:auto"></div>
     <div class="mfoot" style="display:flex;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border)">
@@ -1168,10 +1206,34 @@
 <div class="overlay" id="modal-bn-actions" onclick="closeBoardNoteActions()">
   <div class="bn-actionsheet" onclick="event.stopPropagation()">
     <div class="bn-actionsheet-title" id="bn-actionsheet-title">付箋メニュー</div>
-    <button class="bn-actionsheet-btn" onclick="bnActionEdit()">✏️ 編集</button>
-    <button class="bn-actionsheet-btn" onclick="bnActionDone()">✅ 済にする</button>
-    <button class="bn-actionsheet-btn bn-actionsheet-danger" onclick="bnActionDelete()">🗑 消去</button>
+    <button class="bn-actionsheet-btn" id="bn-action-edit" onclick="bnActionEdit()"><i data-ic="pencil" data-s="15">✏️</i> 編集</button>
+    <button class="bn-actionsheet-btn" id="bn-action-done" onclick="bnActionDone()"><i data-ic="check" data-s="15">✅</i> 済にする</button>
+    <button class="bn-actionsheet-btn" id="bn-action-undone" onclick="bnActionUndone()" style="display:none"><i data-ic="undo" data-s="15">↩️</i> 未済に戻す</button>
+    <button class="bn-actionsheet-btn" id="bn-action-reply" onclick="bnActionReply()"><i data-ic="comment" data-s="15">💬</i> 返信する</button>
+    <button class="bn-actionsheet-btn bn-actionsheet-danger" id="bn-action-delete" onclick="bnActionDelete()"><i data-ic="trash" data-s="16">🗑</i> 消去</button>
     <button class="bn-actionsheet-btn bn-actionsheet-cancel" onclick="closeBoardNoteActions()">キャンセル</button>
+  </div>
+</div>
+
+<!-- v2.12.0: 付箋 返信モーダル -->
+<div class="overlay" id="modal-bn-reply" onclick="closeBoardNoteReply()">
+  <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
+    <div class="mhdr">
+      <div class="mhdr-title"><i data-ic="comment" data-s="15">💬</i> 返信する</div>
+      <button class="mclose" onclick="closeBoardNoteReply()"><i data-ic="close" data-s="15">✕</i></button>
+    </div>
+    <div class="mbody bn-modal-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">対象：<span id="bn-reply-note-title" style="color:var(--text2)"></span></div>
+      <div>
+        <label>返信</label>
+        <textarea id="bn-reply-text" rows="3" maxlength="300" placeholder="例：まだ途中です／時間なかったのでさっとです"></textarea>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">本文の下にあなたのアイコンと一緒に表示されます。「済にする」は別操作です。</div>
+      </div>
+    </div>
+    <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
+      <button class="btn-sm" onclick="closeBoardNoteReply()">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="submitBoardNoteReply()">送信</button>
+    </div>
   </div>
 </div>
 
@@ -1181,12 +1243,12 @@
   <div class="modal task-settings-modal" onclick="event.stopPropagation()">
     <div class="mhdr">
       <div class="mhdr-title" id="task-actionsheet-title">タスク操作</div>
-      <button class="mclose" onclick="closeTaskActions()">✕</button>
+      <button class="mclose" onclick="closeTaskActions()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody" id="task-actionsheet-body"></div>
     <div class="mfooter">
       <button class="btn-sm" onclick="closeTaskActions()">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveTaskSettingsModal()">💾 保存して閉じる</button>
+      <button class="btn-sm btn-primary" onclick="saveTaskSettingsModal()"><i data-ic="save" data-s="16">💾</i> 保存して閉じる</button>
     </div>
   </div>
 </div>
@@ -1196,7 +1258,7 @@
   <div class="modal" style="max-width:560px">
     <div class="mhdr">
       <div class="mhdr-title" id="bn-modal-title">付箋を追加</div>
-      <button class="mclose" onclick="closeBoardNoteModal()">✕</button>
+      <button class="mclose" onclick="closeBoardNoteModal()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody bn-modal-body">
       <div>
@@ -1217,32 +1279,75 @@
           <label><input type="radio" name="bn-color" id="bn-color-blue"><span class="bn-color-swatch bn-sw-blue"></span><span class="bn-color-pick-label">青</span></label>
         </div>
       </div>
+      <!-- v2.10.0: 種類（実行／回覧） -->
+      <div>
+        <label>種類</label>
+        <div class="bn-type-picker" style="display:flex;gap:14px;flex-wrap:wrap;padding:2px 0">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="bn-type" id="bn-type-execute" value="execute" checked> 実行（誰か1人がやればOK）</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="bn-type" id="bn-type-circulate" value="circulate"> 回覧（担当全員が各自で確認）</label>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">実行＝洗車などの作業向け（誰かが「済」にしたら完了）。回覧＝連絡の確認向け（担当全員が各自で「済」を入れたら完了）。</div>
+      </div>
       <div>
         <label>期限（任意）</label>
         <input type="date" id="bn-inp-deadline">
       </div>
       <div>
         <label>担当メンバー（任意・複数選択可）</label>
+        <div id="bn-group-quick" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
         <div id="bn-inp-members" class="bn-member-list"></div>
+        <!-- v2.13.0: 自分ひとりだけを担当にした時のシークレット案内 -->
+        <div id="bn-secret-hint" style="display:none;font-size:11.5px;margin-top:8px;padding:7px 10px;border-radius:7px;background:rgba(79,70,229,.12);color:var(--text2);border:1px solid rgba(79,70,229,.3);line-height:1.5"><i data-ic="lock" data-s="15">🔒</i> 自分ひとりだけを担当にしているので、これは<b>あなただけに見えるシークレット付箋</b>になります（他の人の画面には出ません・自分専用のメモとして使えます）。</div>
       </div>
       <div>
-        <label>画像（任意）</label>
-        <input type="file" accept="image/*" onchange="bnOnPhotoChange(this)" style="font-size:12px">
+        <label>画像・PDF（任意）</label>
+        <input type="file" accept="image/*,application/pdf,.pdf" onchange="bnOnPhotoChange(this)" style="font-size:12px">
         <div id="bn-inp-photo-preview" style="margin-top:8px"></div>
       </div>
     </div>
     <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
       <button class="btn-sm" onclick="closeBoardNoteModal()">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveBoardNoteFromModal()">💾 保存</button>
+      <button class="btn-sm btn-primary" onclick="saveBoardNoteFromModal()"><i data-ic="save" data-s="16">💾</i> 保存</button>
     </div>
   </div>
 </div>
 
 <!-- v1.7.0: 画像プレビューモーダル -->
 <div class="overlay" id="modal-image-preview" onclick="closeImagePreview()">
-  <button class="image-preview-close" onclick="closeImagePreview()">✕</button>
+  <button class="image-preview-close" onclick="closeImagePreview()"><i data-ic="close" data-s="15">✕</i></button>
   <div class="modal" onclick="event.stopPropagation()">
     <img id="image-preview-img" src="" alt="" onclick="closeImagePreview()">
+  </div>
+</div>
+
+<!-- v2.19.0: 仮登録車両モーダル -->
+<div class="overlay" id="modal-tentative">
+  <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+    <div class="mhdr">
+      <div class="mhdr-title" id="tent-modal-title"><i data-ic="clock" data-s="15">🕗</i> 仮登録車両を追加</div>
+      <button class="mclose" onclick="closeTentativeModal()"><i data-ic="close" data-s="15">✕</i></button>
+    </div>
+    <div class="mbody modal-body">
+      <p style="font-size:12px;color:var(--text3);line-height:1.6;margin:0 0 14px">話が出た段階の車を仮で置いておく場所です。<b>管理番号は振りません</b>。実際に到着したら「仕入れ」か「その他」へドラッグすると、その時点で番号が振られ通常登録になります。</p>
+      <div class="tent-form">
+        <label class="tent-f">メーカー<input type="text" id="tent-maker" placeholder="例 トヨタ" autocomplete="off"></label>
+        <label class="tent-f">車種<input type="text" id="tent-model" placeholder="例 アルファード" autocomplete="off"></label>
+        <label class="tent-f">理由
+          <select id="tent-reason">
+            <option value="buy">買取予定</option>
+            <option value="trade" selected>下取り予定</option>
+            <option value="ship">陸送予定</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+        <label class="tent-f">メモ<textarea id="tent-memo" rows="3" placeholder="例 6/15頃 到着予定 / 北海道AAより 着日未定"></textarea></label>
+      </div>
+      <div class="tent-actions">
+        <button class="btn-ghost" id="tent-del-btn" style="display:none;margin-right:auto" onclick="deleteTentativeFromModal()"><i data-ic="trash" data-s="16">🗑</i> 削除</button>
+        <button class="btn-ghost" onclick="closeTentativeModal()">キャンセル</button>
+        <button class="btn-primary" onclick="saveTentativeFromModal()"><i data-ic="save" data-s="16">💾</i> 保存</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1251,7 +1356,7 @@
   <div class="modal" style="max-width:560px">
     <div class="mhdr">
       <div class="mhdr-title">項目を編集</div>
-      <button class="mclose" onclick="closeTemplateItemEditor()">✕</button>
+      <button class="mclose" onclick="closeTemplateItemEditor()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody modal-body">
       <div class="tpl-modal-meta">
@@ -1297,22 +1402,22 @@
 
       <!-- v1.7.12: 写真・動画 (media) 編集セクション -->
       <div class="tpl-modal-row tpl-media-section">
-        <label>📷 写真・動画</label>
+        <label><i data-ic="camera" data-s="16">📷</i> 写真・動画</label>
         <div class="tpl-modal-hint">小タスク詳細ページのℹボタン展開時に表示されます。順序は登録順。</div>
         <div id="tpl-item-media-list" class="tpl-media-list"></div>
         <div class="tpl-media-add">
           <div class="tpl-media-add-row">
             <input type="text" id="tpl-media-add-yt" class="tpl-media-add-inp" placeholder="YouTube URL または videoId（例：KntVP1lA0MU）">
-            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaYoutube()">▶️ YouTube追加</button>
+            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaYoutube()"><i data-ic="chevRight" data-s="14">▶️</i> YouTube追加</button>
           </div>
           <div class="tpl-media-add-row">
             <input type="text" id="tpl-media-add-img" class="tpl-media-add-inp" placeholder="画像URL（https://… で始まるURL）">
-            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaImage()">📷 写真追加</button>
+            <button class="btn-sm tpl-media-add-btn" onclick="addTemplateItemMediaImage()"><i data-ic="camera" data-s="16">📷</i> 写真追加</button>
           </div>
           <!-- v1.7.14: 端末から直接画像ファイルをアップロード -->
           <div class="tpl-media-add-row">
             <input type="file" id="tpl-media-add-file" accept="image/*" style="display:none" onchange="addTemplateItemMediaFile(this.files[0]); this.value=''">
-            <label for="tpl-media-add-file" class="btn-sm tpl-media-add-btn tpl-media-file-label">📂 ファイルから写真を追加</label>
+            <label for="tpl-media-add-file" class="btn-sm tpl-media-add-btn tpl-media-file-label"><i data-ic="folderOpen" data-s="16">📂</i> ファイルから写真を追加</label>
             <span class="tpl-modal-hint" id="tpl-media-upload-hint" style="margin:0 0 0 8px"></span>
           </div>
         </div>
@@ -1320,7 +1425,7 @@
     </div>
     <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
       <button class="btn-sm" onclick="closeTemplateItemEditor()">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveTemplateItem()">💾 保存</button>
+      <button class="btn-sm btn-primary" onclick="saveTemplateItem()"><i data-ic="save" data-s="16">💾</i> 保存</button>
     </div>
   </div>
 </div>
@@ -1328,7 +1433,7 @@
 <!-- 車両詳細 -->
 <div class="overlay" id="modal-detail" onclick="if(event.target===this)closeModal('modal-detail')">
   <div class="modal modal-wide">
-    <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><button class="mclose" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><div style="display:flex;align-items:center;gap:12px"><button class="mclose" title="この車両の付箋を作成" onclick="openCarNoteFromDetail()" style="font-size:16px"><i data-ic="sticky" data-s="15">🗒️</i></button><button class="mclose" onclick="closeModal('modal-detail')"><i data-ic="close" data-s="15">✕</i></button></div></div>
     <div class="mbody" id="detail-body"></div>
   </div>
 </div>
@@ -1336,7 +1441,7 @@
 <!-- v1.5.10: 商談用ポップアップ（シンプル版） -->
 <div class="overlay deal-overlay" id="modal-deal">
   <div class="deal-popup">
-    <button class="deal-popup-close" onclick="closeModal('modal-deal')">✕</button>
+    <button class="deal-popup-close" onclick="closeModal('modal-deal')"><i data-ic="close" data-s="15">✕</i></button>
     <div class="deal-popup-body" id="deal-popup-body"></div>
   </div>
 </div>
@@ -1344,7 +1449,7 @@
 <!-- v1.5.10: 商談モード終了確認（危険系のトーンで顧客が反射的に押さない） -->
 <div class="overlay" id="confirm-exit-deal">
   <div class="modal" style="max-width:420px">
-    <div class="mhdr"><div class="mhdr-title" style="color:var(--red)">⚠️ 管理画面に戻りますか？</div></div>
+    <div class="mhdr"><div class="mhdr-title" style="color:var(--red)"><i data-ic="warn" data-s="14">⚠️</i> 管理画面に戻りますか？</div></div>
     <div class="mbody">
       <div style="font-size:13px;line-height:1.7;color:var(--text2);padding:6px 0 14px">
         商談モードを終了して、管理画面（在庫情報や設定）に戻ります。<br>
@@ -1361,14 +1466,14 @@
 <!-- 車両登録/編集モーダル -->
 <div class="overlay" id="modal-car">
   <div class="modal">
-    <div class="mhdr"><div class="mhdr-title" id="car-modal-title">新規車両登録</div><button class="mclose" onclick="closeModal('modal-car')">✕</button></div>
+    <div class="mhdr"><div class="mhdr-title" id="car-modal-title">新規車両登録</div><button class="mclose" onclick="closeModal('modal-car')"><i data-ic="close" data-s="15">✕</i></button></div>
     <!-- v1.5.10: ヘッダー風写真プレビュー（モーダル最上部・SNSヘッダー風） -->
     <div class="photo-hero-wrap">
       <div class="photo-hero" id="inp-photo-hero">
-        <div class="hero-empty">📷<br><span>写真未設定</span></div>
+        <div class="hero-empty"><i data-ic="camera" data-s="16">📷</i><br><span>写真未設定</span></div>
       </div>
       <div class="photo-hero-actions">
-        <button type="button" class="photo-hero-btn" onclick="triggerFormPhotoPick()">📷 写真を選択／変更</button>
+        <button type="button" class="photo-hero-btn" onclick="triggerFormPhotoPick()"><i data-ic="camera" data-s="16">📷</i> 写真を選択／変更</button>
         <button type="button" class="photo-hero-btn ghost" onclick="clearFormPhoto()">クリア</button>
       </div>
       <input type="file" id="inp-photo-file" accept="image/*" style="display:none" onchange="onFormPhoto(this)">
@@ -1376,7 +1481,11 @@
     <div class="mbody">
       <div class="fsec" style="border-top:none;padding-top:0">基本情報</div>
       <div class="frow">
-        <div class="fg"><label>管理番号 <span style="color:var(--text3);font-weight:400">（任意）</span></label><input type="text" id="inp-num" placeholder="KM0000（空欄OK）"></div>
+        <div class="fg">
+          <label>管理番号 <span style="color:var(--text3);font-weight:400">（任意・次の番号を自動入力）</span></label>
+          <input type="text" id="inp-num" placeholder="KM-0000（空欄OK）" autocomplete="off">
+          <div id="inp-num-warn" class="inp-num-warn" style="display:none"></div>
+        </div>
         <div class="fg"><label>メーカー <span style="color:var(--red);font-weight:400">*</span></label><input type="text" id="inp-maker" placeholder="トヨタ"></div>
       </div>
       <div class="frow">
@@ -1407,14 +1516,14 @@
         <div class="fg">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
             <label id="lbl-price" style="margin:0">本体価格 (税込・円)</label>
-            <button type="button" id="btn-alt-price" class="btn-alt-price" onclick="promptAltPrice('body')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税込で逆入力 ⇄</button>
+            <button type="button" id="btn-alt-price" class="btn-alt-price" onclick="promptAltPrice('body')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税込で逆入力 <i data-ic="swap" data-s="15">⇄</i></button>
           </div>
           <input type="text" id="inp-price" placeholder="990000">
         </div>
         <div class="fg">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
             <label id="lbl-total-price" style="margin:0">総額 (税込・円)</label>
-            <button type="button" id="btn-alt-total-price" class="btn-alt-price" onclick="promptAltPrice('total')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税抜で逆入力 ⇄</button>
+            <button type="button" id="btn-alt-total-price" class="btn-alt-price" onclick="promptAltPrice('total')" style="font-size:10px;padding:3px 8px;background:rgba(55,138,221,.12);border:1px solid rgba(55,138,221,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-family:inherit;white-space:nowrap">税抜で逆入力 <i data-ic="swap" data-s="15">⇄</i></button>
           </div>
           <input type="text" id="inp-total-price" placeholder="1190000">
         </div>
@@ -1433,6 +1542,9 @@
           <div class="fg"><label>売約日</label><input type="date" id="inp-contract-date" disabled></div>
           <div class="fg"><label>納車予定日</label><input type="date" id="inp-delivery" disabled></div>
         </div>
+        <div class="frow" style="margin-top:12px">
+          <div class="fg" style="flex:1"><label>顧客名（売約のお客様・任意）</label><input type="text" id="inp-customer-name" placeholder="例：山田 たろう ／ 法人名など" autocomplete="off"></div>
+        </div>
       </div>
 
       <!-- v1.8.51: 選択制タスクのチェックUI（Phase B）。空のときは表示されない（car-modal.js で制御） -->
@@ -1447,8 +1559,8 @@
 
       <!-- v1.5.10: 編集時のみ表示される危険ゾーン（車両削除） -->
       <div class="edit-danger-zone" id="edit-danger-zone" style="display:none">
-        <div class="edit-danger-label">⚠️ 危険な操作</div>
-        <button class="detail-delete-btn" id="edit-delete-btn" onclick="onEditDeleteClick()">🗑️ この車両を削除</button>
+        <div class="edit-danger-label"><i data-ic="warn" data-s="14">⚠️</i> 危険な操作</div>
+        <button class="detail-delete-btn" id="edit-delete-btn" onclick="onEditDeleteClick()"><i data-ic="trash" data-s="16">🗑️</i> この車両を削除</button>
         <div class="edit-danger-hint">この車両のデータを完全に削除します。復元できません。</div>
       </div>
 
@@ -1458,19 +1570,19 @@
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" id="register-type-options">
           <label class="reg-type-card" data-value="purchase">
             <input type="radio" name="register-type" value="purchase" checked style="display:none">
-            <div class="reg-type-icon">🛒</div>
+            <div class="reg-type-icon"><i data-ic="cart" data-s="16">🛒</i></div>
             <div class="reg-type-label">通常仕入</div>
             <div class="reg-type-desc">普通の在庫車として登録</div>
           </label>
           <label class="reg-type-card" data-value="order">
             <input type="radio" name="register-type" value="order" style="display:none">
-            <div class="reg-type-icon">📦</div>
+            <div class="reg-type-icon"><i data-ic="box" data-s="16">📦</i></div>
             <div class="reg-type-label">オーダー</div>
             <div class="reg-type-desc">注文受けて仕入れる<br>在庫日数カウント無し</div>
           </label>
           <label class="reg-type-card" data-value="other">
             <input type="radio" name="register-type" value="other" style="display:none">
-            <div class="reg-type-icon">📝</div>
+            <div class="reg-type-icon"><i data-ic="pencil" data-s="16">📝</i></div>
             <div class="reg-type-label">その他</div>
             <div class="reg-type-desc">保留車両など<br>タスク対象外</div>
           </label>
@@ -1489,7 +1601,7 @@
   <div class="modal" style="width:380px;max-width:96vw">
     <div class="mhdr">
       <div class="mhdr-title">アイコンを調整</div>
-      <button class="mclose" onclick="closeAvatarCrop()">✕</button>
+      <button class="mclose" onclick="closeAvatarCrop()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody" style="padding:18px">
       <div class="avatar-crop-area" id="avatar-crop-area">
@@ -1506,7 +1618,7 @@
         </svg>
       </div>
       <div style="margin-top:14px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">🔍 拡大／縮小</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px"><i data-ic="search" data-s="15">🔍</i> 拡大／縮小</div>
         <input type="range" id="avatar-crop-zoom" min="0.5" max="4" step="0.01" value="1" oninput="onAvatarCropZoom(this.value)" style="width:100%">
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:10px;text-align:center;line-height:1.5">画像をドラッグして位置調整<br>スライダーで拡大縮小</div>
@@ -1522,12 +1634,17 @@
 <!-- 売約確認（カンバンドラッグ時） -->
 <div class="confirm-overlay" id="confirm-sell">
   <div class="confirm-box" style="text-align:left;width:480px;max-width:96vw">
-    <div style="text-align:center"><div class="confirm-icon">🤝</div>
+    <div style="text-align:center"><div class="confirm-icon"><i data-ic="handshake" data-s="16">🤝</i></div>
     <div class="confirm-title">この車両を「売約」にしますか？</div>
     <div class="confirm-sub">納車予定日を入力してください。<br>売約日は本日の日付で記録されます。</div></div>
     <div class="confirm-date-row" style="margin:14px 0 6px">
       <label>納車予定日</label>
       <input type="date" id="sell-date">
+    </div>
+    <!-- v2.26.0: 売約のお客様（顧客名）。基本このルートで名前が付く。任意。 -->
+    <div class="confirm-date-row" style="margin:6px 0 6px">
+      <label>顧客名（任意）</label>
+      <input type="text" id="sell-customer-name" placeholder="例：山田 たろう ／ 法人名など" autocomplete="off">
     </div>
     <!-- v1.8.57: 売約と同時に「納車準備で使う大タスク」を選択（選択制タスクのみ） -->
     <div id="sell-optional-tasks-head" style="display:none;font-size:11px;font-weight:700;color:var(--text2);margin:10px 0 4px">納車準備で使う大タスクを選ぶ <span style="color:var(--text3);font-weight:400">（選択制タスク）</span></div>
@@ -1539,10 +1656,50 @@
   </div>
 </div>
 
+<!-- v2.19.1: 仮登録 →「仕入れ／その他」昇格の確認（前向き・1回） -->
+<div class="confirm-overlay" id="confirm-promote">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i data-ic="car" data-s="16">🚗</i></div>
+    <div class="confirm-title">実際に入庫しましたか？</div>
+    <div class="confirm-sub" id="promote-sub"></div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closePromoteConfirm(false)">まだ来てない</button>
+      <button class="btn-primary" style="background:#1db97a" onclick="closePromoteConfirm(true)"><i data-ic="check" data-s="14">✓</i> 入庫した・登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- v2.19.1: 登録済み →「仮登録」への逆流（あり得ない・2段階）1段目 -->
+<div class="confirm-overlay" id="confirm-revert1">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i data-ic="warn" data-s="14">⚠️</i></div>
+    <div class="confirm-title">通常はあり得ない操作です</div>
+    <div class="confirm-sub" id="revert1-sub"></div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.6;background:var(--bg3);border-radius:8px;padding:9px 11px;margin:10px 0 2px">※ 削除や取り消しは、カードの<b>「詳細」</b>から行ってください。</div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeRevert1(false)">やめる</button>
+      <button class="btn-sm" style="border-color:#dc2626;color:#dc2626" onclick="closeRevert1(true)">はい、戻したい →</button>
+    </div>
+  </div>
+</div>
+
+<!-- v2.19.1: 逆流 2段目（最終確認） -->
+<div class="confirm-overlay" id="confirm-revert2">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i data-ic="cone" data-s="15">🛑</i></div>
+    <div class="confirm-title">本当に仮登録に戻しますか？</div>
+    <div class="confirm-sub" id="revert2-sub"></div>
+    <div class="confirm-btns">
+      <button class="btn-sm" onclick="closeRevert2(false)">キャンセル</button>
+      <button class="btn-primary" style="background:#dc2626" onclick="closeRevert2(true)">仮登録に戻す</button>
+    </div>
+  </div>
+</div>
+
 <!-- 売約キャンセル確認（納車準備/納車完了 → それより前の列） -->
 <div class="confirm-overlay" id="confirm-uncontract">
   <div class="confirm-box">
-    <div class="confirm-icon">↩️</div>
+    <div class="confirm-icon"><i data-ic="undo" data-s="15">↩️</i></div>
     <div class="confirm-title">この車両の売約をキャンセルしますか？</div>
     <div class="confirm-sub" id="uncontract-sub">売約日・納車予定日・納車準備の進捗もすべてリセットされます。</div>
     <div class="confirm-btns">
@@ -1555,7 +1712,7 @@
 <!-- 納車完了確認（納車準備 → 納車完了） -->
 <div class="confirm-overlay" id="confirm-deliver">
   <div class="confirm-box">
-    <div class="confirm-icon">🚗</div>
+    <div class="confirm-icon"><i data-ic="car" data-s="16">🚗</i></div>
     <div class="confirm-title">この車両を「納車完了」にしますか？</div>
     <div class="confirm-sub">お客様への納車が完了したことを記録します。</div>
     <div class="confirm-btns">
@@ -1579,7 +1736,7 @@
 <!-- 納車完了取り消し確認（納車完了 → 納車準備） -->
 <div class="confirm-overlay" id="confirm-undeliver">
   <div class="confirm-box">
-    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-icon"><i data-ic="warn" data-s="14">⚠️</i></div>
     <div class="confirm-title">納車完了を取り消しますか？</div>
     <div class="confirm-sub">この車両を「納車準備」に戻します。売約情報は保持されます。</div>
     <div class="confirm-btns">
@@ -1592,20 +1749,17 @@
 <!-- 早期売約確認（モーダル経由で売約スイッチON） -->
 <div class="confirm-overlay" id="confirm-early-sell">
   <div class="confirm-box">
-    <div class="confirm-icon">⚠️</div>
-    <div class="confirm-title">作業中ですが売約にしますか？</div>
+    <div class="confirm-icon"><i data-ic="warn" data-s="14">⚠️</i></div>
+    <div class="confirm-title" id="early-sell-title">売約にしますか？</div>
     <div class="confirm-sub" id="early-sell-sub"></div>
-    <div class="confirm-btns">
-      <button class="btn-sm" onclick="closeEarlySellConfirm(false)">キャンセル</button>
-      <button class="btn-primary" onclick="closeEarlySellConfirm(true)">売約にする</button>
-    </div>
+    <div class="confirm-btns" id="early-sell-btns"></div>
   </div>
 </div>
 
 <!-- 月次集計締め -->
 <div class="confirm-overlay" id="confirm-close-month">
   <div class="confirm-box" style="width:440px">
-    <div class="confirm-icon">📦</div>
+    <div class="confirm-icon"><i data-ic="box" data-s="16">📦</i></div>
     <div class="confirm-title">月次集計を締める</div>
     <div class="confirm-sub">対象月の納車済み車両を販売実績にアーカイブします。</div>
     <div class="confirm-date-row" style="display:flex;gap:10px">
@@ -1626,53 +1780,10 @@
   </div>
 </div>
 
-<!-- 定休日ルール追加 -->
-<div class="confirm-overlay" id="confirm-closed-rule">
-  <div class="confirm-box" style="width:440px">
-    <div class="confirm-icon">🗓️</div>
-    <div class="confirm-title">休業ルールを追加</div>
-    <div class="confirm-sub">隔週・第◯週などの繰り返しルールを追加します。</div>
-    <div class="confirm-date-row">
-      <label>パターン</label>
-      <select id="cr-pattern" onchange="onClosedRulePatternChange()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
-        <option value="weekly">毎週</option>
-        <option value="biweekly">隔週</option>
-        <option value="nth">第◯週</option>
-      </select>
-    </div>
-    <div class="confirm-date-row">
-      <label>曜日</label>
-      <select id="cr-dow" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
-        <option value="0">日曜</option>
-        <option value="1">月曜</option>
-        <option value="2">火曜</option>
-        <option value="3">水曜</option>
-        <option value="4">木曜</option>
-        <option value="5">金曜</option>
-        <option value="6">土曜</option>
-      </select>
-    </div>
-    <div class="confirm-date-row" id="cr-nth-row" style="display:none">
-      <label>第何週</label>
-      <select id="cr-nth" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
-        <option value="1">第1週</option>
-        <option value="2">第2週</option>
-        <option value="3">第3週</option>
-        <option value="4">第4週</option>
-        <option value="5">第5週</option>
-      </select>
-    </div>
-    <div class="confirm-btns">
-      <button class="btn-sm" onclick="closeClosedRuleForm()">キャンセル</button>
-      <button class="btn-primary" onclick="saveClosedRule()">追加する</button>
-    </div>
-  </div>
-</div>
-
 <!-- v1.5.10: メンバー招待モーダル -->
 <div class="confirm-overlay" id="confirm-invite-member">
   <div class="confirm-box" style="width:460px">
-    <div class="confirm-icon">📨</div>
+    <div class="confirm-icon"><i data-ic="send" data-s="15">📨</i></div>
     <div class="confirm-title">メンバーを招待する</div>
     <div class="confirm-sub">メールアドレスを登録すると、そのアカウントで初回ログインした時に自動的にメンバーになります。</div>
     <div class="confirm-date-row">
@@ -1703,16 +1814,16 @@
 <!-- v1.7.42: 管理者によるメンバー編集（表示名・写真の上書き） -->
 <div class="confirm-overlay" id="confirm-edit-member">
   <div class="confirm-box" style="width:460px">
-    <div class="confirm-icon">✏️</div>
+    <div class="confirm-icon"><i data-ic="pencil" data-s="15">✏️</i></div>
     <div class="confirm-title">メンバーのプロフィール編集</div>
     <div class="confirm-sub" id="edit-member-target">—</div>
     <div style="display:flex;gap:14px;align-items:center;margin:14px 0 4px">
       <div class="m-av" id="edit-member-av-preview" style="width:64px;height:64px;font-size:18px">??</div>
       <div style="flex:1">
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">📷 写真</label>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px"><i data-ic="camera" data-s="16">📷</i> 写真</label>
         <input type="file" id="edit-member-photo-inp" accept="image/*" onchange="onEditMemberPhotoPick(this)" style="font-size:12px">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn-sm" onclick="resetEditMemberPhoto()" style="font-size:11px">↺ Googleの写真に戻す</button>
+          <button class="btn-sm" onclick="resetEditMemberPhoto()" style="font-size:11px"><i data-ic="refresh" data-s="15">↺</i> Googleの写真に戻す</button>
         </div>
       </div>
     </div>
@@ -1721,7 +1832,7 @@
       <input type="text" id="edit-member-name-inp" placeholder="表示名" maxlength="40">
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:-6px">
-      <button class="btn-sm" onclick="resetEditMemberName()" style="font-size:11px">↺ Googleの名前に戻す</button>
+      <button class="btn-sm" onclick="resetEditMemberName()" style="font-size:11px"><i data-ic="refresh" data-s="15">↺</i> Googleの名前に戻す</button>
     </div>
     <div class="confirm-btns">
       <button class="btn-sm" onclick="closeEditMemberModal()">キャンセル</button>
@@ -1730,15 +1841,26 @@
   </div>
 </div>
 
-<!-- v1.5.10: 車両削除確認（編集モーダルの危険ゾーンから呼び出し） -->
+<!-- v2.16.0: 車両削除（2択：正式削除 / 取り消し） -->
 <div class="confirm-overlay" id="confirm-delete-car">
-  <div class="confirm-box" style="width:420px">
-    <div class="confirm-icon">🗑️</div>
-    <div class="confirm-title">この車両を削除しますか？</div>
-    <div class="confirm-sub" id="confirm-delete-sub">このデータは復元できません。本当に削除しますか？</div>
-    <div class="confirm-btns">
-      <button class="btn-sm" onclick="closeDeleteCarConfirm(false)">キャンセル</button>
-      <button class="btn-primary" style="background:#dc2626" onclick="closeDeleteCarConfirm(true)">削除する</button>
+  <div class="confirm-box" style="width:540px;max-width:96vw">
+    <div class="confirm-icon"><i data-ic="trash" data-s="16">🗑️</i></div>
+    <div class="confirm-title">この車両を削除します</div>
+    <div class="confirm-sub" id="confirm-delete-sub"></div>
+    <div class="del-reason-box">
+      <div class="del-reason-opt">
+        <div class="del-reason-head"><i data-ic="clipboard" data-s="16">📋</i> 正式に削除</div>
+        <div class="del-reason-desc">AA出品・売約不成立・廃車など、扱いが完了したケース。<br>管理番号リストに「削除済」として残り、次の新規はその次の番号になります。</div>
+      </div>
+      <div class="del-reason-opt">
+        <div class="del-reason-head"><i data-ic="undo" data-s="15">↩️</i> 取り消し</div>
+        <div class="del-reason-desc">間違い入力・テスト入力。<br>番号も丸ごと取り消し、次の新規でその番号を再利用できます。記録は残りません。</div>
+      </div>
+    </div>
+    <div class="confirm-btns" style="flex-wrap:wrap;gap:8px;justify-content:flex-end">
+      <button class="btn-sm" onclick="closeDeleteCarConfirm(null)">キャンセル</button>
+      <button class="btn-primary" style="background:#6b7280" onclick="closeDeleteCarConfirm('cancel')"><i data-ic="undo" data-s="15">↩️</i> 取り消し</button>
+      <button class="btn-primary" style="background:#dc2626" onclick="closeDeleteCarConfirm('formal')"><i data-ic="clipboard" data-s="16">📋</i> 正式に削除</button>
     </div>
   </div>
 </div>
@@ -1747,8 +1869,8 @@
 <div class="overlay" id="modal-task-memo" onclick="if(event.target===this)window.taskMemo.closeModal()">
   <div class="modal" style="max-width:480px;width:92%">
     <div class="mhdr">
-      <div class="mhdr-title" id="tm-modal-title">📝 メモ</div>
-      <button class="mclose" onclick="window.taskMemo.closeModal()">✕</button>
+      <div class="mhdr-title" id="tm-modal-title"><i data-ic="pencil" data-s="16">📝</i> メモ</div>
+      <button class="mclose" onclick="window.taskMemo.closeModal()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody" style="padding:16px">
       <div style="font-size:11px;color:var(--text3);margin-bottom:3px">対象タスク</div>
@@ -1771,8 +1893,8 @@
 <div class="overlay" id="modal-task-memo-config" onclick="if(event.target===this)closeTaskMemoConfigModal()">
   <div class="modal" style="max-width:480px;width:92%">
     <div class="mhdr">
-      <div class="mhdr-title">📝 メモ設定</div>
-      <button class="mclose" onclick="closeTaskMemoConfigModal()">✕</button>
+      <div class="mhdr-title"><i data-ic="pencil" data-s="16">📝</i> メモ設定</div>
+      <button class="mclose" onclick="closeTaskMemoConfigModal()"><i data-ic="close" data-s="15">✕</i></button>
     </div>
     <div class="mbody" style="padding:16px">
       <div style="font-size:11px;color:var(--text3);margin-bottom:3px">対象タスク</div>
@@ -1786,11 +1908,11 @@
         </label>
         <label class="tmc-type-radio">
           <input type="radio" name="tmc-type" value="freeword" onchange="onTaskMemoConfigTypeChange(this.value)">
-          <span>📝 フリーテキスト</span>
+          <span><i data-ic="pencil" data-s="16">📝</i> フリーテキスト</span>
         </label>
         <label class="tmc-type-radio">
           <input type="radio" name="tmc-type" value="date" onchange="onTaskMemoConfigTypeChange(this.value)">
-          <span>📅 日付</span>
+          <span><i data-ic="calendar" data-s="16">📅</i> 日付</span>
         </label>
         <label class="tmc-type-radio">
           <input type="radio" name="tmc-type" value="time" onchange="onTaskMemoConfigTypeChange(this.value)">
@@ -1816,7 +1938,7 @@
 <!-- 一括目標入力 -->
 <div class="confirm-overlay" id="confirm-bulk-goal">
   <div class="confirm-box" style="width:400px">
-    <div class="confirm-icon">🎯</div>
+    <div class="confirm-icon"><i data-ic="target" data-s="16">🎯</i></div>
     <div class="confirm-title">月次目標を一括入力</div>
     <div class="confirm-sub">未設定の月にこの値をまとめて適用します。</div>
     <div class="confirm-date-row">
@@ -1835,41 +1957,41 @@
 </div>
 
 <!-- v1.5.10: スマホ用「フルメニュー」切替ボタン（下部固定）と「クイックメニューに戻る」（上部固定） -->
-<button id="mobile-admin-toggle" onclick="enterAdminMode()" style="display:none">🗂️ フルメニュー</button>
-<button id="mobile-back-mobile" onclick="exitAdminMode()" style="display:none">⚡ クイックメニューに戻る</button>
+<button id="mobile-admin-toggle" onclick="enterAdminMode()" style="display:none"><i data-ic="files" data-s="16">🗂️</i> フルメニュー</button>
+<button id="mobile-back-mobile" onclick="exitAdminMode()" style="display:none"><i data-ic="bolt" data-s="15">⚡</i> クイックメニューに戻る</button>
 
 <!-- ========== ヘルプパネル（v1.7.42：モーダルから固定パネルへ変更） ========== -->
 <!-- v1.7.28: 左サイドバー型レイアウト → v1.7.42: 設定と同じ side-panel に -->
 <div class="side-panel" id="panel-help">
   <div class="help-modal-v2 help-panel-mode">
     <div class="help-hdr">
-      <div class="help-hdr-title">❓ CarFlow ヘルプ</div>
+      <div class="help-hdr-title"><i data-ic="help" data-s="15">❓</i> CarFlow ヘルプ</div>
       <!-- スマホ用：サイドバー開閉トグル -->
-      <button class="help-mobile-toggle" onclick="toggleHelpSidebar()" title="目次を開閉">☰</button>
+      <button class="help-mobile-toggle" onclick="toggleHelpSidebar()" title="目次を開閉"><i data-ic="menu" data-s="18">☰</i></button>
     </div>
     <div class="help-body-wrap">
       <!-- 左：目次 -->
       <aside class="help-sidebar" id="help-sidebar">
         <div class="help-sb-search-wrap">
-          <input type="text" class="help-sb-search" id="help-sb-search" placeholder="🔍 ヘルプ内を検索…" oninput="onHelpSearch(this.value)">
+          <input type="text" class="help-sb-search" id="help-sb-search" placeholder="ヘルプ内を検索…" oninput="onHelpSearch(this.value)">
         </div>
 
-        <div class="help-sb-cat">📘 基本編（毎日使う）</div>
+        <div class="help-sb-cat"><i data-ic="book" data-s="16">📘</i> 基本編（毎日使う）</div>
         <div class="help-sb-item active" data-section="basic-overview" onclick="showHelpSection('basic-overview')">アプリ全体の見方</div>
         <div class="help-sb-item" data-section="basic-register" onclick="showHelpSection('basic-register')">新しい車を登録する</div>
         <div class="help-sb-item" data-section="basic-cardmove" onclick="showHelpSection('basic-cardmove')">車の状態を進める（カード移動）</div>
         <div class="help-sb-item" data-section="basic-detail" onclick="showHelpSection('basic-detail')">車の詳細を見る・編集する</div>
         <div class="help-sb-item" data-section="basic-photo" onclick="showHelpSection('basic-photo')">カードの写真を変える</div>
 
-        <div class="help-sb-cat">🔧 作業編（現場の人向け）</div>
+        <div class="help-sb-cat"><i data-ic="wrench" data-s="16">🔧</i> 作業編（現場の人向け）</div>
         <div class="help-sb-item" data-section="work-equipment" onclick="showHelpSection('work-equipment')">装備品チェックの使い方</div>
         <div class="help-sb-item" data-section="work-regen" onclick="showHelpSection('work-regen')">再生整備の小タスク詳細</div>
         <div class="help-sb-item" data-section="work-delivery" onclick="showHelpSection('work-delivery')">展示・納車整備の小タスク詳細</div>
         <div class="help-sb-item" data-section="work-input-types" onclick="showHelpSection('work-input-types')">入力タイプ5種類の使い方</div>
         <div class="help-sb-item" data-section="work-media" onclick="showHelpSection('work-media')">写真・動画を見る</div>
-        <div class="help-sb-item" data-section="work-task-memo" onclick="showHelpSection('work-task-memo')">📝 タスク個別メモと自動付箋</div>
+        <div class="help-sb-item" data-section="work-task-memo" onclick="showHelpSection('work-task-memo')"><i data-ic="pencil" data-s="16">📝</i> タスク個別メモと自動付箋</div>
 
-        <div class="help-sb-cat">📑 画面の見方</div>
+        <div class="help-sb-cat"><i data-ic="files" data-s="15">📑</i> 画面の見方</div>
         <div class="help-sb-item" data-section="view-kanban" onclick="showHelpSection('view-kanban')">タスク管理画面</div>
         <div class="help-sb-item" data-section="view-calendar" onclick="showHelpSection('view-calendar')">納車カレンダー</div>
         <div class="help-sb-item" data-section="view-exhibit" onclick="showHelpSection('view-exhibit')">展示ビュー</div>
@@ -1877,34 +1999,35 @@
         <div class="help-sb-item" data-section="view-inventory" onclick="showHelpSection('view-inventory')">在庫日数ビュー</div>
         <div class="help-sb-item" data-section="view-deal" onclick="showHelpSection('view-deal')">商談モード</div>
         <div class="help-sb-item" data-section="view-table" onclick="showHelpSection('view-table')">全体一覧</div>
-        <div class="help-sb-item" data-section="view-meeting" onclick="showHelpSection('view-meeting')">📺 ミーティングビュー</div>
-        <div class="help-sb-item" data-section="view-backoffice" onclick="showHelpSection('view-backoffice')">🗂 バックオフィス</div>
+        <div class="help-sb-item" data-section="view-meeting" onclick="showHelpSection('view-meeting')"><i data-ic="monitor" data-s="16">📺</i> ミーティングビュー</div>
+        <div class="help-sb-item" data-section="view-backoffice" onclick="showHelpSection('view-backoffice')"><i data-ic="files" data-s="16">🗂</i> バックオフィス</div>
+        <div class="help-sb-item" data-section="view-pitsales" onclick="showHelpSection('view-pitsales')"><i data-ic="wrench" data-s="16">🔧</i> 整備依頼業務（PitFlow）</div>
 
-        <div class="help-sb-cat">🤝 チーム編</div>
+        <div class="help-sb-cat"><i data-ic="handshake" data-s="16">🤝</i> チーム編</div>
         <div class="help-sb-item" data-section="team-board" onclick="showHelpSection('team-board')">全体タスク（付箋ボード）</div>
         <div class="help-sb-item" data-section="team-worklog" onclick="showHelpSection('team-worklog')">作業実績（終礼で見る）</div>
         <div class="help-sb-item" data-section="team-members" onclick="showHelpSection('team-members')">メンバー</div>
-        <div class="help-sb-item" data-section="team-sync" onclick="showHelpSection('team-sync')">🟢 リアルタイム同期</div>
+        <div class="help-sb-item" data-section="team-sync" onclick="showHelpSection('team-sync')"><i data-ic="dot" data-s="12">🟢</i> リアルタイム同期</div>
 
-        <div class="help-sb-cat">📱 スマホで使う</div>
+        <div class="help-sb-cat"><i data-ic="smartphone" data-s="15">📱</i> スマホで使う</div>
         <div class="help-sb-item" data-section="mobile-quick" onclick="showHelpSection('mobile-quick')">クイックメニュー</div>
         <div class="help-sb-item" data-section="mobile-progress" onclick="showHelpSection('mobile-progress')">進捗ビューでチェック</div>
         <div class="help-sb-item" data-section="mobile-overview" onclick="showHelpSection('mobile-overview')">重要タブで付箋を見る</div>
-        <div class="help-sb-item" data-section="mobile-fullmenu" onclick="showHelpSection('mobile-fullmenu')">🗂 フルメニュー（管理者切替）</div>
+        <div class="help-sb-item" data-section="mobile-fullmenu" onclick="showHelpSection('mobile-fullmenu')"><i data-ic="files" data-s="16">🗂</i> フルメニュー（管理者切替）</div>
 
-        <div class="help-sb-cat">📚 用語と FAQ</div>
+        <div class="help-sb-cat"><i data-ic="book" data-s="16">📚</i> 用語と FAQ</div>
         <div class="help-sb-item" data-section="terms" onclick="showHelpSection('terms')">用語集</div>
         <div class="help-sb-item" data-section="faq" onclick="showHelpSection('faq')">よくある質問</div>
 
-        <div class="help-sb-cat help-sb-cat-adv">⚙️ 上級者向け（管理者・設定担当）</div>
+        <div class="help-sb-cat help-sb-cat-adv"><i data-ic="settings" data-s="16">⚙️</i> 上級者向け（管理者・設定担当）</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-alerts" onclick="showHelpSection('adv-alerts')">アラート・警告の調整</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-monthly" onclick="showHelpSection('adv-monthly')">月次集計締め</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-goals" onclick="showHelpSection('adv-goals')">目標・売上計上モード</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-closed" onclick="showHelpSection('adv-closed')">定休日・休業日ルール</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-templates" onclick="showHelpSection('adv-templates')">小タスク詳細のテンプレ編集</div>
         <div class="help-sb-item help-sb-item-adv" data-section="adv-staff" onclick="showHelpSection('adv-staff')">メンバー管理・権限</div>
-        <div class="help-sb-item help-sb-item-adv" data-section="adv-line" onclick="showHelpSection('adv-line')">🔔 LINE通知連携</div>
-        <div class="help-sb-item help-sb-item-adv" data-section="adv-data" onclick="showHelpSection('adv-data')">💾 データ管理（バックアップ／一括編集／全消去）</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-line" onclick="showHelpSection('adv-line')"><i data-ic="bell" data-s="15">🔔</i> LINE通知連携</div>
+        <div class="help-sb-item help-sb-item-adv" data-section="adv-data" onclick="showHelpSection('adv-data')"><i data-ic="save" data-s="16">💾</i> データ管理（バックアップ／一括編集／全消去）</div>
       </aside>
 
       <!-- 右：本文 -->
@@ -1960,68 +2083,89 @@
 
 <!-- ============= scripts ============= -->
 <!-- 0a. Firebase 初期化（v1.5.0〜） -->
-<!-- デモ版：firebase-init.js は demo-init.js が代替（window.fb / window.firebase を完全モック） -->
-<!-- <script src="js/firebase-init.js?v=284"></script> -->
+<meta name="app-key" content="carflow">
+<script src="js/coreflow-icons.js?v=4ad44b4e"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
+<script src="js/coreflow-errcode.js?v=f85dcc35"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
+<script src="js/errcode-cf.js?v=1"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
+<script src="js/ui-dialog.js?v=29a016f1"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
+<script>
+/* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
+if(typeof window.ic!=='function'){ window.ic=function(n,fb,s){ return (fb==null?'':fb); }; }
+if(typeof window.icoE!=='function'){ window.icoE=function(t){ return (t==null?'':String(t)); }; }
+if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
+</script>
+<!-- 🟠 デモ版では読まない（window.fb はモック）：firebase-init.js -->
+<!-- 🟠 デモ版では読まない（本番の利用状況の記録を汚さない）：usage-log.js --><!-- 利用状況の記録（CoreFlow集約・自己完結・マスターだけ閲覧） -->
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
-<script src="js/db-cars.js?v=289"></script>
+<script src="js/db-cars.js?v=372"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
-<script src="js/db-settings.js?v=350"></script>
+<script src="js/db-settings.js?v=353"></script>
 <!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
 <script src="js/db-archive.js?v=284"></script>
+<!-- 0c'. deletedCars DB wrapper（v2.16.0〜 管理番号台帳） -->
+<script src="js/db-deleted.js?v=1"></script>
+<!-- 0c''. manualNumbers DB wrapper（v2.17.0〜 管理番号リスト手入力） -->
+<script src="js/db-manual.js?v=1"></script>
+<!-- 共通：保存はサーバー確認できた時だけ成功＋3桁エラーコード（CoreFlow共通部品・v2.24.0〜） -->
+<script src="js/core-save.js?v=2"></script>
+<script src="js/db-tentative.js?v=2"></script>
 <!-- 0d. auditLogs DB wrapper（v1.5.4〜） -->
-<script src="js/db-audit.js?v=285"></script>
-<!-- 0e. staff DB wrapper（v1.5.5〜） -->
-<script src="js/db-staff.js?v=284"></script>
+<script src="js/db-audit.js?v=286"></script>
+<!-- 0e. staff DB wrapper（v2.18.0〜：portalMembers経由に） -->
+<!-- v2.35.0: 会社の名簿を CoreMembers（社員名簿＋組織図）から作る。db-staff.js より【前】に置くこと -->
+<script src="js/members-core.js?v=375"></script>
+<script src="js/db-staff.js?v=374"></script>
+<!-- 0e2. userPrefs DB wrapper（v2.18.0〜：お知らせ既読など個人設定） -->
+<script src="js/db-user-prefs.js?v=1"></script>
 <!-- 0f. role-guard（v1.5.10〜） -->
 <script src="js/role-guard.js?v=284"></script>
 <!-- 0g. Storage wrapper（v1.5.10〜） -->
-<script src="js/db-storage.js?v=284"></script>
+<script src="js/db-storage.js?v=285"></script>
 <!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
 <script src="js/migrate-data-urls.js?v=284"></script>
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
-<script src="js/db-board-notes.js?v=284"></script>
+<script src="js/db-board-notes.js?v=285"></script>
 <!-- 0j. LINE通知連携（v1.8.19〜）DB読み書き＋Cloud Functions呼び出し -->
-<!-- デモ版：line-notify.js は demo-line-toast.js に置き換え済み -->
-<!-- <script src="js/line-notify.js?v=349"></script> -->
+<!-- 🟠 デモ版では読まない（LINEは demo-line-toast.js がトーストに置き換える）：line-notify.js -->
 <!-- v1.8.80: タスク完了通知の文言テーブル＋カスタム/CSV -->
-<script src="js/line-messages.js?v=320"></script>
+<script src="js/line-messages.js?v=321"></script>
 <!-- v1.8.80: タスク完了瞬間の検知＋LINE通知ディスパッチ -->
-<script src="js/task-completion-notify.js?v=320"></script>
+<script src="js/task-completion-notify.js?v=321"></script>
 <!-- 0k. データ管理（v1.8.21〜）：JSONバックアップ / Excel一括編集 / 全消去 -->
 <script src="js/data-io.js?v=284"></script>
 
 <!-- 1. 設定・定数 -->
-<script src="js/config.js?v=284"></script>
-<script src="js/tasks-def.js?v=355"></script>
+<script src="js/config.js?v=285"></script>
+<script src="js/tasks-def.js?v=356"></script>
 <script src="js/equipment-def.js?v=284"></script>
 <script src="js/checklist-templates.js?v=287"></script>
 <!-- v1.5.11: ChecklistTemplates をDB化 -->
 <script src="js/db-templates.js?v=285"></script>
 
 <!-- 2. 状態 -->
-<script src="js/state.js?v=310"></script>
+<script src="js/state.js?v=314"></script>
 
 <!-- 3. ユーティリティ -->
-<script src="js/helpers.js?v=324"></script>
-<script src="js/progress.js?v=285"></script>
+<script src="js/helpers.js?v=329"></script>
+<script src="js/progress.js?v=288"></script>
 
 <!-- 4. サンプル -->
 <script src="js/sample-data.js?v=284"></script>
 
 <!-- 5. 認証・ナビ・コア -->
-<script src="js/holidays.js?v=284"></script>
-<script src="js/auth.js?v=329"></script>
-<script src="js/navigation.js?v=313"></script>
-<script src="js/archive.js?v=325"></script>
-<script src="js/settings.js?v=359"></script>
+<script src="js/holidays.js?v=1c79064f"></script>
+<script src="js/auth.js?v=374"></script>
+<script src="js/navigation.js?v=314"></script>
+<script src="js/archive.js?v=372"></script>
+<script src="js/settings.js?v=361"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
-<script src="js/dashboard.js?v=350"></script>
-<script src="js/announcements.js?v=6"></script>
-<script src="js/members.js?v=313"></script>
-<script src="js/kanban.js?v=324"></script>
-<script src="js/car-detail.js?v=320"></script>
-<script src="js/car-modal.js?v=307"></script>
+<script src="js/dashboard.js?v=371"></script>
+<script src="js/announcements.js?v=375"></script>
+<script src="js/members.js?v=374"></script>
+<script src="js/kanban.js?v=372"></script>
+<script src="js/car-detail.js?v=372"></script>
+<script src="js/car-modal.js?v=372"></script>
 <script src="js/workflow.js?v=284"></script>
 <script src="js/worksheet.js?v=323"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
@@ -2030,18 +2174,18 @@
 <script src="js/period-stats.js?v=343"></script>
 <script src="js/forecast-print.js?v=346"></script>
 <script src="js/forecast-targets.js?v=327"></script>
-<script src="js/calendar.js?v=353"></script>
+<script src="js/calendar.js?v=354"></script>
 <script src="js/views.js?v=305"></script>
 <!-- v2.1.0: バックオフィスビュー本体 -->
-<script src="js/backoffice.js?v=8"></script>
+<script src="js/backoffice.js?v=9"></script>
 <!-- v2.2.0/v2.2.1: タスク個別メモ -->
 <script src="js/task-memo.js?v=4"></script>
 <!-- v2.2.1: タスク個別メモ「種別設定」モーダル -->
 <script src="js/task-memo-config.js?v=1"></script>
 <!-- v2.2.7: date型タスクメモから自動緑付箋を作成/同期 -->
-<script src="js/task-memo-auto-note.js?v=3"></script>
+<script src="js/task-memo-auto-note.js?v=4"></script>
 <!-- v1.7.42: ヘルプの本文（HELP_CONTENTS）を別ファイル化。help.js より先に読み込む -->
-<script src="js/help-content.js?v=285"></script>
+<script src="js/help-content.js?v=374"></script>
 <script src="js/help.js?v=284"></script>
 <script src="js/theme.js?v=287"></script>
 
@@ -2049,7 +2193,9 @@
 <script src="js/template-editor.js?v=298"></script>
 
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<script src="js/board-notes.js?v=325"></script>
+<script src="js/coreflow-note-reply.js?v=a224b9c0"></script><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
+<script src="js/coreflow-note-all.js?v=830ce1ff"></script><!-- 📎 付箋のまとめて表示（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
+<script src="js/board-notes.js?v=377"></script>
 
 <!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
 <script src="js/worklog.js?v=284"></script>
@@ -2059,10 +2205,47 @@
 
 
 <!-- 7. ディスパッチャ -->
-<script src="js/main.js?v=287"></script>
+<script src="js/main.js?v=288"></script>
 
-<!-- デモ版：ログインUIを差し替え（auth.js より後で読込んで上書き） -->
-<script src="js/demo-auth-mock.js?v=3"></script>
+<!-- CoreFlow アプリランチャー（共通） -->
+<!-- 🟠 デモ版では読まない（CoreFlowダッシュボードへ配信しない）：app-summary.js --><!-- 📡 CoreFlowダッシュボードへ概況配信（v2.30.0） -->
+<script src="js/launcher.js?v=e62024b3"></script>
+<script src="js/auto-update.js?v=ffed3e38"></script>
 
+<!-- 過去データ補完（メーカー/車種/グレード/車体色） -->
+<script src="js/autocomplete.js?v=2"></script>
+
+<!-- v2.16.0: 管理番号ヘルパ＆管理番号リスト -->
+<script src="js/num-helpers.js?v=3"></script>
+<script src="js/num-list.js?v=6"></script>
+
+<!-- v2.33.0: 整備依頼業務（PitFlow の pitCards を直接読む）。
+     cal-pit.js は MHS の定休日カレンダー＝PitFlow と同じ「翌営業日」を出すために必要（pit-embed.js より前） -->
+<script>/* 🔴 共通部品（cal-pit.js / holidays.js）が新しい営業日カレンダーを受け取った時の描き直し方。
+     PitFlow は showView、CarFlow はカレンダーを開いている時だけ描き直す。 */
+window.PIT_CAL_REDRAW = function(){
+  try { if (document.getElementById("view-calendar") && document.getElementById("view-calendar").classList.contains("active") && window.renderCalendar) renderCalendar(); } catch(e){}
+  try { if (window.renderDeliverySchedule) renderDeliverySchedule(); } catch(e){}
+};</script>
+<script src="js/cal-pit.js?v=a3f77ecd"></script>
+<script src="js/coreflow-return-plan.js?v=08a1675a"></script><!-- 📅 返車予定の確からしさ（未完／暫定／未定・全アプリ共通・_shared から配布）。pit-embed.js より **前** に読むこと -->
+<script src="js/coreflow-loaner-remain.js?v=608d586a"></script><!-- 🚙 代車の残り日数と色（全アプリ共通・_shared から配布）。pit-embed.js より **前** に読むこと -->
+<script src="js/pit-embed.js?v=375"></script>
+<!-- v2.34.0: カードにマウスを乗せると詳細を出す（PitFlow card-hover.js の写し・🔴 CarFlow は見るだけ）。
+     pit-embed.js より【後ろ】に置くこと＝PitEmbed._api から読むため -->
+<script src="js/pit-hover.js?v=373"></script>
+
+<script>icHydrate();   /* 静的HTMLの <i data-ic> を線画SVGに差し替える（2026-08-01） */</script>
+<script src="js/coreflow-sync.js?v=2e2dc585"></script><!-- 同期ランプ（全アプリ共通・_shared から配布）。アプリ本体JSより後ろに置くこと -->
+
+<!-- ↩ 戻る（通ってきた画面順に戻る）。共通部品＝_shared/coreflow-nav.js。アプリ側のコードは書き換えず、画面切替の関数を包むだけ -->
+<script src="js/coreflow-nav.js?v=73ae9af1"></script>
+<script>/* CarFlow は switchTab(名前, 押したタブ) なので、押したタブを探して渡す */
+CoreflowNav.wire({ fn:'switchTab', apply:function(orig,k){
+  var el=null, tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++){ if((tabs[i].getAttribute('onclick')||'').indexOf("switchTab('"+k+"'")>=0){ el=tabs[i]; break; } }
+  orig.call(window, k, el);
+} });</script>
+<script src="js/demo-auth-mock.js"></script><!-- 🟠 デモ版のログイン（make-demo-carflow.ps1 が入れています） -->
 </body>
 </html>

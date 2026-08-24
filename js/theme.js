@@ -1,11 +1,10 @@
 // ========================================
-// theme.js (v2.4.0 / v2.5.13-demo)
-// テーマ切替（4テーマ：dark / light / dark-liquid / light-liquid）＋フォントサイズ切替
+// theme.js (v1.0.1)
+// テーマ切替（ダーク/ライト）＋フォントサイズ切替
 // localStorage 保存・起動時復元
 // v0.9.9: トップバーのクイックフォントサイズを3分割ボタンに変更
-// v2.4.0: 4テーマ展開（リキッド・ガラス対応）
-// v2.5.13-demo: 本チャン v1.0.0/v1.0.1 の toggleTheme() / tb-theme-toggle 連動を 4 テーマ向けに統合
-//   トグルは「dark↔light」の base のみ切替（リキッド suffix は維持）。
+// v1.0.0: toggleTheme() を追加。現場モード（ws-topbar）のテーマ切替ボタンを同期。
+// v1.0.1: 切替ボタンを現場モード TOP（#tb-theme-toggle）に移設。
 // ========================================
 
 const THEME_KEY = 'carflow_theme';
@@ -13,7 +12,7 @@ const FONTSIZE_KEY = 'carflow_fontsize';
 const DEFAULT_THEME = 'dark';
 const DEFAULT_FONTSIZE = 'md';
 
-// v2.4.0: 4テーマ
+// 4テーマ（dark / light / dark-liquid / light-liquid）
 const VALID_THEMES = ['dark', 'light', 'dark-liquid', 'light-liquid'];
 const THEME_LABELS = {
   'dark':         '🌙 ダーク',
@@ -35,8 +34,7 @@ function setTheme(theme) {
   }
 }
 
-// v2.5.13-demo: 現場モード TOP（topbar）のワンタップ切替
-//   dark/light の base だけ切替。リキッドsuffixは維持
+// 現場モード TOP（topbar）のワンタップ切替：dark/light の base だけ切替。リキッド suffix は維持
 //   例：dark-liquid → light-liquid、light → dark
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
@@ -47,8 +45,7 @@ function toggleTheme() {
   setTheme(nextTheme);
 }
 
-// v2.5.23-demo: ヘッダーの4テーマ循環ボタン用。
-//   押すごとに dark → light → dark-liquid → light-liquid を巡回。
+// ヘッダー（AAAの右隣）の4テーマ循環ボタン用：dark → light → dark-liquid → light-liquid を巡回。
 //   setTheme 経由なので localStorage 保存＋設定画面のテーマピッカーと自動連動する。
 function cycleTheme() {
   const order = ['dark', 'light', 'dark-liquid', 'light-liquid'];
@@ -65,7 +62,7 @@ function setFontSize(size) {
   refreshFontSizePickerUI();
   refreshTopbarFontSizeLabel();
   if (typeof showToast === 'function') {
-    showToast(`🔤 文字サイズ：${FONTSIZE_LABELS[s]}`);
+    showToast(`文字サイズ：${FONTSIZE_LABELS[s]}`);
   }
 }
 
@@ -87,21 +84,21 @@ function refreshThemePickerUI() {
   document.querySelectorAll('#theme-picker .theme-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === cur);
   });
-  // v2.5.13-demo: 現場モード TOP（topbar）の切替ボタンの表示も同期
+  // 現場モード TOP（topbar）の切替ボタンの表示を同期（4テーマ対応：base のみ反転）
   const tbBtn = document.getElementById('tb-theme-toggle');
   if (tbBtn) {
     const isLight = cur === 'light' || cur === 'light-liquid';
-    tbBtn.textContent = isLight ? '☀️' : '🌙';
+    tbBtn.innerHTML = icoE(isLight ? '☀️' : '🌙');
     tbBtn.setAttribute('aria-label', isLight ? 'ライト→ダークに切替' : 'ダーク→ライトに切替');
     tbBtn.setAttribute('title', isLight ? 'ライト→ダーク' : 'ダーク→ライト');
   }
-  // v2.5.23-demo: ヘッダー（AAAの右隣）の4テーマ循環ボタンのアイコン/ツールチップも同期
+  // ヘッダー（AAAの右隣）の4テーマ循環ボタンのアイコン/ツールチップも同期
   //   アイコンは設定画面のテーマピッカーと同じ絵文字（🌙/☀️/✨/💎）に揃える
   const cycBtn = document.getElementById('tb-theme-cycle');
   if (cycBtn) {
     const ICON = { 'dark': '🌙', 'light': '☀️', 'dark-liquid': '✨', 'light-liquid': '💎' };
     const NAME = { 'dark': 'ダーク', 'light': 'ライト', 'dark-liquid': 'ダーク・リキッド', 'light-liquid': 'ライト・リキッド' };
-    cycBtn.textContent = ICON[cur] || '🌙';
+    cycBtn.innerHTML = icoE(ICON[cur] || '🌙');
     cycBtn.setAttribute('title', 'テーマ切替（現在：' + (NAME[cur] || '') + '）');
     cycBtn.setAttribute('aria-label', 'テーマを切り替え。現在：' + (NAME[cur] || ''));
   }
@@ -125,7 +122,7 @@ function refreshTopbarFontSizeLabel() {
 applyStoredThemeAndSize();
 function _initThemeUI() {
   refreshTopbarFontSizeLabel();
-  refreshThemePickerUI();  // v2.5.13-demo: 現場モード切替ボタンの初期表示
+  refreshThemePickerUI();  // v1.0.0: 現場モード切替ボタンの初期表示
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _initThemeUI);

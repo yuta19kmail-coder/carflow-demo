@@ -28,16 +28,23 @@ function _renderRegistrationBar(car) {
     '予備検':   { bg: '#ef4444', short: '予' },   // 赤
   };
 
-  // 未設定 → 赤め警告
-  if (!pattern || !PATTERN_COLOR[pattern]) {
+  // 未設定 → 赤め警告（v2.20.1: 「未選択」のときだけ警告。設定済みなら未知のパターン名でもバーを出す）
+  if (!pattern) {
     return `
       <div class="detail-reg-bar detail-reg-bar-empty">
-        <div class="detail-reg-bar-empty-head">⚠️ 登録内容 未設定</div>
-        <div class="detail-reg-bar-empty-sub">納車準備の「📋 登録内容設定」タスクから入力してください（書類フローに直結します）</div>
+        <div class="detail-reg-bar-empty-head">${ic('warn','⚠️',14)} 登録内容 未設定</div>
+        <div class="detail-reg-bar-empty-sub">納車準備の「${ic('clipboard','📋',16)} 登録内容設定」タスクから入力してください（書類フローに直結します）</div>
       </div>`;
   }
 
-  const pc = PATTERN_COLOR[pattern];
+  // v2.20.1: 登録パターンの選択肢をカスタム/追記（例「予備検→行政書士」）した場合に
+  //   5固定の色マップに一致せず「未設定」になってしまうバグを修正。
+  //   完全一致が無ければ「既知キーを含むか（前方/部分一致）」で色を流用、それも無ければスレート＋先頭文字。
+  let pc = PATTERN_COLOR[pattern];
+  if (!pc) {
+    const hit = Object.keys(PATTERN_COLOR).find(k => pattern.indexOf(k) >= 0);
+    pc = hit ? PATTERN_COLOR[hit] : { bg: '#64748b', short: (pattern[0] || '?') };
+  }
 
   // tri 項目で「あり」（'on'）のものだけタグ化（reg_* で始まる任意のキーに対応、カスタム追加にも追従）
   const KNOWN_LABELS = {
@@ -137,14 +144,55 @@ function openDetail(carId, fromArchive, mode) {
     car = archivedCars.find(c => c && c.id === carId);
   }
   if (!car) return;
+  // v2.29.2: タスク欄が欠けている車（旧仮登録の昇格漏れ等＝F55等）を開くとき、
+  //   regenTasks/deliveryTasks/logs が undefined だと詳細描画・タスクトグルで
+  //   「Cannot read properties of undefined (reading 't_regen')」で落ちる。
+  //   ここで欠けている欄だけ初期化して保存し、データ側も根本修復する（promoteTentative と同じ初期化）。
+  const _isArchiveCar = !!(typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)
+                           && archivedCars.find(c => c && c.id === carId));
+  if (!_isArchiveCar) {
+    let _healed = false;
+    if (!car.regenTasks || typeof car.regenTasks !== 'object') {
+      car.regenTasks = (typeof mkTaskState === 'function' && typeof REGEN_TASKS !== 'undefined') ? mkTaskState(REGEN_TASKS) : {};
+      _healed = true;
+    }
+    if (!car.deliveryTasks || typeof car.deliveryTasks !== 'object') {
+      car.deliveryTasks = (typeof mkTaskState === 'function' && typeof DELIVERY_TASKS !== 'undefined') ? mkTaskState(DELIVERY_TASKS) : {};
+      _healed = true;
+    }
+    if (!Array.isArray(car.logs)) { car.logs = []; _healed = true; }
+    if (_healed && window.saveCarById) { try { saveCarById(car.id); } catch (e) {} }
+  }
   // archive 由来かを保持
   car._fromArchive = !!(typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)
                          && archivedCars.find(c => c && c.id === carId));
-  document.getElementById('detail-title').textContent = `${car.maker} ${car.model}`;
+  // v2.26.0: タイトル（車種名）の右に顧客名チップ（売約のお客様・あれば）
+  {
+    const _esc = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x == null ? '' : x));
+    const _chip = (typeof customerChipHTML === 'function') ? customerChipHTML(car.customerName, 'title') : '';
+    document.getElementById('detail-title').innerHTML = `<span class="dt-name">${_esc(car.maker)} ${_esc(car.model)}</span>${_chip}`;
+  }
   renderDetailBody(car);
   document.getElementById('modal-detail').classList.add('open');
 }
 window.getCurrentDetailMode = function () { return _detailMode; };
+
+// v2.28.0: 車両詳細モーダルから付箋を発行する。
+//   タイトルに「管理番号 メーカー 車種」をプリフィルした状態で、既存の付箋エディタを開くだけ。
+//   付箋の扱い（回覧/実行・メンバー選定・表示・保存）は全て既存の付箋機能のまま（作る入口が増えるだけ）。
+//   タイトル内の管理番号は既存の linkifyCarNums で自動的に車両詳細リンクになる。
+function openCarNoteFromDetail() {
+  const id = (typeof activeDetailCarId !== 'undefined') ? activeDetailCarId : null;
+  let car = null;
+  if (id && typeof cars !== 'undefined' && Array.isArray(cars)) car = cars.find(c => c && c.id === id);
+  if (!car && id && typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) car = archivedCars.find(c => c && c.id === id);
+  if (!car) { if (typeof toast === 'function') toast('車両が見つかりません'); return; }
+  const title = [car.num, car.maker, car.model].filter(Boolean).join(' ').trim();
+  if (typeof openBoardNoteModal === 'function') {
+    openBoardNoteModal(null, { title: title, over: true });
+  }
+}
+window.openCarNoteFromDetail = openCarNoteFromDetail;
 
 // その他用の詳細：タスクなしでメモ中心
 function _renderDetailBodyOther(car) {
@@ -161,22 +209,22 @@ function _renderDetailBodyOther(car) {
 
   const coreMemoHtml = coreMemo
     ? `<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)">
-         <div class="core-memo-label">📌 メモ</div>
+         <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
          <div class="core-memo-text">${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
        </div>`
     : `<div class="core-memo core-memo-empty">
-         <div class="core-memo-label">📌 メモ</div>
+         <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
          <div class="core-memo-text core-memo-placeholder">メモは未記入です（編集ボタンから記入）</div>
        </div>`;
 
   let html = `
     <div class="detail-photo">
       ${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}
-      <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">📷 写真を変更</div>
+      <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">${ic('camera','📷',16)} 写真を変更</div>
     </div>
     <input type="file" id="dp-inp" accept="image/*" capture="environment" style="display:none" onchange="onDetailPhoto(this)">
     <div class="detail-other-status">
-      <span class="pill ${pillMap[car.col]||'pill-other'}">📝 ${colLabel}</span>
+      <span class="pill ${pillMap[car.col]||'pill-other'}">${ic('pencil','📝',16)} ${colLabel}</span>
       <span class="detail-other-hint">身の振り方が決まっていない保留中の車両</span>
     </div>
     <div class="detail-head">
@@ -195,10 +243,10 @@ function _renderDetailBodyOther(car) {
     </div>
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
-    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">✏️ 車両詳細を編集</button>
+    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
     ${_renderRegistrationBar(car)}
     <div class="work-memo" id="work-memo-wrap">
-      <div class="work-memo-label">📝 作業メモ <span class="work-memo-hint">（保留中のメモ）</span></div>
+      <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ <span class="work-memo-hint">（保留中のメモ）</span></div>
       <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
         workMemo
           ? escapeHtml(workMemo).replace(/\n/g,'<br>')
@@ -284,7 +332,7 @@ function renderDetailBody(car) {
     // v1.8.72: オーダー車両の表示（在庫日数の代わりに「オーダー車両」バッジ）
     dayBlock = `
       <div class="detail-days-box" style="background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4)">
-        <div class="detail-days-num" style="font-size:18px">📦</div>
+        <div class="detail-days-num" style="font-size:18px">${ic('box','📦',16)}</div>
         <div class="detail-days-label">オーダー車両</div>
         <div class="detail-days-sub" style="color:#c084fc;opacity:.85">在庫日数カウントなし</div>
       </div>`;
@@ -309,18 +357,18 @@ function renderDetailBody(car) {
   const coreMemo = (car.memo || '').trim();
   const coreMemoHtml = coreMemo
     ? `<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)">
-         <div class="core-memo-label">📌 メモ</div>
+         <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
          <div class="core-memo-text">${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
        </div>`
     : `<div class="core-memo core-memo-empty">
-         <div class="core-memo-label">📌 メモ</div>
+         <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
          <div class="core-memo-text core-memo-placeholder">メモは未記入です（編集ボタンから記入）</div>
        </div>`;
   const workMemo = (car.workMemo || '').trim();
   let html = `
     <div class="detail-photo">
       ${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}
-      <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">📷 写真を変更</div>
+      <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">${ic('camera','📷',16)} 写真を変更</div>
     </div>
     <input type="file" id="dp-inp" accept="image/*" capture="environment" style="display:none" onchange="onDetailPhoto(this)">
     <div class="detail-head">
@@ -353,9 +401,9 @@ function renderDetailBody(car) {
     </div>
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
-    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">✏️ 車両詳細を編集</button>
+    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
     ${_renderRegistrationBar(car)}
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isBackofficeMode ? '🗂 バックオフィス（事務処理）' : (isD ? '納車準備' : '業務タスク')}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isBackofficeMode ? ''+ic('files','🗂',16)+' バックオフィス（事務処理）' : (isD ? '納車準備' : '業務タスク')}</div>
     <div class="detail-overall">
       <div class="detail-overall-label"><span>全体進捗</span><span>${prog.done}/${prog.total} (${prog.pct}%)</span></div>
       <div class="detail-overall-bar"><div class="detail-overall-fill" style="width:${prog.pct}%;background:${prog.pct>=100?'var(--green)':prog.pct>0?'var(--orange)':'var(--bg4)'}"></div></div>
@@ -368,13 +416,13 @@ function renderDetailBody(car) {
   function _overdueBadge(taskId) {
     const o = _overdueMap[taskId];
     if (!o) return '';
-    return `<span class="task-overdue-badge" title="期限超過">⚠ 超過${o.overdueDays}日</span>`;
+    return `<span class="task-overdue-badge" title="期限超過">${ic('warn','⚠',14)} 超過${o.overdueDays}日</span>`;
   }
   // v1.0.36: 列を固定幅で揃える共通フォーマット
   // [chk(30)] [info(flex:1)] [badge(可変・無くても占有なし)] [pct(56右寄)] [open(64 or プレースホルダー)]
   function _badgeCol(taskId) {
     const o = _overdueMap[taskId];
-    return `<div class="task-item-badge">${o ? `<span class="task-overdue-badge" title="期限超過">⚠ 超過${o.overdueDays}日</span>` : ''}</div>`;
+    return `<div class="task-item-badge">${o ? `<span class="task-overdue-badge" title="期限超過">${ic('warn','⚠',14)} 超過${o.overdueDays}日</span>` : ''}</div>`;
   }
   // v1.7.13: Phase 3 — 「📝 詳細」ON のトグルタスクは項目チェック式に昇格、ws-page で開く
   // v2.1.0: バックオフィスモードでは phaseStr='backoffice'
@@ -421,7 +469,8 @@ function renderDetailBody(car) {
       }
     } else {
       p = calcSingleProg(car, task.id, tasks);
-      state = isD ? car.deliveryTasks : car.regenTasks;
+      // v2.29.2: 欄が欠けた車でも落ちないよう防御（|| {}）
+      state = (isD ? car.deliveryTasks : car.regenTasks) || {};
     }
     const isDone = p.pct === 100, isPartial = p.pct > 0 && p.pct < 100;
 
@@ -438,7 +487,7 @@ function renderDetailBody(car) {
           autoChecked = isRegenAllOtherTasksDone(car);
         }
       }
-      const checked = isAuto ? autoChecked : !!state[task.id];
+      const checked = isAuto ? autoChecked : ((typeof _simpleTaskDone === 'function') ? _simpleTaskDone(state[task.id]) : (state[task.id] === true));
       // v2.1.0: バックオフィスモードは toggleBackofficeTaskToggle（cars/archivedCars 両対応）
       const onclickAttr = isAuto
         ? ''
@@ -456,7 +505,7 @@ function renderDetailBody(car) {
         <div class="task-chk${checked?' done':''}${chkExtraCls}"${onclickAttr}>
           ${checked ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
         </div>
-        <div class="task-item-info"><div class="task-item-name">${task.icon} ${task.name}</div><div class="task-item-sub">${subText}</div></div>
+        <div class="task-item-info"><div class="task-item-name">${icoE(task.icon)} ${task.name}</div><div class="task-item-sub">${subText}</div></div>
         ${memoCell}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${checked?'100':'0'}%</div>
@@ -500,7 +549,7 @@ function renderDetailBody(car) {
         <div class="task-chk${isDone?' done':isPartial?' partial':''}">
           ${isDone ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : isPartial ? '<div style="width:7px;height:7px;border-radius:50%;background:#fff"></div>' : ''}
         </div>
-        <div class="task-item-info"><div class="task-item-name">${task.icon} ${task.name}</div><div class="task-item-sub">${p.done}/${p.total} 完了</div></div>
+        <div class="task-item-info"><div class="task-item-name">${icoE(task.icon)} ${task.name}</div><div class="task-item-sub">${p.done}/${p.total} 完了</div></div>
         ${mvHtml}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${p.pct}%</div>
@@ -513,7 +562,7 @@ function renderDetailBody(car) {
   if (!isBackofficeMode) {
     html += `
       <div class="work-memo" id="work-memo-wrap">
-        <div class="work-memo-label">📝 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
+        <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
         <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
           workMemo
             ? escapeHtml(workMemo).replace(/\n/g,'<br>')
@@ -585,7 +634,7 @@ function toggleBackofficeTaskToggle(carId, taskId) {
   renderDetailBody(car);
   if (typeof renderBackoffice === 'function') renderBackoffice();
   if (typeof showToast === 'function') {
-    showToast(car.backofficeTasks[taskId] ? '✓ 完了しました' : '未完了に戻しました');
+    showToast(car.backofficeTasks[taskId] ? '完了しました' : '未完了に戻しました');
   }
 }
 window.toggleBackofficeTaskToggle = toggleBackofficeTaskToggle;
@@ -612,7 +661,7 @@ function _renderBackofficeMemoHtml(car) {
   const memo = (car.backofficeMemo || '').trim();
   return `
     <div class="bo-memo" id="bo-memo-wrap">
-      <div class="bo-memo-label">📝 バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
+      <div class="bo-memo-label">${ic('pencil','📝',16)} バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
       <div class="bo-memo-view" onclick="startEditBackofficeMemo('${car.id}')">${
         memo
           ? escapeHtml(memo).replace(/\n/g,'<br>')
@@ -628,7 +677,7 @@ function startEditBackofficeMemo(carId) {
   if (!wrap) return;
   const cur = found.car.backofficeMemo || '';
   wrap.innerHTML = `
-    <div class="bo-memo-label">📝 バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
+    <div class="bo-memo-label">${ic('pencil','📝',16)} バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
     <textarea id="bo-memo-ta" class="bo-memo-input" rows="6" placeholder="原価処理の進捗・書類の所在・申し送りなど">${escapeHtml(cur)}</textarea>
     <div class="bo-memo-btns">
       <button class="btn-sm" onclick="cancelEditBackofficeMemo('${carId}')">キャンセル</button>
@@ -674,8 +723,8 @@ function _renderBackofficeSectionHtml(car) {
     ? getActiveBackofficeTasks(car) : [];
   if (!tasks.length) {
     return `<div class="detail-bo-section">
-      <div class="detail-bo-head">🗂 バックオフィス（事務処理）</div>
-      <div class="detail-bo-empty">バックオフィスタスクが設定されていません。<br>設定 → タスク・進捗 → 🗂バックオフィス で追加できます。</div>
+      <div class="detail-bo-head">${ic('files','🗂',16)} バックオフィス（事務処理）</div>
+      <div class="detail-bo-empty">バックオフィスタスクが設定されていません。<br>設定 → タスク・進捗 → ${ic('files','🗂',16)}バックオフィス で追加できます。</div>
     </div>`;
   }
   const store = car.backofficeTasks || {};
@@ -703,7 +752,7 @@ function _renderBackofficeSectionHtml(car) {
     return `<label class="detail-bo-item${done ? ' is-done' : ''}${lockedCls}">
       <input type="checkbox" ${done ? 'checked' : ''} ${disabledAttr}
         onchange="window.backoffice.toggleTask('${escapeHtml(car.id)}','${escapeHtml(t.id)}',this.checked)">
-      <span class="detail-bo-item-icon">${escapeHtml(icon)}</span>
+      <span class="detail-bo-item-icon">${icoE(escapeHtml(icon))}</span>
       <span class="detail-bo-item-name">${escapeHtml(name)}</span>
     </label>`;
   }).join('');
@@ -769,7 +818,7 @@ function _renderEqDetailButton(car) {
   return `
     <button id="eq-acc-btn-${car.id}" class="${cls}" data-open="0" onclick="toggleEquipmentAccordion('${car.id}')">
       <span class="detail-eq-btn-label">${label}</span>
-      <span class="detail-eq-btn-arrow">▼</span>
+      <span class="detail-eq-btn-arrow">${ic('chevDown','▼',14)}</span>
     </button>
     <div id="eq-acc-${car.id}" class="detail-eq-accordion" data-open="0"></div>`;
 }
@@ -795,7 +844,7 @@ function startEditWorkMemo(carId) {
   if (!wrap) return;
   const cur = car.workMemo || '';
   wrap.innerHTML = `
-    <div class="work-memo-label">📝 作業メモ</div>
+    <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ</div>
     <textarea id="work-memo-ta" class="work-memo-input" rows="4" placeholder="作業の進捗・申し送りなど">${escapeHtml(cur)}</textarea>
     <div class="work-memo-btns">
       <button class="btn-sm" onclick="cancelEditWorkMemo('${carId}')">キャンセル</button>
@@ -855,8 +904,18 @@ async function onDetailPhoto(inp) {
 function toggleTaskToggle(carId, taskId, isD) {
   const car = cars.find(c => c.id === carId);
   if (!car) return;
+  // v2.29.2: 欄欠落車の保険。欠けていれば初期化してから操作（トグルで落ちない）
+  const _bucket = isD ? 'deliveryTasks' : 'regenTasks';
+  if (!car[_bucket] || typeof car[_bucket] !== 'object') {
+    car[_bucket] = (isD
+      ? ((typeof mkTaskState === 'function' && typeof DELIVERY_TASKS !== 'undefined') ? mkTaskState(DELIVERY_TASKS) : {})
+      : ((typeof mkTaskState === 'function' && typeof REGEN_TASKS !== 'undefined') ? mkTaskState(REGEN_TASKS) : {}));
+  }
   const state = isD ? car.deliveryTasks : car.regenTasks;
-  state[taskId] = !state[taskId];
+  // v2.20.1: 初期値が空オブジェクト{}だと !state[taskId] が false になり「完了にできない／外したログだけ出る」
+  //   バグの原因。_simpleTaskDoneで現在の完了状態を正しく判定し、その反転をbooleanで保存する。
+  const _cur = (typeof _simpleTaskDone === 'function') ? _simpleTaskDone(state[taskId]) : (state[taskId] === true);
+  state[taskId] = !_cur;
   if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(carId, `「${taskId}」を${state[taskId]?'完了':'未完了に戻す'}`);
   // v2.2.7: 自動付箋を完了/未完了に同期（dateメモの付箋があれば反映）
@@ -865,7 +924,7 @@ function toggleTaskToggle(carId, taskId, isD) {
   }
   renderDetailBody(car);
   renderAll();
-  showToast(state[taskId] ? '✓ 完了しました' : '未完了に戻しました');
+  showToast(state[taskId] ? '完了しました' : '未完了に戻しました');
 }
 
 // ========================================
@@ -874,30 +933,92 @@ function toggleTaskToggle(carId, taskId, isD) {
 // ========================================
 let _deletingCarId = null;
 
+// v2.27.0: 「売れた車」（納車完了/納車準備）を削除できるのはマスター（ゆうた）だけ。
+//          他の管理者・スタッフは弾く（サーバー側 firestore.rules でも同じuidで二重ガード）。
+const CARFLOW_MASTER_UID = 'cIZsMOEsaaWWVVM957TFe6tvql53'; // ゆうた（yk19kobamo@gmail.com）
+function _isCarflowMaster() {
+  return !!(window.fb && window.fb.currentUser && window.fb.currentUser.uid === CARFLOW_MASTER_UID);
+}
+
 function confirmDeleteCar(carId) {
   const car = cars.find(c => c.id === carId);
   if (!car) return;
+  // v2.27.0: 納車完了/納車準備（売れた車）の削除はマスターのみ。それ以外は開かずに弾く。
+  if ((car.col === 'done' || car.col === 'delivery') && !_isCarflowMaster()) {
+    const phase = (car.col === 'done') ? '納車完了' : '納車準備（売約済み）';
+    showToast(`「${phase}」の車（売れた車）の削除は、ゆうたさんのアカウントだけができます`);
+    return;
+  }
   _deletingCarId = carId;
   const sub = document.getElementById('confirm-delete-sub');
   if (sub) {
-    sub.innerHTML = `<strong>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</strong>（${escapeHtml(car.num)}）<br>このデータは復元できません。本当に削除しますか？`;
+    // v2.27.0: 売れた車（納車完了/納車準備）を削除しようとした時は強い警告を出す。
+    //          納車完了の車を削除すると販売実績の集計から消える（実績アーカイブにも残らない）。
+    let warn = '';
+    if (car.col === 'done') {
+      warn = `<div style="background:#fef2f2;border:2px solid #dc2626;color:#b91c1c;border-radius:8px;padding:10px 12px;margin:8px 0;font-weight:700;line-height:1.6">${ic('warn','⚠',14)} この車は「納車完了」＝<u>売れた車</u>です。<br>削除すると<u>販売実績の集計から消えます</u>。<br>実績に残すには削除しないでください（不要でも月締めで自動的に実績へ移ります）。</div>`;
+    } else if (car.col === 'delivery') {
+      warn = `<div style="background:#fff7ed;border:2px solid #ea580c;color:#c2410c;border-radius:8px;padding:10px 12px;margin:8px 0;font-weight:700;line-height:1.6">${ic('warn','⚠',14)} この車は「納車準備」＝<u>売約済み</u>です。<br>削除すると売れた1台が記録から消えます。よく確認してください。</div>`;
+    }
+    sub.innerHTML = `${warn}<strong>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</strong>（${escapeHtml(car.num)}）<br>このデータは復元できません。本当に削除しますか？`;
   }
   document.getElementById('confirm-delete-car').classList.add('open');
 }
 
-function closeDeleteCarConfirm(doDelete) {
+// v2.16.0: mode 引数化 — null/false=キャンセル、'formal'=正式削除（deletedCarsに記録）、'cancel'=取り消し（記録なし）
+/* 🔴 2026-08-05 修正：以前は Firestore の削除を待たずに「削除しました」と出していた。
+   サーバーが拒否した（権限・通信）場合、**番号台帳には「削除済」・在庫にも残る二重状態**になり、
+   リアルタイム同期で車が復活してきて「消したのに戻ってきた」になっていた。
+   → **サーバーの削除が通ってから**画面とメッセージを確定させる。失敗したら元に戻す。 */
+async function closeDeleteCarConfirm(mode) {
   document.getElementById('confirm-delete-car').classList.remove('open');
-  if (!doDelete || !_deletingCarId) {
+  if (!mode || !_deletingCarId) {
     _deletingCarId = null;
     return;
   }
   const idx = cars.findIndex(c => c.id === _deletingCarId);
   if (idx < 0) { _deletingCarId = null; return; }
   const removed = cars[idx];
-  cars.splice(idx, 1);
-  // v1.5.1: Firestore からも削除
+
+  // v2.27.0: 削除も操作ログ（auditLogs）に残す。これまで削除は一切ログに残らず
+  //          「誰がいつ消したか」を追えなかった。splice前に記録（addLogがcars内のcarNumを拾えるように）。
+  if (typeof addLog === 'function') {
+    const soldMark = (removed.col === 'done') ? '【納車完了＝売れた車】' : (removed.col === 'delivery' ? '【納車準備＝売約済み】' : '');
+    const actLabel = (mode === 'formal')
+      ? `車両を正式に削除（管理番号リストに残す）${soldMark}`
+      : `車両を削除・取り消し（番号は再利用可）${soldMark}`;
+    try { addLog(removed.id, actLabel); } catch (e) { console.error('[car-detail] 削除ログ記録に失敗', e); }
+  }
+
+  // v2.16.0: 「正式に削除」なら deletedCars コレクションに最小情報を記録（番号台帳）
+  let _delRec = null;
+  if (mode === 'formal' && window.dbDeleted) {
+    const rec = {
+      id: removed.id,
+      num: removed.num || '',
+      maker: removed.maker || '',
+      model: removed.model || '',
+      grade: removed.grade || '',
+    };
+    _delRec = rec;   /* ★台帳への記録は「本体の削除が通ってから」書く（下） */
+  }
+  // 'cancel'（取り消し）の場合は何も記録に残さない＝番号は再利用可
+
+  // 🔴 まず本体を消す。ここが通らなければ、台帳にも書かないし画面からも消さない。
   if (window.dbCars) {
-    window.dbCars.deleteCar(removed.id).catch(e => console.error('[car-detail] delete failed', e));
+    try {
+      await window.dbCars.deleteCar(removed.id);
+    } catch (e) {
+      console.error('[car-detail] delete failed', e);
+      _deletingCarId = null;
+      showToast('削除できませんでした。そのまま残しています（通信または権限を確認してください）', 'CF-1001');
+      return;
+    }
+  }
+  cars.splice(idx, 1);
+  // 台帳（管理番号リスト）への記録＝本体が消えたあとに書く
+  if (_delRec && window.dbDeleted) {
+    window.dbDeleted.saveDeletedCar(_delRec).catch(e => console.error('[car-detail] saveDeletedCar failed', e));
   }
   // v1.5.10: Storage の写真も削除（fire-and-forget）
   if (window.dbStorage && window.dbStorage.deleteCarPhoto) {
@@ -917,6 +1038,7 @@ function closeDeleteCarConfirm(doDelete) {
   closeModal('modal-detail');
   if (typeof renderDashboard === 'function') renderDashboard();
   renderAll();
-  showToast(`${removed.maker} ${removed.model} を削除しました`);
+  const label = (mode === 'formal') ? '正式に削除しました（管理番号リストに残ります）' : '取り消しました（番号は再利用できます）';
+  showToast(`${removed.maker} ${removed.model} を${label}`);
   _deletingCarId = null;
 }

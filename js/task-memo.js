@@ -203,7 +203,7 @@
     if (!inp) return;
     const value = String(inp.value || '').trim();
     if (!value) {
-      if (typeof showToast === 'function') showToast('内容を入力してください');
+      if (typeof showToast === 'function') showToast('内容を入力してください', 'CF-3002');
       return;
     }
     const car = found.car;

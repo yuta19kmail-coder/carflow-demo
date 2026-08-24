@@ -86,7 +86,7 @@
       await col.doc(String(note.id)).set(_normalizeForSave(note), { merge: true });
     } catch (err) {
       console.error('[db-board-notes] saveBoardNote error:', err, note.id);
-      if (typeof showToast === 'function') showToast('付箋の保存に失敗しました');
+      if (typeof showToast === 'function') showToast('付箋の保存に失敗しました', 'CF-0015');
       throw err;
     }
   }
@@ -99,7 +99,7 @@
       await col.doc(String(noteId)).delete();
     } catch (err) {
       console.error('[db-board-notes] deleteBoardNote error:', err);
-      if (typeof showToast === 'function') showToast('付箋の削除に失敗しました');
+      if (typeof showToast === 'function') showToast('付箋の削除に失敗しました', 'CF-0016');
       throw err;
     }
   }
@@ -120,13 +120,13 @@
       await batch.commit();
     } catch (err) {
       console.error('[db-board-notes] reorderBoardNotes error:', err);
-      if (typeof showToast === 'function') showToast('並び順の保存に失敗しました');
+      if (typeof showToast === 'function') showToast('並び順の保存に失敗しました', 'CF-0017');
       throw err;
     }
   }
 
   async function archiveOldDoneNotes(days) {
-    if (typeof days !== 'number' || days < 0) days = 7;
+    if (typeof days !== 'number' || days < 0) days = 3;
     const col = _col();
     if (!col) return [];
     try {

@@ -8,28 +8,39 @@
 
 // 現在アクティブなタブ/パネルをすべて再描画
 function renderAll() {
-  renderActions();
-  const activeTab = document.querySelector('.tab.active');
-  if (activeTab) {
-    const t = activeTab.textContent;
-    if (t.includes('タスク'))     renderKanban();
-    if (t.includes('カレンダー')) renderCalendar();
-    if (t.includes('展示'))       renderExhibit();
-    if (t.includes('進捗'))       renderProgress();
-    if (t.includes('全体'))       renderTable();
-    if (t.includes('在庫'))       renderInventory();
-    if (t.includes('商談'))       renderDeal();
-  }
+  // v2.12.2: 1つの描画が失敗しても、他のビュー（特にリアルタイム反映先）が
+  //   巻き込まれて止まらないよう、各描画を個別に try/catch で保護する。
+  //   以前は renderActions() が素で呼ばれており、ここで落ちると以降の
+  //   renderCalendar 等が一緒に止まり、「データは届いているのに画面だけ古い
+  //   （タブを切り替えると直る）」現象の原因になっていた。
+  const _safe = (fn) => { try { if (typeof fn === 'function') fn(); } catch (e) { console.error('[renderAll]', e); } };
+
+  _safe(renderActions);
+
+  // v2.12.2: 表示中のビューは「実際に画面に出ている #view-* 要素」で判定する。
+  //   以前はタブの表示文字（'カレンダー' 等）で判定していたが、確実性に欠けたため
+  //   見えているビューそのものを基準に再描画する方式へ変更（別端末の変更も確実に追従）。
+  const activeView = document.querySelector('.view.active');
+  const vid = activeView ? activeView.id : '';
+  if (vid === 'view-kanban')    _safe(renderKanban);
+  if (vid === 'view-calendar')  _safe(renderCalendar);
+  if (vid === 'view-exhibit')   _safe(renderExhibit);
+  if (vid === 'view-progress')  _safe(renderProgress);
+  if (vid === 'view-table')     _safe(renderTable);
+  if (vid === 'view-inventory') _safe(renderInventory);
+  if (vid === 'view-deal')      _safe(renderDeal);
+  if (vid === 'view-overview')  _safe(renderOverview);
+  if (vid === 'view-worklog')   _safe(renderWorklog);
+  if (vid === 'view-meeting')   _safe(renderMeeting);
+
   // v2.1.0: バックオフィスはサイドパネル。開いていればリアルタイム再描画
   const boPanel = document.getElementById('panel-backoffice');
-  if (boPanel && boPanel.classList.contains('open') && typeof renderBackoffice === 'function') {
-    renderBackoffice();
-  }
-  // v1.8.1: ミーティングビュー（サイドバー経由で開かれた時、view-meeting が active なら更新）
-  const meetingView = document.getElementById('view-meeting');
-  if (meetingView && meetingView.classList.contains('active') && typeof renderMeeting === 'function') {
-    renderMeeting();
-  }
+  if (boPanel && boPanel.classList.contains('open')) _safe(renderBackoffice);
+
+  // v2.33.0: 整備依頼業務（PitFlow）も同じ扱い。中身は PitFlow の購読が更新するので、
+  //   ここでは「開いていれば描き直す」だけでよい。
+  const psPanel = document.getElementById('panel-pitsales');
+  if (psPanel && psPanel.classList.contains('open') && window.PitEmbed) _safe(PitEmbed.renderPanel);
 }
 
 // ========================================

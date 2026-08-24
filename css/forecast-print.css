@@ -955,13 +955,18 @@
   .fp-sheet-wrap {
     display: block !important;
   }
+  /* v2.18.7/v2.18.8: 印刷でA4ぴったりに（縮小バグ修正）。
+     シート幅＝印刷可能領域ぴったり(210mm − @page余白5mm×2 = 200mm)に固定＝縮小されない。
+     さらに @page に5mmの安全余白を入れて、プリンタが端を印刷できず罫線が削れる問題を回避。
+     見た目の内側余白(約12mm)は @page余白5mm + シートpadding7mm で再現。中身の幅(186mm)は不変。 */
   .fp-sheet {
     box-shadow: none !important;
-    width: 100% !important;
-    min-height: auto !important;
+    width: 200mm !important;
+    min-height: 287mm !important;
     max-height: none !important;
-    padding: 0 !important;
+    padding: 7mm !important;
     margin: 0 !important;
+    box-sizing: border-box !important;
   }
   /* v1.8.91/v1.8.103: 印刷時に背景色を出す */
   #forecast-print-overlay *,
@@ -990,7 +995,7 @@
   }
   @page {
     size: A4 portrait;
-    margin: 14mm 12mm;
+    margin: 5mm;          /* v2.18.8: プリンタの印刷不可領域に当たって右端の罫線が削れるのを回避する安全余白 */
   }
 }
 

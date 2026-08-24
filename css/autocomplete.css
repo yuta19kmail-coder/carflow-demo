@@ -1,0 +1,37 @@
+/* ============================================
+   過去データ補完（メーカー/車種/グレード/車体色）
+   - 入力欄の上にビタづけで候補リスト
+   - IME予測との衝突回避のため、上下キーでの選択は無効
+   - 確定：Tab または クリック
+   - 閉じる：Esc または blur
+   ============================================ */
+
+/* 入力欄のラッパ（autocomplete.js が既存の <input> を動的に包む） */
+.cf-ac-iw{position:relative}
+
+/* ドロップダウン本体（入力欄の真上） */
+.cf-ac-dd{
+  position:absolute;
+  bottom:100%;left:0;right:0;
+  margin-bottom:-1px;          /* 入力欄の border に被せて隙間ゼロ */
+  background:var(--bg2,#161d27);
+  border:1px solid rgba(55,138,221,.45);
+  border-bottom:none;          /* 下辺は入力欄の上辺に任せる */
+  border-radius:8px 8px 0 0;
+  overflow:hidden;
+  z-index:30;
+  box-shadow:0 -4px 22px rgba(0,0,0,.40);
+  display:none;
+}
+.cf-ac-dd.show{display:block}
+
+/* 候補の各行 */
+.cf-ac-item{
+  padding:8px 12px;cursor:pointer;
+  border-bottom:1px solid rgba(127,127,127,.10);
+  font-size:13.5px;color:var(--text,#f1f5f9);
+  font-family:inherit;
+}
+.cf-ac-item:last-child{border-bottom:none}
+.cf-ac-item:hover,.cf-ac-item.act{background:rgba(55,138,221,.18)}
+.cf-ac-item .hl{color:var(--blue,#5eb1ff)}

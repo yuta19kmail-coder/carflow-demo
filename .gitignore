@@ -1,4 +1,2 @@
-.DS_Store 
-Thumbs.db 
-desktop.ini 
-_unused_demo/ 
+node_modules/
+.DS_Store

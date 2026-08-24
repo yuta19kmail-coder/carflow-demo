@@ -26,15 +26,15 @@
     overlayEl.innerHTML = `
       <div class="fp-controls" data-no-print="1">
         <div class="fp-design-toggle">
-          <span style="font-size:11px;color:#888">📐 デザイン:</span>
+          <span style="font-size:11px;color:#888">${ic('ruler','📐',15)} デザイン:</span>
           <button type="button" data-design="A" onclick="window.forecastPrint.setDesign('A')">A クラシック</button>
           <button type="button" data-design="B" onclick="window.forecastPrint.setDesign('B')">B モダン</button>
           <button type="button" data-design="C" onclick="window.forecastPrint.setDesign('C')">C ミニマル</button>
         </div>
         <div style="flex:1"></div>
-        <button type="button" class="fp-pdf-btn" onclick="window.forecastPrint.doPdf()">📥 PDF</button>
-        <button type="button" class="fp-print-btn" onclick="window.forecastPrint.doPrint()">🖨 印刷</button>
-        <button type="button" class="fp-close-btn" onclick="window.forecastPrint.close()">✕ 閉じる</button>
+        <button type="button" class="fp-pdf-btn" onclick="window.forecastPrint.doPdf()">${ic('download','📥',16)} PDF</button>
+        <button type="button" class="fp-print-btn" onclick="window.forecastPrint.doPrint()">${ic('printer','🖨',16)} 印刷</button>
+        <button type="button" class="fp-close-btn" onclick="window.forecastPrint.close()">${ic('close','✕',15)} 閉じる</button>
       </div>
       <div class="fp-sheet-wrap">
         <div class="fp-sheet" id="fp-sheet" data-design="A"></div>
@@ -141,7 +141,7 @@
           <div class="fp-landing-bar-row" style="display:flex;gap:1px;align-items:stretch;flex:1;min-width:0">
             <div class="fp-landing-bar" style="flex:100;min-width:0">
               ${fixedOverCount
-                ? `<div class="fp-land-overshoot" style="width:100%">${goalCount}台 ✨</div>`
+                ? `<div class="fp-land-overshoot" style="width:100%">${goalCount}台 ${ic('sparkle','✨',15)}</div>`
                 : `
                   ${L.fixed.count    ? `<div class="fp-land-fixed"    style="width:${cntFx}%">${_segCount(cntFx, L.fixed.count)}</div>` : ''}
                   ${L.likely.count   ? `<div class="fp-land-likely"   style="width:${cntLk}%">${_segCount(cntLk, L.likely.count)}</div>` : ''}
@@ -152,7 +152,7 @@
             </div>
             ${fixedOverCount && overCnt > 0 ? `<div class="fp-land-overshoot" style="flex:${overCntRatio};min-width:28px">+${overCnt}</div>` : ''}
           </div>
-          <div class="fp-bar-value">${L.predictLow}〜${L.predictHigh}台 / ${goalCount}台${fixedOverCount?' ✨':''}</div>
+          <div class="fp-bar-value">${L.predictLow}〜${L.predictHigh}台 / ${goalCount}台${fixedOverCount?' '+ic('sparkle','✨',15)+'':''}</div>
         </div>
 
         <div class="fp-bar-row">
@@ -160,7 +160,7 @@
           <div class="fp-landing-bar-row" style="display:flex;gap:1px;align-items:stretch;flex:1;min-width:0">
             <div class="fp-landing-bar" style="flex:100;min-width:0">
               ${fixedOverSales
-                ? `<div class="fp-land-overshoot" style="width:100%">${Math.round(goalSalesYen/10000)}万 ✨</div>`
+                ? `<div class="fp-land-overshoot" style="width:100%">${Math.round(goalSalesYen/10000)}万 ${ic('sparkle','✨',15)}</div>`
                 : `
                   ${fxSales ? `<div class="fp-land-fixed"    style="width:${slFx}%">${_segSales(slFx, fxSales)}</div>` : ''}
                   ${lkSales ? `<div class="fp-land-likely"   style="width:${slLk}%">${_segSales(slLk, lkSales)}</div>` : ''}
@@ -171,7 +171,7 @@
             </div>
             ${fixedOverSales && overSales > 0 ? `<div class="fp-land-overshoot" style="flex:${overSalesRatio};min-width:36px">+${Math.round(overSales/10000)}万</div>` : ''}
           </div>
-          <div class="fp-bar-value">${Math.round(predictLowSales/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(goalSalesYen/10000).toLocaleString()}万${fixedOverSales?' ✨':''}</div>
+          <div class="fp-bar-value">${Math.round(predictLowSales/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(goalSalesYen/10000).toLocaleString()}万${fixedOverSales?' '+ic('sparkle','✨',15)+'':''}</div>
         </div>
 
         <div class="fp-landing-legend">
@@ -314,12 +314,12 @@
           <div class="fp-cars-sum">合計 ${_fmtYen(sumLeft)}<span class="fp-cars-count">（${leftCars.length}台）</span></div>
         </div>
         <div class="fp-cars-col">
-          <div class="fp-cars-head">📦 仕入</div>
+          <div class="fp-cars-head">${ic('box','📦',16)} 仕入</div>
           <ul class="fp-car-list fp-car-list-flow${_twoColCls(rightLists.purchase)}">${_dateListItems(rightLists.purchase, c => c.purchaseDate)}</ul>
           <div class="fp-cars-sum">合計 ${rightLists.purchase.length}台</div>
         </div>
         <div class="fp-cars-col">
-          <div class="fp-cars-head">🏪 店頭展示</div>
+          <div class="fp-cars-head">${ic('shop','🏪',16)} 店頭展示</div>
           <ul class="fp-car-list fp-car-list-flow${_twoColCls(rightLists.exhibit)}">${_dateListItems(rightLists.exhibit, c => window.periodStats.carExhibitedAt(c))}</ul>
           <div class="fp-cars-sum">合計 ${rightLists.exhibit.length}台</div>
         </div>
@@ -361,11 +361,11 @@
       </div>
 
       <!-- 🚨 要対応 -->
-      <div class="fp-section-title">🚨 要対応（タスクリミット）　計 ${week.overdue.totalCars} 件</div>
+      <div class="fp-section-title">${ic('siren','🚨',16)} 要対応（タスクリミット）　計 ${week.overdue.totalCars} 件</div>
       <div class="fp-week-overdue-block">
         ${week.overdue.red.length ? `
           <div class="fp-week-overdue-group fp-week-sev-red">
-            <div class="fp-week-overdue-head">🔴 限界超過：${week.overdue.red.length} 件</div>
+            <div class="fp-week-overdue-head">${ic('dot','🔴',12)} 限界超過：${week.overdue.red.length} 件</div>
             <ul class="fp-week-overdue-list">
               ${week.overdue.red.map(x => _overdueCarRow(x, 'sev-red')).join('')}
             </ul>
@@ -373,18 +373,18 @@
         ` : ''}
         ${week.overdue.orange.length ? `
           <div class="fp-week-overdue-group fp-week-sev-orange">
-            <div class="fp-week-overdue-head">🟠 限界本日：${week.overdue.orange.length} 件</div>
+            <div class="fp-week-overdue-head">${ic('dot','🟠',12)} 限界本日：${week.overdue.orange.length} 件</div>
             <ul class="fp-week-overdue-list">
               ${week.overdue.orange.map(x => _overdueCarRow(x, 'sev-orange')).join('')}
             </ul>
           </div>
         ` : ''}
-        <div class="fp-week-overdue-yellow">🟡 目標超過：${week.overdue.yellow.length} 件 <span style="color:#666;font-size:11px;font-weight:400">（限界までは余裕あり）</span></div>
-        ${week.overdue.totalCars === 0 ? '<div class="fp-week-overdue-empty">✅ 現在 リミット超過の車両はありません</div>' : ''}
+        <div class="fp-week-overdue-yellow">${ic('dot','🟡',12)} 目標超過：${week.overdue.yellow.length} 件 <span style="color:#666;font-size:11px;font-weight:400">（限界までは余裕あり）</span></div>
+        ${week.overdue.totalCars === 0 ? '<div class="fp-week-overdue-empty">'+ic('check','✅',15)+' 現在 リミット超過の車両はありません</div>' : ''}
       </div>
 
       <!-- 📊 パイプライン在庫 -->
-      <div class="fp-section-title">📊 パイプライン在庫スナップショット（今週末時点）</div>
+      <div class="fp-section-title">${ic('chart','📊',16)} パイプライン在庫スナップショット（今週末時点）</div>
       <table class="fp-week-pipeline">
         <tbody>
           <tr class="fp-week-pipeline-head">
@@ -419,14 +419,14 @@
       </table>
 
       <!-- 🎯 月販目標進捗 -->
-      <div class="fp-section-title">🎯 月販目標までの進捗</div>
+      <div class="fp-section-title">${ic('target','🎯',16)} 月販目標までの進捗</div>
       <div class="fp-week-goal-block">
         <div class="fp-week-goal-numbers">
           <span class="fp-week-goal-actual">${week.monthly.soldCount}</span>
           <span class="fp-week-goal-slash"> / </span>
           <span class="fp-week-goal-target">${week.monthly.goalCount}</span>
           <span class="fp-week-goal-unit">台</span>
-          <span class="fp-week-goal-pct">（${monthlyPctRaw}%${monthlyOverCount>0?' ✨':''}）</span>
+          <span class="fp-week-goal-pct">（${monthlyPctRaw}%${monthlyOverCount>0?' '+ic('sparkle','✨',15)+'':''}）</span>
         </div>
         <div class="fp-week-goal-bar-row" style="display:flex;gap:1px;align-items:stretch">
           <div class="fp-week-goal-bar" style="flex:100;min-width:0">
@@ -448,7 +448,7 @@
 
   function open(mode, periodId, year, month){
     if (!window.periodStats){
-      if (typeof showToast === 'function') showToast('集計モジュール未読込');
+      if (typeof showToast === 'function') showToast('集計モジュール未読込', 'CF-4004');
       return;
     }
     _ensureOverlay();
@@ -477,15 +477,82 @@
     _render();
   }
 
+  // ============================================================
+  // v2.36.0 (A-3) 「あと数ミリ入りきらないせいで、ほぼ真っ白な2枚目が出る」対策。
+  //   印刷の直前に A4 1枚に収まるかを測り、はみ出しが小さい時だけ紙に合わせて少し縮める。
+  //   🔴 縮めるのは最大15%まで。それ以上はみ出す時は縮めずに素直に2枚目へ流す
+  //      ＝ 中身を切り捨てることは絶対にしない（切るくらいなら紙が増えるほうがまし）。
+  //   ⚠ 画面の見た目は変えない。印刷が終わったら元に戻す。
+  // ============================================================
+  const _MM         = 96 / 25.4;
+  const _PAGE_MM    = 287;   // A4の縦297mm − @page余白5mm×2
+  const _PRINT_W_MM = 200;   // 印刷時のシート幅（A4の横210mm − 余白5mm×2）
+  const _PRINT_PAD  = 14;    // 印刷時のシート内側余白 7mm×2
+  const _SCREEN_PAD = 24;    // 画面のシート内側余白 12mm×2
+  const _MIN_FIT    = 0.85;  // これより小さく縮めるくらいなら2枚にする
+  let _fitOn = false;
+
+  function _fitOnePage(){
+    const sheet = overlayEl && overlayEl.querySelector('#fp-sheet');
+    const wrap  = overlayEl && overlayEl.querySelector('.fp-sheet-wrap');
+    if (!sheet || !sheet.children.length) return 1;
+    _fitUndo();
+
+    // ① 中身そのものの高さを測る。
+    //    min-height を外して「下の車両リストが紙の下まで伸びる」のを一旦止めてから、
+    //    先頭の子から最後の子までの実寸を見る（画面と印刷で内側余白が違うので、余白は自分で足す）。
+    sheet.style.setProperty('min-height', '0', 'important');
+    const kids = sheet.children;
+    const top = kids[0].getBoundingClientRect().top;
+    const bottom = kids[kids.length - 1].getBoundingClientRect().bottom;
+    // 🔴 画面の文字サイズ設定（body の拡大）は紙には効かない（印刷では 1 に戻る）。
+    //    測るときも、その拡大ぶんを割り戻しておかないと「実際よりはみ出している」と誤解する。
+    const bodyZoom = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const naturalMm = (bottom - top) / _MM / bodyZoom + _PRINT_PAD;
+    sheet.style.removeProperty('min-height');
+
+    // ② はみ出しが小さい時だけ縮める
+    let z = 1;
+    if (naturalMm > _PAGE_MM){
+      z = Math.floor(_PAGE_MM / naturalMm * 1000) / 1000;
+      if (z < _MIN_FIT) z = 1;          // 縮めすぎになるので、素直に2枚目へ流す
+    }
+    if (z < 1){
+      // 縮めたぶんだけ大きく作ってから縮める＝刷り上がりは 200mm × 287mm のまま、中身だけ小さくなる。
+      // 🔴 紙1枚に収まることが分かっている時だけ枠で囲う（はみ出しを隠す設定は、
+      //    収まらない時に中身を切ってしまうので、その時は絶対に付けない）。
+      sheet.style.setProperty('width', (_PRINT_W_MM / z) + 'mm', 'important');
+      sheet.style.setProperty('min-height', (_PAGE_MM / z) + 'mm', 'important');
+      sheet.style.setProperty('transform', 'scale(' + z + ')', 'important');
+      sheet.style.setProperty('transform-origin', 'top left', 'important');
+      if (wrap){
+        wrap.style.setProperty('height', _PAGE_MM + 'mm', 'important');
+        wrap.style.setProperty('overflow', 'hidden', 'important');
+      }
+      _fitOn = true;
+    }
+    return z;
+  }
+  function _fitUndo(){
+    if (!_fitOn) return;
+    const sheet = overlayEl && overlayEl.querySelector('#fp-sheet');
+    const wrap  = overlayEl && overlayEl.querySelector('.fp-sheet-wrap');
+    if (sheet) ['width','min-height','transform','transform-origin'].forEach(k => sheet.style.removeProperty(k));
+    if (wrap)  ['height','overflow'].forEach(k => wrap.style.removeProperty(k));
+    _fitOn = false;
+  }
+  window.addEventListener('afterprint', _fitUndo);
+
   function doPrint(){
-    window.print();
+    _fitOnePage();
+    try { window.print(); } finally { setTimeout(_fitUndo, 0); }
   }
 
   // v1.8.85: PDFダウンロード（html2pdf.js）
   // v1.8.86: A4 1枚に確実に収めるための調整
   function doPdf(){
     if (typeof html2pdf === 'undefined'){
-      if (typeof showToast === 'function') showToast('PDF生成ライブラリ未読込');
+      if (typeof showToast === 'function') showToast('PDF生成ライブラリ未読込', 'CF-4005');
       return;
     }
     const sheet = overlayEl && overlayEl.querySelector('#fp-sheet');
@@ -528,7 +595,7 @@
       .catch(err => {
         _restore();
         console.error('[forecastPrint] PDF生成エラー', err);
-        if (typeof showToast === 'function') showToast('PDF生成失敗: ' + (err.message || err));
+        if (typeof showToast === 'function') showToast('PDF生成失敗: ' + (err.message || err), 'CF-4006');
       });
   }
 
@@ -544,5 +611,6 @@
     });
   }
 
-  window.forecastPrint = { open, close, setDesign, doPrint, doPdf };
+  // _fitOnePage は自動テスト（test_forecast_print.mjs）からも呼ぶので出しておく
+  window.forecastPrint = { open, close, setDesign, doPrint, doPdf, _fitOnePage, _fitUndo };
 })();
