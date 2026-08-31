@@ -1,0 +1,13 @@
+# 🔴 ここで npm install すると 87個ほどの部品が入る。
+#    CarFlow の .gitignore は functions/node_modules/ しか外していないので、
+#    これが無いと deploy-all.ps1 の git add -A が**まるごと取り込んでしまう**。
+node_modules/
+
+# ルールの写し（ルールを試す.ps1 が走るたびに作り直す。本物は ..\firestore.rules）
+_rules-copy-autogen.rules
+
+# エミュレータの置き土産
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

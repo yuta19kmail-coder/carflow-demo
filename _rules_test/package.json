@@ -1,0 +1,13 @@
+{
+  "name": "coreflow-rules-test",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Firestore のルールを本物のエミュレータで当てる（pitCards の版番号）",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-rules-test \"node test_rules.mjs\""
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.18.0"
+  }
+}
