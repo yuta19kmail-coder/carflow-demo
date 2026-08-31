@@ -500,6 +500,21 @@
         at: Date.now()
       });
     }
+    /* 🔴🔴 2026-08-29 **PitFlow のカードは版番号（rev）で守られている。**
+       ---------------------------------------------------------
+       ◎背景（PitFlow で実際に起きた事故・2026-08-28）
+         古い画面がカードを**まるごと**書き戻して、他の人の入庫・工程・返車・売上を消した。
+         その対策として、**サーバー（Firestore のルール）が
+         「新しい版 == いまの版 + 1」でない書き込みを受け付けない**ようになった。
+       ◎ここが守られている理由
+         CarFlow は `update` で**触る欄だけ**書く（まるごと差し替えない）ので、そもそも安全。
+         それでも**版を1つ進めておかないとルールに弾かれる**ので、必ず足す。
+       ⚠ `increment` を使う＝サーバー側で「いまの版＋1」になる。
+          自分で数字を読んで書くと、読んだ後に誰かが直した時にズレる。
+       ⚠ **この行を消すと、CarFlow から PitFlow のカードに一切書けなくなる。** */
+    if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
+      patch.rev = firebase.firestore.FieldValue.increment(1);
+    }
     col.doc(id).update(patch).then(function () {
       if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
     }).catch(function (e) {
