@@ -588,7 +588,12 @@ function makeCarCard(car, isCompact) {
     if (pl) {
       const _e = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x == null ? '' : x));
       const _i = (typeof icoE === 'function') ? icoE : (x => x || '');
-      stepLine = `<div class="cc-step" title="いま進めている中タスク">
+      // 小タスクが残っている中タスクは、押すと作業管理票が開く（看板からはまとめて済にしない）
+      const _hint = pl.manual
+        ? 'この中タスクを完了にする'
+        : `作業管理票を開く（小タスクが ${pl.stepTotal - pl.stepDone} 個 残っています）`;
+      stepLine = `<div class="cc-step cc-step-btn" title="${_e(_hint)}" onclick="onKanbanStepClick(event,'${car.id}')">
+        <span class="cc-step-chk ${pl.manual ? 'manual' : ''}">${pl.manual ? '☐' : '›'}</span>
         <span class="cc-step-task">${_i(pl.taskIcon)} ${_e(pl.taskName)}</span>
         <span class="cc-step-sep">─</span>
         <span class="cc-step-name">${_e(pl.stepName)}</span>
@@ -659,6 +664,24 @@ function makeCarCard(car, isCompact) {
   });
   return div;
 }
+
+// v3.0.0 中タスク：看板のカードから中タスクを押す
+//   ・小タスクが0本の中タスク → その場で「完了」にする
+//   ・小タスクが残っている中タスク → 作業管理票を開く（看板からまとめて済にはしない）
+//     ＝ 押した気になって抜けが残る、を作らないため。
+function onKanbanStepClick(ev, carId) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  const car = (typeof cars !== 'undefined' && Array.isArray(cars)) ? cars.find(c => c && c.id === carId) : null;
+  if (!car || !window.CarStep) return;
+  const pl = window.CarStep.currentPlace(car);
+  if (!pl) return;
+  if (pl.manual) {
+    if (typeof toggleManualStep === 'function') toggleManualStep(carId, pl.taskId, pl.stepId);
+    return;
+  }
+  if (typeof openWorksheet === 'function') openWorksheet(carId, pl.taskId);
+}
+window.onKanbanStepClick = onKanbanStepClick;
 
 function handleKanbanMove(car, targetCol) {
   const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;

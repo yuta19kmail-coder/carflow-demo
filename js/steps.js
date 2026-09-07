@@ -162,7 +162,10 @@
       if (!cur) continue;
       return {
         taskId: t.id, taskName: t.name || '', taskIcon: t.icon || '',
-        stepName: cur.name, done: p.done, total: p.total, pct: p.pct,
+        stepId: cur.id, stepName: cur.name,
+        manual: !!cur.manual,             // 小タスクが0本＝その場で押せる
+        stepDone: cur.done, stepTotal: cur.total,
+        done: p.done, total: p.total, pct: p.pct,
       };
     }
     return null;

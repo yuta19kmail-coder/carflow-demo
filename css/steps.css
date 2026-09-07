@@ -109,6 +109,16 @@
 }
 .car-card.compact .cc-step{padding:2px 7px;font-size:10.5px}
 
+/* 看板のカードから中タスクを押す */
+.cc-step-btn{cursor:pointer;transition:.12s}
+.cc-step-btn:hover{background:var(--bg4);border-color:var(--border2)}
+.cc-step-btn:active{transform:scale(.99)}
+.cc-step-chk{
+  flex:0 0 auto;color:var(--text3);font-weight:800;font-size:12px;line-height:1;
+}
+.cc-step-chk.manual{color:var(--accent);font-size:13px}
+.cc-step-btn:hover .cc-step-chk{color:var(--accent)}
+
 /* ---------- 設定：中タスクの切り替え ---------- */
 .tpl-stepmode{
   display:flex;align-items:flex-start;gap:14px;
