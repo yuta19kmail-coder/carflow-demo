@@ -581,6 +581,22 @@ function makeCarCard(car, isCompact) {
     }
   }
 
+  // v3.0.0 中タスク：いまどこにいるかを1行で出す（例＝整備 ─ 作業）
+  let stepLine = '';
+  if (window.CarStep && window.CarStep.currentPlace) {
+    const pl = window.CarStep.currentPlace(car);
+    if (pl) {
+      const _e = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x == null ? '' : x));
+      const _i = (typeof icoE === 'function') ? icoE : (x => x || '');
+      stepLine = `<div class="cc-step" title="いま進めている中タスク">
+        <span class="cc-step-task">${_i(pl.taskIcon)} ${_e(pl.taskName)}</span>
+        <span class="cc-step-sep">─</span>
+        <span class="cc-step-name">${_e(pl.stepName)}</span>
+        <span class="cc-step-count">${pl.done}/${pl.total}</span>
+      </div>`;
+    }
+  }
+
   const div = document.createElement('div');
   div.className = 'car-card' + (isCompact ? ' compact' : '');
   div.draggable = true;
@@ -623,6 +639,7 @@ function makeCarCard(car, isCompact) {
         <div class="cc-pct-wrap"><span class="cc-pct">${prog.pct}%</span><span class="cc-pct-label">全体進捗</span></div>
         <div class="cc-dots">${dots}</div>
       </div>
+      ${stepLine}
     </div>
     ${bottomBar}`;
   div.addEventListener('dragstart', () => { dragCard = car; div.classList.add('dragging'); });

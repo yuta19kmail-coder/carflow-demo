@@ -999,6 +999,8 @@
 
       ${variantBarHtml}
 
+      ${_renderStepModeBar(tpl)}
+
       <div class="tpl-detail-toolbar">
         <!-- v1.6.2: テンプレ名はタスク一覧側で扱うので削除。代わりにプレビュー / インポート/エクスポートを追加 -->
         <!-- v1.7.19: 表示スタイルボタンは廃止（中身の構造で自動決定） -->
@@ -1026,6 +1028,68 @@
       </div>
     `;
   }
+
+  // -----------------------------------------
+  // v3.0.0 中タスク：この大タスクを「順番に進める」にするかの切り替え
+  //   ONにすると、中カテゴリが上から順の「中タスク」になる。
+  //   入れ物は今までのまま＝追加・改名・並び替え・小タスクの引っ越しは既存の操作でできる。
+  // -----------------------------------------
+  function _renderStepModeBar(tpl) {
+    const on = !!tpl.stepMode;
+    const secs = (tpl.sections || []);
+    const names = secs.map((sec, i) =>
+      (sec.title && sec.title.trim()) || (sec.tab && sec.tab.trim()) || ('中タスク' + (i + 1)));
+    const flow = (on && names.length)
+      ? `<div class="tpl-stepmode-flow">${names.map(n => `<span>${_esc(n)}</span>`).join('<i>›</i>')}</div>`
+      : '';
+    const warn = (on && !names.length)
+      ? `<div class="tpl-stepmode-warn">中カテゴリが1つもありません。下の「+ 中カテゴリ追加（タブなし）」で足してください。</div>`
+      : '';
+    const emptySteps = on ? secs.filter(sec => !((sec.items || []).filter(i => !i._disabled).length)).length : 0;
+    const emptyNote = (on && emptySteps > 0)
+      ? `<div class="tpl-stepmode-note">小タスクが0個の中タスクが ${emptySteps} 個あります。作業画面では「完了にする」ボタンで押します。</div>`
+      : '';
+    return `
+      <div class="tpl-stepmode ${on ? 'on' : ''}">
+        <div class="tpl-stepmode-main">
+          <div class="tpl-stepmode-title">${ic('list','📋',16)} 中タスクとして順番に進める</div>
+          <div class="tpl-stepmode-desc">
+            ONにすると、下の<b>中カテゴリ</b>が上から順の「<b>中タスク</b>」になります。<br>
+            <b>前の中タスクが終わるまで、次は押せません。</b>進み具合は<b>中タスクの数</b>で数えます（小タスクの数ではありません）。<br>
+            <span class="tpl-stepmode-sub">例）整備 → 点検 ▸ 見積 ▸ 作業</span>
+            ${flow}${warn}${emptyNote}
+          </div>
+        </div>
+        <button class="btn-sm ${on ? 'btn-primary' : ''}" onclick="toggleTemplateStepMode('${_esc(tpl.id)}')">
+          ${on ? 'ON' : 'OFF'}
+        </button>
+      </div>`;
+  }
+
+  async function toggleTemplateStepMode(tplId) {
+    const tpl = _getTpl(tplId);
+    if (!tpl) return;
+    const next = !tpl.stepMode;
+    if (next) {
+      const secs = (tpl.sections || []);
+      if (!secs.length) {
+        _toast('先に中カテゴリを1つ以上作ってください');
+        return;
+      }
+      if (!confirm(`「${tpl.name || 'この大タスク'}」を中タスクとして順番に進めますか？\n\n`
+        + `・中カテゴリ ${secs.length} 個が、上から順の中タスクになります\n`
+        + `・前の中タスクが終わるまで、次は押せなくなります\n`
+        + `・進み具合は「済んだ中タスクの数 ÷ ${secs.length}」で出ます\n\n`
+        + `※ 入れてあるチェックは1つも消えません。OFFに戻せば元どおりです。`)) return;
+    }
+    tpl.stepMode = next;
+    if (await _saveTpl(tpl)) {
+      _toast(next ? '中タスクとして順番に進めます' : '中タスクをやめました（今までどおり）');
+      _renderDetail();
+      if (typeof renderAll === 'function') renderAll();
+    }
+  }
+  window.toggleTemplateStepMode = toggleTemplateStepMode;
 
   // v1.7.20: tpl.sections を「大カテゴリ（tab）」でグループ化（出現順）。
   function _buildTabGroups(tpl) {
