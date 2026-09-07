@@ -423,63 +423,48 @@ function _renderWsSections(car, taskDef, sections) {
   }).join('');
 }
 
-// v3.0.0 中タスク：上から順に並べる。前が済むまで、次は開かない・押せない。
+// 🔴 v3.0.0 中タスク：作業管理票は「いま手をつける中タスク」の小タスクだけを出す。
+//   ・並べて全部見せない。順番に進めるものなので、いまの1つだけに集中させる
+//   ・全部チェックし終わったら、この画面は自動で閉じて次の中タスクへ移る
 function _renderWsStepsHtml(car, taskDef, steps) {
-  const doneCount = steps.filter(s => s.isDone).length;
-  const head = `
-    <div class="ws-steps-head">
-      <span class="ws-steps-label">中タスク</span>
-      <span class="ws-steps-count">${doneCount} / ${steps.length}</span>
-      <span class="ws-steps-hint">上から順に進めます。前が終わるまで次は開きません</span>
-    </div>`;
+  var cur = null;
+  for (var i = 0; i < steps.length; i++) { if (!steps[i].isDone) { cur = steps[i]; break; } }
+  var doneCount = steps.filter(function (s) { return s.isDone; }).length;
 
-  const rows = steps.map(st => {
-    const stateCls = st.isDone ? 'done' : (st.locked ? 'locked' : 'now');
-    const mark = st.isDone
-      ? '<span class="ws-step-mark done">' + ic('check', '✓', 15) + '</span>'
-      : (st.locked
-          ? '<span class="ws-step-mark locked">' + ic('lock', '🔒', 14) + '</span>'
-          : '<span class="ws-step-mark now"></span>');
-    // 開くのは「いま手をつける中タスク」だけ。済んだものは開閉できる。
-    const isOpen = st.locked ? false
-      : (st.isDone ? !!_wsOpenSections[st.id] : (_wsOpenSections[st.id] !== false));
-    const countText = st.manual
-      ? (st.isDone ? '完了' : '未完了')
-      : `${st.done}/${st.total}`;
+  var head = '<div class="ws-steps-head">'
+    + '<span class="ws-steps-label">中タスク</span>'
+    + '<span class="ws-steps-count">' + doneCount + ' / ' + steps.length + '</span>'
+    + '<span class="ws-steps-hint">'
+    + (cur ? '上から順に進めます。いまは「' + escapeHtml(cur.name) + '」' : 'ぜんぶ完了しました')
+    + '</span></div>';
 
-    let inner = '';
-    if (st.locked) {
-      inner = `<div class="ws-step-locked-note">${ic('lock','🔒',14)} ${escapeHtml(window.CarStep.lockReason(st))}押せます</div>`;
-    } else if (isOpen) {
-      if (st.manual) {
-        inner = `
-          <div class="ws-step-manual">
-            <div class="ws-step-manual-note">この中タスクには小タスクがありません。終わったらここを押してください。</div>
-            <button class="btn-sm ${st.isDone ? '' : 'btn-primary'}"
-                    onclick="toggleManualStep('${escapeHtml(car.id)}','${escapeHtml(taskDef.id)}','${escapeHtml(st.id)}')">
-              ${st.isDone ? '未完了に戻す' : '完了にする'}
-            </button>
-          </div>`;
-      } else {
-        inner = st.items.map(item => _renderWsItemHtml(car, taskDef, item)).join('');
-      }
-    }
+  // 進んだところを小さく並べて出す（点検 › 見積 › 作業）
+  var flow = '<div class="ws-steps-flow">' + steps.map(function (s) {
+    var cls = s.isDone ? 'done' : (cur && cur.id === s.id ? 'now' : '');
+    return '<span class="ws-flow-chip ' + cls + '">' + (s.isDone ? '✓ ' : '') + escapeHtml(s.name) + '</span>';
+  }).join('<i>›</i>') + '</div>';
 
-    return `
-      <div class="ws-step ${stateCls}" data-section-id="${escapeHtml(st.id)}" data-open="${isOpen ? 1 : 0}">
-        <div class="ws-step-head" ${st.locked ? '' : `onclick="toggleWsSection('${escapeHtml(st.id)}')"`}>
-          ${mark}
-          <span class="ws-step-num">${String(st.index + 1).padStart(2, '0')}</span>
-          ${st.icon ? `<span class="ws-step-icon">${icoE(escapeHtml(st.icon))}</span>` : ''}
-          <span class="ws-step-name">${escapeHtml(st.name)}</span>
-          <span class="ws-step-count">${countText}</span>
-          ${st.locked ? '' : `<span class="ws-step-toggle">${isOpen ? ic('chevUp','▲',14) : ic('chevDown','▼',14)}</span>`}
-        </div>
-        <div class="ws-step-body">${inner}</div>
-      </div>`;
-  }).join('');
-
-  return head + `<div class="ws-steps">${rows}</div>`;
+  if (!cur) {
+    return head + flow + '<div class="ws-step-alldone">'
+      + ic('check', '✓', 20) + ' この大タスクはぜんぶ完了しました</div>';
+  }
+  if (cur.manual) {
+    return head + flow
+      + '<div class="ws-step ' + 'now' + '"><div class="ws-step-body"><div class="ws-step-manual">'
+      + '<div class="ws-step-manual-note">「' + escapeHtml(cur.name) + '」には小タスクがありません。'
+      + '終わったらここか、車両詳細の丸を押してください。</div>'
+      + '<button class="btn-sm btn-primary" onclick="toggleManualStep(\'' + escapeHtml(car.id) + '\',\''
+      + escapeHtml(taskDef.id) + '\',\'' + escapeHtml(cur.id) + '\')">完了にする</button>'
+      + '</div></div></div>';
+  }
+  return head + flow
+    + '<div class="ws-step now"><div class="ws-step-head-plain">'
+    + (cur.icon ? '<span class="ws-step-icon">' + icoE(escapeHtml(cur.icon)) + '</span>' : '')
+    + '<span class="ws-step-name">' + escapeHtml(cur.name) + '</span>'
+    + '<span class="ws-step-count">' + cur.done + '/' + cur.total + '</span></div>'
+    + '<div class="ws-step-body">'
+    + cur.items.map(function (item) { return _renderWsItemHtml(car, taskDef, item); }).join('')
+    + '</div></div>';
 }
 
 // v3.0.0 中タスク：外から作業管理票を描き直す（中タスクを押した後など）
@@ -853,10 +838,16 @@ window.onWsTextInput = onWsTextInput;
 
 // v1.7.14: 値変更を一元化（updater は現在値を受け取り新値を返す関数。null/false/'' は未入力扱い）
 // v1.8.0: 項目単位保存（saveCarField）。他のスタッフが同じ車・別項目を触っても消えない。
+let _wsBeforeStepId = null, _wsBeforeStepName = '';
 function _wsSetItemValue(itemId, updater) {
   const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
+  _wsBeforeStepId = null; _wsBeforeStepName = '';
+  if (window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase)) {
+    const _b = window.CarStep.currentStep(car, taskDef.id, _wsActivePhase);
+    if (_b) { _wsBeforeStepId = _b.id; _wsBeforeStepName = _b.name; }
+  }
   // 🔴 v3.0.0 中タスク：前の中タスクが終わっていない所は書かせない
   if (window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase)) {
     const st = window.CarStep.stepOfItem(car, taskDef.id, _wsActivePhase, itemId);
@@ -898,6 +889,19 @@ function _wsSetItemValue(itemId, updater) {
   _refreshWsCompleteBtn(car, taskDef);
   // v1.8.49: 背面の kanban / 進捗% / dot もリアルタイムに更新（閉じる時の renderAll を待たない）
   if (typeof renderAll === 'function') renderAll();
+
+  // 🔴 v3.0.0 中タスク：いまの中タスクが終わったら、この画面は閉じて次へ移る
+  if (window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase)) {
+    const _now = window.CarStep.currentStep(car, taskDef.id, _wsActivePhase);
+    if (!_now || _now.id !== _wsBeforeStepId) {
+      if (typeof showToast === 'function') {
+        showToast(_now ? `「${_wsBeforeStepName}」完了 → つぎは「${_now.name}」` : 'ぜんぶ完了しました');
+      }
+      closeWorksheet();
+      return;
+    }
+    _renderWorksheetPage(car, taskDef);
+  }
 }
 
 function _wsFindItem(taskDef, itemId) {

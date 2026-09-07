@@ -676,7 +676,8 @@ function onKanbanStepClick(ev, carId) {
   const pl = window.CarStep.currentPlace(car);
   if (!pl) return;
   if (pl.manual) {
-    if (typeof toggleManualStep === 'function') toggleManualStep(carId, pl.taskId, pl.stepId);
+    if (typeof advanceStep === 'function') advanceStep(carId, pl.taskId);
+    else if (typeof toggleManualStep === 'function') toggleManualStep(carId, pl.taskId, pl.stepId);
     return;
   }
   if (typeof openWorksheet === 'function') openWorksheet(carId, pl.taskId);
