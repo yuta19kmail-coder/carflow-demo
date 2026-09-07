@@ -633,6 +633,11 @@ window.openTaskMenu = function (taskId, phase) {
   const memoCfg          = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, phase) : { type: 'off', label: '' };
   // v2.8.0: 完了時LINE通知 ON/OFF（既定 ON）
   const currentNotify    = (typeof isTaskNotifyEnabled === 'function') ? !!isTaskNotifyEnabled(taskId, phase) : true;
+  // v3.0.0 中タスク：この大タスクを「中タスクとして順番に進める」か
+  const _stepTpl = (typeof ChecklistTemplates !== 'undefined' && typeof templateIdForTask === 'function')
+    ? ChecklistTemplates[templateIdForTask(taskId, phase)] : null;
+  const currentStepMode  = !!(_stepTpl && _stepTpl.stepMode);
+  const stepSectionCount = _stepTpl && Array.isArray(_stepTpl.sections) ? _stepTpl.sections.length : 0;
 
   window._taskSettingsModal = {
     taskId, phase,
@@ -646,6 +651,8 @@ window.openTaskMenu = function (taskId, phase) {
     memoType: memoCfg.type || 'off',
     memoLabel: memoCfg.label || '',
     notify: currentNotify,
+    stepMode: currentStepMode,
+    stepSectionCount: stepSectionCount,
     _initial: {
       enabled: currentEnabled,
       optional: currentOptional,
@@ -655,6 +662,7 @@ window.openTaskMenu = function (taskId, phase) {
       memoType: memoCfg.type || 'off',
       memoLabel: memoCfg.label || '',
       notify: currentNotify,
+      stepMode: currentStepMode,
     },
   };
 
@@ -744,6 +752,21 @@ function _renderTaskSettingsForm() {
       </div>`;
   }
 
+  // 3.5 v3.0.0 中タスク制（小タスク制の下に置く＝段の順に並べる）
+  if (s.hasChecklist) {
+    const stepDesc = s.stepMode
+      ? `✅ ON です。中カテゴリ ${s.stepSectionCount} 個が、上から順の中タスクになります。前が終わるまで次は押せません`
+      : `中カテゴリを「点検 ▸ 見積 ▸ 作業」のような<b>順番に進める中タスク</b>にします。進み具合は中タスクの数で数えます`;
+    html += row('中タスク制（順番に進める）', stepDesc, toggleHtml('stepMode', s.stepMode));
+    if (s.stepMode && s.stepSectionCount === 0) {
+      html += `
+        <div class="ts-row ts-row-sub">
+          <div class="ts-row-left"><div class="ts-row-desc">${ic('warn','⚠',15)} 中カテゴリが1つもありません。「タスクパターンを編集」で先に作ってください</div></div>
+          <div class="ts-row-control"></div>
+        </div>`;
+    }
+  }
+
   // 4. 選択制
   if (!s.isAutoTask) {
     html += row('選択制にする', 'ONにすると、車ごとに「使う／使わない」を選べる任意タスクになります（既定OFF＝全車に表示）', toggleHtml('optional', s.optional));
@@ -824,6 +847,21 @@ window._toggleTaskSettingsField = function (key, forceValue) {
     }
     s[key] = false;
   } else {
+    // v3.0.0 中タスク：ONにする前に、何が起きるかを見せてから確かめる
+    if (key === 'stepMode' && !s.stepMode) {
+      if (!s.stepSectionCount) {
+        if (typeof showToast === 'function') {
+          showToast('先に「タスクパターンを編集」で中カテゴリを作ってください', 'CF-1009');
+        }
+        return;
+      }
+      const n = s.stepSectionCount;
+      if (!confirm('中タスク制を ON にしますか？\n\n'
+        + '・中カテゴリ ' + n + ' 個が、上から順の「中タスク」になります\n'
+        + '・前の中タスクが終わるまで、次は押せなくなります\n'
+        + '・進み具合は「済んだ中タスクの数 ÷ ' + n + '」で出ます\n\n'
+        + '※ 入れてあるチェックは1つも消えません。OFFに戻せば元どおりです。')) return;
+    }
     s[key] = !s[key];
   }
   _renderTaskSettingsForm();
@@ -888,6 +926,21 @@ window.saveTaskSettingsModal = async function () {
       await toggleTaskChecklist(taskId, phase, !!s.hasChecklist);
     }
     changed = true;
+  }
+
+  // 3.5 中タスク制（v3.0.0）：テンプレ側に印を付ける
+  if (s.hasChecklist && s.stepMode !== init.stepMode) {
+    const tplId = (typeof templateIdForTask === 'function') ? templateIdForTask(taskId, phase) : null;
+    const tpl = (tplId && typeof ChecklistTemplates !== 'undefined') ? ChecklistTemplates[tplId] : null;
+    if (tpl) {
+      tpl.stepMode = !!s.stepMode;
+      if (window.dbTemplates && window.dbTemplates.saveTemplate) {
+        try { await window.dbTemplates.saveTemplate(tpl); } catch (e) { console.error('[中タスク] 保存に失敗', e); }
+      }
+      changed = true;
+    } else if (typeof showToast === 'function') {
+      showToast('先に「タスクパターンを編集」で中カテゴリを作ってください', 'CF-1009');
+    }
   }
 
   // 4. 選択制
