@@ -633,10 +633,12 @@ window.openTaskMenu = function (taskId, phase) {
   const memoCfg          = (typeof getTaskMemoConfig === 'function') ? getTaskMemoConfig(taskId, phase) : { type: 'off', label: '' };
   // v2.8.0: 完了時LINE通知 ON/OFF（既定 ON）
   const currentNotify    = (typeof isTaskNotifyEnabled === 'function') ? !!isTaskNotifyEnabled(taskId, phase) : true;
-  // v3.0.0 中タスク：この大タスクを「中タスクとして順番に進める」か
+  // v3.0.0：この大タスクを「どこまで使うか」（大タスク / 中タスク / 小タスク / 中→小タスク）
   const _stepTpl = (typeof ChecklistTemplates !== 'undefined' && typeof templateIdForTask === 'function')
     ? ChecklistTemplates[templateIdForTask(taskId, phase)] : null;
-  const currentStepMode  = !!(_stepTpl && _stepTpl.stepMode);
+  const currentLevel = (window.CarStep && window.CarStep.levelOf)
+    ? window.CarStep.levelOf(taskId, phase)
+    : (currentChecklist ? 'item' : 'task');
   const stepSectionCount = _stepTpl && Array.isArray(_stepTpl.sections) ? _stepTpl.sections.length : 0;
 
   window._taskSettingsModal = {
@@ -651,7 +653,7 @@ window.openTaskMenu = function (taskId, phase) {
     memoType: memoCfg.type || 'off',
     memoLabel: memoCfg.label || '',
     notify: currentNotify,
-    stepMode: currentStepMode,
+    level: currentLevel,
     stepSectionCount: stepSectionCount,
     _initial: {
       enabled: currentEnabled,
@@ -662,7 +664,7 @@ window.openTaskMenu = function (taskId, phase) {
       memoType: memoCfg.type || 'off',
       memoLabel: memoCfg.label || '',
       notify: currentNotify,
-      stepMode: currentStepMode,
+      level: currentLevel,
     },
   };
 
@@ -722,49 +724,51 @@ function _renderTaskSettingsForm() {
       </div>`;
   }
 
-  // 3. 小タスク制
-  if (s.canToggleChecklist) {
-    // v2.5.9: ON↔OFF 両方向に切替可。OFFにしてもパターンは Firestore 上に保持される
-    const desc = s.hasChecklist
-      ? '✅ ON です。OFFに戻してもパターンは保持されます'
-      : 'カード詳細で小タスクが展開されるようになります';
-    const togHtml = s.hasChecklist
-      ? `<div class="toggle on" onclick="_toggleTaskSettingsField('hasChecklist', false)" role="switch" aria-checked="true"></div>`
-      : `<div class="toggle" onclick="_toggleTaskSettingsField('hasChecklist', true)" role="switch" aria-checked="false"></div>`;
-    html += row('小タスク制（チェックリスト化）', desc, togHtml);
-    html += `
-      <div class="ts-row ts-row-sub">
-        <div class="ts-row-left"></div>
-        <div class="ts-row-control">
-          <button class="btn-sm" onclick="_openPatternsFromTaskSettings()">${ic('box','📦',16)} タスクパターンを編集（別画面）</button>
-        </div>
-      </div>`;
+  // 3. v3.0.0：この大タスクを「どこまで使うか」（大 / 中 / 小 / 中→小）
+  //    ⚠ 中タスクは「小タスクを持てる」だけ。持たない使い方（中タスクだけ）も選べる。
+  if (!s.isAutoTask) {
+    const LV = [
+      { v: 'task',      label: '大タスク（スイッチだけ）',     desc: 'このタスクは「完了」を押すだけ。中タスクも小タスクも出しません' },
+      { v: 'step',      label: '中タスク',                     desc: '「点検 ▸ 見積 ▸ 作業」のように順番に進めます。小タスクは使いません' },
+      { v: 'item',      label: '小タスク',                     desc: '今までのチェックリスト。項目を上から埋めていきます' },
+      { v: 'step_item', label: '中→小タスク',                  desc: '中タスクの下に小タスクがぶら下がります。中タスクの小タスクが全部済むと、次の中タスクへ' },
+    ];
+    const cur = LV.find(x => x.v === s.level) || LV[2];
+    const opts = LV.map(x => {
+      // 保護タスク（装備品・登録内容設定など）は「大タスク（スイッチだけ）」に戻せない
+      const dis = (x.v === 'task' && !s.canToggleChecklist) ? ' disabled' : '';
+      return `<option value="${x.v}"${s.level === x.v ? ' selected' : ''}${dis}>${x.label}</option>`;
+    }).join('');
+    const selHtml = `<select class="settings-input" style="min-width:190px"
+        onchange="_setTaskLevel(this.value)">${opts}</select>`;
+    html += row('このタスクの作り', cur.desc, selHtml);
+
+    // 中タスクを使う時の注意と、パターン編集への入口
+    const usesStep = (s.level === 'step' || s.level === 'step_item');
+    let sub = '';
+    if (usesStep && s.stepSectionCount === 0) {
+      sub = `<div class="ts-row-desc">${ic('warn','⚠',15)} 中タスクが1つもありません。「タスクパターンを編集」で作ってください</div>`;
+    } else if (usesStep) {
+      sub = `<div class="ts-row-desc">中タスクは ${s.stepSectionCount} 個。<b>前が終わるまで次は押せません。</b>進み具合は中タスクの数で数えます</div>`;
+    }
+    if (s.level !== 'task') {
+      html += `
+        <div class="ts-row ts-row-sub">
+          <div class="ts-row-left">${sub}</div>
+          <div class="ts-row-control">
+            <button class="btn-sm" onclick="_openPatternsFromTaskSettings()">${ic('box','📦',16)} タスクパターンを編集（別画面）</button>
+          </div>
+        </div>`;
+    }
   } else if (s.hasChecklist) {
     html += `
       <div class="ts-row">
         <div class="ts-row-left">
-          <div class="ts-row-label">小タスク制（チェックリスト化）</div>
-          <div class="ts-row-desc">${ic('lock','🔒',15)} このタスクはチェックリスト固定です</div>
+          <div class="ts-row-label">このタスクの作り</div>
+          <div class="ts-row-desc">${ic('lock','🔒',15)} このタスクは自動判定です</div>
         </div>
-        <div class="ts-row-control">
-          <button class="btn-sm" onclick="_openPatternsFromTaskSettings()">${ic('box','📦',16)} タスクパターンを編集</button>
-        </div>
+        <div class="ts-row-control"></div>
       </div>`;
-  }
-
-  // 3.5 v3.0.0 中タスク制（小タスク制の下に置く＝段の順に並べる）
-  if (s.hasChecklist) {
-    const stepDesc = s.stepMode
-      ? `✅ ON です。中カテゴリ ${s.stepSectionCount} 個が、上から順の中タスクになります。前が終わるまで次は押せません`
-      : `中カテゴリを「点検 ▸ 見積 ▸ 作業」のような<b>順番に進める中タスク</b>にします。進み具合は中タスクの数で数えます`;
-    html += row('中タスク制（順番に進める）', stepDesc, toggleHtml('stepMode', s.stepMode));
-    if (s.stepMode && s.stepSectionCount === 0) {
-      html += `
-        <div class="ts-row ts-row-sub">
-          <div class="ts-row-left"><div class="ts-row-desc">${ic('warn','⚠',15)} 中カテゴリが1つもありません。「タスクパターンを編集」で先に作ってください</div></div>
-          <div class="ts-row-control"></div>
-        </div>`;
-    }
   }
 
   // 4. 選択制
@@ -832,6 +836,37 @@ window._setTaskSettingsField = function (key, value) {
   s[key] = value;
 };
 
+// v3.0.0：このタスクの作り（大 / 中 / 小 / 中→小）を選ぶ
+window._setTaskLevel = function (v) {
+  const s = window._taskSettingsModal;
+  if (!s) return;
+  const before = s.level;
+  if (v === before) return;
+  const usesStep = (v === 'step' || v === 'step_item');
+  if (usesStep && !s.stepSectionCount) {
+    if (typeof showToast === 'function') {
+      showToast('先に「タスクパターンを編集」で中タスクを作ってください', 'CF-1009');
+    }
+    _renderTaskSettingsForm();
+    return;
+  }
+  if (usesStep) {
+    const n = s.stepSectionCount;
+    const msg = (v === 'step')
+      ? `「中タスク」にしますか？\n\n・中タスク ${n} 個を、上から順に押していく形になります\n・小タスクは使いません（中タスクを直接「完了にする」で押します）\n・前の中タスクが終わるまで、次は押せません\n\n※ 入れてあるチェックは1つも消えません。戻せば元どおりです。`
+      : `「中→小タスク」にしますか？\n\n・中タスク ${n} 個が、上から順に並びます\n・それぞれの中タスクの下に、小タスクがぶら下がります\n・前の中タスクが終わるまで、次は押せません\n・進み具合は「済んだ中タスクの数 ÷ ${n}」で出ます\n\n※ 入れてあるチェックは1つも消えません。戻せば元どおりです。`;
+    if (!confirm(msg)) { _renderTaskSettingsForm(); return; }
+  }
+  if (v === 'task' && before !== 'task') {
+    if (!confirm('「大タスク（スイッチだけ）」に戻しますか？\n\nカード詳細では「完了」を押すだけになります。\n中タスク・小タスクの中身は消えないので、戻せばそのまま使えます。')) {
+      _renderTaskSettingsForm(); return;
+    }
+  }
+  s.level = v;
+  s.hasChecklist = (v !== 'task');
+  _renderTaskSettingsForm();
+};
+
 window._toggleTaskSettingsField = function (key, forceValue) {
   const s = window._taskSettingsModal;
   if (!s) return;
@@ -847,21 +882,6 @@ window._toggleTaskSettingsField = function (key, forceValue) {
     }
     s[key] = false;
   } else {
-    // v3.0.0 中タスク：ONにする前に、何が起きるかを見せてから確かめる
-    if (key === 'stepMode' && !s.stepMode) {
-      if (!s.stepSectionCount) {
-        if (typeof showToast === 'function') {
-          showToast('先に「タスクパターンを編集」で中カテゴリを作ってください', 'CF-1009');
-        }
-        return;
-      }
-      const n = s.stepSectionCount;
-      if (!confirm('中タスク制を ON にしますか？\n\n'
-        + '・中カテゴリ ' + n + ' 個が、上から順の「中タスク」になります\n'
-        + '・前の中タスクが終わるまで、次は押せなくなります\n'
-        + '・進み具合は「済んだ中タスクの数 ÷ ' + n + '」で出ます\n\n'
-        + '※ 入れてあるチェックは1つも消えません。OFFに戻せば元どおりです。')) return;
-    }
     s[key] = !s[key];
   }
   _renderTaskSettingsForm();
@@ -920,27 +940,26 @@ window.saveTaskSettingsModal = async function () {
     }
   }
 
-  // 3. 小タスク制（v2.5.9: OFF↔ON 両方向対応）
-  if (s.canToggleChecklist && init.hasChecklist !== s.hasChecklist) {
-    if (typeof toggleTaskChecklist === 'function') {
-      await toggleTaskChecklist(taskId, phase, !!s.hasChecklist);
+  // 3. v3.0.0：このタスクの作り（大 / 中 / 小 / 中→小）
+  if (s.level !== init.level) {
+    const wantChecklist = (s.level !== 'task');
+    if (s.canToggleChecklist && (init.level === 'task') !== (s.level === 'task')) {
+      if (typeof toggleTaskChecklist === 'function') {
+        await toggleTaskChecklist(taskId, phase, wantChecklist);
+      }
+    }
+    if (wantChecklist) {
+      const tplId = (typeof templateIdForTask === 'function') ? templateIdForTask(taskId, phase) : null;
+      const tpl = (tplId && typeof ChecklistTemplates !== 'undefined') ? ChecklistTemplates[tplId] : null;
+      if (tpl) {
+        tpl.taskLevel = s.level;              // 'item' / 'step' / 'step_item'
+        delete tpl.stepMode;                  // v2.52 の古い印はもう使わない
+        if (window.dbTemplates && window.dbTemplates.saveTemplate) {
+          try { await window.dbTemplates.saveTemplate(tpl); } catch (e) { console.error('[タスクの作り] 保存に失敗', e); }
+        }
+      }
     }
     changed = true;
-  }
-
-  // 3.5 中タスク制（v3.0.0）：テンプレ側に印を付ける
-  if (s.hasChecklist && s.stepMode !== init.stepMode) {
-    const tplId = (typeof templateIdForTask === 'function') ? templateIdForTask(taskId, phase) : null;
-    const tpl = (tplId && typeof ChecklistTemplates !== 'undefined') ? ChecklistTemplates[tplId] : null;
-    if (tpl) {
-      tpl.stepMode = !!s.stepMode;
-      if (window.dbTemplates && window.dbTemplates.saveTemplate) {
-        try { await window.dbTemplates.saveTemplate(tpl); } catch (e) { console.error('[中タスク] 保存に失敗', e); }
-      }
-      changed = true;
-    } else if (typeof showToast === 'function') {
-      showToast('先に「タスクパターンを編集」で中カテゴリを作ってください', 'CF-1009');
-    }
   }
 
   // 4. 選択制

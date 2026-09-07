@@ -38,10 +38,31 @@
     return ChecklistTemplates[id] || null;
   }
 
-  // この大タスクは「中タスクとして順番に進める」になっているか
-  function isStepMode(taskId, phase) {
+  // 🔴 この大タスクを「どこまで使うか」＝設定のプルダウンで選ぶ4つ
+  //   'task'      … 大タスク（スイッチだけ。中も小も無し）
+  //   'step'      … 中タスク（順番に進める中タスクだけ。小タスクは使わない）
+  //   'item'      … 小タスク（今までのチェックリスト。中タスクは使わない）
+  //   'step_item' … 中→小タスク（中タスクの下に小タスクがぶら下がる）
+  // ⚠ 中タスクは「小タスクを持てる」だけで、持たなくてもよい。
+  function levelOf(taskId, phase) {
+    // まず「大タスクだけ」かどうかは、今までの小タスク制の設定で決まる
+    if (typeof hasTaskChecklist === 'function' && !hasTaskChecklist(taskId, phase)) return 'task';
     const t = _tplOf(taskId, phase);
-    return !!(t && t.stepMode);
+    if (!t) return 'item';
+    if (t.taskLevel === 'step' || t.taskLevel === 'step_item' || t.taskLevel === 'item') return t.taskLevel;
+    if (t.stepMode) return 'step_item';        // v2.52 の古い印からの読み替え
+    return 'item';
+  }
+
+  // この大タスクは中タスクを使うか
+  function isStepMode(taskId, phase) {
+    const lv = levelOf(taskId, phase);
+    return lv === 'step' || lv === 'step_item';
+  }
+
+  // 中タスクの下に小タスクを持つか
+  function usesItems(taskId, phase) {
+    return levelOf(taskId, phase) !== 'step';
   }
 
   function _sectionsOf(car, taskId, phase) {
@@ -76,11 +97,14 @@
     const st = bucket[taskId];
     const map = (st && typeof st === 'object') ? st : {};
 
+    // 「中タスクだけ」の時は、小タスクを持っていても使わない＝全部が手で押す中タスクになる
+    const useItems = usesItems(taskId, phase);
+
     const out = [];
     let prevDone = true;
     let prevName = '';
     secs.forEach((sec, i) => {
-      const items = (sec.items || []).filter(it => it && !it._disabled);
+      const items = useItems ? (sec.items || []).filter(it => it && !it._disabled) : [];
       let done = 0;
       items.forEach(it => { if (map[it.id]) done++; });
       const manual = (items.length === 0);
@@ -216,6 +240,8 @@
   }
 
   window.CarStep = {
+    levelOf: levelOf,
+    usesItems: usesItems,
     isStepMode: isStepMode,
     stepsOf: stepsOf,
     progOf: progOf,
