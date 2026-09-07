@@ -1771,3 +1771,54 @@ function onBoardLabelChange(colorKey, value) {
   if (window.saveSettings) saveSettings();
   if (typeof renderBoardNotes === 'function') renderBoardNotes();
 }
+
+
+// ========================================
+// v2.51.1: 体験版（デモ）サイト
+// ----------------------------------------
+// 本番とまったく同じ画面を、ぜんぶサンプルの車で試せる場所。
+// 中身は本番を出すたびに make-demo-carflow.ps1 が作り直すので、いつも本番と同じ版。
+// 🔴 体験版の中では、このカードを出さない（自分自身へのリンクになってしまうため）。
+// ========================================
+const CF_DEMO_SITE_URL = 'https://yuta19kmail-coder.github.io/carflow-demo/';
+
+function openDemoSite() {
+  window.open(CF_DEMO_SITE_URL, '_blank', 'noopener');
+}
+
+async function copyDemoSiteUrl() {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(CF_DEMO_SITE_URL);
+    } else {
+      // 古いブラウザ・非セキュアな接続むけの逃げ道
+      const ta = document.createElement('textarea');
+      ta.value = CF_DEMO_SITE_URL;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if (typeof showToast === 'function') showToast('体験版のリンクをコピーしました');
+  } catch (e) {
+    console.error('[demo-site] コピーに失敗', e);
+    if (typeof showToast === 'function') showToast('コピーできませんでした。表示されているリンクを手で選んでください', 'CF-1007');
+  }
+}
+window.openDemoSite = openDemoSite;
+window.copyDemoSiteUrl = copyDemoSiteUrl;
+
+function _setupDemoSiteCard() {
+  const card = document.getElementById('settings-card-demo');
+  if (!card) return;
+  if (window.__DEMO_MODE === true) { card.style.display = 'none'; return; }
+  const label = document.getElementById('demo-site-url');
+  if (label && !label.textContent) label.textContent = CF_DEMO_SITE_URL;
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _setupDemoSiteCard);
+} else {
+  _setupDemoSiteCard();
+}
