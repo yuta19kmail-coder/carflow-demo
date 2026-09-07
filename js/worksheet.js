@@ -49,18 +49,24 @@ function _wsIsArchived(car) {
   if (!car) return false;
   return (typeof archivedCars !== 'undefined' && archivedCars && archivedCars.includes(car));
 }
-// 保存：archived なら saveArchivedCarById、cars なら saveCarField/saveCarById
+// 保存：在庫の車も、締めた過去の車も「押した1点だけ」を送る
+// v3.0.0 下ごしらえ：過去の車はこれまで中身をまるごと送っていた（2人で開くと巻き戻る）。
+//   場所が分かっている時は、過去の車でも1点だけ送るようにした。
 function _wsSaveCar(car, fieldPath, value) {
   if (!car) return;
-  if (_wsIsArchived(car)) {
+  const archived = _wsIsArchived(car);
+  if (fieldPath) {
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(car.id, archived, [{ path: fieldPath, value: value }]);
+      return;
+    }
+    if (!archived && window.saveCarField) { window.saveCarField(car.id, fieldPath, value); return; }
+  }
+  if (archived) {
     if (window.saveArchivedCarById) window.saveArchivedCarById(car.id);
     return;
   }
-  if (fieldPath && window.saveCarField) {
-    window.saveCarField(car.id, fieldPath, value);
-  } else if (window.saveCarById) {
-    saveCarById(car.id);
-  }
+  if (window.saveCarById) saveCarById(car.id);
 }
 // v1.7.14: accordion モードでセクションごとの開閉状態
 //   key: section.id, value: true=開 / false or undefined=閉
@@ -179,7 +185,8 @@ function _wsGetTaskState(car, taskId) {
         if (!(k in dst)) dst[k] = car.equipment[k]; // 既存の編集を上書きしない
       });
       dst._migrated = true;
-      _wsSaveCar(car); // v2.4.2: archivedCars対応（saveArchivedCarByIdへ自動分岐）
+      // v3.0.0 下ごしらえ：移し替えたその欄だけを送る
+      _wsSaveCar(car, [bucket, taskId], dst);
     }
   }
   return car[bucket][taskId];

@@ -156,7 +156,7 @@
     // Firestore に保存
     try {
       if (source === 'cars' && window.dbCars && window.dbCars.saveCarField) {
-        window.dbCars.saveCarField(id, 'isDuplicate', isDup);
+        window.dbCars.saveCarField(id, ['isDuplicate'], isDup);   // v3.0.0 場所は配列で渡す（前は文字列で、保存されずに素通りしていた）
       } else if (source === 'archived' && window.dbArchive && window.dbArchive.saveArchivedCar) {
         window.dbArchive.saveArchivedCar({ id: id, isDuplicate: isDup });
       } else if (source === 'deleted' && window.dbDeleted && window.dbDeleted.saveDeletedCar) {

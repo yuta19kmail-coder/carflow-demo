@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="2.49.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="2.51.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -78,6 +78,10 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- v1.8.85: html2pdf.js（着地予測印刷シートのPDFダウンロード用） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- 🔴 ログイン画面の「待つ」（全アプリ共通・本体は _shared）。戻りを受け取るまで Google ボタンを出さない。⚠ 画面より先（head の中）に置くこと -->
+<script src="js/coreflow-auth-gate.js?v=a5cec0e0"></script>
+<!-- 🔴 「Google でログイン」ボタンの見た目（全アプリ共通・本体は _shared）。色はボタンの data-cf-login で決まる -->
+<script src="js/coreflow-login-btn.js?v=1ee736d7"></script>
 </head>
 <body>
 
@@ -107,16 +111,16 @@
       </ol>
       <button onclick="window.copyAppUrl && window.copyAppUrl(this)" style="width:100%;padding:9px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);border-radius:6px;color:#fcd34d;font-size:12px;font-weight:600;cursor:pointer"><i data-ic="clipboard" data-s="16">📋</i> このページのURLをコピー</button>
     </div>
-    <button class="btn-login" id="btn-login" onclick="doLogin()" style="display:none;align-items:center;justify-content:center;gap:10px">
+    <button class="btn-login" id="btn-login" data-cf-login="carflow" onclick="doLogin()" style="display:none;align-items:center;justify-content:center;gap:10px">
       <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border-radius:2px;padding:2px;box-sizing:content-box">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
         <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
         <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
         <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
       </svg>
-      Google でログイン
+      <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v2.49.0</div>
+    <div class="login-ver">v2.51.0</div>
   </div>
 </div>
 
@@ -127,7 +131,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.49.0</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.51.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -2097,11 +2101,11 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 🟠 デモ版では読まない（window.fb はモック）：firebase-init.js -->
 <!-- 🟠 デモ版では読まない（本番の利用状況の記録を汚さない）：usage-log.js --><!-- 利用状況の記録（CoreFlow集約・自己完結・マスターだけ閲覧） -->
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
-<script src="js/db-cars.js?v=372"></script>
+<script src="js/db-cars.js?v=373"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
 <script src="js/db-settings.js?v=353"></script>
 <!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
-<script src="js/db-archive.js?v=284"></script>
+<script src="js/db-archive.js?v=285"></script>
 <!-- 0c'. deletedCars DB wrapper（v2.16.0〜 管理番号台帳） -->
 <script src="js/db-deleted.js?v=1"></script>
 <!-- 0c''. manualNumbers DB wrapper（v2.17.0〜 管理番号リスト手入力） -->
@@ -2147,7 +2151,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- 3. ユーティリティ -->
 <script src="js/helpers.js?v=329"></script>
-<script src="js/progress.js?v=288"></script>
+<script src="js/progress.js?v=289"></script>
 
 <!-- 4. サンプル -->
 <script src="js/sample-data.js?v=284"></script>
@@ -2156,30 +2160,30 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/holidays.js?v=1c79064f"></script>
 <script src="js/auth.js?v=374"></script>
 <script src="js/navigation.js?v=314"></script>
-<script src="js/archive.js?v=372"></script>
+<script src="js/archive.js?v=373"></script>
 <script src="js/settings.js?v=361"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=371"></script>
 <script src="js/announcements.js?v=375"></script>
 <script src="js/members.js?v=374"></script>
-<script src="js/kanban.js?v=372"></script>
-<script src="js/car-detail.js?v=372"></script>
-<script src="js/car-modal.js?v=372"></script>
+<script src="js/kanban.js?v=373"></script>
+<script src="js/car-detail.js?v=373"></script>
+<script src="js/car-modal.js?v=373"></script>
 <script src="js/workflow.js?v=284"></script>
-<script src="js/worksheet.js?v=323"></script>
+<script src="js/worksheet.js?v=324"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
 <script src="js/equipment-view.js?v=310"></script>
 <!-- v1.8.83: 着地予測 期間集計＋印刷／集計対象 -->
 <script src="js/period-stats.js?v=343"></script>
 <script src="js/forecast-print.js?v=346"></script>
 <script src="js/forecast-targets.js?v=327"></script>
-<script src="js/calendar.js?v=354"></script>
+<script src="js/calendar.js?v=355"></script>
 <script src="js/views.js?v=305"></script>
 <!-- v2.1.0: バックオフィスビュー本体 -->
-<script src="js/backoffice.js?v=9"></script>
+<script src="js/backoffice.js?v=10"></script>
 <!-- v2.2.0/v2.2.1: タスク個別メモ -->
-<script src="js/task-memo.js?v=4"></script>
+<script src="js/task-memo.js?v=5"></script>
 <!-- v2.2.1: タスク個別メモ「種別設定」モーダル -->
 <script src="js/task-memo-config.js?v=1"></script>
 <!-- v2.2.7: date型タスクメモから自動緑付箋を作成/同期 -->
@@ -2218,7 +2222,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- v2.16.0: 管理番号ヘルパ＆管理番号リスト -->
 <script src="js/num-helpers.js?v=3"></script>
-<script src="js/num-list.js?v=6"></script>
+<script src="js/num-list.js?v=7"></script>
 
 <!-- v2.33.0: 整備依頼業務（PitFlow の pitCards を直接読む）。
      cal-pit.js は MHS の定休日カレンダー＝PitFlow と同じ「翌営業日」を出すために必要（pit-embed.js より前） -->

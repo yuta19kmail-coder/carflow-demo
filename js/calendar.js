@@ -12,31 +12,21 @@
 
 // 各タスクの完了判定（汎用）
 // task: { id, type, sections? }, state: car.deliveryTasks
+// 🔴 v3.0.0 下ごしらえ：数え方は progress.js の1本だけ。
+//   前はここだけ、現場が編集できるチェックリストではなく
+//   **アプリに埋め込まれた古い並び**（tasks-def の sections）を分母にしていた。
+//   ＝ テンプレで項目を足したり減らしたりしても、この画面のマークだけ変わらなかった。
 function _isDeliveryTaskDone(car, taskId) {
   if (taskId === '__deliver') return car.col === 'done';
-  // v1.0.41: 完全完了は他の有効タスクが全部完了したら自動 ON
-  if (taskId === 'd_complete') {
-    if (typeof isDeliveryAllOtherTasksDone === 'function') {
-      return isDeliveryAllOtherTasksDone(car);
-    }
-    return false;
+  const tasks = (typeof getActiveDeliveryTasks === 'function')
+    ? getActiveDeliveryTasks(car)
+    : ((typeof DELIVERY_TASKS !== 'undefined') ? DELIVERY_TASKS : []);
+  const t = tasks.find(x => x && x.id === taskId);
+  if (t && typeof _isTaskComplete === 'function') {
+    try { return !!_isTaskComplete(car, t, tasks); } catch (e) { /* 下の逃げ道へ */ }
   }
-  const tasks = (typeof DELIVERY_TASKS !== 'undefined') ? DELIVERY_TASKS : [];
-  const t = tasks.find(x => x.id === taskId);
+  // 逃げ道：本体の数え方が使えない時だけ（カスタムのスイッチなど）
   const dt = car.deliveryTasks || {};
-  if (!t) {
-    // カスタムタスク（toggle 型）
-    return !!dt[taskId];
-  }
-  // v2.5.10: hasTaskChecklist ベースで判定（解放対象 workflow が simple に切替えられたケースに対応）
-  const isCheckMode = (typeof hasTaskChecklist === 'function')
-    ? hasTaskChecklist(taskId, 'delivery')
-    : (t.type === 'workflow');
-  if (isCheckMode && Array.isArray(t.sections)) {
-    const st = dt[taskId] || {};
-    return t.sections.every(sec => sec.items.every(i => st[i.id]));
-  }
-  // v2.20.1: simpleモードは _simpleTaskDone で統一（空オブジェクト{}は未完了）
   return (typeof _simpleTaskDone === 'function') ? _simpleTaskDone(dt[taskId]) : (dt[taskId] === true);
 }
 
@@ -332,8 +322,16 @@ function renderOneMonth(year, month, hostEl) {
           car.contract = 1;
           if (!car.contractDate) car.contractDate = todayStr();
         }
-        if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
         addLog(car.id, `納車日変更: ${old}→${ds}`);
+        // v3.0.0 下ごしらえ：変えた欄だけを送る
+        if (window.saveCarPaths) {
+          window.saveCarPaths(car.id, [
+            { path: ['deliveryDate'], value: car.deliveryDate },
+            { path: ['contract'], value: car.contract },
+            { path: ['contractDate'], value: car.contractDate || '' },
+            { path: ['logs'], value: car.logs },
+          ]);
+        }
         dragDeliveryCarId = null;
         renderCalendar();
         renderAll();

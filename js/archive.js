@@ -79,7 +79,7 @@ async function executeCloseMonth() {
   for (const c of targets) {
     if (window.dbArchive && window.dbArchive.saveArchivedCar) {
       try {
-        await window.dbArchive.saveArchivedCar(c);
+        await window.dbArchive.saveArchivedCar(c, { initial: true });   // v3.0.0 締める時だけ実績を書き込む
       } catch (e) {
         console.error('[archive] 実績への保存に失敗', c.num, e);
         failed.push(c);

@@ -24,11 +24,24 @@
       .collection('cars');
   }
 
-  function _normalizeForSave(car) {
+  // 🔴🔴 v3.0.0 下ごしらえ＝いちばん大事な決めごと
+  //   「まるごと保存」では、チェックの記録を絶対に送らない。
+  //   ＝ この端末が抱えている「未チェック」が、ほかの端末の入れたチェックを消しに行かない。
+  //   チェックの記録は、押した所だけを送る道（saveCarPaths / saveCarField）でしか書かない。
+  //   ⚠ 車を新しく作る時だけ opts.initial = true で、まっさらな状態を1回だけ書く。
+  const CHECK_KEYS = [
+    'regenTasks', 'deliveryTasks', 'backofficeTasks', 'backofficeWorkflows',
+    'taskMemos', 'taskVariants', 'equipment',
+  ];
+  function isCheckKey(k) { return CHECK_KEYS.indexOf(String(k)) >= 0; }
+
+  function _normalizeForSave(car, opts) {
+    const initial = !!(opts && opts.initial);
     const out = {};
     for (const k in car) {
       const v = car[k];
       if (v === undefined) continue;
+      if (!initial && isCheckKey(k)) continue;   // v3.0.0 チェックは まるごと保存では送らない
       out[k] = v;
     }
     if (!out.updatedAt) out.updatedAt = window.fb.serverTimestamp();
@@ -71,7 +84,7 @@
     return list;
   }
 
-  async function saveCar(car) {
+  async function saveCar(car, opts) {
     if (!car || !car.id) {
       console.error('[db-cars] saveCar: car.id がない', car);
       return;
@@ -84,7 +97,7 @@
     // v2.5.11: ローカル書込み時刻を記録（onSnapshot 経由の上書きフリッカ防止）
     _markLocalWrite(car.id);
     try {
-      await col.doc(String(car.id)).set(_normalizeForSave(car), { merge: true });
+      await col.doc(String(car.id)).set(_normalizeForSave(car, opts), { merge: true });
     } catch (err) {
       console.error('[db-cars] saveCar error:', err, car);
       if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
@@ -130,6 +143,43 @@
       }
     } catch (err) {
       console.error('[db-cars] saveCarField error:', err, carId, path);
+      if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
+      throw err;
+    }
+  }
+
+  // v3.0.0 下ごしらえ：まとめて「1点ずつ」保存（1回の書き込みで複数の場所を書く）
+  //   entries: [{ path:['regenTasks','t_regen','r5'], value:true }, ...]
+  //   value に null / undefined を渡すとそのキーを消す。
+  //   🔴 車の中身をまるごと送らないので、他の端末が入れたチェックを巻き戻さない。
+  //      「まるごと保存（saveCar）」は、車を新しく作る時と、直し用の道具だけが使う。
+  async function saveCarPaths(carId, entries) {
+    if (!carId || !Array.isArray(entries) || entries.length === 0) {
+      console.error('[db-cars] saveCarPaths: 引数不正', carId, entries);
+      return;
+    }
+    const col = _carsCol();
+    if (!col) {
+      console.warn('[db-cars] saveCarPaths: companyId 未確定');
+      return;
+    }
+    _markLocalWrite(carId);
+    try {
+      const FieldPath = window.firebase.firestore.FieldPath;
+      const FieldValue = window.firebase.firestore.FieldValue;
+      const args = [];
+      entries.forEach(e => {
+        if (!e || !Array.isArray(e.path) || e.path.length === 0) return;
+        args.push(new FieldPath(...e.path.map(String)));
+        args.push((e.value === null || e.value === undefined) ? FieldValue.delete() : e.value);
+      });
+      if (!args.length) return;
+      args.push(new FieldPath('updatedAt'), window.fb.serverTimestamp());
+      const myUid = (window.fb.currentUser && window.fb.currentUser.uid) || null;
+      if (myUid) args.push(new FieldPath('updatedBy'), myUid);
+      await col.doc(String(carId)).update(...args);
+    } catch (err) {
+      console.error('[db-cars] saveCarPaths error:', err, carId, entries);
       if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
       throw err;
     }
@@ -216,7 +266,7 @@
     const batch = window.fb.db.batch();
     sample.forEach(c => {
       const ref = col.doc(String(c.id));
-      batch.set(ref, _normalizeForSave(c));
+      batch.set(ref, _normalizeForSave(c, { initial: true }));   // v3.0.0 サンプル投入＝まっさらな状態を書く
     });
     await batch.commit();
 
@@ -273,6 +323,7 @@
     loadCars: loadCars,
     saveCar: saveCar,
     saveCarField: saveCarField,
+    saveCarPaths: saveCarPaths,
     deleteCar: deleteCar,
     seedSampleCarsIfEmpty: seedSampleCarsIfEmpty,
     refreshCars: refreshCars,
@@ -321,4 +372,22 @@ window.saveCarById = function (carId) {
 window.saveCarField = function (carId, path, value) {
   if (!window.dbCars || !window.dbCars.saveCarField) return;
   return window.dbCars.saveCarField(carId, path, value).catch(_warnSaveFailed);
+};
+
+// v3.0.0 下ごしらえ：変えた所だけをまとめて保存するショートカット
+//   使い方 window.saveCarPaths(carId, [{path:['col'],value:'delivery'},{path:['logs'],value:car.logs}])
+// v3.0.0 下ごしらえ：在庫の車でも、締めた過去の車でも、変えた所だけを保存する
+window.saveCarAnyPaths = function (carId, fromArchive, entries) {
+  if (fromArchive) {
+    return window.saveArchivedCarPaths ? window.saveArchivedCarPaths(carId, entries) : undefined;
+  }
+  return window.saveCarPaths ? window.saveCarPaths(carId, entries) : undefined;
+};
+
+window.saveCarPaths = function (carId, entries) {
+  if (!window.dbCars || !window.dbCars.saveCarPaths) {
+    // 万一この版が古い端末で読まれた時のための逃げ道
+    return window.saveCarById ? window.saveCarById(carId) : undefined;
+  }
+  return window.dbCars.saveCarPaths(carId, entries).catch(_warnSaveFailed);
 };
