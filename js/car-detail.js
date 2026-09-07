@@ -267,24 +267,6 @@ function _renderDetailBodyOther(car) {
   document.getElementById('detail-body').innerHTML = html;
 }
 
-// v3.0.0 中タスク：大タスクの行の下に「点検 ✓ → 見積 ✓ → 作業 ●」を出す。
-//   押すと作業管理票のその中タスクへ飛ぶ（押して済にするのは作業管理票側）。
-function _renderStepStripHtml(car, task, phase) {
-  if (!window.CarStep || phase === 'backoffice') return '';
-  const steps = window.CarStep.stepsOf(car, task.id, phase);
-  if (!steps || !steps.length) return '';
-  const chips = steps.map(st => {
-    const cls = st.isDone ? 'done' : (st.locked ? 'locked' : 'now');
-    const mark = st.isDone ? '✓' : (st.locked ? '' : '●');
-    const sub = st.manual ? '' : `<span class="ti-step-sub">${st.done}/${st.total}</span>`;
-    const title = st.locked ? window.CarStep.lockReason(st) + '押せます' : '';
-    return `<span class="ti-step ${cls}"${title ? ` title="${escapeHtml(title)}"` : ''}>
-        <span class="ti-step-mark">${mark}</span>${escapeHtml(st.name)}${sub}
-      </span>`;
-  }).join('<span class="ti-step-arrow">›</span>');
-  return `<div class="ti-steps" onclick="openWorksheet('${car.id}','${task.id}')">${chips}</div>`;
-}
-
 // v2.4.2: バックオフィスの workflow タスクの進捗計算
 //   tpl_backoffice_{taskId} テンプレの全 item 数 / チェック済 item 数で計算
 //   保存先は car.backofficeWorkflows[taskId][itemId]
@@ -561,16 +543,44 @@ function renderDetailBody(car) {
       } else {
         mvHtml = `${memoCell}${variantRow}`;
       }
-      html += `<div class="task-item"><div class="task-item-row">
-        <div class="task-chk${isDone?' done':isPartial?' partial':''}">
+      // 🔴 v3.0.0 中タスク：丸を「分円」にして、いまの中タスクを名前の行に出す。
+      //   ・小タスクが無い中タスク … 丸を押すと1つ進む（行の高さは変えない）
+      //   ・小タスクがある中タスク … 「開く →」で作業管理票へ
+      //   ・全部おわった丸をもう一度押すと 0% に戻る（大タスクのスイッチと同じ感覚）
+      let chkHtml, nameHtml, subHtml, openHtml = openBtnHtml;
+      const _steps = (window.CarStep && !isBackofficeMode)
+        ? window.CarStep.stepsOf(car, task.id, _phaseStr) : null;
+      if (_steps && _steps.length) {
+        const _cur = _steps.find(x => !x.isDone) || null;
+        const _all = !_cur;
+        chkHtml = _all
+          ? `<div class="task-chk done" onclick="advanceStep('${car.id}','${task.id}')" title="もう一度押すと 0% に戻ります">
+               <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+             </div>`
+          : `<div class="task-chk task-chk-ring" onclick="advanceStep('${car.id}','${task.id}')"
+                  style="background:${window.CarStep.ringBackground(p.done, p.total)}"
+                  title="${_cur.manual ? '押すと1工程すすみます' : '「開く →」から進めてください'}"><i></i></div>`;
+        nameHtml = _all
+          ? `${icoE(task.icon)} ${task.name}<span class="ti-sep">─</span><span class="ti-mid done">ぜんぶ完了</span>`
+          : `${icoE(task.icon)} ${task.name}<span class="ti-sep">─</span><span class="ti-mid">${escapeHtml(_cur.name)}</span>`;
+        subHtml = `中タスク ${p.done}/${p.total} 完了`
+          + (_cur && !_cur.manual ? `　（${escapeHtml(_cur.name)} ${_cur.done}/${_cur.total}）` : '');
+        openHtml = (_cur && !_cur.manual) ? openBtnHtml : '';
+      } else {
+        chkHtml = `<div class="task-chk${isDone?' done':isPartial?' partial':''}">
           ${isDone ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : isPartial ? '<div style="width:7px;height:7px;border-radius:50%;background:#fff"></div>' : ''}
-        </div>
-        <div class="task-item-info"><div class="task-item-name">${icoE(task.icon)} ${task.name}</div><div class="task-item-sub">${p.done}/${p.total} 完了</div></div>
+        </div>`;
+        nameHtml = `${icoE(task.icon)} ${task.name}`;
+        subHtml = `${p.done}/${p.total} 完了`;
+      }
+      html += `<div class="task-item"><div class="task-item-row">
+        ${chkHtml}
+        <div class="task-item-info"><div class="task-item-name">${nameHtml}</div><div class="task-item-sub">${subHtml}</div></div>
         ${mvHtml}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${p.pct}%</div>
-        <div class="task-item-open">${openBtnHtml}</div>
-      </div>${_renderStepStripHtml(car, task, _phaseStr)}</div>`;
+        <div class="task-item-open">${openHtml}</div>
+      </div></div>`;
     }
   });
   html += `</div>`;

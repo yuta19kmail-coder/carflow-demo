@@ -195,6 +195,116 @@
     return null;
   }
 
+  // 🔴 v3.0.0：大タスクの丸を「分円」にするための塗り方を作る。
+  //   出発は12時（CSS の円グラフは 0deg が12時）。区切りのすき間は5度。
+  //   ⚠ 中に文字は入れない。丸は30pxしかないので読めない。
+  function ringBackground(done, total) {
+    if (!total) return '';
+    const gap = 5, seg = 360 / total, parts = [];
+    for (let i = 0; i < total; i++) {
+      const a = i * seg, b = (i + 1) * seg - gap;
+      parts.push((i < done ? 'var(--orange)' : 'var(--bg4)') + ' ' + a + 'deg ' + b + 'deg');
+      parts.push('transparent ' + b + 'deg ' + (a + seg) + 'deg');
+    }
+    return 'conic-gradient(from 0deg,' + parts.join(',') + ')';
+  }
+
+  // 中タスクを1つ進める／全部おわっていたら0に戻す（大タスクのスイッチと同じ感覚）
+  //   ・小タスクを持つ中タスクは進められない（「開く →」から）
+  function advanceStep(carId, taskId) {
+    const found = _findCar(carId);
+    if (!found) return;
+    const car = found.car, phase = _phaseOf(car);
+    const steps = stepsOf(car, taskId, phase);
+    if (!steps || !steps.length) return;
+    const allDone = steps.every(s => s.isDone);
+    if (allDone) { resetSteps(carId, taskId); return; }
+    const cur = steps.find(s => !s.isDone);
+    if (!cur) return;
+    if (!cur.manual) {
+      if (typeof showToast === 'function') {
+        showToast('「' + cur.name + '」は小タスクがあります。「開く →」から進めてください', 'CF-1010');
+      }
+      return;
+    }
+    _writeStep(found, taskId, phase, cur, true);
+  }
+
+  function _findCar(carId) {
+    if (typeof cars !== 'undefined' && Array.isArray(cars)) {
+      const c = cars.find(x => x && x.id === carId);
+      if (c) return { car: c, fromArchive: false };
+    }
+    if (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) {
+      const c = archivedCars.find(x => x && x.id === carId);
+      if (c) return { car: c, fromArchive: true };
+    }
+    return null;
+  }
+
+  function _writeStep(found, taskId, phase, step, value) {
+    const car = found.car;
+    const bucketName = _bucketName(phase);
+    if (!car[bucketName] || typeof car[bucketName] !== 'object') car[bucketName] = {};
+    if (!car[bucketName][taskId] || typeof car[bucketName][taskId] !== 'object') car[bucketName][taskId] = {};
+    const key = manualKeyOf(step.id);
+    if (value) car[bucketName][taskId][key] = true;
+    else delete car[bucketName][taskId][key];
+    if (typeof addLog === 'function') {
+      addLog(car.id, `中タスク「${step.name}」を${value ? '完了' : '未完了に戻す'}`);
+    }
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(car.id, !!found.fromArchive, [
+        { path: [bucketName, taskId, key], value: value ? true : null },
+        { path: ['logs'], value: car.logs },
+      ]);
+    }
+    _refresh(car);
+    if (typeof showToast === 'function') {
+      const next = currentStep(car, taskId, phase);
+      showToast(value
+        ? (next ? `「${step.name}」完了 → つぎは「${next.name}」` : 'ぜんぶ完了しました')
+        : '未完了に戻しました');
+    }
+  }
+
+  // 100%（緑）をもう一度押した時＝この大タスクの中タスクを全部0に戻す
+  function resetSteps(carId, taskId) {
+    const found = _findCar(carId);
+    if (!found) return;
+    const car = found.car, phase = _phaseOf(car);
+    const steps = stepsOf(car, taskId, phase) || [];
+    // 小タスクのチェックも一緒に消えるので、入っている時だけ念のため聞く
+    const hasItemChecks = steps.some(s => s.total > 0);
+    if (hasItemChecks) {
+      const msg = 'この大タスクを 0% に戻しますか？\n\n'
+        + '中タスクの進み具合と、中に入れた小タスクのチェックが全部外れます。';
+      if (typeof confirm === 'function' && !confirm(msg)) return;
+    }
+    const bucketName = _bucketName(phase);
+    if (!car[bucketName] || !car[bucketName][taskId]) return;
+    car[bucketName][taskId] = {};
+    if (typeof addLog === 'function') addLog(car.id, '中タスクを 0% に戻した');
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(car.id, !!found.fromArchive, [
+        { path: [bucketName, taskId], value: {} },
+        { path: ['logs'], value: car.logs },
+      ]);
+    }
+    _refresh(car);
+    if (typeof showToast === 'function') showToast('0% に戻しました');
+  }
+
+  function _refresh(car) {
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof window.refreshWorksheetView === 'function') window.refreshWorksheetView();
+    if (typeof renderDetailBody === 'function'
+        && document.getElementById('modal-detail')
+        && document.getElementById('modal-detail').classList.contains('open')) {
+      renderDetailBody(car);
+    }
+  }
+
   // 小タスクが0本の中タスクを、手で「済／未」にする
   function toggleManualStep(carId, taskId, secId) {
     const car = (typeof cars !== 'undefined' && Array.isArray(cars)) ? cars.find(c => c && c.id === carId) : null;
@@ -240,6 +350,9 @@
   }
 
   window.CarStep = {
+    ringBackground: ringBackground,
+    advanceStep: advanceStep,
+    resetSteps: resetSteps,
     levelOf: levelOf,
     usesItems: usesItems,
     isStepMode: isStepMode,
@@ -254,6 +367,7 @@
     phaseOf: _phaseOf,
   };
   window.toggleManualStep = toggleManualStep;
+  window.advanceStep = advanceStep;
 
   console.log('[steps] ready（中タスク）');
 })();
