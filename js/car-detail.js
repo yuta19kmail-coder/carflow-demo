@@ -116,7 +116,13 @@ window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
     car.taskVariants[taskId] = newId;
   }
   // 保存＆再描画
-  if (typeof saveCarById === 'function') saveCarById(car.id);
+  // v3.0.0 下ごしらえ：触った所だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: [bucket, taskId], value: (car[bucket] && car[bucket][taskId] !== undefined) ? car[bucket][taskId] : null },
+      { path: ['taskVariants', taskId], value: (car.taskVariants && car.taskVariants[taskId]) ? car.taskVariants[taskId] : null },
+    ]);
+  }
   if (typeof renderDetailBody === 'function') renderDetailBody(car);
   if (typeof renderAll === 'function') renderAll();
 };
@@ -151,17 +157,22 @@ function openDetail(carId, fromArchive, mode) {
   const _isArchiveCar = !!(typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)
                            && archivedCars.find(c => c && c.id === carId));
   if (!_isArchiveCar) {
-    let _healed = false;
+    // v3.0.0 下ごしらえ：直すのは「欠けている欄だけ」。
+    //   前はここで車の中身をまるごと送っていたので、開いただけで
+    //   ほかの端末が入れたチェックを巻き戻すことがあった。
+    const _healEntries = [];
     if (!car.regenTasks || typeof car.regenTasks !== 'object') {
       car.regenTasks = (typeof mkTaskState === 'function' && typeof REGEN_TASKS !== 'undefined') ? mkTaskState(REGEN_TASKS) : {};
-      _healed = true;
+      _healEntries.push({ path: ['regenTasks'], value: car.regenTasks });
     }
     if (!car.deliveryTasks || typeof car.deliveryTasks !== 'object') {
       car.deliveryTasks = (typeof mkTaskState === 'function' && typeof DELIVERY_TASKS !== 'undefined') ? mkTaskState(DELIVERY_TASKS) : {};
-      _healed = true;
+      _healEntries.push({ path: ['deliveryTasks'], value: car.deliveryTasks });
     }
-    if (!Array.isArray(car.logs)) { car.logs = []; _healed = true; }
-    if (_healed && window.saveCarById) { try { saveCarById(car.id); } catch (e) {} }
+    if (!Array.isArray(car.logs)) { car.logs = []; _healEntries.push({ path: ['logs'], value: car.logs }); }
+    if (_healEntries.length && window.saveCarPaths) {
+      try { window.saveCarPaths(car.id, _healEntries); } catch (e) {}
+    }
   }
   // archive 由来かを保持
   car._fromArchive = !!(typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)
@@ -301,25 +312,12 @@ function renderDetailBody(car) {
   let tasks, prog;
   if (isBackofficeMode) {
     if (!car.backofficeTasks) car.backofficeTasks = {};
-    tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
-    // v2.4.2: バックオフィス全体進捗
-    //   toggle 型は boolean、workflow/checklist 型は backofficeWorkflows ベースで部分反映
-    const _store = car.backofficeTasks || {};
-    let _intDone = 0, _doneUnits = 0;
-    tasks.forEach(t => {
-      const isChecklistTask = (t.type === 'workflow') ||
-        (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
-      if (isChecklistTask) {
-        const wp = (typeof _calcBackofficeWorkflowProgress === 'function')
-          ? _calcBackofficeWorkflowProgress(car, t) : { done: 0, total: 0 };
-        const ratio = (wp.total > 0) ? Math.min(1, wp.done / wp.total) : 0;
-        _doneUnits += ratio;
-        if (ratio >= 1) _intDone += 1;
-      } else {
-        if (_store[t.id] === true) { _doneUnits += 1; _intDone += 1; }
-      }
-    });
-    prog = { done: _intDone, total: tasks.length, pct: tasks.length ? Math.round(_doneUnits / tasks.length * 100) : 0 };
+    // v3.0.0 下ごしらえ：数え方は progress.js の1本だけ（一覧とまったく同じ数字になる）
+    const _bo = (typeof calcBackofficeProg === 'function')
+      ? calcBackofficeProg(car)
+      : { pct: 0, done: 0, total: 0, tasks: [] };
+    tasks = _bo.tasks || [];
+    prog = { done: _bo.done, total: _bo.total, pct: _bo.pct };
   } else {
     tasks = (isD ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
     prog = calcProg(car);
@@ -617,15 +615,15 @@ function toggleBackofficeTaskToggle(carId, taskId) {
   if (!car) return;
   if (!car.backofficeTasks) car.backofficeTasks = {};
   car.backofficeTasks[taskId] = !car.backofficeTasks[taskId];
-  if (fromArchive) {
-    if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-      window.dbArchive.saveArchivedCar(car).catch(e => console.error('[bo-toggle] save archived failed', e));
-    }
-  } else {
-    if (window.saveCarById) saveCarById(car.id);
-  }
   if (typeof addLog === 'function') {
     addLog(carId, `バックオフィス「${taskId}」を${car.backofficeTasks[taskId]?'完了':'未完了に戻す'}`);
+  }
+  // v3.0.0 下ごしらえ：押した1つだけを送る
+  if (window.saveCarAnyPaths) {
+    window.saveCarAnyPaths(car.id, fromArchive, [
+      { path: ['backofficeTasks', taskId], value: car.backofficeTasks[taskId] },
+      { path: ['logs'], value: car.logs },
+    ]);
   }
   // v2.2.7: 自動付箋を完了/未完了に同期
   if (window.taskMemoAutoNote && window.taskMemoAutoNote.markDone) {
@@ -692,14 +690,14 @@ function saveBackofficeMemo(carId) {
   if (!ta) return;
   const newVal = ta.value;
   found.car.backofficeMemo = newVal;
-  if (found.fromArchive) {
-    if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-      window.dbArchive.saveArchivedCar(found.car).catch(e => console.error('[bo-memo] save archived failed', e));
-    }
-  } else {
-    if (window.saveCarById) saveCarById(found.car.id);
-  }
   if (typeof addLog === 'function') addLog(carId, 'バックオフィスメモを更新');
+  // v3.0.0 下ごしらえ：メモの欄だけを送る
+  if (window.saveCarAnyPaths) {
+    window.saveCarAnyPaths(found.car.id, found.fromArchive, [
+      { path: ['backofficeMemo'], value: found.car.backofficeMemo },
+      { path: ['logs'], value: found.car.logs },
+    ]);
+  }
   if (typeof showToast === 'function') showToast('メモを保存しました');
   renderDetailBody(found.car);
 }
@@ -866,8 +864,14 @@ function saveWorkMemo(carId) {
   const ta = document.getElementById('work-memo-ta');
   const v = ta ? ta.value.trim() : '';
   car.workMemo = v;
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(carId, '作業メモを更新');
+  // v3.0.0 下ごしらえ：作業メモの欄だけを送る
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['workMemo'], value: car.workMemo },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   renderDetailBody(car);
   renderAll();
   showToast('作業メモを保存しました');
@@ -891,7 +895,8 @@ async function onDetailPhoto(inp) {
         r.readAsDataURL(file);
       });
     }
-    if (window.saveCarById) saveCarById(car.id);
+    // v3.0.0 下ごしらえ：写真の欄だけを送る
+    if (window.saveCarPaths) window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }]);
     renderDetailBody(car);
     renderAll();
     showToast('写真を更新しました');
@@ -916,8 +921,16 @@ function toggleTaskToggle(carId, taskId, isD) {
   //   バグの原因。_simpleTaskDoneで現在の完了状態を正しく判定し、その反転をbooleanで保存する。
   const _cur = (typeof _simpleTaskDone === 'function') ? _simpleTaskDone(state[taskId]) : (state[taskId] === true);
   state[taskId] = !_cur;
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(carId, `「${taskId}」を${state[taskId]?'完了':'未完了に戻す'}`);
+  // 🔴 v3.0.0 下ごしらえ：押した1つだけを送る。
+  //   前はここで車の中身をまるごと送っていたので、この端末が持っている「未チェック」まで
+  //   一緒に届き、ほかの端末が入れたチェックが外れていた。
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: [_bucket, taskId], value: state[taskId] },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   // v2.2.7: 自動付箋を完了/未完了に同期（dateメモの付箋があれば反映）
   if (window.taskMemoAutoNote && window.taskMemoAutoNote.markDone) {
     window.taskMemoAutoNote.markDone(car, taskId, !!state[taskId]);

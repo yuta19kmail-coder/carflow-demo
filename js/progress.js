@@ -72,6 +72,40 @@ function calcProg(car) {
   };
 }
 
+// 🔴 v3.0.0 下ごしらえ：バックオフィスの進捗も、ここ1本で数える。
+//   これまで一覧は「済＝1／途中＝0.5／未＝0」の三段階、詳細画面は実際の比率で、
+//   同じ車でもちがう数字が出ていた。両方ここを呼ぶようにして、数え方をそろえた。
+//   数え方は他と同じ＝大タスクを均等割りして、途中は実際の比率で足す。
+function calcBackofficeProg(car) {
+  const tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
+  const store = (car && car.backofficeTasks) || {};
+  let intDone = 0, doneUnits = 0;
+  const ratios = [];
+  tasks.forEach(t => {
+    const isChecklistTask = (t.type === 'workflow') ||
+      (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
+    let ratio = 0;
+    if (isChecklistTask) {
+      const wp = (typeof window !== 'undefined' && typeof window._calcBackofficeWorkflowProgress === 'function')
+        ? window._calcBackofficeWorkflowProgress(car, t) : { done: 0, total: 0 };
+      ratio = (wp.total > 0) ? Math.min(1, wp.done / wp.total) : 0;
+    } else {
+      ratio = (store[t.id] === true) ? 1 : 0;
+    }
+    ratios.push(ratio);
+    doneUnits += ratio;
+    if (ratio >= 1) intDone += 1;
+  });
+  return {
+    pct: tasks.length ? Math.round(doneUnits / tasks.length * 100) : 0,
+    done: intDone,
+    total: tasks.length,
+    tasks: tasks,
+    ratios: ratios,
+  };
+}
+if (typeof window !== 'undefined') window.calcBackofficeProg = calcBackofficeProg;
+
 // 単一タスクの進捗を計算
 function calcSingleProg(car, taskId, tasks) {
   const isD = car.col === 'delivery' || car.col === 'done';

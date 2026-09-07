@@ -49,7 +49,13 @@
     return null;
   }
 
+  // v3.0.0 下ごしらえ：メモの欄だけを送る（車の中身をまるごと送らない）
   function _saveCar(car, fromArchive) {
+    if (!car) return;
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(car.id, fromArchive, [{ path: ['taskMemos'], value: car.taskMemos || {} }]);
+      return;
+    }
     if (fromArchive) {
       if (window.dbArchive && window.dbArchive.saveArchivedCar) {
         window.dbArchive.saveArchivedCar(car).catch(e => console.error('[task-memo] save archived failed', e));

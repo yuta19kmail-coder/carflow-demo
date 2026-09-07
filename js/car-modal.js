@@ -58,7 +58,8 @@ function renameSizeOption(i, newName) {
   _refreshSizesDependentViews();
   // v1.5.2: settings + 影響を受けた cars を保存
   if (window.saveSettings) saveSettings();
-  cars.forEach(c => { if (c.size === v && window.saveCarById) saveCarById(c.id); });
+  // v3.0.0 下ごしらえ：区分の欄だけを送る
+  cars.forEach(c => { if (c.size === v && window.saveCarPaths) window.saveCarPaths(c.id, [{ path: ['size'], value: c.size }]); });
 }
 
 function moveSizeOption(i, dir) {
@@ -81,7 +82,8 @@ function removeSizeOption(i) {
   showToast('区分を削除しました');
   // v1.5.2: settings + 影響を受けた cars を保存
   if (window.saveSettings) saveSettings();
-  if (used) cars.forEach(c => { if (window.saveCarById) saveCarById(c.id); });
+  // v3.0.0 下ごしらえ：区分の欄だけを送る
+  if (used) cars.forEach(c => { if (window.saveCarPaths) window.saveCarPaths(c.id, [{ path: ['size'], value: c.size }]); });
 }
 
 function resetSizeOptions() {
@@ -534,7 +536,7 @@ async function saveCarModal(initialCol) {
        ここでは画面からも取り消して「登録できませんでした」と伝える。 */
     if (window.dbCars) {
       try {
-        await window.dbCars.saveCar(car);
+        await window.dbCars.saveCar(car, { initial: true });   // v3.0.0 新規登録＝まっさらな状態を1回だけ書く
       } catch (e) {
         console.error('[car-modal] save failed', e);
         const back = cars.findIndex(x => x.id === car.id);

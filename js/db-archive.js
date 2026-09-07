@@ -27,12 +27,32 @@
       .collection('archivedCars');
   }
 
+  // v3.0.0 下ごしらえ：締めた車の「実績」は、あとからの保存で書き換えない。
+  //   月次で締めた時点の 金額・日付・列 が正。以降にこの車を開いて何かを触っても、
+  //   ここは1文字も送らない（バックオフィスのチェックやメモは今までどおり保存される）。
+  //   🔴 締める時だけ opts.initial = true で全部書く（archive.js の月次締め）。
+  const LOCKED_KEYS = [
+    'price', 'totalPrice', 'deliveryDate', 'contractDate', 'purchaseDate',
+    'col', 'contract', 'num', 'priceTaxSnapshot', '_archivedAt', '_archivedYM',
+  ];
+  function isLockedKey(k) { return LOCKED_KEYS.indexOf(String(k)) >= 0; }
+
+  // 🔴 v3.0.0 下ごしらえ：まるごと保存ではチェックの記録を送らない（在庫の車と同じ決めごと）
+  const CHECK_KEYS = [
+    'regenTasks', 'deliveryTasks', 'backofficeTasks', 'backofficeWorkflows',
+    'taskMemos', 'taskVariants', 'equipment',
+  ];
+  function isCheckKey(k) { return CHECK_KEYS.indexOf(String(k)) >= 0; }
+
   // Firestore 保存形式に整形
-  function _normalizeForSave(car) {
+  function _normalizeForSave(car, opts) {
+    const initial = !!(opts && opts.initial);
     const out = {};
     for (const k in car) {
       const v = car[k];
       if (v === undefined) continue;
+      if (!initial && isLockedKey(k)) continue;   // v3.0.0 実績は守る
+      if (!initial && isCheckKey(k)) continue;    // v3.0.0 チェックは1点ずつの道でしか書かない
       out[k] = v;
     }
     if (!out.archivedAt) out.archivedAt = window.fb.serverTimestamp();
@@ -65,7 +85,7 @@
   // -----------------------------------------
   // 1件保存（merge:true）
   // -----------------------------------------
-  async function saveArchivedCar(car) {
+  async function saveArchivedCar(car, opts) {
     if (!car || !car.id) {
       console.error('[db-archive] saveArchivedCar: car.id がない', car);
       return;
@@ -76,9 +96,49 @@
       return;
     }
     try {
-      await col.doc(String(car.id)).set(_normalizeForSave(car), { merge: true });
+      await col.doc(String(car.id)).set(_normalizeForSave(car, opts), { merge: true });
     } catch (err) {
       console.error('[db-archive] saveArchivedCar error:', err, car);
+      if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました', 'CF-0012');
+      throw err;
+    }
+  }
+
+  // -----------------------------------------
+  // v3.0.0 下ごしらえ：過去の車も「1点ずつ」保存できるようにする
+  //   これまで過去の車は、何を触っても中身をまるごと送っていた（＝2人で開くと巻き戻る）。
+  //   守る項目（金額・日付・列）は、ここからは絶対に書かない。
+  // -----------------------------------------
+  async function saveArchivedCarPaths(carId, entries) {
+    if (!carId || !Array.isArray(entries) || entries.length === 0) {
+      console.error('[db-archive] saveArchivedCarPaths: 引数不正', carId, entries);
+      return;
+    }
+    const col = _archivedCol();
+    if (!col) {
+      console.warn('[db-archive] saveArchivedCarPaths: companyId 未確定');
+      return;
+    }
+    try {
+      const FieldPath = window.firebase.firestore.FieldPath;
+      const FieldValue = window.firebase.firestore.FieldValue;
+      const args = [];
+      entries.forEach(e => {
+        if (!e || !Array.isArray(e.path) || e.path.length === 0) return;
+        if (isLockedKey(e.path[0])) {
+          console.warn('[db-archive] 締めた車の実績は書き換えません:', e.path.join('.'));
+          return;
+        }
+        args.push(new FieldPath(...e.path.map(String)));
+        args.push((e.value === null || e.value === undefined) ? FieldValue.delete() : e.value);
+      });
+      if (!args.length) return;
+      args.push(new FieldPath('updatedAt'), window.fb.serverTimestamp());
+      const myUid = (window.fb.currentUser && window.fb.currentUser.uid) || null;
+      if (myUid) args.push(new FieldPath('updatedBy'), myUid);
+      await col.doc(String(carId)).update(...args);
+    } catch (err) {
+      console.error('[db-archive] saveArchivedCarPaths error:', err, carId, entries);
       if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました', 'CF-0012');
       throw err;
     }
@@ -138,7 +198,7 @@
       const batch = window.fb.db.batch();
       slice.forEach(c => {
         const ref = col.doc(String(c.id));
-        batch.set(ref, _normalizeForSave(c));
+        batch.set(ref, _normalizeForSave(c, { initial: true }));   // v3.0.0 サンプル投入＝まっさらな状態を書く
       });
       await batch.commit();
     }
@@ -152,6 +212,8 @@
   window.dbArchive = {
     loadArchivedCars,
     saveArchivedCar,
+    saveArchivedCarPaths,
+    isLockedKey,
     deleteArchivedCar,
     seedArchivedCarsIfEmpty,
   };
@@ -169,4 +231,13 @@ window.saveArchivedCarById = function (carId) {
   const car = archivedCars.find(x => x && x.id === carId);
   if (!car) return;
   window.dbArchive.saveArchivedCar(car).catch(e => console.error('[saveArchivedCarById] failed', carId, e));
+};
+
+// v3.0.0 下ごしらえ：過去の車も、変えた所だけをまとめて保存する
+window.saveArchivedCarPaths = function (carId, entries) {
+  if (!window.dbArchive || !window.dbArchive.saveArchivedCarPaths) {
+    return window.saveArchivedCarById ? window.saveArchivedCarById(carId) : undefined;
+  }
+  return window.dbArchive.saveArchivedCarPaths(carId, entries)
+    .catch(e => console.error('[saveArchivedCarPaths] failed', carId, e));
 };

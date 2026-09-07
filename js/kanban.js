@@ -320,7 +320,7 @@ async function promoteTentative(t, targetCol) {
   cars.push(car);
   if (window.dbCars && window.dbCars.saveCar) {
     try {
-      await window.dbCars.saveCar(car);
+      await window.dbCars.saveCar(car, { initial: true });   // v3.0.0 仮登録からの昇格＝まっさらな状態を1回だけ書く
     } catch (e) {
       console.error('[kanban] 昇格の保存に失敗', e);
       const back = cars.findIndex(x => x.id === car.id);
@@ -712,7 +712,15 @@ function applyKanbanMove(car, targetCol) {
   car.col = targetCol;
   addLog(car.id, `ステータス変更: ${fromLabel}→${toLabel}`);
   kanbanForceExpand = false; // v1.0.14: 何かを触ったら元のルールに戻る
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['col'], value: car.col },
+      { path: ['workMemo'], value: car.workMemo || '' },
+      { path: ['exhibitedAt'], value: car.exhibitedAt },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   renderAll();
   showToast('ステータスを更新しました');
 }
@@ -746,14 +754,30 @@ function closeSellConfirm(sell) {
   if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
     car.priceTaxSnapshot = snapshotPriceTax();
   }
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   if (target === 'done') {
     addLog(car.id, `売約＆納車完了：${fromLabel}→${toLabel}（特例）`);
-    renderAll();
-    celebrateDelivery(car);
   } else {
     addLog(car.id, `売約設定：${fromLabel}→${toLabel}`);
-    renderAll();
+  }
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['contract'], value: car.contract },
+      { path: ['contractDate'], value: car.contractDate || '' },
+      { path: ['deliveryDate'], value: car.deliveryDate || '' },
+      { path: ['customerName'], value: car.customerName || '' },
+      { path: ['workMemo'], value: car.workMemo || '' },
+      { path: ['selectedTasks'], value: car.selectedTasks },
+      { path: ['exhibitedAt'], value: car.exhibitedAt },
+      { path: ['col'], value: car.col },
+      { path: ['priceTaxSnapshot'], value: car.priceTaxSnapshot },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
+  renderAll();
+  if (target === 'done') {
+    celebrateDelivery(car);
+  } else {
     showToast('売約にしました!');
   }
 }
@@ -774,8 +798,15 @@ function closeDeliverConfirm(deliver) {
   if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
     car.priceTaxSnapshot = snapshotPriceTax();
   }
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, '納車完了：納車準備→納車完了');
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['col'], value: car.col },
+      { path: ['priceTaxSnapshot'], value: car.priceTaxSnapshot },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   renderAll();
   celebrateDelivery(car);
 }
@@ -804,8 +835,20 @@ function closeUncontractConfirm(uncontract) {
   const _fromColUC = car.col;
   if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColUC, target);
   car.col = target;
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, `売約キャンセル：${fromLabel}→${toLabel}（売約・納車準備データをリセット）`);
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['contract'], value: car.contract },
+      { path: ['contractDate'], value: '' },
+      { path: ['deliveryDate'], value: '' },
+      { path: ['workMemo'], value: '' },
+      { path: ['deliveryTasks'], value: car.deliveryTasks },
+      { path: ['exhibitedAt'], value: car.exhibitedAt },
+      { path: ['col'], value: car.col },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   renderAll();
   showToast('売約をキャンセルしました');
 }
@@ -825,8 +868,15 @@ function closeUndeliverConfirm(undeliver) {
   const _fromColUD = car.col;
   if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColUD, target);
   car.col = target;
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   addLog(car.id, '納車完了を取り消し：納車完了→納車準備');
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['exhibitedAt'], value: car.exhibitedAt },
+      { path: ['col'], value: car.col },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
   renderAll();
   showToast('納車完了を取り消しました');
 }

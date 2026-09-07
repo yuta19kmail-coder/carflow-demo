@@ -698,11 +698,16 @@ function _setLoginBusy(busy) {
   btn.disabled = !!busy;
   btn.style.opacity = busy ? '0.6' : '1';
   btn.style.pointerEvents = busy ? 'none' : '';
-  if (busy) {
-    btn.dataset._origText = btn.dataset._origText || btn.textContent;
-    btn.textContent = 'ログイン中…';
-  } else if (btn.dataset._origText) {
-    btn.textContent = btn.dataset._origText;
+  // ⚠ v2.50.0：ここで btn.textContent を書くと Googleロゴの<svg>ごと消える。
+  //    文字は中の .pl-label だけ差し替える（PitFlow v1.18.1 と同じ直し）。
+  const lab = btn.querySelector('.pl-label');
+  if (lab) {
+    if (busy) {
+      lab.dataset._origText = lab.dataset._origText || lab.textContent;
+      lab.textContent = 'ログイン中…';
+    } else if (lab.dataset._origText) {
+      lab.textContent = lab.dataset._origText;
+    }
   }
 }
 

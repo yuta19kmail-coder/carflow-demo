@@ -148,32 +148,22 @@
 
     // バックオフィスタスクの進捗（ドット＋％）
     // v2.4.2: workflow 型は backofficeWorkflows ベースで done/partial/none 判定
-    const tasks = (typeof getActiveBackofficeTasks === 'function') ? getActiveBackofficeTasks(car) : [];
-    const store = car.backofficeTasks || {};
-    // 'done'（全完了）/ 'partial'（途中）/ 'none'（未着手）の三値
-    function _boTaskState(t) {
-      const isChecklistTask = (t.type === 'workflow') ||
-        (typeof hasTaskChecklist === 'function' && hasTaskChecklist(t.id, 'backoffice'));
-      if (isChecklistTask && typeof window._calcBackofficeWorkflowProgress === 'function') {
-        const wp = window._calcBackofficeWorkflowProgress(car, t);
-        if (wp.total <= 0) return 'none';
-        if (wp.done >= wp.total) return 'done';
-        if (wp.done > 0) return 'partial';
-        return 'none';
-      }
-      return store[t.id] === true ? 'done' : 'none';
-    }
-    const states = tasks.map(_boTaskState);
-    const doneCount = states.filter(s => s === 'done').length;
-    const totalCount = tasks.length;
-    // 部分反映：done=1, partial=0.5 で計算
-    const doneUnits = states.reduce((a, s) => a + (s === 'done' ? 1 : s === 'partial' ? 0.5 : 0), 0);
+    // 🔴 v3.0.0 下ごしらえ：数え方は progress.js の1本だけ。
+    //   前はここだけ「済＝1／途中＝0.5／未＝0」の三段階で数えていたので、
+    //   同じ車なのに詳細画面と数字がちがっていた。
+    const _bo = (typeof calcBackofficeProg === 'function')
+      ? calcBackofficeProg(car)
+      : { pct: 0, done: 0, total: 0, tasks: [], ratios: [] };
+    const tasks = _bo.tasks || [];
+    const ratios = _bo.ratios || [];
+    const doneCount = _bo.done;
+    const totalCount = _bo.total;
     const dots = tasks.map((t, i) => {
-      const s = states[i];
-      const cls = s === 'done' ? 'done' : (s === 'partial' ? 'partial' : '');
+      const r = ratios[i] || 0;
+      const cls = r >= 1 ? 'done' : (r > 0 ? 'partial' : '');
       return `<span class="bo-card-dot ${cls}" title="${_esc(t.name)}"></span>`;
     }).join('');
-    const pct = totalCount > 0 ? Math.round(doneUnits / totalCount * 100) : 0;
+    const pct = _bo.pct;
 
     // 価格（総額：緑大、本体：グレー小で併記）
     let priceHtml = '';
@@ -279,19 +269,15 @@
     }
     if (!car.backofficeTasks) car.backofficeTasks = {};
     car.backofficeTasks[taskId] = !!checked;
-    if (fromArchive) {
-      if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-        window.dbArchive.saveArchivedCar(car).catch(e => console.error('[backoffice] save archived failed', e));
-      }
-    } else {
-      if (typeof saveCarById === 'function') {
-        saveCarById(carId);
-      } else if (window.dbCars && window.dbCars.saveCar) {
-        window.dbCars.saveCar(car).catch(e => console.error('[backoffice] save failed', e));
-      }
-    }
     if (typeof addLog === 'function') {
       addLog(carId, `バックオフィス: ${taskId} を ${checked ? '完了' : '未完了'}`);
+    }
+    // v3.0.0 下ごしらえ：押した1つだけを送る
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(carId, fromArchive, [
+        { path: ['backofficeTasks', taskId], value: car.backofficeTasks[taskId] },
+        { path: ['logs'], value: car.logs },
+      ]);
     }
     // モーダル内のタスクセクションだけ再描画＋パネルがあれば再描画
     // v2.1.0: 詳細モーダルが開いている場合は renderDetailBody で再描画（バックオフィスモード保持）
@@ -318,19 +304,16 @@
     if (!car) return;
     car.backofficeCompleted = true;
     car.backofficeCompletedAt = new Date().toISOString();
-    if (fromArchive) {
-      if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-        window.dbArchive.saveArchivedCar(car).catch(e => console.error('[backoffice] save archived failed', e));
-      }
-    } else {
-      if (typeof saveCarById === 'function') {
-        saveCarById(carId);
-      } else if (window.dbCars && window.dbCars.saveCar) {
-        window.dbCars.saveCar(car).catch(e => console.error('[backoffice] save failed', e));
-      }
-    }
     if (typeof addLog === 'function') {
       addLog(carId, 'バックオフィス処理を完了');
+    }
+    // v3.0.0 下ごしらえ：完了の印だけを送る
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(carId, fromArchive, [
+        { path: ['backofficeCompleted'], value: true },
+        { path: ['backofficeCompletedAt'], value: car.backofficeCompletedAt },
+        { path: ['logs'], value: car.logs },
+      ]);
     }
     if (typeof showToast === 'function') {
       showToast('バックオフィス処理を完了しました');
@@ -360,19 +343,16 @@
     if (!car) return;
     car.backofficeCompleted = false;
     delete car.backofficeCompletedAt;
-    if (fromArchive) {
-      if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-        window.dbArchive.saveArchivedCar(car).catch(e => console.error('[backoffice] save archived failed', e));
-      }
-    } else {
-      if (typeof saveCarById === 'function') {
-        saveCarById(carId);
-      } else if (window.dbCars && window.dbCars.saveCar) {
-        window.dbCars.saveCar(car).catch(e => console.error('[backoffice] save failed', e));
-      }
-    }
     if (typeof addLog === 'function') {
       addLog(carId, 'バックオフィス完了を取り消し');
+    }
+    // v3.0.0 下ごしらえ：完了の印だけを送る（取り消し）
+    if (window.saveCarAnyPaths) {
+      window.saveCarAnyPaths(carId, fromArchive, [
+        { path: ['backofficeCompleted'], value: false },
+        { path: ['backofficeCompletedAt'], value: null },
+        { path: ['logs'], value: car.logs },
+      ]);
     }
     // v2.1.0: 詳細モーダルが開いている場合は renderDetailBody で再描画（バックオフィスモード保持）
     if (typeof renderDetailBody === 'function'
