@@ -201,6 +201,11 @@ function _wsAllItems(taskDef) {
 }
 
 function _wsCalcProgress(car, taskDef) {
+  // v3.0.0 中タスク：中タスクの数で数える
+  if (window.CarStep && window.CarStep.isStepMode(taskDef && taskDef.id, _wsActivePhase)) {
+    const sp = window.CarStep.progOf(car, taskDef.id, _wsActivePhase);
+    if (sp) return { done: sp.done, total: sp.total, pct: sp.pct };
+  }
   const state = _wsGetTaskState(car, taskDef.id);
   const all = _wsAllItems(taskDef);
   const total = all.length;
@@ -320,8 +325,10 @@ function _renderWorksheetPage(car, taskDef) {
   //   - 大カテゴリが 1 種類（または無し）→ タブ非表示、セクションだけ並べる
   //   - 中カテゴリ（title）あり → アコーディオン
   //   - 中カテゴリ（title）が空 → 帯なしフラット
+  // v3.0.0 中タスク：順番に進める設定のときは、タブを使わず上から順に並べる
+  const _stepMode = !!(window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase));
   const tabGroups = _wsBuildTabGroups(taskDef);
-  const showTabs = tabGroups.length > 1;
+  const showTabs = _stepMode ? false : (tabGroups.length > 1);
 
   const wsPage = document.getElementById('ws-page');
   if (wsPage) wsPage.setAttribute('data-tabs', showTabs ? '1' : '0');
@@ -341,7 +348,9 @@ function _renderWorksheetPage(car, taskDef) {
     _renderWsSections(car, taskDef, activeGroup ? activeGroup.sections : []);
   } else {
     tabs.innerHTML = '';
-    const allSections = (tabGroups[0] && tabGroups[0].sections) || [];
+    const allSections = _stepMode
+      ? (taskDef.sections || [])
+      : ((tabGroups[0] && tabGroups[0].sections) || []);
     _renderWsSections(car, taskDef, allSections);
   }
 
@@ -377,6 +386,11 @@ function _renderWsSections(car, taskDef, sections) {
     body.innerHTML = '<div class="ws-empty">項目がまだ登録されていません</div>';
     return;
   }
+  // v3.0.0 中タスク：順番に進める設定のときは、こちらで描く
+  if (window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase)) {
+    const steps = window.CarStep.stepsOf(car, taskDef.id, _wsActivePhase);
+    if (steps && steps.length) { body.innerHTML = _renderWsStepsHtml(car, taskDef, steps); return; }
+  }
   body.innerHTML = sections.map((sec, sIdx) => {
     const hasTitle = !!(sec.title && sec.title.trim());
     const filled = _wsCountSectionFilled(car, sec);
@@ -409,9 +423,88 @@ function _renderWsSections(car, taskDef, sections) {
   }).join('');
 }
 
+// v3.0.0 中タスク：上から順に並べる。前が済むまで、次は開かない・押せない。
+function _renderWsStepsHtml(car, taskDef, steps) {
+  const doneCount = steps.filter(s => s.isDone).length;
+  const head = `
+    <div class="ws-steps-head">
+      <span class="ws-steps-label">中タスク</span>
+      <span class="ws-steps-count">${doneCount} / ${steps.length}</span>
+      <span class="ws-steps-hint">上から順に進めます。前が終わるまで次は開きません</span>
+    </div>`;
+
+  const rows = steps.map(st => {
+    const stateCls = st.isDone ? 'done' : (st.locked ? 'locked' : 'now');
+    const mark = st.isDone
+      ? '<span class="ws-step-mark done">' + ic('check', '✓', 15) + '</span>'
+      : (st.locked
+          ? '<span class="ws-step-mark locked">' + ic('lock', '🔒', 14) + '</span>'
+          : '<span class="ws-step-mark now"></span>');
+    // 開くのは「いま手をつける中タスク」だけ。済んだものは開閉できる。
+    const isOpen = st.locked ? false
+      : (st.isDone ? !!_wsOpenSections[st.id] : (_wsOpenSections[st.id] !== false));
+    const countText = st.manual
+      ? (st.isDone ? '完了' : '未完了')
+      : `${st.done}/${st.total}`;
+
+    let inner = '';
+    if (st.locked) {
+      inner = `<div class="ws-step-locked-note">${ic('lock','🔒',14)} ${escapeHtml(window.CarStep.lockReason(st))}押せます</div>`;
+    } else if (isOpen) {
+      if (st.manual) {
+        inner = `
+          <div class="ws-step-manual">
+            <div class="ws-step-manual-note">この中タスクには小タスクがありません。終わったらここを押してください。</div>
+            <button class="btn-sm ${st.isDone ? '' : 'btn-primary'}"
+                    onclick="toggleManualStep('${escapeHtml(car.id)}','${escapeHtml(taskDef.id)}','${escapeHtml(st.id)}')">
+              ${st.isDone ? '未完了に戻す' : '完了にする'}
+            </button>
+          </div>`;
+      } else {
+        inner = st.items.map(item => _renderWsItemHtml(car, taskDef, item)).join('');
+      }
+    }
+
+    return `
+      <div class="ws-step ${stateCls}" data-section-id="${escapeHtml(st.id)}" data-open="${isOpen ? 1 : 0}">
+        <div class="ws-step-head" ${st.locked ? '' : `onclick="toggleWsSection('${escapeHtml(st.id)}')"`}>
+          ${mark}
+          <span class="ws-step-num">${String(st.index + 1).padStart(2, '0')}</span>
+          ${st.icon ? `<span class="ws-step-icon">${icoE(escapeHtml(st.icon))}</span>` : ''}
+          <span class="ws-step-name">${escapeHtml(st.name)}</span>
+          <span class="ws-step-count">${countText}</span>
+          ${st.locked ? '' : `<span class="ws-step-toggle">${isOpen ? ic('chevUp','▲',14) : ic('chevDown','▼',14)}</span>`}
+        </div>
+        <div class="ws-step-body">${inner}</div>
+      </div>`;
+  }).join('');
+
+  return head + `<div class="ws-steps">${rows}</div>`;
+}
+
+// v3.0.0 中タスク：外から作業管理票を描き直す（中タスクを押した後など）
+window.refreshWorksheetView = function () {
+  if (!_wsActiveCarId || !_wsActiveTaskId) return;
+  const car = _wsFindCar(_wsActiveCarId);
+  const taskDef = _wsGetTaskDef(_wsActiveTaskId);
+  if (car && taskDef) _renderWorksheetPage(car, taskDef);
+};
+
 // v1.7.19: アコーディオンの開閉トグル。再描画は現在のタブ内だけで OK。
 function toggleWsSection(secId) {
   if (!secId) return;
+  const car0 = _wsFindCar(_wsActiveCarId);
+  const taskDef0 = _wsGetTaskDef(_wsActiveTaskId);
+  // v3.0.0 中タスク：いま手をつける中タスクは既定で開いているので、逆から数える
+  if (car0 && taskDef0 && window.CarStep && window.CarStep.isStepMode(taskDef0.id, _wsActivePhase)) {
+    const steps = window.CarStep.stepsOf(car0, taskDef0.id, _wsActivePhase) || [];
+    const me = steps.find(s => s.id === secId);
+    if (me && me.locked) return;
+    const nowOpen = me && !me.isDone ? (_wsOpenSections[secId] !== false) : !!_wsOpenSections[secId];
+    _wsOpenSections[secId] = !nowOpen;
+    _renderWsSections(car0, taskDef0, taskDef0.sections || []);
+    return;
+  }
   _wsOpenSections[secId] = !_wsOpenSections[secId];
   const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
@@ -764,6 +857,14 @@ function _wsSetItemValue(itemId, updater) {
   const car = _wsFindCar(_wsActiveCarId);
   const taskDef = _wsGetTaskDef(_wsActiveTaskId);
   if (!car || !taskDef) return;
+  // 🔴 v3.0.0 中タスク：前の中タスクが終わっていない所は書かせない
+  if (window.CarStep && window.CarStep.isStepMode(taskDef.id, _wsActivePhase)) {
+    const st = window.CarStep.stepOfItem(car, taskDef.id, _wsActivePhase, itemId);
+    if (st && st.locked) {
+      if (typeof showToast === 'function') showToast(window.CarStep.lockReason(st) + '押せます', 'CF-1008');
+      return;
+    }
+  }
   const state = _wsGetTaskState(car, taskDef.id);
   const cur = state[itemId];
   const next = updater(cur);

@@ -180,6 +180,12 @@ function _calcChecklistProg(car, taskId, phase) {
     : `tpl_${phase}_${taskId}`;
   const tpl = ChecklistTemplates[tplId];
   if (!tpl) return null;
+  // 🔴 v3.0.0 中タスク：この大タスクが「順番に進める」設定なら、中タスクの数で数える
+  //    （小タスクの数ではなく、済んだ中タスクの数 ÷ 中タスクの数）
+  if (window.CarStep && window.CarStep.isStepMode(taskId, phase)) {
+    const sp = window.CarStep.progOf(car, taskId, phase);
+    if (sp) return { pct: sp.pct, done: sp.done, total: sp.total };
+  }
   // v1.7.38: 車のパターン選択を反映
   let sections = null;
   if (typeof window.getActiveTaskSections === 'function') {
