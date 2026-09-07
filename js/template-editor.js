@@ -1035,61 +1035,35 @@
   //   入れ物は今までのまま＝追加・改名・並び替え・小タスクの引っ越しは既存の操作でできる。
   // -----------------------------------------
   function _renderStepModeBar(tpl) {
-    const on = !!tpl.stepMode;
+    // v3.0.0：このタスクの作り（大 / 中 / 小 / 中→小）は **設定画面のプルダウン** で決める。
+    //   ここは「いまどうなっているか」を出すだけ（ここでは切り替えない）。
+    const lv = (tpl.taskLevel === 'step' || tpl.taskLevel === 'step_item' || tpl.taskLevel === 'item')
+      ? tpl.taskLevel
+      : (tpl.stepMode ? 'step_item' : 'item');
+    const LBL = {
+      item:      { name: '小タスク',      desc: '項目を上から埋めていく形です。中タスクは使いません' },
+      step:      { name: '中タスク',      desc: '中タスクを上から順に押していく形です。小タスクは使いません' },
+      step_item: { name: '中→小タスク',   desc: '中タスクの下に小タスクがぶら下がります。前の中タスクが終わるまで次は押せません' },
+    };
+    const cur = LBL[lv] || LBL.item;
     const secs = (tpl.sections || []);
     const names = secs.map((sec, i) =>
       (sec.title && sec.title.trim()) || (sec.tab && sec.tab.trim()) || ('中タスク' + (i + 1)));
-    const flow = (on && names.length)
+    const flow = (lv !== 'item' && names.length)
       ? `<div class="tpl-stepmode-flow">${names.map(n => `<span>${_esc(n)}</span>`).join('<i>›</i>')}</div>`
       : '';
-    const warn = (on && !names.length)
-      ? `<div class="tpl-stepmode-warn">中カテゴリが1つもありません。下の「+ 中カテゴリ追加（タブなし）」で足してください。</div>`
-      : '';
-    const emptySteps = on ? secs.filter(sec => !((sec.items || []).filter(i => !i._disabled).length)).length : 0;
-    const emptyNote = (on && emptySteps > 0)
-      ? `<div class="tpl-stepmode-note">小タスクが0個の中タスクが ${emptySteps} 個あります。作業画面では「完了にする」ボタンで押します。</div>`
-      : '';
     return `
-      <div class="tpl-stepmode ${on ? 'on' : ''}">
+      <div class="tpl-stepmode ${lv === 'item' ? '' : 'on'}">
         <div class="tpl-stepmode-main">
-          <div class="tpl-stepmode-title">${ic('list','📋',16)} 中タスクとして順番に進める</div>
+          <div class="tpl-stepmode-title">${ic('list','📋',16)} このタスクの作り：<b>${cur.name}</b></div>
           <div class="tpl-stepmode-desc">
-            ONにすると、下の<b>中カテゴリ</b>が上から順の「<b>中タスク</b>」になります。<br>
-            <b>前の中タスクが終わるまで、次は押せません。</b>進み具合は<b>中タスクの数</b>で数えます（小タスクの数ではありません）。<br>
-            <span class="tpl-stepmode-sub">例）整備 → 点検 ▸ 見積 ▸ 作業</span>
-            ${flow}${warn}${emptyNote}
+            ${cur.desc}<br>
+            <span class="tpl-stepmode-sub">変えるところ＝<b>設定 → タスク・進捗 → このタスクの ⋮</b>（この画面では切り替えません）</span>
+            ${flow}
           </div>
         </div>
-        <button class="btn-sm ${on ? 'btn-primary' : ''}" onclick="toggleTemplateStepMode('${_esc(tpl.id)}')">
-          ${on ? 'ON' : 'OFF'}
-        </button>
       </div>`;
   }
-
-  async function toggleTemplateStepMode(tplId) {
-    const tpl = _getTpl(tplId);
-    if (!tpl) return;
-    const next = !tpl.stepMode;
-    if (next) {
-      const secs = (tpl.sections || []);
-      if (!secs.length) {
-        _toast('先に中カテゴリを1つ以上作ってください');
-        return;
-      }
-      if (!confirm(`「${tpl.name || 'この大タスク'}」を中タスクとして順番に進めますか？\n\n`
-        + `・中カテゴリ ${secs.length} 個が、上から順の中タスクになります\n`
-        + `・前の中タスクが終わるまで、次は押せなくなります\n`
-        + `・進み具合は「済んだ中タスクの数 ÷ ${secs.length}」で出ます\n\n`
-        + `※ 入れてあるチェックは1つも消えません。OFFに戻せば元どおりです。`)) return;
-    }
-    tpl.stepMode = next;
-    if (await _saveTpl(tpl)) {
-      _toast(next ? '中タスクとして順番に進めます' : '中タスクをやめました（今までどおり）');
-      _renderDetail();
-      if (typeof renderAll === 'function') renderAll();
-    }
-  }
-  window.toggleTemplateStepMode = toggleTemplateStepMode;
 
   // v1.7.20: tpl.sections を「大カテゴリ（tab）」でグループ化（出現順）。
   function _buildTabGroups(tpl) {
