@@ -395,7 +395,7 @@ async function _onSignedIn(user) {
           archivedCars.length = 0;
           aList.forEach(c => archivedCars.push(c));
         }
-        /* 🔴 2026-09-08（v3.0.1）ここから**実績もリアルタイム購読**する。
+        /* 🔴 2026-09-08（v2.55.0）ここから**実績もリアルタイム購読**する。
            別の端末で月次締めをしたら、こちらの画面もその場で追いつく。 */
         if (typeof window._archUnsub === 'function') {
           try { window._archUnsub(); } catch (e) {}
