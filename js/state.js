@@ -151,3 +151,47 @@ let appSettings = {
     exhibitSource: 'total',
   }
 };
+
+
+/* ============================================================
+   🔴 2026-09-08（v3.0.1）売れた車を「二重に数えない」ための入口
+   ------------------------------------------------------------
+   ◎何が起きたか（本番・2026-09-07）
+     月次締めが「実績にコピー」までは通り、「在庫から消す」だけがルールに弾かれた。
+     結果、同じ車が cars（納車完了）と archivedCars の**両方**に残り、
+     ダッシュボードの `[...cars, ...archivedCars]` が**同じ車を2回**数えて
+     売上・台数がダブった。
+   ◎ここで何をするか
+     売れた車を数える時は必ずこの関数を通す。**同じ id は1回だけ**。
+     実績（archivedCars）側を正とし、在庫に残っている同じ車は捨てる。
+   ⚠ ルールを直しても、この保険は外さないこと。
+     「消せなかった台が在庫に残る」のは仕様（データを失わないため）で、
+     その時に数字が狂わないようにするのがこの関数の役目。
+   ============================================================ */
+function soldPool() {
+  const arc = (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) ? archivedCars : [];
+  const inv = (typeof cars !== 'undefined' && Array.isArray(cars)) ? cars : [];
+  const seen = new Set(arc.map(c => c && c.id).filter(Boolean));
+  const dup = [];
+  const rest = inv.filter(c => {
+    if (!c || !c.id) return false;
+    if (seen.has(c.id)) { dup.push(c.num || c.id); return false; }
+    return true;
+  });
+  if (dup.length && !soldPool._warned) {
+    soldPool._warned = true;
+    console.warn('[soldPool] 実績と在庫の両方にいる車があります（数字は1回だけ数えています）:', dup);
+  }
+  return arc.concat(rest);
+}
+window.soldPool = soldPool;
+
+/* 実績と在庫の両方にいる車（＝月次締めで在庫から消せなかった台）を返す。
+   画面に「片付けてください」と出すために使う。 */
+function soldDupCars() {
+  const arc = (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) ? archivedCars : [];
+  const inv = (typeof cars !== 'undefined' && Array.isArray(cars)) ? cars : [];
+  const seen = new Set(arc.map(c => c && c.id).filter(Boolean));
+  return inv.filter(c => c && c.id && seen.has(c.id));
+}
+window.soldDupCars = soldDupCars;

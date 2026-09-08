@@ -134,13 +134,34 @@ async function executeCloseMonth() {
 // ========================================
 // 販売実績ビュー
 // ========================================
+/* 🔴 2026-09-08（v3.0.1）実績と在庫の両方に残っている車を、販売実績の一番上に出す。
+   ＝ 月次締めで「実績には入ったが、在庫から消せなかった」台。
+   放っておくと**ダッシュボードの数字が二重に見える元**になる（数字自体は soldPool で1回に直してある）。
+   直し方＝**その月の月次締めをもう一度実行する**。実績は同じ内容で上書きされ、在庫から消える。 */
+function _archDupBarHtml() {
+  const dup = (typeof soldDupCars === 'function') ? soldDupCars() : [];
+  if (!dup.length) return '';
+  const names = dup.map(c => `${escapeHtml(c.num || '')} ${escapeHtml(c.maker || '')} ${escapeHtml(c.model || '')}`).join('／');
+  return `<div class="panel-card" style="border:1px solid var(--orange);background:rgba(245,158,11,.10);margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:4px">
+        ⚠ ${dup.length}台が「実績」と「在庫」の両方に残っています</div>
+      <div style="font-size:12px;line-height:1.7">
+        月次締めで<b>実績には入りましたが、在庫から消せませんでした</b>。<br>
+        ${names}<br>
+        <b>直し方＝その月の「月次集計締め」をもう一度実行してください。</b>
+        （実績は同じ内容で上書きされ、在庫から消えます）<br>
+        <span style="color:var(--text3)">※ 表示している売上・台数は、同じ車を1回だけ数えています。</span>
+      </div></div>`;
+}
+
 function renderArchive() {
   const sum = document.getElementById('archive-summary');
   const list = document.getElementById('archive-list');
   if (!sum || !list) return;
+  const dupBar = _archDupBarHtml();
   if (!archivedCars.length) {
     sum.innerHTML = '';
-    list.innerHTML = '<div class="panel-card"><div style="font-size:13px;color:var(--text3)">まだアーカイブされた販売実績がありません。<br>左サイドバーの「月次集計締め」から開始できます。</div></div>';
+    list.innerHTML = dupBar + '<div class="panel-card"><div style="font-size:13px;color:var(--text3)">まだアーカイブされた販売実績がありません。<br>左サイドバーの「月次集計締め」から開始できます。</div></div>';
     return;
   }
   // 年→月 に集計
@@ -180,7 +201,7 @@ function renderArchive() {
 
   // 年→月（v1.8.71: スナップショット考慮の sumCar を使う）
   const years = Object.keys(byYear).sort().reverse();
-  list.innerHTML = years.map(y => {
+  list.innerHTML = dupBar + years.map(y => {
     const months = Object.keys(byYear[y]).sort().reverse();
     const yearTotal = months.reduce((s, m) => s + byYear[y][m].reduce((ss, c) => ss + sumCar(c), 0), 0);
     const yearCount = months.reduce((s, m) => s + byYear[y][m].length, 0);
