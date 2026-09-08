@@ -219,21 +219,45 @@
      ⚠ 車1台ずつではなく**コレクション全体**を購読する（実績は台数が増え続けるので、
         重くなってきたら「直近◯ヶ月だけ」に絞ること）。
      ============================================================ */
+  /* ⚠ 2026-09-08（v2.56.0）cars と同じで、**落ちたら自動で張り直す**。
+        張りっぱなしにして落ちたら、その画面は一生更新が来ない（リロードするまで）。 */
   function subscribeArchivedCars(onUpdate) {
-    const col = _archivedCol();
-    if (!col) { console.warn('[db-archive] companyId 未確定のため購読スキップ'); return function(){}; }
-    const unsub = col.onSnapshot(
-      function (snap) {
-        const list = [];
-        snap.forEach(d => list.push(_normalizeForLoad(d)));
-        try { onUpdate(list); } catch (e) { console.error('[db-archive] onUpdate error', e); }
-      },
-      function (err) {
-        console.error('[db-archive] subscribe error:', err);
-        if (typeof showToast === 'function') showToast('販売実績の同期が切れました', 'CF-0009');
-      }
-    );
-    return unsub;
+    var un = null, relinkT = null, waitMs = 3000;
+
+    function link() {
+      const col = _archivedCol();
+      if (!col) { console.warn('[db-archive] companyId 未確定のため購読スキップ'); return; }
+      un = col.onSnapshot(
+        function (snap) {
+          waitMs = 3000;
+          const list = [];
+          snap.forEach(d => list.push(_normalizeForLoad(d)));
+          try { onUpdate(list); } catch (e) { console.error('[db-archive] onUpdate error', e); }
+        },
+        function (err) {
+          console.error('[db-archive] subscribe error:', err);
+          relink();
+        }
+      );
+    }
+    function relink() {
+      if (relinkT) return;
+      relinkT = setTimeout(function () {
+        relinkT = null;
+        try { if (un) un(); } catch (e) {}
+        un = null;
+        console.log('[db-archive] 購読を張り直します（' + waitMs + 'ms 待った）');
+        link();
+      }, waitMs);
+      waitMs = Math.min(waitMs * 2, 60000);
+    }
+
+    link();
+    return function () {
+      if (relinkT) { clearTimeout(relinkT); relinkT = null; }
+      try { if (un) un(); } catch (e) {}
+      un = null;
+    };
   }
 
   window.dbArchive = {

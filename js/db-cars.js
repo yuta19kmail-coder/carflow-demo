@@ -280,6 +280,24 @@
     return true;
   }
 
+  /* 🔴 2026-09-08（v2.56.0）**サーバーから**読み直す。
+     ⚠ ふつうの get は「端末の中の写し」から返ってくることがある
+        （PitFlow で実測 0.001 秒で返った＝古いまま「読み直したつもり」になる）。
+        つながりが戻った時の読み直しは、必ず source:'server' で取る。 */
+  async function refreshCarsFromServer() {
+    const col = _carsCol();
+    if (!col) return;
+    const snap = await col.get({ source: 'server' });
+    const list = [];
+    snap.forEach(d => list.push(_normalizeForLoad(d)));
+    if (typeof cars !== 'undefined' && Array.isArray(cars)) {
+      cars.length = 0;
+      list.forEach(c => cars.push(c));
+    }
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  }
+
   async function refreshCars() {
     const list = await loadCars();
     if (typeof cars !== 'undefined' && Array.isArray(cars)) {
@@ -290,34 +308,143 @@
     if (typeof renderDashboard === 'function') renderDashboard();
   }
 
-  // v1.8.0: onSnapshot 購読
+  /* ============================================================
+     🔴 2026-09-08（v2.56.0）リアルタイム購読の作り直し
+     ------------------------------------------------------------
+     🗣 ゆうた「リアルタイムはどう？俺の肌感で PitFlow とかより全然ないような気がする」
+     ◎前はこうだった（＝肌感の正体）
+       ① `includeMetadataChanges` を付けていなかった
+          → snapshot は **中身が変わった時しか来ない**。
+            つながりが「写しから → サーバーから」に戻った瞬間が**見えない**。
+            画面の同期ランプも、誰かがデータを変えるまで動かない。
+       ② 購読が落ちた時、**console に出してトーストを1回出すだけ**だった。
+          → 張り直さないので、**その画面はリロードするまで一生更新が来ない**。
+            しかも画面は普通に動いているので、**本人は気づけない**。
+          🔴 PitFlow は 2026-08-28 の事故（古い画面が他人の作業を6件消した）を受けて
+             v2.24.0 で「つながり監視 → 落ちたら張り直す → 戻ったら読み直す」を入れた。
+             CarFlow には**それが無かった**。
+       ③ 戻ってきた時に**読み直していなかった**
+          → 切れている間に他の端末が変えたぶんが、抜けたままになる余地があった。
+     ◎いまの作り（PitFlow と同じ考え方）
+       ・`includeMetadataChanges: true` ＝ つながりの変化そのものを受け取る
+       ・写しから返ってきたら、少し待ってから「同期待ち」に落とす（一瞬の揺れでは騒がない）
+       ・サーバーから返るようになったら「同期」に戻し、**1回だけ読み直す**
+       ・購読が落ちたら **秒数を伸ばしながら自動で張り直す**（3秒→6秒→…最大60秒）
+     ⚠ 「張り直しています」を画面に出す。**黙って壊れているのが一番まずい。**
+     ============================================================ */
+  var _carsUn = null;          /* いまの購読 */
+  var _carsRelinkT = null;     /* 張り直しの予約 */
+  var _carsRelinkMs = 3000;    /* 次に張り直すまでの待ち（伸びていく） */
+  var _carsWasCache = false;   /* 直前が「写しから」だったか */
+  var _carsOffT = null;        /* 「同期待ち」に落とすまでの猶予 */
+  var _CARS_OFF_WAIT = 6000;   /* 一瞬の揺れでは騒がない */
+
+  function _carsClearTimers() {
+    if (_carsRelinkT) { clearTimeout(_carsRelinkT); _carsRelinkT = null; }
+    if (_carsOffT)    { clearTimeout(_carsOffT);    _carsOffT = null; }
+  }
+
   function subscribeCars(onUpdate) {
     const col = _carsCol();
     if (!col) {
       console.warn('[db-cars] subscribeCars: companyId 未確定');
       return function () {};
     }
-    const unsub = col.onSnapshot(
-      function (snap) {
-        const list = [];
-        snap.forEach(d => list.push(_normalizeForLoad(d)));
-        const meta = {
-          fromCache: !!(snap.metadata && snap.metadata.fromCache),
-          hasPendingWrites: !!(snap.metadata && snap.metadata.hasPendingWrites),
-        };
-        try {
-          if (typeof onUpdate === 'function') onUpdate(list, meta);
-        } catch (e) {
-          console.error('[db-cars] subscribeCars callback error:', e);
+
+    function link() {
+      const c = _carsCol();
+      if (!c) { _scheduleRelink(onUpdate); return; }
+      _carsUn = c.onSnapshot(
+        { includeMetadataChanges: true },
+        function (snap) {
+          _carsRelinkMs = 3000;                       /* つながったので待ち時間を戻す */
+          const fromCache = !!(snap.metadata && snap.metadata.fromCache);
+
+          if (fromCache) {
+            /* 端末の中の写しから返っている＝サーバーから届いていない。
+               一瞬のことも多いので、少し待ってから画面に出す。 */
+            if (!_carsOffT) {
+              _carsOffT = setTimeout(function () {
+                _carsOffT = null;
+                _carsWasCache = true;
+                if (typeof setSyncStatus === 'function') setSyncStatus('cache', '同期待ち');
+              }, _CARS_OFF_WAIT);
+            }
+          } else {
+            if (_carsOffT) { clearTimeout(_carsOffT); _carsOffT = null; }
+            if (typeof setSyncStatus === 'function') setSyncStatus('online');
+            if (_carsWasCache) {
+              /* 🔴 戻ってきた＝切れている間のぶんを取りこぼしていないか、1回読み直す */
+              _carsWasCache = false;
+              console.log('[db-cars] つながりが戻ったのでサーバーから読み直します');
+              try { refreshCarsFromServer(); } catch (e) { console.error('[db-cars] 読み直し失敗', e); }
+            }
+          }
+
+          /* 中身が変わっていない「つながりの知らせだけ」の時は、画面を描き直さない */
+          if (snap.metadata && snap.metadata.fromCache === _carsLastFromCache
+              && snap.docChanges && snap.docChanges().length === 0) {
+            _carsLastFromCache = fromCache;
+            return;
+          }
+          _carsLastFromCache = fromCache;
+
+          const list = [];
+          snap.forEach(d => list.push(_normalizeForLoad(d)));
+          const meta = {
+            fromCache: fromCache,
+            hasPendingWrites: !!(snap.metadata && snap.metadata.hasPendingWrites),
+          };
+          try {
+            if (typeof onUpdate === 'function') onUpdate(list, meta);
+          } catch (e) {
+            console.error('[db-cars] subscribeCars callback error:', e);
+          }
+        },
+        function (err) {
+          console.error('[db-cars] subscribeCars error:', err);
+          _scheduleRelink(onUpdate);
         }
-      },
-      function (err) {
-        console.error('[db-cars] subscribeCars error:', err);
-        if (typeof showToast === 'function') showToast('車両データの同期でエラー', 'CF-0020');
+      );
+    }
+
+    function _scheduleRelink(cb) {
+      if (_carsRelinkT) return;
+      if (typeof setSyncStatus === 'function') setSyncStatus('offline', '同期が切れました');
+      if (typeof showToast === 'function') {
+        showToast('同期が切れました。つなぎ直しています…', 'CF-0020');
       }
-    );
-    return unsub;
+      _carsRelinkT = setTimeout(function () {
+        _carsRelinkT = null;
+        try { if (_carsUn) _carsUn(); } catch (e) {}
+        _carsUn = null;
+        _carsWasCache = true;              /* 張り直したら必ず1回読み直す */
+        console.log('[db-cars] 購読を張り直します（' + _carsRelinkMs + 'ms 待った）');
+        link();
+      }, _carsRelinkMs);
+      _carsRelinkMs = Math.min(_carsRelinkMs * 2, 60000);   /* 3→6→12→24→48→60秒 */
+    }
+
+    link();
+
+    /* 端末がネットに戻った／タブが前面に戻った時も、一度確かめる */
+    function _wake() {
+      if (document.visibilityState === 'hidden') return;
+      if (!_carsUn) { _carsRelinkMs = 3000; _scheduleRelink(onUpdate); return; }
+      try { refreshCarsFromServer(); } catch (e) { console.error('[db-cars] 読み直し失敗', e); }
+    }
+    window.addEventListener('online', _wake);
+    document.addEventListener('visibilitychange', _wake);
+
+    return function () {
+      _carsClearTimers();
+      window.removeEventListener('online', _wake);
+      document.removeEventListener('visibilitychange', _wake);
+      try { if (_carsUn) _carsUn(); } catch (e) {}
+      _carsUn = null;
+    };
   }
+  var _carsLastFromCache = null;
 
   window.dbCars = {
     loadCars: loadCars,
@@ -327,6 +454,7 @@
     deleteCar: deleteCar,
     seedSampleCarsIfEmpty: seedSampleCarsIfEmpty,
     refreshCars: refreshCars,
+    refreshCarsFromServer: refreshCarsFromServer,
     subscribeCars: subscribeCars,
     // v1.8.40: realtime 同期側で削除中車両をスキップするためのフック
     isCarPendingDelete: isCarPendingDelete,
