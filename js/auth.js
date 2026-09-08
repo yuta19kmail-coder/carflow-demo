@@ -395,6 +395,21 @@ async function _onSignedIn(user) {
           archivedCars.length = 0;
           aList.forEach(c => archivedCars.push(c));
         }
+        /* 🔴 2026-09-08（v3.0.1）ここから**実績もリアルタイム購読**する。
+           別の端末で月次締めをしたら、こちらの画面もその場で追いつく。 */
+        if (typeof window._archUnsub === 'function') {
+          try { window._archUnsub(); } catch (e) {}
+          window._archUnsub = null;
+        }
+        if (typeof window.dbArchive.subscribeArchivedCars === 'function') {
+          window._archUnsub = window.dbArchive.subscribeArchivedCars(function (list) {
+            if (typeof archivedCars === 'undefined' || !Array.isArray(archivedCars)) return;
+            archivedCars.length = 0;
+            list.forEach(c => archivedCars.push(c));
+            if (typeof renderAll === 'function')       { try { renderAll(); }       catch (e) {} }
+            if (typeof renderDashboard === 'function') { try { renderDashboard(); } catch (e) {} }
+          });
+        }
         // v2.1.0: アプリ起動時に「archive 後 90 日超え写真」をクリーンアップ
         if (window.backoffice && typeof window.backoffice.cleanupExpiredArchivedPhotos === 'function') {
           try { window.backoffice.cleanupExpiredArchivedPhotos(); } catch (e) { console.error('[auth] cleanupExpiredArchivedPhotos failed', e); }

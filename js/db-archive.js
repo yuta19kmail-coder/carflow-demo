@@ -209,8 +209,36 @@
   // -----------------------------------------
   // 公開
   // -----------------------------------------
+  /* ============================================================
+     🔴 2026-09-08（v3.0.1）販売実績（archivedCars）を**リアルタイム購読**にする
+     ------------------------------------------------------------
+     ◎これまで：ログインした時に1回読むだけだった。
+       ＝ **別の端末で月次締めをしても、こちらの画面はリロードするまで古いまま。**
+       本番でそれが「締めたのに実績が増えない」「ダブりが消えたように見える」の正体になった。
+     ◎これから：cars と同じように onSnapshot で購読する。
+     ⚠ 車1台ずつではなく**コレクション全体**を購読する（実績は台数が増え続けるので、
+        重くなってきたら「直近◯ヶ月だけ」に絞ること）。
+     ============================================================ */
+  function subscribeArchivedCars(onUpdate) {
+    const col = _archivedCol();
+    if (!col) { console.warn('[db-archive] companyId 未確定のため購読スキップ'); return function(){}; }
+    const unsub = col.onSnapshot(
+      function (snap) {
+        const list = [];
+        snap.forEach(d => list.push(_normalizeForLoad(d)));
+        try { onUpdate(list); } catch (e) { console.error('[db-archive] onUpdate error', e); }
+      },
+      function (err) {
+        console.error('[db-archive] subscribe error:', err);
+        if (typeof showToast === 'function') showToast('販売実績の同期が切れました', 'CF-0009');
+      }
+    );
+    return unsub;
+  }
+
   window.dbArchive = {
     loadArchivedCars,
+    subscribeArchivedCars,
     saveArchivedCar,
     saveArchivedCarPaths,
     isLockedKey,

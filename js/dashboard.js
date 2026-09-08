@@ -244,7 +244,7 @@ function calcLanding() {
 
   if (mode === 'contract') {
     // v1.8.98: 売約ベースを新ロジックに統一（リード控除なし＝売約即計上、1年アベ、1日目に1台立つ）
-    const fixedCars = [...cars, ...archivedCars].filter(c => c.contractDate && c.contractDate >= firstOfMonth && c.contractDate <= lastOfMonth);
+    const fixedCars = soldPool().filter(c => c.contractDate && c.contractDate >= firstOfMonth && c.contractDate <= lastOfMonth);
     const fixedCount = fixedCars.length;
     const fixedSales = fixedCars.reduce((s, c) => s + _dashAmount(c), 0);
 
@@ -254,7 +254,7 @@ function calcLanding() {
     if (addSlotsC > 0) {
       const since = new Date(now); since.setDate(since.getDate() - 365);
       const sinceStr = since.toISOString().split('T')[0];
-      const recent = [...cars, ...archivedCars].filter(c => c.contractDate && c.contractDate >= sinceStr);
+      const recent = soldPool().filter(c => c.contractDate && c.contractDate >= sinceStr);
       const dailyPace = recent.length / 365;
       if (dailyPace > 0) {
         const interval = Math.max(1, Math.ceil(1 / dailyPace));
@@ -279,7 +279,7 @@ function calcLanding() {
 
   // delivery mode
   // ① 確定：col==='done' かつ deliveryDate が当月
-  const fixedCars = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= firstOfMonth && c.deliveryDate <= lastOfMonth);
+  const fixedCars = soldPool().filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= firstOfMonth && c.deliveryDate <= lastOfMonth);
   const fixedCount = fixedCars.length;
   const fixedSales = fixedCars.reduce((s, c) => s + _dashAmount(c), 0);
 
@@ -300,7 +300,7 @@ function calcLanding() {
     // v1.8.97: 直近365日（1年）のペース・平均価格（月間バラつき吸収）
     const since = new Date(now); since.setDate(since.getDate() - 365);
     const sinceStr = since.toISOString().split('T')[0];
-    const recent = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= sinceStr);
+    const recent = soldPool().filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= sinceStr);
     const dailyPace = recent.length / 365;
     if (dailyPace > 0) {
       const interval = Math.max(1, Math.ceil(1 / dailyPace));
@@ -478,7 +478,7 @@ function renderLanding() {
   `;
 
   // 詳細：確定・見込みの内訳
-  const fixedList = [...cars, ...archivedCars].filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
+  const fixedList = soldPool().filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const likelyList = cars.filter(c => c.col !== 'done' && c.contract && c.deliveryDate && c.deliveryDate.startsWith(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`));
   const renderList = (arr, label) => arr.length ? arr.map(c => `<div style="font-size:11px;padding:3px 0;color:var(--text2)">・${c.maker} ${c.model} <span style="color:var(--text3)">${c.num}・${fmtPrice(c.price)}${c.deliveryDate?'・納車'+fmtDate(c.deliveryDate):''}</span></div>`).join('') : `<div style="font-size:11px;color:var(--text3)">${label}なし</div>`;
   // スライド売上（売約済だが来月以降納車）
@@ -537,14 +537,14 @@ function renderKPIs() {
 
   // 今月
   const [mf, mt] = monthRange(y, m);
-  const thisMonth = [...cars, ...archivedCars].filter(c => inPeriod(c, mf, mt));
+  const thisMonth = soldPool().filter(c => inPeriod(c, mf, mt));
   // 先月
   const prev = new Date(y, m-2, 1);
   const [pf, pt] = monthRange(prev.getFullYear(), prev.getMonth()+1);
-  const lastMonth = [...cars, ...archivedCars].filter(c => inPeriod(c, pf, pt));
+  const lastMonth = soldPool().filter(c => inPeriod(c, pf, pt));
   // 昨年同月
   const [yf, yt] = monthRange(y-1, m);
-  const lastYear = [...cars, ...archivedCars].filter(c => inPeriod(c, yf, yt));
+  const lastYear = soldPool().filter(c => inPeriod(c, yf, yt));
 
   // 現在の在庫（未納車）
   // v1.8.72: 在庫評価から「オーダー車両」を除外（在庫ではないため）
@@ -552,7 +552,7 @@ function renderKPIs() {
   const invAvgPrice = inv.length ? sumBy(inv, c => _dashAmount(c)) / inv.length : 0;
 
   // 全アーカイブ平均販売価格
-  const allSold = [...archivedCars, ...cars.filter(c => c.col === 'done')];
+  const allSold = soldPool().filter(c => c.col === 'done');
   const avgSoldPrice = allSold.length ? sumBy(allSold, c => _dashAmount(c)) / allSold.length : 0;
 
   // 平均在庫日数（売れた車基準）
