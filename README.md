@@ -2,11 +2,11 @@
 
 🔴 **このフォルダは自動で作られます。手で直さないでください。** 次に作り直した時に消えます。
 
-- 作り方 … `powershell -File "D:\Claude\アプリ開発\make-demo-carflow.ps1" -Push`
+- 作り方 … `powershell -File "D:\Claude\CoreFlowアプリ\make-demo-carflow.ps1" -Push`
 - ふだんは `deploy-carflow.ps1`（本番 → デモ版 を一度に出す）を使います
 - 中身 … 本番の CarFlow そのまま ＋ デモの部品（`js/demo-*.js` / `css/demo.css`）
-- 直したい時は **本番側**（`D:\Claude\アプリ開発\CarFlow\carflow`）を直して、作り直す
-- デモにしか要らない部品は `D:\Claude\アプリ開発\_tools\carflow-demo\` にあります
+- 直したい時は **本番側**（`D:\Claude\CoreFlowアプリ\CarFlow\carflow`）を直して、作り直す
+- デモにしか要らない部品は `D:\Claude\CoreFlowアプリ\_tools\carflow-demo\` にあります
 
 ## これは何
 
@@ -17,5 +17,5 @@
 - お客様・車・電話番号は**すべて架空**のものです
 - **LINE は飛びません**（画面のトーストに置き換わります）
 - 上に**オレンジの「デモ版」の帯**が出ます。**帯が無ければ本番です**
-もとになった版：**v2.56.0**
-作り直した日：2026-09-08 13:49
+もとになった版：**v2.63.0**
+作り直した日：2026-09-15 12:02

@@ -414,13 +414,7 @@ async function _onSignedIn(user) {
         if (window.backoffice && typeof window.backoffice.cleanupExpiredArchivedPhotos === 'function') {
           try { window.backoffice.cleanupExpiredArchivedPhotos(); } catch (e) { console.error('[auth] cleanupExpiredArchivedPhotos failed', e); }
         }
-        // v2.2.7: 完了から3日経過した done 付箋を削除（自動付箋＋手動付箋とも対象）※v2.10.4で7日→3日
-        // boardNotes の読み込み完了を待つため少し遅延
-        if (window.taskMemoAutoNote && typeof window.taskMemoAutoNote.cleanup === 'function') {
-          setTimeout(() => {
-            try { window.taskMemoAutoNote.cleanup(); } catch (e) { console.error('[auth] taskMemoAutoNote.cleanup failed', e); }
-          }, 2000);
-        }
+        // 🔴 v2.60.0 「済から3日で付箋を削除」はやめた（共通部品が3日で隠すだけ・データは消さない）
       } catch (e) {
         console.error('[auth] archivedCars 読み込み失敗:', e);
         if (typeof showToast === 'function') showToast('販売実績の読み込みに失敗しました', 'CF-0009');
@@ -538,16 +532,7 @@ async function _onSignedIn(user) {
           boardNotes.length = 0;
           list.forEach(n => boardNotes.push(n));
         }
-        window.dbBoardNotes.archiveOldDoneNotes(3).then(deletedIds => {
-          if (Array.isArray(deletedIds) && deletedIds.length > 0
-              && typeof boardNotes !== 'undefined' && Array.isArray(boardNotes)) {
-            const set = new Set(deletedIds);
-            for (let i = boardNotes.length - 1; i >= 0; i--) {
-              if (set.has(boardNotes[i].id)) boardNotes.splice(i, 1);
-            }
-            if (typeof renderBoardNotes === 'function') renderBoardNotes();
-          }
-        }).catch(() => {});
+        /* 🔴 v2.60.0 済んだ付箋の削除（archiveOldDoneNotes）は呼ばない。3日で盤面から隠すのは共通部品 */
         if (typeof window._boardNotesUnsub === 'function') {
           try { window._boardNotesUnsub(); } catch (e) {}
           window._boardNotesUnsub = null;

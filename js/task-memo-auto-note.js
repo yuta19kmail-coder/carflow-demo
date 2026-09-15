@@ -15,9 +15,9 @@
 //     - date型メモが存在: 付箋を作成 or 更新
 //     - メモが存在しない or 型がdateじゃない: 付箋を削除
 //   window.taskMemoAutoNote.markDone(car, taskId, isDone)
-//     - タスク完了で付箋に status='done' をセット（archiveOldDoneNotes(3)で3日後に自動削除）
+//     - タスク完了で付箋に status='done' をセット（🔴 v2.60.0 3日で盤面から隠れる・データは消さない）
 //   window.taskMemoAutoNote.cleanup()
-//     - 完了から3日以上経った付箋を削除（自動付箋に限らず全done付箋対象）
+//     - 🔴 v2.60.0 何もしない（済んだ付箋は消さない）
 // ========================================
 
 (function () {
@@ -159,7 +159,7 @@
     if (isDone) {
       if (note.status === 'done') return;
       note.status = 'done';
-      note.doneAt = (window.fb && window.fb.serverTimestamp) ? window.fb.serverTimestamp() : new Date().toISOString();
+      note.doneAt = Date.now();   /* 🔴 v2.60.0 ミリ秒の数字。サーバー時刻の印は保存の写しで壊れる（付箋が一度も片付かなかった原因） */
       note.doneByUid = (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null;
       if (window.dbBoardNotes && window.dbBoardNotes.saveBoardNote) {
         try { await window.dbBoardNotes.saveBoardNote(note); }
@@ -182,24 +182,8 @@
   // 起動時クリーンアップ：完了から3日以上経過したdone付箋を削除（v2.10.4で7日→3日）
   //   自動付箋に限らず全done付箋が対象（既存仕様）
   // ----------------------------------------
-  async function cleanup() {
-    if (!window.dbBoardNotes || !window.dbBoardNotes.archiveOldDoneNotes) return 0;
-    try {
-      const ids = await window.dbBoardNotes.archiveOldDoneNotes(3);
-      if (Array.isArray(ids) && ids.length && Array.isArray(boardNotes)) {
-        ids.forEach(id => {
-          const idx = boardNotes.findIndex(n => n && n.id === id);
-          if (idx >= 0) boardNotes.splice(idx, 1);
-        });
-        if (typeof renderBoardNotes === 'function') renderBoardNotes();
-        console.log('[auto-note] cleaned up', ids.length, 'old done notes');
-      }
-      return (ids || []).length;
-    } catch (e) {
-      console.error('[auto-note] cleanup failed', e);
-      return 0;
-    }
-  }
+  /* 🔴 v2.60.0 済んだ付箋は消さない（共通部品が3日で盤面から隠す）。呼び口だけ残す */
+  async function cleanup() { return 0; }
 
   window.taskMemoAutoNote = {
     sync: syncAutoNote,

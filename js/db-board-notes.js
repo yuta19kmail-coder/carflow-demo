@@ -8,7 +8,7 @@
 //   loadBoardNotes()                : 全件取得（order asc）
 //   saveBoardNote(note)             : 1件保存（merge）
 //   deleteBoardNote(noteId)         : 1件削除
-//   archiveOldDoneNotes(days)       : 済 で N 日経過したものを delete
+//   archiveOldDoneNotes()           : 🔴 v2.60.0 何もしない（済んだ付箋は消さない・部品が3日で隠す）
 //   reorderBoardNotes(idList)       : 渡された ID 順に order を 0..N-1 に再付番
 //   subscribeBoardNotes(onUpdate)   : v1.8.0 onSnapshot 購読
 //
@@ -125,35 +125,11 @@
     }
   }
 
-  async function archiveOldDoneNotes(days) {
-    if (typeof days !== 'number' || days < 0) days = 3;
-    const col = _col();
-    if (!col) return [];
-    try {
-      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-      const snap = await col.where('status', '==', 'done').get();
-      const toDelete = [];
-      snap.forEach(d => {
-        const data = d.data();
-        const t = data.doneAt && data.doneAt.toMillis ? data.doneAt.toMillis()
-                 : (data.doneAt && data.doneAt.seconds ? data.doneAt.seconds * 1000 : 0);
-        if (t > 0 && t < cutoff) toDelete.push(d.id);
-      });
-      if (toDelete.length === 0) return [];
-      const CHUNK = 450;
-      for (let i = 0; i < toDelete.length; i += CHUNK) {
-        const slice = toDelete.slice(i, i + CHUNK);
-        const batch = window.fb.db.batch();
-        slice.forEach(id => batch.delete(col.doc(id)));
-        await batch.commit();
-      }
-      console.log('[db-board-notes] archived', toDelete.length, 'old done notes');
-      return toDelete.slice();
-    } catch (err) {
-      console.error('[db-board-notes] archiveOldDoneNotes error:', err);
-      return [];
-    }
-  }
+  /* 🔴 v2.60.0（ゆうた指定 2026-09-13）**済んだ付箋はもう消さない。**
+     済から3日たったら盤面から隠すだけ（共通部品 coreflow-note-board.js）。データは残る・「済んだ付箋」から戻せる。
+     ⚠ 前はここで本当に削除していた（ただし保存の写しで doneAt が壊れていて、実は一度も消えていなかった）。
+     ⚠ 呼び口だけ残す＝古いキャッシュの画面から呼ばれても何も消さない。 */
+  async function archiveOldDoneNotes() { return []; }
 
   // v1.8.0: onSnapshot 購読（order asc）
   function subscribeBoardNotes(onUpdate) {
