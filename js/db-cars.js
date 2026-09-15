@@ -331,6 +331,10 @@
        ・サーバーから返るようになったら「同期」に戻し、**1回だけ読み直す**
        ・購読が落ちたら **秒数を伸ばしながら自動で張り直す**（3秒→6秒→…最大60秒）
      ⚠ 「張り直しています」を画面に出す。**黙って壊れているのが一番まずい。**
+     ⚠ 共通部品 `CFSync.watchLink`（CoreBoard / CoreNote が使っている）は**あえて使っていない**。
+        あれは「別の書類を1つ見張る」やり方で、CarFlow は
+        **見たいもの（cars の購読）そのもの**に `includeMetadataChanges` を付けている＝
+        代理を挟まないぶん確か。ふきだしの文言だけ共通部品に合わせてある。
      ============================================================ */
   var _carsUn = null;          /* いまの購読 */
   var _carsRelinkT = null;     /* 張り直しの予約 */
@@ -368,6 +372,9 @@
                 _carsOffT = null;
                 _carsWasCache = true;
                 if (typeof setSyncStatus === 'function') setSyncStatus('cache', '同期待ち');
+                /* 全アプリ共通のランプにふきだしも出す（CoreBoard / CoreNote と同じ言い方） */
+                try { if (window.CFSync && CFSync.bubble)
+                        CFSync.bubble('サーバーから届いていません。画面を読み込み直すか、電波を確かめてください'); } catch (e) {}
               }, _CARS_OFF_WAIT);
             }
           } else {

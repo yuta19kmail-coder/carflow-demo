@@ -14,7 +14,7 @@
 //   🔴 このファイルは demo-sample-data.js より **後ろ** に読むこと。
 //
 // 🔴 本体（CarFlow\carflow）には1行も置かない。ここは
-//    D:\Claude\アプリ開発\_tools\carflow-demo\js\ に置き、
+//    D:\Claude\CoreFlowアプリ\_tools\carflow-demo\js\ に置き、
 //    make-demo-carflow.ps1 がコピーで入れる。
 // ========================================
 (function (w) {

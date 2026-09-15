@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="2.56.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="2.63.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -37,7 +37,7 @@
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
 <link rel="stylesheet" href="css/template-editor.css?v=290">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<link rel="stylesheet" href="css/board-notes.css?v=292">
+<link rel="stylesheet" href="css/coreflow-note-board.css?v=a29f6744"><!-- 📌 付箋ボードの見た目（全アプリ共通・_shared から配布）。v2.60.0 で前の付箋専用の見た目から置き換え -->
 <link rel="stylesheet" href="css/coreflow-note-reply.css?v=b5c2b3fb"><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.css より後ろに読む -->
 <!-- v1.7.42: 作業実績ビュー -->
 <link rel="stylesheet" href="css/worklog.css?v=284">
@@ -121,7 +121,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v2.56.0</div>
+    <div class="login-ver">v2.63.0</div>
   </div>
 </div>
 
@@ -132,7 +132,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.56.0</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.63.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -1223,40 +1223,7 @@
   </div>
 </div>
 
-<!-- v1.7.8: 付箋ボード アクションシート（下から出るスマホUI） -->
-<div class="overlay" id="modal-bn-actions" onclick="closeBoardNoteActions()">
-  <div class="bn-actionsheet" onclick="event.stopPropagation()">
-    <div class="bn-actionsheet-title" id="bn-actionsheet-title">付箋メニュー</div>
-    <button class="bn-actionsheet-btn" id="bn-action-edit" onclick="bnActionEdit()"><i data-ic="pencil" data-s="15">✏️</i> 編集</button>
-    <button class="bn-actionsheet-btn" id="bn-action-done" onclick="bnActionDone()"><i data-ic="check" data-s="15">✅</i> 済にする</button>
-    <button class="bn-actionsheet-btn" id="bn-action-undone" onclick="bnActionUndone()" style="display:none"><i data-ic="undo" data-s="15">↩️</i> 未済に戻す</button>
-    <button class="bn-actionsheet-btn" id="bn-action-reply" onclick="bnActionReply()"><i data-ic="comment" data-s="15">💬</i> 返信する</button>
-    <button class="bn-actionsheet-btn bn-actionsheet-danger" id="bn-action-delete" onclick="bnActionDelete()"><i data-ic="trash" data-s="16">🗑</i> 消去</button>
-    <button class="bn-actionsheet-btn bn-actionsheet-cancel" onclick="closeBoardNoteActions()">キャンセル</button>
-  </div>
-</div>
-
-<!-- v2.12.0: 付箋 返信モーダル -->
-<div class="overlay" id="modal-bn-reply" onclick="closeBoardNoteReply()">
-  <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
-    <div class="mhdr">
-      <div class="mhdr-title"><i data-ic="comment" data-s="15">💬</i> 返信する</div>
-      <button class="mclose" onclick="closeBoardNoteReply()"><i data-ic="close" data-s="15">✕</i></button>
-    </div>
-    <div class="mbody bn-modal-body">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">対象：<span id="bn-reply-note-title" style="color:var(--text2)"></span></div>
-      <div>
-        <label>返信</label>
-        <textarea id="bn-reply-text" rows="3" maxlength="300" placeholder="例：まだ途中です／時間なかったのでさっとです"></textarea>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">本文の下にあなたのアイコンと一緒に表示されます。「済にする」は別操作です。</div>
-      </div>
-    </div>
-    <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
-      <button class="btn-sm" onclick="closeBoardNoteReply()">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="submitBoardNoteReply()">送信</button>
-    </div>
-  </div>
-</div>
+<!-- 🔴 v2.60.0 付箋のアクションシート・返信の窓は共通部品（js/coreflow-note-board.js）が自分で作る -->
 
 <!-- v1.8.13: タスク行の⋮メニュー（設定→タスク・進捗）-->
 <!-- v2.5.6: アクションシート → 設定モーダル（トグル/入力欄/保存ボタン）に変更 -->
@@ -1274,72 +1241,7 @@
   </div>
 </div>
 
-<!-- v1.7.0: 付箋ボード 編集モーダル -->
-<div class="overlay" id="modal-board-note">
-  <div class="modal" style="max-width:560px">
-    <div class="mhdr">
-      <div class="mhdr-title" id="bn-modal-title">付箋を追加</div>
-      <button class="mclose" onclick="closeBoardNoteModal()"><i data-ic="close" data-s="15">✕</i></button>
-    </div>
-    <div class="mbody bn-modal-body">
-      <div>
-        <label>タイトル</label>
-        <input type="text" id="bn-inp-title" maxlength="60" placeholder="例：KM0354 急ぎ洗車">
-      </div>
-      <div>
-        <label>本文</label>
-        <textarea id="bn-inp-body" rows="3" maxlength="600" placeholder="例：来店予定あり、本日午後までに洗ってほしいです"></textarea>
-      </div>
-      <div>
-        <label>色</label>
-        <div class="bn-color-picker">
-          <label><input type="radio" name="bn-color" id="bn-color-red"><span class="bn-color-swatch bn-sw-red"></span><span class="bn-color-pick-label">赤</span></label>
-          <label><input type="radio" name="bn-color" id="bn-color-orange"><span class="bn-color-swatch bn-sw-orange"></span><span class="bn-color-pick-label">橙</span></label>
-          <label><input type="radio" name="bn-color" id="bn-color-yellow" checked><span class="bn-color-swatch bn-sw-yellow"></span><span class="bn-color-pick-label">黄</span></label>
-          <label><input type="radio" name="bn-color" id="bn-color-green"><span class="bn-color-swatch bn-sw-green"></span><span class="bn-color-pick-label">緑</span></label>
-          <label><input type="radio" name="bn-color" id="bn-color-blue"><span class="bn-color-swatch bn-sw-blue"></span><span class="bn-color-pick-label">青</span></label>
-        </div>
-      </div>
-      <!-- v2.10.0: 種類（実行／回覧） -->
-      <div>
-        <label>種類</label>
-        <div class="bn-type-picker" style="display:flex;gap:14px;flex-wrap:wrap;padding:2px 0">
-          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="bn-type" id="bn-type-execute" value="execute" checked> 実行（誰か1人がやればOK）</label>
-          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="bn-type" id="bn-type-circulate" value="circulate"> 回覧（担当全員が各自で確認）</label>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">実行＝洗車などの作業向け（誰かが「済」にしたら完了）。回覧＝連絡の確認向け（担当全員が各自で「済」を入れたら完了）。</div>
-      </div>
-      <div>
-        <label>期限（任意）</label>
-        <input type="date" id="bn-inp-deadline">
-      </div>
-      <div>
-        <label>担当メンバー（任意・複数選択可）</label>
-        <div id="bn-group-quick" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
-        <div id="bn-inp-members" class="bn-member-list"></div>
-        <!-- v2.13.0: 自分ひとりだけを担当にした時のシークレット案内 -->
-        <div id="bn-secret-hint" style="display:none;font-size:11.5px;margin-top:8px;padding:7px 10px;border-radius:7px;background:rgba(79,70,229,.12);color:var(--text2);border:1px solid rgba(79,70,229,.3);line-height:1.5"><i data-ic="lock" data-s="15">🔒</i> 自分ひとりだけを担当にしているので、これは<b>あなただけに見えるシークレット付箋</b>になります（他の人の画面には出ません・自分専用のメモとして使えます）。</div>
-      </div>
-      <div>
-        <label>画像・PDF（任意）</label>
-        <input type="file" accept="image/*,application/pdf,.pdf" onchange="bnOnPhotoChange(this)" style="font-size:12px">
-        <div id="bn-inp-photo-preview" style="margin-top:8px"></div>
-      </div>
-    </div>
-    <div class="mfoot" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">
-      <button class="btn-sm" onclick="closeBoardNoteModal()">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveBoardNoteFromModal()"><i data-ic="save" data-s="16">💾</i> 保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- v1.7.0: 画像プレビューモーダル -->
-<div class="overlay" id="modal-image-preview" onclick="closeImagePreview()">
-  <button class="image-preview-close" onclick="closeImagePreview()"><i data-ic="close" data-s="15">✕</i></button>
-  <div class="modal" onclick="event.stopPropagation()">
-    <img id="image-preview-img" src="" alt="" onclick="closeImagePreview()">
-  </div>
-</div>
+<!-- 🔴 v2.60.0 付箋の編集の窓・画像プレビューは共通部品（js/coreflow-note-board.js）が自分で作る -->
 
 <!-- v2.19.0: 仮登録車両モーダル -->
 <div class="overlay" id="modal-tentative">
@@ -1801,66 +1703,14 @@
   </div>
 </div>
 
-<!-- v1.5.10: メンバー招待モーダル -->
-<div class="confirm-overlay" id="confirm-invite-member">
-  <div class="confirm-box" style="width:460px">
-    <div class="confirm-icon"><i data-ic="send" data-s="15">📨</i></div>
-    <div class="confirm-title">メンバーを招待する</div>
-    <div class="confirm-sub">メールアドレスを登録すると、そのアカウントで初回ログインした時に自動的にメンバーになります。</div>
-    <div class="confirm-date-row">
-      <label>メールアドレス</label>
-      <input type="email" id="invite-email-inp" placeholder="example@gmail.com">
-    </div>
-    <div class="confirm-date-row">
-      <label>権限</label>
-      <select id="invite-role-sel" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;outline:none">
-        <option value="staff">スタッフ（車両管理＋作業すべて可）</option>
-        <option value="worker">作業員（チェック作業のみ・車両情報は触れない）</option>
-        <option value="manager">マネージャ（管理者と同等）</option>
-        <option value="admin">管理者（全権限）</option>
-        <option value="viewer">閲覧のみ（経理・パート向け）</option>
-      </select>
-    </div>
-    <div class="confirm-date-row">
-      <label>メモ（任意）</label>
-      <input type="text" id="invite-note-inp" placeholder="例：洗車スタッフ" maxlength="40">
-    </div>
-    <div class="confirm-btns">
-      <button class="btn-sm" onclick="closeInviteMemberModal()">キャンセル</button>
-      <button class="btn-primary" onclick="submitInviteMember()">招待を作成</button>
-    </div>
-  </div>
-</div>
-
-<!-- v1.7.42: 管理者によるメンバー編集（表示名・写真の上書き） -->
-<div class="confirm-overlay" id="confirm-edit-member">
-  <div class="confirm-box" style="width:460px">
-    <div class="confirm-icon"><i data-ic="pencil" data-s="15">✏️</i></div>
-    <div class="confirm-title">メンバーのプロフィール編集</div>
-    <div class="confirm-sub" id="edit-member-target">—</div>
-    <div style="display:flex;gap:14px;align-items:center;margin:14px 0 4px">
-      <div class="m-av" id="edit-member-av-preview" style="width:64px;height:64px;font-size:18px">??</div>
-      <div style="flex:1">
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px"><i data-ic="camera" data-s="16">📷</i> 写真</label>
-        <input type="file" id="edit-member-photo-inp" accept="image/*" onchange="onEditMemberPhotoPick(this)" style="font-size:12px">
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn-sm" onclick="resetEditMemberPhoto()" style="font-size:11px"><i data-ic="refresh" data-s="15">↺</i> Googleの写真に戻す</button>
-        </div>
-      </div>
-    </div>
-    <div class="confirm-date-row">
-      <label>表示名</label>
-      <input type="text" id="edit-member-name-inp" placeholder="表示名" maxlength="40">
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:-6px">
-      <button class="btn-sm" onclick="resetEditMemberName()" style="font-size:11px"><i data-ic="refresh" data-s="15">↺</i> Googleの名前に戻す</button>
-    </div>
-    <div class="confirm-btns">
-      <button class="btn-sm" onclick="closeEditMemberModal()">キャンセル</button>
-      <button class="btn-primary" onclick="saveEditMemberProfile()">保存</button>
-    </div>
-  </div>
-</div>
+<!-- 🔴 v2.58.0（2026-09-11 ゆうた指定）ここにあった2つの窓を消した。
+     ・メンバー招待の窓（v1.5.10）… 招待は 2026-08 に CoreFlow へ一本化。
+       上の「招待」ボタンはすでに CoreFlow を新しい窓で開く作りに変わっていた
+     ・メンバー編集の窓（v1.7.42・表示名と写真の上書き）… 開くボタンが描かれていない
+     どちらも **開く道が無く、画面に出ることは無かった。**
+     ⚠ 中の保存処理は、すでに廃止済みの仕組みを呼んでいて保存されないのに
+       「更新しました」と出す作りだった（＝出ていたら嘘をつく）。
+     入室の許可・表示名・写真は CoreFlow（メンバー管理）が唯一の正。 -->
 
 <!-- v2.16.0: 車両削除（2択：正式削除 / 取り消し） -->
 <div class="confirm-overlay" id="confirm-delete-car">
@@ -2105,10 +1955,10 @@
 <!-- ============= scripts ============= -->
 <!-- 0a. Firebase 初期化（v1.5.0〜） -->
 <meta name="app-key" content="carflow">
-<script src="js/coreflow-icons.js?v=828f3c5c"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
-<script src="js/coreflow-errcode.js?v=f85dcc35"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
+<script src="js/coreflow-icons.js?v=9ae48aea"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
+<script src="js/coreflow-errcode.js?v=8d7c4b2d"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
 <script src="js/errcode-cf.js?v=1"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
-<script src="js/ui-dialog.js?v=29a016f1"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
+<script src="js/ui-dialog.js?v=b98062e8"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
 <script>
 /* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
 if(typeof window.ic!=='function'){ window.ic=function(n,fb,s){ return (fb==null?'':fb); }; }
@@ -2184,7 +2034,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=371"></script>
 <script src="js/announcements.js?v=375"></script>
-<script src="js/members.js?v=374"></script>
+<script src="js/members.js?v=376"></script>
 <script src="js/kanban.js?v=376"></script>
 <script src="js/car-detail.js?v=375"></script>
 <script src="js/car-modal.js?v=373"></script>
@@ -2217,7 +2067,8 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
 <script src="js/coreflow-note-reply.js?v=a224b9c0"></script><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
 <script src="js/coreflow-note-all.js?v=830ce1ff"></script><!-- 📎 付箋のまとめて表示（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
-<script src="js/board-notes.js?v=377"></script>
+<script src="js/coreflow-note-board.js?v=d8d6fbf2"></script><!-- 📌 付箋ボード本体（全アプリ共通・_shared から配布）。board-notes.js より **前** に読む -->
+<script src="js/board-notes.js?v=379"></script>
 
 <!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
 <script src="js/worklog.js?v=284"></script>
@@ -2231,9 +2082,9 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- CoreFlow アプリランチャー（共通） -->
 <!-- 🟠 デモ版では読まない（CoreFlowダッシュボードへ配信しない）：app-summary.js --><!-- 📡 CoreFlowダッシュボードへ概況配信（v2.30.0） -->
-<script src="js/launcher.js?v=e62024b3"></script>
+<script src="js/launcher.js?v=35ec9343"></script>
 <script src="js/auto-update.js?v=ffed3e38"></script>
-  <script src="js/coreflow-power.js?v=7d5cbb2d"></script><!-- ⏻ 電源ボタン（全アプリ共通・_shared が本体） -->
+  <script src="js/coreflow-power.js?v=caf3bb41"></script><!-- ⏻ 電源ボタン（全アプリ共通・_shared が本体） -->
 
 <!-- 過去データ補完（メーカー/車種/グレード/車体色） -->
 <script src="js/autocomplete.js?v=2"></script>
@@ -2259,7 +2110,7 @@ window.PIT_CAL_REDRAW = function(){
 <script src="js/pit-hover.js?v=373"></script>
 
 <script>icHydrate();   /* 静的HTMLの <i data-ic> を線画SVGに差し替える（2026-08-01） */</script>
-<script src="js/coreflow-sync.js?v=65757af5"></script><!-- 同期ランプ（全アプリ共通・_shared から配布）。アプリ本体JSより後ろに置くこと -->
+<script src="js/coreflow-sync.js?v=6af2a532"></script><!-- 同期ランプ（全アプリ共通・_shared から配布）。アプリ本体JSより後ろに置くこと -->
 
 <!-- ↩ 戻る（通ってきた画面順に戻る）。共通部品＝_shared/coreflow-nav.js。アプリ側のコードは書き換えず、画面切替の関数を包むだけ -->
 <script src="js/coreflow-nav.js?v=73ae9af1"></script>
@@ -2269,6 +2120,8 @@ CoreflowNav.wire({ fn:'switchTab', apply:function(orig,k){
   for(var i=0;i<tabs.length;i++){ if((tabs[i].getAttribute('onclick')||'').indexOf("switchTab('"+k+"'")>=0){ el=tabs[i]; break; } }
   orig.call(window, k, el);
 } });</script>
+<!-- 🔗 v2.63.0 リンクから画面／「新規」の窓を開く入口（FlowDesk のボタン用）。#/calendar ＝画面、?fd=new-car / ?fd=new-tentative ＝窓。上の CoreflowNav.wire より【後ろ】に置く -->
+<script src="js/deeplink-car.js?v=1"></script>
 <script src="js/demo-auth-mock.js"></script><!-- 🟠 デモ版のログイン（make-demo-carflow.ps1 が入れています） -->
 </body>
 </html>

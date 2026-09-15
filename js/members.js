@@ -1,4 +1,26 @@
 // ========================================
+//  CarFlow メンバー画面（js/members.js）
+// ----------------------------------------
+//  🔴🔴 **この画面は閲覧専用。操作ボタンは1つも出ない。**
+      const isAdmin = false;             // 🔴 固定。人と権限は CoreFlow が唯一の正なので、ここからは触らせない
+//     役割変更・グループ変更・招待・編集・無効化・削除は **描かれない。**
+//     生きているのは **一覧の表示** と **並び替えの ▲▼**（`canSort`）だけ。
+//
+//  🔴 **人と権限は CoreFlow（メンバー管理）が唯一の正。** ここからは触らない。
+//     2026-08 に CoreFlow へ一本化した時、ボタンを消す代わりに判定を塞いだ。
+//
+//  ⚠ **2026-09-11 に、そのせいで Claude が誤解した。**
+//     ボタンを描くコードが残っていたので「出ている」と判断し、
+//     「押すと必ず失敗する削除ボタンを外した」と報告した。**出ていなかった。**
+//     → 同じ誤解を防ぐため、**開く道が無い処理21個を消した**（v2.58.0）。
+//       消したもの＝招待5／グループ6／役割変更1／有効無効1／編集の窓7／削除1
+//       中身は git の履歴に残っている。
+//
+//  ⚠ 消した処理のうち「編集の窓の保存」は、すでに廃止済みの仕組みを呼んでいて
+//     **保存されないのに「更新しました」と出す**作りだった（出ていたら嘘をつく）。
+// ========================================
+
+// ========================================
 // members.js (v1.5.6〜)
 // メンバー画面：staff コレクション動的取得 + 招待UI + ロール変更/無効化
 // ----------------------------------------
@@ -55,7 +77,7 @@ async function renderMembers() {
       : window.dbStaff.loadAllStaff());
     // v2.18.0：誘導バナー（編集はCoreFlowへ）
     const banner = '<div style="background:rgba(55,138,221,.10);border:1px solid rgba(55,138,221,.4);color:var(--text);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.7;margin-bottom:10px">'
-      + ''+ic('link','🔗',15)+' <b>メンバーの追加・編集・権限・グループは CoreFlow で一括管理</b>します。<br>'
+      + ''+ic('link','🔗',15)+' <b>メンバーの追加・削除・編集・権限・グループは CoreFlow で一括管理</b>します。<br>'
       + '<a href="https://coreflow.kobayashi-motors.com/" target="_blank" style="color:#fff;background:#378ADD;padding:3px 10px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:5px;font-weight:600">CoreFlow メンバー管理を開く →</a>'
       + '<span style="color:var(--text3);margin-left:8px">この画面は閲覧専用です</span>'
       + '<div style="color:var(--text3);margin-top:6px;font-size:11px">名簿は CoreMembers（社員名簿）が元です。'
@@ -100,13 +122,10 @@ async function renderMembers() {
 
         // ロール表示部
         let roleHtml;
-        if (isAdmin && !isMe) {
-          roleHtml = `<select onchange="changeStaffRole('${_esc(s.uid)}', this.value)" style="padding:3px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;outline:none">`
-            + ROLE_OPTIONS.map(r => `<option value="${r}"${r===s.role?' selected':''}>${ROLE_LABELS[r]}</option>`).join('')
-            + `</select>`;
-        } else {
+        /* 🔴 役割は表示するだけ。変える道は無い（人と権限は CoreFlow が唯一の正）。
+           v2.58.0（2026-09-11）ここにあった「役割を選び直す」は、描かれないまま
+           残っていたので消した。 */
           roleHtml = `<div style="font-size:11px;color:var(--text3)">${_esc(ROLE_LABELS[s.role] || s.role || 'スタッフ')}${isMe ? '（自分）' : ''}</div>`;
-        }
 
         // v2.35.0：所属は CoreMembers の部署から自動で決まる（CarFlow では変えられない）。
         //   s.group ＝「車販メンバー」か「他部署メンバー」／s.deptNames ＝ 実際の部署名
@@ -127,15 +146,11 @@ async function renderMembers() {
 
         // 操作ボタン（admin かつ自分以外。v1.7.29 で「✏️ 編集」を追加）
         let actionsHtml = '';
-        if (isAdmin && !isMe) {
-          actionsHtml = `<div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">`
-            + `<button class="btn-sm" onclick="openEditMemberModal('${_esc(s.uid)}')" title="表示名と写真を編集">${ic('pencil','✏️',15)} 編集</button>`
-            + `<button class="btn-sm" onclick="toggleStaffActive('${_esc(s.uid)}', ${inactive ? 'false' : 'true'})" title="${inactive ? '有効化' : '無効化'}">${inactive ? ''+ic('chevRight','▶',14)+' 有効化' : '⏸ 無効化'}</button>`
-            + `<button class="btn-sm" onclick="removeMember('${_esc(s.uid)}', '${_esc(name)}')" style="color:var(--red)" title="削除">${ic('trash','🗑️',16)}</button>`
-            + `</div>`;
-        } else {
+        /* 🔴 操作ボタンは出さない。出すのは「有効／無効」の札だけ。
+           v2.58.0（2026-09-11）ここにあった 編集／有効無効／削除 の3つは、
+           描かれないまま残っていた（isAdmin が false 固定）。消した。
+           人と権限は CoreFlow（メンバー管理）が唯一の正。上のバナーで案内している。 */
           actionsHtml = `<div style="margin-left:auto">${statusPill}</div>`;
-        }
 
         return `<div class="member-row" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
           ${arrowsHtml}
@@ -155,246 +170,43 @@ async function renderMembers() {
   }
 
   // v2.18.3：メンバーグループ作成/編集UI 撤去、招待中リスト撤去（CoreFlowへ集約）
-  // renderMemberGroups();  // ← 撤去
+  // 🔴 メンバーグループの一覧は出さない（v2.18.3 で撤去）。その一式は v2.58.0 で消した
   // await _renderPendingInvites();  // ← 撤去
 }
 
-async function _renderPendingInvites() {
-  const card = document.getElementById('pending-invite-card');
-  const listEl = document.getElementById('pending-invite-list');
-  if (!card || !listEl) return;
-  if (!_isAdmin()) {
-    card.style.display = 'none';
-    return;
-  }
-  if (!window.dbStaff || !window.dbStaff.loadPendingInvites) {
-    card.style.display = 'none';
-    return;
-  }
-  try {
-    const invites = await window.dbStaff.loadPendingInvites();
-    if (!invites.length) {
-      card.style.display = 'none';
-      return;
-    }
-    card.style.display = '';
-    listEl.innerHTML = invites.map(inv => {
-      const role = ROLE_LABELS[inv.role] || inv.role || 'スタッフ';
-      const note = inv.note ? `<span style="color:var(--text3);margin-left:6px">（${_esc(inv.note)}）</span>` : '';
-      const inviter = inv.invitedByName ? `<span style="color:var(--text3);margin-left:6px;font-size:10px">by ${_esc(inv.invitedByName)}</span>` : '';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:12px;font-weight:500">${_esc(inv.email)}</div>
-          <div style="font-size:11px;color:var(--text2)">${_esc(role)}${note}${inviter}</div>
-        </div>
-        <button class="btn-sm" onclick="cancelPendingInvite('${_esc(inv.email)}')" style="color:var(--red)">取消</button>
-      </div>`;
-    }).join('');
-  } catch (err) {
-    console.error('[members] _renderPendingInvites:', err);
-  }
-}
+
 
 // ========================================
 // 招待モーダル
 // ========================================
 
-function openInviteMemberModal() {
-  if (typeof blockOnMobileAdmin === 'function' && blockOnMobileAdmin('メンバー招待')) return;
-  if (!_isAdmin()) {
-    showToast('管理者のみ招待できます', 'CF-8005');
-    return;
-  }
-  document.getElementById('invite-email-inp').value = '';
-  document.getElementById('invite-role-sel').value = 'staff';
-  document.getElementById('invite-note-inp').value = '';
-  document.getElementById('confirm-invite-member').classList.add('open');
-  setTimeout(() => document.getElementById('invite-email-inp').focus(), 50);
-}
 
-function closeInviteMemberModal() {
-  document.getElementById('confirm-invite-member').classList.remove('open');
-}
 
-async function submitInviteMember() {
-  const email = (document.getElementById('invite-email-inp').value || '').trim();
-  const role = document.getElementById('invite-role-sel').value;
-  const note = (document.getElementById('invite-note-inp').value || '').trim();
-  if (!email) {
-    showToast('メールアドレスを入力してください', 'CF-8006');
-    return;
-  }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    showToast('メールアドレスの形式が不正です', 'CF-8007');
-    return;
-  }
-  try {
-    await window.dbStaff.addPendingInvite({ email, role, note });
-    showToast('招待を作成しました');
-    closeInviteMemberModal();
-    renderMembers();
-  } catch (err) {
-    console.error('[members] submitInviteMember:', err);
-    if (err && err.message === 'invalid_email') showToast('メールアドレスの形式が不正です', 'CF-8007');
-    else showToast('招待の作成に失敗しました', 'CF-8008');
-  }
-}
 
-async function cancelPendingInvite(email) {
-  if (!_isAdmin()) return;
-  if (!confirm(`「${email}」への招待を取り消しますか？`)) return;
-  try {
-    await window.dbStaff.removePendingInvite(email);
-    showToast('招待を取り消しました');
-    renderMembers();
-  } catch (err) {
-    console.error('[members] cancelPendingInvite:', err);
-    showToast('取消に失敗しました', 'CF-8009');
-  }
-}
+
+
+
+
 
 // ========================================
 // メンバー操作（admin 用）
 // ========================================
 
-async function changeStaffRole(uid, newRole) {
-  if (!_isAdmin()) return;
-  if (!ROLE_OPTIONS.includes(newRole)) return;
-  const myUid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
-  if (uid === myUid) {
-    showToast('自分の権限は変更できません', 'CF-8010');
-    return;
-  }
-  if (!confirm(`このメンバーの権限を「${ROLE_LABELS[newRole]}」に変更しますか？`)) {
-    renderMembers(); // セレクトをリセット
-    return;
-  }
-  try {
-    const perms = (window.dbStaff.DEFAULT_PERMISSIONS && window.dbStaff.DEFAULT_PERMISSIONS[newRole]) || {};
-    await window.dbStaff.updateStaff(uid, { role: newRole, permissions: perms });
-    showToast('権限を更新しました');
-    renderMembers();
-  } catch (err) {
-    console.error('[members] changeStaffRole:', err);
-    showToast('権限の更新に失敗しました', 'CF-8011');
-    renderMembers();
-  }
-}
 
-// ========================================
-// v2.9.0: メンバーグループ（車販／他部署 など）
-// ========================================
-// メンバーのグループを変更（admin のみ。自分も変更可）
-async function changeStaffGroup(uid, groupId) {
-  if (!_isAdmin()) return;
-  try {
-    await window.dbStaff.updateStaff(uid, { groupId: groupId || '' });
-    showToast(groupId ? 'グループを設定しました' : 'グループを外しました');
-    renderMembers();
-  } catch (err) {
-    console.error('[members] changeStaffGroup:', err);
-    showToast('グループの更新に失敗しました', 'CF-8012');
-    renderMembers();
-  }
-}
 
-function _genGroupId() {
-  return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-}
 
-// グループ管理カードの描画
-function renderMemberGroups() {
-  const host = document.getElementById('member-groups-list');
-  if (!host) return;
-  const isAdmin = _isAdmin();
-  const groups = (typeof memberGroups !== 'undefined' && Array.isArray(memberGroups)) ? memberGroups : [];
-  const addBtn = document.getElementById('btn-add-member-group');
-  if (addBtn) addBtn.style.display = isAdmin ? '' : 'none';
 
-  if (!groups.length) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--text3)">グループがありません</div>';
-    return;
-  }
-  if (!isAdmin) {
-    host.innerHTML = groups.map(g => `<div style="font-size:13px;padding:4px 0">${ic('users','👥',16)} ${_esc(g.name)}</div>`).join('');
-    return;
-  }
-  host.innerHTML = groups.map(g => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:14px">${ic('users','👥',16)}</span>
-      <input type="text" value="${_esc(g.name)}" maxlength="20"
-             onchange="renameMemberGroup('${_esc(g.id)}', this.value)"
-             style="flex:1;min-width:120px;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;outline:none">
-      <button class="btn-sm" onclick="deleteMemberGroup('${_esc(g.id)}')" style="color:var(--red)" title="このグループを削除">${ic('trash','🗑️',16)}</button>
-    </div>`).join('');
-}
 
-function addMemberGroup() {
-  if (!_isAdmin()) return;
-  const name = (prompt('追加するグループ名を入力してください', '') || '').trim();
-  if (!name) return;
-  if (typeof memberGroups === 'undefined') return;
-  memberGroups.push({ id: _genGroupId(), name });
-  if (window.saveSettings) saveSettings();
-  renderMemberGroups();
-  renderMembers(); // メンバー行のプルダウンに新グループを反映
-  showToast('グループを追加しました');
-}
 
-function renameMemberGroup(id, newName) {
-  if (!_isAdmin()) return;
-  const name = (newName || '').trim();
-  const g = (typeof memberGroups !== 'undefined' ? memberGroups : []).find(x => x.id === id);
-  if (!g) return;
-  if (!name) { renderMemberGroups(); return; } // 空名は無視（元に戻す）
-  g.name = name;
-  if (window.saveSettings) saveSettings();
-  renderMemberGroups();
-  renderMembers(); // メンバー行のプルダウン名も更新
-  showToast('グループ名を更新しました');
-}
 
-async function deleteMemberGroup(id) {
-  if (!_isAdmin()) return;
-  if (typeof memberGroups === 'undefined') return;
-  const g = memberGroups.find(x => x.id === id);
-  if (!g) return;
-  if (!confirm(`グループ「${g.name}」を削除しますか？\nこのグループのメンバーは「未所属」に戻ります。`)) return;
-  const idx = memberGroups.findIndex(x => x.id === id);
-  if (idx >= 0) memberGroups.splice(idx, 1);
-  if (window.saveSettings) saveSettings();
-  // 所属していたメンバーの groupId を外す
-  try {
-    if (window.dbStaff && window.dbStaff.loadAllStaff) {
-      const list = await window.dbStaff.loadAllStaff();
-      await Promise.all(
-        list.filter(s => s.groupId === id).map(s => window.dbStaff.updateStaff(s.uid, { groupId: '' }))
-      );
-    }
-  } catch (err) { console.error('[members] deleteMemberGroup cleanup:', err); }
-  renderMemberGroups();
-  renderMembers();
-  showToast('グループを削除しました');
-}
 
-async function toggleStaffActive(uid, makeInactive) {
-  if (!_isAdmin()) return;
-  const myUid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
-  if (uid === myUid) {
-    showToast('自分は無効化できません', 'CF-8013');
-    return;
-  }
-  const action = makeInactive ? '無効化' : '有効化';
-  if (!confirm(`このメンバーを${action}しますか？`)) return;
-  try {
-    await window.dbStaff.updateStaff(uid, { active: !makeInactive });
-    showToast(`${action}しました`);
-    renderMembers();
-  } catch (err) {
-    console.error('[members] toggleStaffActive:', err);
-    showToast(`${action}に失敗しました`, 'CF-8014');
-  }
-}
+
+
+
+
+
+
+
 
 // ========================================
 // v1.7.29: 並び替え（管理者）
@@ -450,207 +262,13 @@ async function moveMember(uid, delta) {
 }
 window.moveMember = moveMember;
 
-// ========================================
-// v1.7.29: 管理者によるメンバー編集（表示名・写真の上書き）
-// ========================================
-function openEditMemberModal(uid) {
-  if (!_isAdmin()) {
-    showToast('管理者のみ編集できます', 'CF-8017');
-    return;
-  }
-  const myUid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
-  if (uid === myUid) {
-    showToast('自分のプロフィールは設定画面から編集してください', 'CF-8018');
-    return;
-  }
-  const s = (_membersCache || []).find(x => x.uid === uid);
-  if (!s) { showToast('メンバーが見つかりません', 'CF-8019'); return; }
 
-  _editMemberUid = uid;
-  _editMemberPendingPhotoBlob = null;
-  _editMemberPendingPhotoPreview = null;
-  _editMemberClearPhoto = false;
-  _editMemberClearName = false;
 
-  // モーダル中の値をセット
-  const nameInp = document.getElementById('edit-member-name-inp');
-  const targetEl = document.getElementById('edit-member-target');
-  if (nameInp) nameInp.value = s.customDisplayName || s.displayName || '';
-  if (targetEl) targetEl.textContent = `${s.email || s.uid} のプロフィールを編集します`;
 
-  _refreshEditMemberAvatar(s);
 
-  // ファイルピッカーをリセット
-  const photoInp = document.getElementById('edit-member-photo-inp');
-  if (photoInp) photoInp.value = '';
 
-  document.getElementById('confirm-edit-member').classList.add('open');
-}
-window.openEditMemberModal = openEditMemberModal;
 
-function closeEditMemberModal() {
-  document.getElementById('confirm-edit-member').classList.remove('open');
-  _editMemberUid = null;
-  _editMemberPendingPhotoBlob = null;
-  _editMemberPendingPhotoPreview = null;
-}
-window.closeEditMemberModal = closeEditMemberModal;
 
-// アバタープレビューを更新
-function _refreshEditMemberAvatar(staffOrNull) {
-  const av = document.getElementById('edit-member-av-preview');
-  if (!av) return;
-  const s = staffOrNull || (_membersCache || []).find(x => x.uid === _editMemberUid);
-  let url;
-  if (_editMemberPendingPhotoPreview) {
-    url = _editMemberPendingPhotoPreview;
-  } else if (_editMemberClearPhoto) {
-    // 「Google の写真に戻す」を押した状態：素の displayName から作り直す
-    url = (s && s.photoURL) || null;
-  } else {
-    url = (typeof resolveStaffPhotoURL === 'function') ? resolveStaffPhotoURL(s, null) : null;
-  }
-  const name = (s && (s.customDisplayName || s.displayName)) || '?';
-  const init = (typeof staffInitial === 'function') ? staffInitial(name) : String(name).slice(0, 2);
-  if (url) {
-    av.style.backgroundImage = `url('${url}')`;
-    av.style.backgroundSize = 'cover';
-    av.style.backgroundPosition = 'center';
-    av.style.color = 'transparent';
-    av.textContent = init;
-  } else {
-    av.style.backgroundImage = '';
-    av.style.color = '';
-    av.textContent = init;
-  }
-}
 
-// v1.8.77: ファイル選択 → クロッパーを開いて円形トリミング → 適用結果を pending に保存
-async function onEditMemberPhotoPick(input) {
-  if (!input || !input.files || !input.files[0]) return;
-  const file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('画像が大きすぎます（5MB 以下）', 'CF-8020');
-    input.value = '';
-    return;
-  }
-  if (typeof openAvatarCrop === 'function') {
-    openAvatarCrop(file, (croppedBlob, dataUrl) => {
-      _editMemberPendingPhotoBlob = croppedBlob;
-      _editMemberPendingPhotoPreview = dataUrl;
-      _editMemberClearPhoto = false;
-      _refreshEditMemberAvatar(null);
-    });
-  } else {
-    // フォールバック（旧挙動：クロッパーなしで生ファイル保持）
-    _editMemberPendingPhotoBlob = file;
-    _editMemberClearPhoto = false;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      _editMemberPendingPhotoPreview = e.target.result;
-      _refreshEditMemberAvatar(null);
-    };
-    reader.readAsDataURL(file);
-  }
-  input.value = '';
-}
-window.onEditMemberPhotoPick = onEditMemberPhotoPick;
 
-// 「Google の写真に戻す」（customPhotoURL を消す予約）
-function resetEditMemberPhoto() {
-  _editMemberClearPhoto = true;
-  _editMemberPendingPhotoBlob = null;
-  _editMemberPendingPhotoPreview = null;
-  const photoInp = document.getElementById('edit-member-photo-inp');
-  if (photoInp) photoInp.value = '';
-  _refreshEditMemberAvatar(null);
-  showToast('保存すると Google の写真に戻ります');
-}
-window.resetEditMemberPhoto = resetEditMemberPhoto;
 
-// 「Google の名前に戻す」（customDisplayName を消す予約）
-function resetEditMemberName() {
-  _editMemberClearName = true;
-  const s = (_membersCache || []).find(x => x.uid === _editMemberUid);
-  const nameInp = document.getElementById('edit-member-name-inp');
-  if (nameInp && s) nameInp.value = s.displayName || '';
-  showToast('保存すると Google の名前に戻ります');
-}
-window.resetEditMemberName = resetEditMemberName;
-
-async function saveEditMemberProfile() {
-  if (!_isAdmin()) return;
-  if (!_editMemberUid) return;
-  const uid = _editMemberUid;
-  const nameInp = document.getElementById('edit-member-name-inp');
-  const newName = nameInp ? (nameInp.value || '').trim() : '';
-
-  try {
-    const updates = {};
-    // 表示名
-    if (_editMemberClearName) {
-      updates.customDisplayName = window.fb.FieldValue.delete();
-    } else if (newName) {
-      updates.customDisplayName = newName;
-    } else {
-      // 空欄保存はクリア扱い
-      updates.customDisplayName = window.fb.FieldValue.delete();
-    }
-    // 写真
-    if (_editMemberPendingPhotoBlob) {
-      // Storage にアップロード
-      let url = null;
-      if (window.dbStorage && window.dbStorage.uploadProfilePhoto) {
-        url = await window.dbStorage.uploadProfilePhoto(uid, _editMemberPendingPhotoBlob);
-      }
-      if (url) {
-        updates.customPhotoURL = url;
-      }
-    } else if (_editMemberClearPhoto) {
-      updates.customPhotoURL = window.fb.FieldValue.delete();
-    }
-    await window.dbStaff.updateStaff(uid, updates);
-    showToast('プロフィールを更新しました');
-    closeEditMemberModal();
-    renderMembers();
-    if (typeof renderBoardNotes === 'function') {
-      // 付箋ボードのアバター表示も更新
-      if (window.dbStaff && window.dbStaff.loadAllStaff) {
-        const list = await window.dbStaff.loadAllStaff();
-        if (typeof window._setBoardNotesStaffCache === 'function') {
-          window._setBoardNotesStaffCache(list);
-        }
-        renderBoardNotes();
-      }
-    }
-  } catch (err) {
-    console.error('[members] saveEditMemberProfile:', err);
-    showToast('プロフィールの保存に失敗しました', 'CF-8021');
-  }
-}
-window.saveEditMemberProfile = saveEditMemberProfile;
-
-async function removeMember(uid, name) {
-  if (!_isAdmin()) return;
-  const myUid = window.fb && window.fb.currentUser && window.fb.currentUser.uid;
-  if (uid === myUid) {
-    showToast('自分は削除できません', 'CF-8022');
-    return;
-  }
-  if (!confirm(`「${name}」をメンバーから削除しますか？\n（staff レコードと userMemberships を削除します。データは復元できません）`)) return;
-  try {
-    // staff/{uid}
-    await window.fb.db
-      .collection('companies').doc(window.fb.currentCompanyId)
-      .collection('staff').doc(uid).delete();
-    // userMemberships/{uid}/memberships/{cid}
-    await window.fb.db
-      .collection('userMemberships').doc(uid)
-      .collection('memberships').doc(window.fb.currentCompanyId).delete();
-    showToast('メンバーを削除しました');
-    renderMembers();
-  } catch (err) {
-    console.error('[members] removeMember:', err);
-    showToast('削除に失敗しました', 'CF-0019');
-  }
-}
