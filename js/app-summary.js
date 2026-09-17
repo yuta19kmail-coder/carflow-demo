@@ -1,9 +1,13 @@
 /* ========================================
-   app-summary.js — CoreFlowダッシュボードへ概況を配信（appSummaries/carflow）v2.30.0
+   app-summary.js — CoreFlowダッシュボードへ概況を配信（appSummaries/carflow）v2.30.0／v2.64.0 売上ボード
    ----------------------------------------
    ・契約＝D:\アプリ開発\引き継ぎ_CoreFlowダッシュボード.md：{updatedAt, metrics[{label,value,tone}], items[{main,sub,right,warn}]}
    ・自己完結（既存コードには一切触らない）：ログイン＆車両ロード完了を5秒間隔で検知→3秒後に初回配信→以降10分ごと。
-   ・機微情報は載せない（価格・顧客名なし。台数・在庫日数・車名のみ）。
+   ・機微情報は載せない（1台ごとの価格・顧客名なし。台数・在庫日数・車名のみ）。
+   🔴 v2.64.0（2026-09-17 ゆうた：FlowDesk の売上カード）sections.salesBoard を足した。
+      ＝ダッシュボードの「今月の着地予測」と同じ数字（calcLanding をそのまま呼ぶ）。
+      載せるのは**今月の合計だけ**（目標・確定・見込み・実績予測の 台数／売上）。1台ごとの価格・顧客名は今までどおり載せない。
+      calcLanding が無い・落ちた時は salesBoard を載せない（metrics / items は今までどおり配る）。
    ・書けない時（ルール未反映等）は console.warn のみ＝画面には出さない。
    ======================================== */
 (function () {
@@ -40,7 +44,36 @@
         var c = x.c;
         return { main: ((c.num != null && c.num !== '') ? ('#' + c.num + ' ') : '') + String(c.maker || '') + ' ' + String(c.model || ''), sub: colLabel(c.col), right: String(x.d) + '日', warn: x.d >= 45 };
       });
-    return { metrics: metrics, items: items };
+    var out = { metrics: metrics, items: items };
+    var sb = salesBoard();
+    if (sb) out.sections = { salesBoard: sb };
+    return out;
+  }
+
+  // 🔴 v2.64.0 売上ボード（FlowDesk 用）：ダッシュボードの着地予測（dashboard.js calcLanding＝今月まるごと）と同じ数字。
+  //   合計だけ。売上は円・整数。クラウドに書けるよう undefined / NaN は 0 にする。
+  function yen(v) { var n = Number(v); return isFinite(n) ? Math.round(n) : 0; }
+  function cnt(v) { var n = Number(v); return isFinite(n) ? Math.max(0, Math.round(n)) : 0; }
+  function pair(o) { o = o || {}; return { count: cnt(o.count), sales: yen(o.sales) }; }
+  function salesBoard() {
+    try {
+      if (typeof calcLanding !== 'function' || typeof appSettings === 'undefined' || !appSettings || !appSettings.goals) return null;
+      var L = calcLanding();
+      if (!L || !L.fixed) return null;
+      var now = new Date();
+      var ps = appSettings.priceTax || {};
+      return {
+        title: '売上ボード', metrics: [], items: [],
+        month: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
+        day: cnt(L.dayOfMonth), days: cnt(L.daysInMonth),
+        recog: (L.mode === 'contract') ? 'contract' : 'delivery',   // 画面の「売約時計上／納車完了計上」と同じ分け方
+        taxIncluded: ps.dashboard !== 'excl',                       // 画面の（税込／税抜）＝ getTaxLabel('dashboard') と同じ
+        goal: pair(L.goal),        // 目標（monthlyGoal の生の値。未設定は 0）
+        fixed: pair(L.fixed),      // 確定
+        likely: pair(L.likely),    // 見込み
+        fore: pair(L.possible)     // 実績予測
+      };
+    } catch (e) { console.warn('[appSummary:carflow] 売上ボード', e); return null; }
   }
   window._carflowSummaryBuild = build;   // 検証用フック
 
