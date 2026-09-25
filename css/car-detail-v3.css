@@ -1,0 +1,128 @@
+/* ========================================
+   car-detail-v3.css ─ カード詳細 v3.0（PC・タブレット向け）CarFlow v3.0.0
+   ・#modal-detail に .cd3-on が付いている時だけ効く（スマホ・1カラム表示の時は今までの見た目のまま）
+   ・中身の組み立ては js/car-detail-v3.js
+   ======================================== */
+
+/* ---- 全画面に近い窓 ---- */
+#modal-detail.cd3-on{padding:22px;box-sizing:border-box}
+#modal-detail.cd3-on>.modal{width:100%;max-width:1560px;height:100%;max-height:1000px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#modal-detail.cd3-on>.modal>.mhdr{display:none}
+#modal-detail.cd3-on #detail-body{padding:0;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* ---- 見出し ---- */
+.cd3-hdr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cd3-ttl{font-size:14px;font-weight:700;color:var(--text2);white-space:nowrap}
+.cd3-sp{flex:1}
+.cd3-hbtn{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.cd3-hbtn:hover{color:var(--text);border-color:var(--blue)}
+
+/* ---- 上の帯 ---- */
+.cd3-band{display:flex;gap:16px;align-items:stretch;padding:12px 18px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg2) 70%,var(--bg));flex-shrink:0}
+.cd3-band .detail-photo{width:176px;aspect-ratio:16/10;margin:0;font-size:38px;flex-shrink:0}
+.cd3-band .detail-photo-edit{font-size:10px;padding:3px 7px;bottom:6px;right:6px}
+.cd3-band .detail-photo.cd3-zoom{cursor:zoom-in}
+.cd3-band .detail-photo.cd3-zoom:hover img{filter:brightness(1.06)}
+.cd3-mid{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex-shrink:1;min-width:0}
+.cd3-title{display:flex;align-items:baseline;gap:10px;white-space:nowrap;line-height:1.1;margin-bottom:auto;padding-top:2px;overflow:hidden}
+.cd3-title .mk{font-size:17px;font-weight:500;color:var(--text2)}
+.cd3-title .md{font-size:34px;font-weight:800;color:var(--text);letter-spacing:-.5px}
+.cd3-title .gr{font-size:19px;font-weight:600;color:var(--text2)}
+.cd3-spec{display:flex;gap:6px}
+.cd3-spec>div{background:var(--bg3);border-radius:7px;padding:5px 9px;min-width:84px;max-width:170px;display:flex;flex-direction:column;justify-content:center}
+.cd3-spec .k{color:var(--text3);font-size:10px;line-height:1.2}
+.cd3-spec .v{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd3-right{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:16px}
+.cd3-right .detail-days-box{padding:8px 12px;min-width:78px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0}
+.cd3-right .detail-days-num{font-size:24px}
+.cd3-price{min-width:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:3px}
+.cd3-total{font-size:30px;font-weight:800;color:var(--green);line-height:1;letter-spacing:-.5px;white-space:nowrap}
+.cd3-total .k{font-size:14px;font-weight:700;margin-right:6px;letter-spacing:0}
+.cd3-total .tx{font-size:13px;font-weight:600;margin-left:4px;letter-spacing:0}
+.cd3-bodyp{font-size:13px;font-weight:600;color:var(--text3)}
+.cd3-sub{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;justify-content:flex-end}
+.cd3-del{font-size:12px;color:var(--text2);display:inline-flex;align-items:center;gap:4px}
+.cd3-sub .cc-customer-title{margin:0;max-width:260px}
+.cd3-other{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:6px;font-size:12px;color:var(--text3);text-align:right}
+
+/* ---- 下：左右のタブ ---- */
+.cd3-body{flex:1;min-height:0;display:grid;grid-template-columns:min(var(--lw,clamp(320px,28vw,400px)),60%) 1px 1fr}
+.cd3-col{min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.cd3-col.l{background:color-mix(in srgb,var(--bg2) 70%,var(--bg))}
+.cd3-col .cv-tabs{display:flex;gap:2px;padding:8px 14px 0;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex:0 0 auto;min-height:42px;box-sizing:border-box}
+.cd3-col.l .cv-tabs{background:color-mix(in srgb,var(--bg2) 70%,var(--bg));padding:8px 10px 0}
+.cd3-col .cv-tab{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--text2);background:transparent;border:none;border-bottom:2px solid transparent;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.cd3-col .cv-tab:hover{color:var(--text)}
+.cd3-col .cv-tab.on{color:var(--text);border-bottom-color:var(--blue)}
+.cd3-col .cv-tab.past{color:var(--text3)}
+.cd3-col .cv-tab.past.on{color:var(--text2)}
+.cv-tcnt{font-size:10.5px;font-weight:700;color:var(--text3);background:var(--bg3);border-radius:999px;padding:1px 7px}
+.cv-tcnt.ok{color:var(--green)}
+.cv-tgap{flex:0 0 26px;position:relative}
+.cv-tgap::after{content:'';position:absolute;left:12px;top:10px;bottom:8px;width:1px;background:var(--border2)}
+.cd3-col .cv-body{flex:1;min-height:0;overflow:auto;padding:16px 20px 24px}
+.cd3-col.l .cv-body{padding:14px 16px 20px}
+.cd3-lab{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-bottom:8px}
+.cd3-col .detail-reg-bar{margin-bottom:12px}
+.cd3-col .task-items{margin-top:10px}
+.cd3-note{font-size:12px;color:var(--text3);margin:0 0 10px}
+.cd3-ro{pointer-events:none;opacity:.8}
+.cd3-col .core-memo{margin-bottom:10px}
+.cd3-col .work-memo{margin-top:0;margin-bottom:14px}
+
+/* ↔ 左右の境目＝ただの1本線。つかめる所は線から右へ 7px（左の欄のスクロールバーと重ならない） */
+.cd3-split{cursor:col-resize;position:relative;background:var(--border);z-index:4;touch-action:none}
+.cd3-split::before{content:'';position:absolute;top:0;bottom:0;left:0;width:7px}
+.cd3-split:hover,.cd3-split.drag{background:var(--blue)}
+body.cd3-dragging{cursor:col-resize;user-select:none}
+
+/* ---- 付箋（この車の付箋） ---- */
+.cd3-nt-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px}
+.cd3-cnt{background:var(--bg3);border:1px solid var(--border2);border-radius:999px;padding:0 7px;font-size:10.5px;color:var(--text2)}
+.cd3-add{margin-left:auto;font-size:11px;color:var(--blue);background:none;border:1px dashed var(--border2);border-radius:6px;padding:3px 9px;cursor:pointer}
+.cd3-nt .bn-grid{grid-template-columns:1fr;gap:8px}
+.cd3-empty{font-size:12px;color:var(--text3);font-style:italic;padding:6px 2px 10px}
+.cd3-hint{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6}
+
+/* ---- 🕘 フロー（PitFlow card-view.css の cv-flow と同じ） ---- */
+.cd3-col .cv-flow{position:relative;padding-left:4px}
+.cd3-col .cv-frow{display:flex;gap:12px;align-items:flex-start;padding:7px 0}
+.cd3-col .cv-fdot{flex:0 0 12px;width:12px;height:12px;border-radius:50%;background:var(--border2);margin-top:4px;position:relative}
+.cd3-col .cv-frow.done .cv-fdot{background:var(--blue)}
+.cd3-col .cv-frow.k-phase .cv-fdot{background:var(--green)}
+.cd3-col .cv-frow.k-cancel .cv-fdot{background:var(--red)}
+.cd3-col .cv-frow.k-date .cv-fdot{background:var(--orange)}
+.cd3-col .cv-frow:not(:last-child) .cv-fdot:after{content:'';position:absolute;left:5px;top:12px;width:2px;height:24px;background:var(--border)}
+.cd3-col .cv-fmain{flex:1;min-width:0}
+.cd3-col .cv-ft{font-size:13px;font-weight:700;display:flex;gap:7px;align-items:baseline;word-break:break-word}
+.cd3-col .cv-ft .f-ic{font-size:12px;flex-shrink:0}
+.cd3-col .cv-fd{font-size:11.5px;color:var(--text3);margin-top:1px}
+.cd3-col .cv-fsub{margin:0 0 2px 24px}
+.cd3-col .cv-fmore{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border2);border-radius:999px;background:transparent;color:var(--text3);font-size:11.5px;font-weight:700;line-height:1;padding:4px 10px;cursor:pointer}
+.cd3-col .cv-fmore:hover{border-color:var(--blue);color:var(--text2)}
+.cd3-col .cv-fcar{width:0;height:0;border-style:solid;border-width:4px 0 4px 6px;border-color:transparent transparent transparent currentColor;transition:transform .12s}
+.cd3-col .cv-fsub.open .cv-fcar{transform:rotate(90deg)}
+.cd3-col .cv-fkids{margin:2px 0 4px 4px;padding-left:12px;border-left:2px dotted var(--border2)}
+.cd3-col .cv-fkids .cv-frow{padding:4px 0}
+.cd3-col .cv-fkids .cv-fdot{flex:0 0 8px;width:8px;height:8px;margin-top:5px;background:var(--border2)!important}
+.cd3-col .cv-fkids .cv-frow .cv-fdot:after{display:none}
+.cd3-col .cv-fkids .cv-ft{font-size:12px;color:var(--text2);font-weight:600}
+.cd3-col .cv-fkids .cv-fd{font-size:10.5px}
+.cd3-col .cv-fhint{margin-top:9px;font-size:11.5px;color:var(--text3);line-height:1.6}
+.cd3-col .pf-flowadd{margin-top:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.cd3-col .pf-flowquick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.cd3-col .pf-flowchip{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:5px 9px;font-size:11.5px;cursor:pointer}
+.cd3-col .pf-flowchip:hover{border-color:var(--blue)}
+.cd3-col .pf-flowrow{display:flex;gap:8px}
+.cd3-col .pf-flowrow input{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
+.cd3-col .pf-flowaddbtn{background:var(--blue);border:1px solid var(--blue);color:#fff;border-radius:8px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+
+/* ---- 📋 装備詳細（タブの中は横が広いので3列） ---- */
+.cd3-col.r .cv-body{container-type:inline-size}
+@container (min-width:760px){ .cd3-eq .eq-view-grid{grid-template-columns:repeat(3,1fr)} }
+
+/* ---- 1カラム表示の見出しに出す「2カラム表示」（PC・タブレットだけ） ---- */
+.cd3-to-v3{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+.cd3-to-v3:hover{color:var(--text);border-color:var(--blue)}
+body.mobile .cd3-to-v3{display:none}
+@media (max-width:900px){ .cd3-to-v3{display:none} }
