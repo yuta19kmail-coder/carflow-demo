@@ -112,6 +112,9 @@ body.cd3-dragging{cursor:col-resize;user-select:none}
 
 /* ---- 📋 装備詳細（タブの中は横が広いので3列） ---- */
 .cd3-col.r .cv-body{container-type:inline-size}
+/* 大タスクの一覧を2列に（10個なら 2×5）。2026-09-25 ゆうた「モックでは2×5表示だった　今は1×10表示」
+   ・右の欄が 1000px 以上ある時だけ（狭いと、タスクメモやパターンが付いた行で名前が切れるため）＝だいたい 1900px 前後の画面 */
+@container (min-width:1000px){ .cd3-col.r .task-items{display:grid;grid-template-columns:1fr 1fr;gap:9px} }
 @container (min-width:760px){ .cd3-eq .eq-view-grid{grid-template-columns:repeat(3,1fr)} }
 
 /* ---- 1カラム表示の見出しに出す「2カラム表示」（PC・タブレットだけ） ---- */
