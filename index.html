@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="2.64.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.0.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -57,6 +57,7 @@
 <link rel="stylesheet" href="css/pit-embed.css?v=2"><!-- v2.33.0 整備依頼業務（PitFlow の車販作業の写し） -->
 <link rel="stylesheet" href="css/steps.css?v=3"><!-- v3.0.0 中タスク（大タスクと小タスクの間の段） -->
 <link rel="stylesheet" href="css/pit-hover.css?v=373"><!-- v2.34.0 カードのマウスオーバー詳細（PitFlow card-hover.css の写し） -->
+<link rel="stylesheet" href="css/car-detail-v3.css?v=1"><!-- 🔴 v3.0.0 カード詳細（PC・タブレット＝全画面に近い・上に帯・左右のタブ）。#modal-detail.cd3-on の時だけ効く -->
 
 <!-- ========== Firebase SDK (v1.5.10〜) ========== -->
 <!-- compat 版を使用（既存のグローバル window.firebase 経由でアクセス） -->
@@ -83,6 +84,7 @@
 <script src="js/coreflow-auth-gate.js?v=a5cec0e0"></script>
 <!-- 🔴 「Google でログイン」ボタンの見た目（全アプリ共通・本体は _shared）。色はボタンの data-cf-login で決まる -->
 <script src="js/coreflow-login-btn.js?v=1ee736d7"></script>
+<style>/* 🎨 確認ダイアログの決定ボタン＝CarFlow＝青（ui-dialog.js が読む・2026-09-24） */:root{--uid-acc:#378ADD;--uid-accd:#2a6fb8;}</style>
 </head>
 <body>
 
@@ -121,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v2.64.0</div>
+    <div class="login-ver">v3.0.0</div>
   </div>
 </div>
 
@@ -132,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v2.64.0</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.0.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -1356,7 +1358,7 @@
 <!-- 車両詳細 -->
 <div class="overlay" id="modal-detail" onclick="if(event.target===this)closeModal('modal-detail')">
   <div class="modal modal-wide">
-    <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><div style="display:flex;align-items:center;gap:12px"><button class="mclose" title="この車両の付箋を作成" onclick="openCarNoteFromDetail()" style="font-size:16px"><i data-ic="sticky" data-s="15">🗒️</i></button><button class="mclose" onclick="closeModal('modal-detail')"><i data-ic="close" data-s="15">✕</i></button></div></div>
+    <div class="mhdr"><div class="mhdr-title" id="detail-title">車両詳細</div><div style="display:flex;align-items:center;gap:12px"><button class="cd3-to-v3" title="ビューを切り替える（新しい2カラムの表示へ）" onclick="CarDetailV3.setView('new')"><i data-ic="eye" data-s="15">👁</i> 2カラム表示</button><button class="mclose" title="この車両の付箋を作成" onclick="openCarNoteFromDetail()" style="font-size:16px"><i data-ic="sticky" data-s="15">🗒️</i></button><button class="mclose" onclick="closeModal('modal-detail')"><i data-ic="close" data-s="15">✕</i></button></div></div>
     <div class="mbody" id="detail-body"></div>
   </div>
 </div>
@@ -1958,7 +1960,7 @@
 <script src="js/coreflow-icons.js?v=9ae48aea"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
 <script src="js/coreflow-errcode.js?v=8d7c4b2d"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
 <script src="js/errcode-cf.js?v=1"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
-<script src="js/ui-dialog.js?v=b98062e8"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
+<script src="js/ui-dialog.js?v=19128a9d"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
 <script>
 /* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
 if(typeof window.ic!=='function'){ window.ic=function(n,fb,s){ return (fb==null?'':fb); }; }
@@ -1989,7 +1991,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 0e2. userPrefs DB wrapper（v2.18.0〜：お知らせ既読など個人設定） -->
 <script src="js/db-user-prefs.js?v=1"></script>
 <!-- 0f. role-guard（v1.5.10〜） -->
-<script src="js/role-guard.js?v=284"></script>
+<script src="js/role-guard.js?v=285"></script>
 <!-- 0g. Storage wrapper（v1.5.10〜） -->
 <script src="js/db-storage.js?v=285"></script>
 <!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
@@ -2033,10 +2035,11 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=371"></script>
-<script src="js/announcements.js?v=375"></script>
+<script src="js/announcements.js?v=376"></script>
 <script src="js/members.js?v=376"></script>
 <script src="js/kanban.js?v=376"></script>
-<script src="js/car-detail.js?v=375"></script>
+<script src="js/car-detail.js?v=376"></script>
+<script src="js/car-detail-v3.js?v=1"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
 <script src="js/car-modal.js?v=373"></script>
 <script src="js/workflow.js?v=284"></script>
 <script src="js/worksheet.js?v=326"></script>

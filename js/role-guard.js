@@ -58,6 +58,8 @@
           btn.style.display = 'none';
         }
       });
+      // v3.0.0：新しいカード詳細の［⚙ 編集］（文字が「編集」だけなので印で見分ける）
+      modal.querySelectorAll('[data-edit-car]').forEach(btn => { btn.style.display = 'none'; });
     });
     observer.observe(modal, { childList: true, subtree: true, characterData: true });
   }

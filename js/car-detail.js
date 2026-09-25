@@ -304,6 +304,11 @@ window._calcBackofficeWorkflowProgress = _calcBackofficeWorkflowProgress;
 
 // 詳細モーダルの本体を描画
 function renderDetailBody(car) {
+  // 🔴 v3.0.0：PC・タブレットは新しいカード詳細（全画面に近い・上に帯・左右のタブ）。スマホと「1カラム表示」を選んだ時は今までの形
+  if (window.CarDetailV3) {
+    if (window.CarDetailV3.isOn()) { window.CarDetailV3.render(car); return; }
+    window.CarDetailV3.leave();
+  }
   if (car.col === 'other') return _renderDetailBodyOther(car);
 
   // v2.1.0: バックオフィスモードでは納車タスクの代わりにバックオフィスタスクを描画
@@ -407,6 +412,33 @@ function renderDetailBody(car) {
       <div class="detail-overall-bar"><div class="detail-overall-fill" style="width:${prog.pct}%;background:${prog.pct>=100?'var(--green)':prog.pct>0?'var(--orange)':'var(--bg4)'}"></div></div>
     </div>
     <div class="task-items">`;
+  html += _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode);
+  html += `</div>`;
+  // v2.1.0: バックオフィスモードでは作業メモ（再生/納車準備のメモ）は出さない
+  if (!isBackofficeMode) {
+    html += `
+      <div class="work-memo" id="work-memo-wrap">
+        <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
+        <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
+          workMemo
+            ? escapeHtml(workMemo).replace(/\n/g,'<br>')
+            : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
+        }</div>
+      </div>`;
+  }
+  // v2.1.0: バックオフィスモードでは「バックオフィス専用メモ」（大きめ）を追加
+  if (isBackofficeMode) {
+    html += _renderBackofficeMemoHtml(car);
+  }
+  if (isBackofficeMode) html += _detailBoFooterHtml(car, tasks);
+  document.getElementById('detail-body').innerHTML = html;
+}
+
+// 🔴 v3.0.0：大タスクの行（task-item）を描く所を、中身を変えずに関数へ切り出した。
+//   いままでの1カラム（renderDetailBody）と、新しいカード詳細（car-detail-v3.js）の両方がここを呼ぶ。
+//   ⚠ 中身は v2.64.0 の renderDetailBody の中にあった物そのまま。大タスクの見た目・押した時の動きは変えていない。
+function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
+  let html = '';
   // v1.0.35: 期日超過タスクのマップを準備
   const _overdueList = (typeof getOverdueTasks === 'function') ? getOverdueTasks(car) : [];
   const _overdueMap = {};
@@ -583,52 +615,41 @@ function renderDetailBody(car) {
       </div></div>`;
     }
   });
-  html += `</div>`;
-  // v2.1.0: バックオフィスモードでは作業メモ（再生/納車準備のメモ）は出さない
-  if (!isBackofficeMode) {
-    html += `
-      <div class="work-memo" id="work-memo-wrap">
-        <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
-        <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
-          workMemo
-            ? escapeHtml(workMemo).replace(/\n/g,'<br>')
-            : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
-        }</div>
-      </div>`;
-  }
-  // v2.1.0: バックオフィスモードでは「バックオフィス専用メモ」（大きめ）を追加
-  if (isBackofficeMode) {
-    html += _renderBackofficeMemoHtml(car);
-  }
-  // v2.1.0: バックオフィスモード時の完了ボタン or 完了済みバナー
-  // v2.4.2: workflow 型タスクは backofficeWorkflows ベースで全項目完了判定
-  if (isBackofficeMode) {
-    const completed = !!car.backofficeCompleted;
-    const allDone = tasks.length > 0 && tasks.every(t => {
-      const isChecklistTask = (t.type === 'workflow') || _isCheckMode(t.id);
-      if (isChecklistTask) {
-        const wp = _calcBackofficeWorkflowProgress(car, t);
-        return wp.total > 0 && wp.done >= wp.total;
-      }
-      const _bst = car.backofficeTasks || {};
-      return _bst[t.id] === true;
-    });
-    if (completed) {
-      const at = car.backofficeCompletedAt
-        ? (typeof fmtDate === 'function' ? fmtDate(car.backofficeCompletedAt) : car.backofficeCompletedAt)
-        : '';
-      html += `<div class="detail-bo-done-banner" style="margin-top:14px">
-        ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
-        <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${car.id}')">完了を取り消す</button>
-      </div>`;
-    } else if (allDone) {
-      html += `<button class="detail-bo-complete-btn" style="margin-top:14px" onclick="window.backoffice.markComplete('${car.id}')">
-        ✅ バックオフィス完了
-      </button>`;
-    }
-  }
-  document.getElementById('detail-body').innerHTML = html;
+  return html;
 }
+window._detailTaskItemsHtml = _detailTaskItemsHtml;
+
+// 🔴 v3.0.0：バックオフィスの「完了」ボタン／「完了済み」の帯も同じく切り出した（中身そのまま）。
+function _detailBoFooterHtml(car, tasks) {
+  let html = '';
+  const _isCheckMode = (taskId) =>
+    (typeof hasTaskChecklist === 'function' && hasTaskChecklist(taskId, 'backoffice'));
+  const completed = !!car.backofficeCompleted;
+  const allDone = tasks.length > 0 && tasks.every(t => {
+    const isChecklistTask = (t.type === 'workflow') || _isCheckMode(t.id);
+    if (isChecklistTask) {
+      const wp = _calcBackofficeWorkflowProgress(car, t);
+      return wp.total > 0 && wp.done >= wp.total;
+    }
+    const _bst = car.backofficeTasks || {};
+    return _bst[t.id] === true;
+  });
+  if (completed) {
+    const at = car.backofficeCompletedAt
+      ? (typeof fmtDate === 'function' ? fmtDate(car.backofficeCompletedAt) : car.backofficeCompletedAt)
+      : '';
+    html += `<div class="detail-bo-done-banner" style="margin-top:14px">
+      ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
+      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${car.id}')">完了を取り消す</button>
+    </div>`;
+  } else if (allDone) {
+    html += `<button class="detail-bo-complete-btn" style="margin-top:14px" onclick="window.backoffice.markComplete('${car.id}')">
+      ✅ バックオフィス完了
+    </button>`;
+  }
+  return html;
+}
+window._detailBoFooterHtml = _detailBoFooterHtml;
 
 // v2.1.0: バックオフィス用 toggle ハンドラ（cars / archivedCars 両対応）
 function toggleBackofficeTaskToggle(carId, taskId) {
