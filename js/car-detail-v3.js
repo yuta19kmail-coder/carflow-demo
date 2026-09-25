@@ -13,7 +13,7 @@
       ・大タスクの行は car-detail.js の `_detailTaskItemsHtml`（v2.64.0 の中身そのまま）を呼んでいる。押した時の動きも今までどおり
       ・メモ（コアメモ・作業メモ・バックオフィスメモ）の編集も今までの関数（startEditWorkMemo など）
       ・付箋は今の付箋から「題か本文に管理番号がある物」「タスクメモから出た自動付箋」を拾って出すだけ（本物の linkifyCarNums と同じ物差し）
-      ・フローは今の操作ログ（car.logs）を並べ直して出すだけ。手で足す欄は今までの addLog で書く
+      ・フローは今の操作ログ（car.logs）を並べ直して出すだけ（手で足す欄は v3.0.1 で外した）
    🔴 スマホ（幅 900px 以下）と「1カラム表示」を選んだ時は、今までの renderDetailBody の形のまま
       ・選んだ表示と左右の幅は **ブラウザごとに覚える**（ゆうた「これはブラウザごとの記憶でOK」）
 
@@ -166,7 +166,7 @@
   }
 
   /* ---------------- 左：フロー（今の操作ログ car.logs を並べ直す） ----------------
-     ・新しい順。大きい出来事（状態の移動・大タスクの完了・納車日・車両情報の編集・手で足した物）は出したまま
+     ・新しい順。大きい出来事（状態の移動・大タスクの完了・納車日・車両情報の編集）は出したまま
      ・細かい記録（中タスク・小タスクの☑・メモの更新など）は、ひとつ上の大きい出来事の下に「この間の記録 N件」でたたむ
      ・大タスクの番号（例 d_docs）は名前に読みかえる
      見た目は PitFlow 予約詳細のフロー（card-view.js の cv-flow）と同じ */
@@ -225,25 +225,11 @@
       }
     });
     h += '</div>';
-    var canAdd = !car._fromArchive;
-    if (canAdd) {
-      h += '<div class="pf-flowadd"><div class="pf-flowquick">' + ['お客様へ電話 → つながった', 'お客様へ電話 → 留守（折り返し待ち）', 'お客様から入電', '来店・相談', '書類を受け取った', '納車日を調整'].map(function (x) {
-          return '<button class="pf-flowchip" onclick="CarDetailV3.flowAdd(\'' + x + '\')">' + esc(x) + '</button>'; }).join('') + '</div>'
-        + '<div class="pf-flowrow"><input id="cd3-flow-in" placeholder="自由に書いて追加" onkeydown="if(event.key===\'Enter\'&&!event.isComposing)CarDetailV3.flowAdd()"><button class="pf-flowaddbtn" onclick="CarDetailV3.flowAdd()">＋ 追加</button></div></div>';
-    }
+    /* 手で足す欄は置かない＝自動で残る記録だけ（2026-09-25 ゆうた「フローのこの部分は要らない　単純に自動入力だけで」・v3.0.1） */
     h += '<div class="cv-fhint">大タスクの完了・状態の移動・納車日などは自動でここに残ります（今までの操作ログと同じ物）。中タスクや小タスクの☑などの細かい記録はたたんであります。</div>';
     return h;
   }
-  function flowAdd(x) {
-    var car = curCar(); if (!car || car._fromArchive) return;
-    var el = document.getElementById('cd3-flow-in');
-    var v = x || (el ? el.value.trim() : '');
-    if (!v) return;
-    addLog(car.id, v);
-    if (window.saveCarPaths) window.saveCarPaths(car.id, [{ path: ['logs'], value: car.logs }]);
-    renderDetailBody(car);
-    if (typeof showToast === 'function') showToast('フローに追加しました');
-  }
+
 
   /* ---------------- 右：タスク ---------------- */
   function tasksPanel(car, which) {
@@ -403,7 +389,6 @@
     tab: function (k) { var c = curCar(); if (!c) return; curTab[c.id] = k; render(c); },
     ltab: function (k) { var c = curCar(); if (!c) return; leftTab[c.id] = k; render(c); },
     tgFlow: function (k) { flowOpen[k] = !flowOpen[k]; var c = curCar(); if (c) render(c); },
-    flowAdd: flowAdd,
     zoom: function () { var c = curCar(); if (c && c.photo && typeof openImagePreview === 'function') openImagePreview(c.photo); },
     splitDown: splitDown, splitReset: splitReset,
     _kindOf: kindOf, _pretty: pretty, _carNotes: carNotes

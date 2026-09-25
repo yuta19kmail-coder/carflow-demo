@@ -109,13 +109,6 @@ body.cd3-dragging{cursor:col-resize;user-select:none}
 .cd3-col .cv-fkids .cv-ft{font-size:12px;color:var(--text2);font-weight:600}
 .cd3-col .cv-fkids .cv-fd{font-size:10.5px}
 .cd3-col .cv-fhint{margin-top:9px;font-size:11.5px;color:var(--text3);line-height:1.6}
-.cd3-col .pf-flowadd{margin-top:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
-.cd3-col .pf-flowquick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
-.cd3-col .pf-flowchip{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:5px 9px;font-size:11.5px;cursor:pointer}
-.cd3-col .pf-flowchip:hover{border-color:var(--blue)}
-.cd3-col .pf-flowrow{display:flex;gap:8px}
-.cd3-col .pf-flowrow input{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
-.cd3-col .pf-flowaddbtn{background:var(--blue);border:1px solid var(--blue);color:#fff;border-radius:8px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 
 /* ---- 📋 装備詳細（タブの中は横が広いので3列） ---- */
 .cd3-col.r .cv-body{container-type:inline-size}
