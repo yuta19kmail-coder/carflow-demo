@@ -7,7 +7,7 @@
 // 提供 API（window.dbBoardNotes 名前空間）：
 //   loadBoardNotes()                : 全件取得（order asc）
 //   saveBoardNote(note)             : 1件保存（merge）
-//   deleteBoardNote(noteId)         : 1件削除
+//   deleteBoardNote(noteId)         : 🔴 2026-09-26 何もしない（付箋に「消去」は無い＝アーカイブ。消すのはサーバーだけ）
 //   archiveOldDoneNotes()           : 🔴 v2.60.0 何もしない（済んだ付箋は消さない・部品が3日で隠す）
 //   reorderBoardNotes(idList)       : 渡された ID 順に order を 0..N-1 に再付番
 //   subscribeBoardNotes(onUpdate)   : v1.8.0 onSnapshot 購読
@@ -91,17 +91,12 @@
     }
   }
 
+  /* 🔴 2026-09-26（ゆうた確定）**付箋に「消去」は無い。**全部アーカイブ（共通部品の patchArchive を save で書く）。
+     済から3か月で添付・1年で本文を消すのはサーバー（_サーバー\functions\note-retention.js）だけ。
+     ⚠ 呼び口だけ残す＝古いキャッシュの画面や、どこかに残った呼び出しから呼ばれても何も消さない。
+     ⚠ ルール（firestore.rules）でも付箋の delete は管理者だけ（バックアップの復元・全消去のため） */
   async function deleteBoardNote(noteId) {
-    if (!noteId) return;
-    const col = _col();
-    if (!col) return;
-    try {
-      await col.doc(String(noteId)).delete();
-    } catch (err) {
-      console.error('[db-board-notes] deleteBoardNote error:', err);
-      if (typeof showToast === 'function') showToast('付箋の削除に失敗しました', 'CF-0016');
-      throw err;
-    }
+    console.warn('[db-board-notes] deleteBoardNote は使いません（付箋は消さずにアーカイブ）', noteId);
   }
 
   async function reorderBoardNotes(idList) {

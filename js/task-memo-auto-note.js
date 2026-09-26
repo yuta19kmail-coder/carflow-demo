@@ -13,7 +13,7 @@
 // 公開API:
 //   window.taskMemoAutoNote.sync(car, taskId, phase)
 //     - date型メモが存在: 付箋を作成 or 更新
-//     - メモが存在しない or 型がdateじゃない: 付箋を削除
+//     - メモが存在しない or 型がdateじゃない: 付箋を🗂アーカイブ（🔴 2026-09-26 消さない。自動の付箋も例外にしない）
 //   window.taskMemoAutoNote.markDone(car, taskId, isDone)
 //     - タスク完了で付箋に status='done' をセット（🔴 v2.60.0 3日で盤面から隠れる・データは消さない）
 //   window.taskMemoAutoNote.cleanup()
@@ -77,7 +77,7 @@
     const shouldExist = isAutoType && !!(memo && memo.value);
 
     if (!shouldExist) {
-      if (existing) await _deleteAutoNote(existing);
+      if (existing && !existing.archived) await _archiveAutoNote(existing);
       return;
     }
 
@@ -102,6 +102,13 @@
     const body = [taskName, label, valueDisp].filter(Boolean).join(' ');
 
     if (existing) {
+      /* 🔴 2026-09-26 メモが消えてアーカイブされていた付箋に、またメモが入った＝アーカイブから出す。
+         メモが消えた時に済にしただけ（archivedByAuto）なら未済にも戻す。タスク完了の済はそのまま */
+      if (existing.archived) {
+        existing.archived = false; existing.archivedByUid = null;
+        if (existing.archivedByAuto) { existing.status = 'open'; existing.doneAt = null; existing.doneByUid = null; }
+        existing.archivedByAuto = false;
+      }
       // 更新（status は触らない＝完了済みなら維持）
       existing.title = title;
       existing.body = body;
@@ -135,13 +142,19 @@
     if (typeof renderBoardNotes === 'function') renderBoardNotes();
   }
 
-  async function _deleteAutoNote(note) {
+  /* 🔴 2026-09-26 メモが消えた自動の付箋は**アーカイブ**（前は完全に消していた）。
+     時計は済になった日1本＝まだ済でなければ、いま済にした扱い（部品の patchArchive と同じ） */
+  async function _archiveAutoNote(note) {
     if (!note || !note.id) return;
-    const idx = (boardNotes || []).findIndex(n => n && n.id === note.id);
-    if (idx >= 0) boardNotes.splice(idx, 1);
-    if (window.dbBoardNotes && window.dbBoardNotes.deleteBoardNote) {
-      try { await window.dbBoardNotes.deleteBoardNote(note.id); }
-      catch (e) { console.error('[auto-note] delete failed', e); }
+    const wasDone = note.status === 'done';
+    const me = (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null;
+    const p = (window.CFNoteBoard && CFNoteBoard.rules.patchArchive)
+      ? CFNoteBoard.rules.patchArchive(note, [me])
+      : { status: 'done', doneAt: Date.now(), doneByUid: me, archived: true, archivedByUid: me };
+    Object.assign(note, p, { archivedByAuto: !wasDone });
+    if (window.dbBoardNotes && window.dbBoardNotes.saveBoardNote) {
+      try { await window.dbBoardNotes.saveBoardNote(note); }
+      catch (e) { console.error('[auto-note] archive failed', e); }
     }
     if (typeof renderBoardNotes === 'function') renderBoardNotes();
   }
@@ -167,6 +180,8 @@
       }
     } else {
       if (note.status !== 'done') return;
+      /* 🔴 2026-09-26 タスクを未完了に戻したら、アーカイブからも出す（ボードに戻る） */
+      note.archived = false; note.archivedByUid = null; note.archivedByAuto = false;
       delete note.status;
       delete note.doneAt;
       delete note.doneByUid;

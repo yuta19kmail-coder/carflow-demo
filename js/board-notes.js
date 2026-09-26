@@ -13,6 +13,8 @@
 //      ・閲覧専用     … viewer は作れない・押せない
 // 🔴 v2.60.0 「済」から3日で**消す**のをやめた（部品が3日で**隠す**。データは残る・戻せる）。
 //    ⚠ 前は保存の前の写し（JSON）で「済にした時刻」が壊れて、実は一度も消えていなかった。
+// 🔴 2026-09-26 付箋に「消去」は無い＝全部アーカイブ（部品が save で書く・戻せる）。ここから Firestore の delete は呼ばない。
+//    3か月（添付）・1年（本文）で消すのはサーバー（note-retention.js）。開発全体メモ「付箋に『消去』は無い」
 // ⚠ 付箋の決まり（自分用・済・回覧・保存の形）は部品の1本。ここに書き写さない。
 // ========================================
 
@@ -123,12 +125,6 @@
         if (info && info.isNew && !_foreign(note)) boardNotes.push(note);
         return _saveNote(note);
       },
-      remove: async note => {
-        if (window.dbBoardNotes) await window.dbBoardNotes.deleteBoardNote(note.id);
-        /* 添付のファイルは共通部品が消す（v2.61.0） */
-        const i = boardNotes.findIndex(x => x.id === note.id);
-        if (i >= 0) boardNotes.splice(i, 1);
-      },
       reorder: list => {
         boardNotes.length = 0;
         list.forEach(n => boardNotes.push(n));
@@ -181,7 +177,7 @@
   window.deleteBoardNoteFromCard = function (id) {
     const n = _all().find(x => x.id === id);
     if (n && _denyForeign(n)) return;
-    if (window.CFNoteBoard) CFNoteBoard.remove(id);
+    if (window.CFNoteBoard) CFNoteBoard.archive(id);   /* 🔴 2026-09-26 消去ではなくアーカイブ */
   };
   window.openImagePreview = url => window.CFNoteBoard && CFNoteBoard.preview(url);
   window.closeImagePreview = () => window.CFNoteBoard && CFNoteBoard._close('cfnb-image');
