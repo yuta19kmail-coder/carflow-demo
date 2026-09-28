@@ -83,13 +83,28 @@ body.cd3-dragging{cursor:col-resize;user-select:none}
 .cd3-nt .bn-grid{grid-template-columns:1fr;gap:8px}
 .cd3-empty{font-size:12px;color:var(--text3);font-style:italic;padding:6px 2px 10px}
 .cd3-hint{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6}
-/* v3.1.1 この車のアーカイブ済付箋（畳んで出す・件数は出さない） */
-.cd3-arc{margin-top:10px;border-top:1px dashed var(--border2);padding-top:8px}
-.cd3-arc>summary{cursor:pointer;font-size:11.5px;font-weight:700;color:var(--text3);display:flex;align-items:center;gap:6px;list-style:none;padding:4px 2px}
-.cd3-arc>summary::-webkit-details-marker{display:none}
-.cd3-arc>summary::before{content:'▸';font-size:10px}
-.cd3-arc[open]>summary::before{content:'▾'}
-.cd3-arc .cfnb{margin-top:6px;opacity:.85}
+/* v3.1.2 付箋アーカイブ（モック v3.0 と同じ形＝1行は題だけ・押すと付箋が開く・件数は出さない） */
+.cd3-arc{margin-top:12px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.cd3-arc-h{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--bg3);font-size:11.5px;font-weight:700;color:var(--text2);cursor:pointer;user-select:none}
+.cd3-arc-h .ar{margin-left:auto;transition:.15s}
+.cd3-arc.open .cd3-arc-h .ar{transform:rotate(180deg)}
+.cd3-arc-b{display:none}
+.cd3-arc.open .cd3-arc-b{display:block}
+.cd3-arc-row{display:flex;gap:9px;align-items:flex-start;padding:8px 11px;border-top:1px solid var(--border);cursor:pointer}
+.cd3-arc-row:hover{background:rgba(255,255,255,.03)}
+.cd3-arc-row.open{background:rgba(255,255,255,.02)}
+.cd3-arc-row .dot{width:10px;height:10px;border-radius:3px;margin-top:4px;flex-shrink:0}
+.cd3-arc-row .dot.red{background:#f87171}.cd3-arc-row .dot.orange{background:#fb923c}.cd3-arc-row .dot.yellow{background:#facc15}.cd3-arc-row .dot.green{background:#4ade80}.cd3-arc-row .dot.blue{background:#60a5fa}
+.cd3-arc-row .tx{flex:1;min-width:0}
+.cd3-arc-row .t1{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd3-arc-row .t2{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd3-arc-row .st{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;white-space:nowrap;flex-shrink:0}
+.cd3-arc-row .st.don{color:var(--green);border:1px solid color-mix(in srgb,var(--green) 45%,transparent)}
+.cd3-arc-row .st.arc{color:var(--text2);border:1px solid var(--border2)}
+.cd3-arc-full{padding:4px 11px 10px}
+.cd3-arc-full .bn-card{cursor:default}
+.cd3-back{margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--blue);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer}
+.cd3-back:hover{border-color:var(--blue)}
 
 /* ---- 🕘 フロー（PitFlow card-view.css の cv-flow と同じ） ---- */
 .cd3-col .cv-flow{position:relative;padding-left:4px}
