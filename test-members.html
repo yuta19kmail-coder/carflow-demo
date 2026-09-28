@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><body>
+<script>
+window.__watch = {};
+window.fb = { currentCompanyId:'kobayashi_motors', db:{ collection:function(){ return { doc:function(){ return {
+  collection:function(name){ return { onSnapshot:function(okc,ng){ window.__watch[name]={ok:okc,ng:ng}; return function(){}; } }; }
+}; } }; } } };
+window.__push = function(name, rows){
+  var w = window.__watch[name]; if(!w) return false;
+  w.ok({ forEach:function(f){ rows.forEach(function(r){ f({ id:r.id, data:function(){ var o=Object.assign({},r); delete o.id; return o; } }); }); } });
+  return true;
+};
+window.__fail = function(name, code){ var w=window.__watch[name]; if(!w) return false; w.ng({code:code||'permission-denied'}); return true; };
+</script>
+<script src="js/members-core.js"></script>
+<script>window.__ready=1;</script>

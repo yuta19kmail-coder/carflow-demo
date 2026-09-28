@@ -1,0 +1,62 @@
+<!doctype html><meta charset="utf-8">
+<link rel="stylesheet" href="css/pit-embed.css">
+<link rel="stylesheet" href="css/pit-hover.css">
+<style>
+:root{--bg:#0f1117;--bg2:#1a1d27;--bg3:#222536;--border:#333650;--border2:#444870;--text:#e8eaf6;--text2:#9fa8c7;--text3:#5c6490;--green:#1db97a;--orange:#f59e0b;--blue:#378ADD;--red:#ef4444;--accent:#378ADD;--r:8px;--shadow-card:0 3px 12px rgba(0,0,0,.35)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:sans-serif;padding:16px}
+.panel-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
+</style><body>
+<div id="pit-today-area"></div>
+<div id="pit-sales-body"></div>
+<script src="js/coreflow-icons.js"></script>
+<script>
+window.__toasts=[];
+window.showToast=function(m){ window.__toasts.push(m); };
+window.showPanel=function(){};
+/* ---- 偽の Firestore ---- */
+window.__updates=[]; window.__failNext=false; window.__snapCb=null;
+window.firebase={ firestore:{ FieldValue:{ arrayUnion:function(v){ return {__arrayUnion:v}; } } } };
+function _docRef(col,id){ return { update:function(patch){
+  window.__updates.push({col:col,id:id,patch:JSON.parse(JSON.stringify(patch))});
+  if(window.__failNext){ window.__failNext=false; return Promise.reject(new Error('permission-denied')); }
+  return Promise.resolve();
+} }; }
+window.__snapOf={};   /* 入れ物ごとの購読先（pitCards / pitLoaners を混ぜない） */
+function _colRef(col){
+  var sub=function(okc,ng){ window.__snapOf[col]=okc; if(col==='pitCards'){ window.__snapCb=okc; window.__snapErr=ng; } return function(){}; };
+  return {
+    where:function(){ return { onSnapshot:sub }; },
+    onSnapshot:sub,
+    doc:function(id){ return _docRef(col,id); }
+  };
+}
+window.fb={ currentCompanyId:'kobayashi_motors', db:{
+  collection:function(){ return { doc:function(){ return { collection:function(name){
+    if(name==='pitSettings') return { doc:function(){ return { onSnapshot:function(){ return function(){}; } }; } };
+    return _colRef(name);
+  } }; } }; }
+}};
+window.__pushLoaners=function(list){
+  var cb=window.__snapOf['pitLoaners']; if(!cb) return false;
+  cb({ forEach:function(f){ list.forEach(function(c){ f({ id:c.id, data:function(){ var o=Object.assign({},c); delete o.id; return o; } }); }); } });
+  return true;
+};
+window.__push=function(cards){
+  if(!window.__snapCb) return false;
+  window.__snapCb({ forEach:function(f){ cards.forEach(function(c){ f({ id:c.id, data:function(){ var o=Object.assign({},c); delete o.id; return o; } }); }); } });
+  return true;
+};
+/* 休みは水曜だけ（MHSカレンダーの代わり） */
+window.PitCal={ isClosed:function(ds){ return new Date(ds+'T00:00:00').getDay()===3; } };
+window.Holidays={ name:function(){ return null; } };
+window.__opened=[];
+</script>
+<script src="js/coreflow-loaner-remain.js"></script>
+<script src="js/coreflow-return-plan.js"></script>
+<script src="js/pit-embed.js"></script>
+<script src="js/pit-hover.js"></script>
+<script>
+/* 別タブを開かせない（テスト用に差し替え） */
+PitEmbed.open=function(id){ window.__opened.push(id); };
+window.__ready=1;
+</script>

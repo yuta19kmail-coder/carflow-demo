@@ -142,27 +142,50 @@
       + (w ? esc(w).replace(/\n/g, '<br>') : '<span class="work-memo-placeholder">タップしてメモを記入</span>') + '</div></div>';
   }
   var KM_RE = /[KkＫｋ][MmＭｍ][-－ー−―‐]?[0-9０-９]{1,6}/g;
-  function carNotes(car) {
+  /* この車に付いている付箋を全部（ボードに出ている物＋アーカイブ済）。
+     🔴 v3.1.1 前は「ボードに出ている物」だけを拾っていたので、アーカイブ（済から3日・人がアーカイブ）にした付箋が
+        車両詳細から消えていた（KM-0530 で発覚）。車に付いた付箋は車が見えている間は残す決まり（開発全体メモ「付箋に『消去』は無い」）
+        ＝車両詳細では下の「この車のアーカイブ済付箋」に畳んで出す */
+  function carNotesAll(car) {
     var B = window.CFNoteBoard;
     if (!B || typeof boardNotes === 'undefined' || !Array.isArray(boardNotes)) return [];
     var R = B.rules, A = B.adapter && B.adapter();
-    var me = R.meList(A && A.me ? A.me() : []), now = Date.now(), my = normCarNum(car.num || '');
+    var me = R.meList(A && A.me ? A.me() : []), my = normCarNum(car.num || '');
     return boardNotes.filter(function (n) {
-      if (!n || !n.id || !R.canSee(n, me) || R.isHidden(n, now)) return false;
+      if (!n || !n.id || !R.canSee(n, me)) return false;
       if (n.autoSource && n.autoSource.carId === car.id) return true;
       if (!my) return false;
       var txt = (n.title || '') + '\n' + (R.bodyOf(n) || '');
       return (txt.match(KM_RE) || []).some(function (m) { return normCarNum(m) === my; });
-    }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    });
+  }
+  function carNotes(car) {
+    var R = window.CFNoteBoard && window.CFNoteBoard.rules, now = Date.now();
+    return carNotesAll(car).filter(function (n) { return !R.isHidden(n, now); })
+      .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+  /* アーカイブ済は済になった日の新しい順。件数は出さない（共通部品の「アーカイブ済付箋」と同じ） */
+  function carArchived(car) {
+    var R = window.CFNoteBoard && window.CFNoteBoard.rules, now = Date.now();
+    return carNotesAll(car).filter(function (n) { return R.isHidden(n, now); })
+      .sort(function (a, b) { return R.doneMs(b) - R.doneMs(a); });
+  }
+  var arcOpen = {};   /* 車ごとに「アーカイブ済」を開いているか（付箋の同期で描き直しても閉じない） */
+  function cardsHtml(list) {
+    return '<div class="cfnb"><div class="bn-grid">' + list.map(function (n) {
+      try { return window.CFNoteBoard.cardHtml(n, { noDrag: true }); } catch (e) { return ''; }
+    }).join('') + '</div></div>';
   }
   function notesHtml(car) {
-    var list = carNotes(car);
-    var cards = list.length ? '<div class="cfnb"><div class="bn-grid">' + list.map(function (n) {
-      try { return window.CFNoteBoard.cardHtml(n, { noDrag: true }); } catch (e) { return ''; }
-    }).join('') + '</div></div>' : '<div class="cd3-empty">ボードに出ている、この車の付箋はありません</div>';
+    var list = carNotes(car), arc = carArchived(car);
+    var cards = list.length ? cardsHtml(list) : '<div class="cd3-empty">ボードに出ている、この車の付箋はありません</div>';
+    var arcHtml = arc.length
+      ? '<details class="cd3-arc"' + (arcOpen[car.id] ? ' open' : '') + ' ontoggle="CarDetailV3.arcToggle(\'' + esc(car.id) + '\', this.open)">'
+        + '<summary>' + I('archive', '🗂', 14) + ' この車のアーカイブ済付箋</summary>' + cardsHtml(arc) + '</details>'
+      : '';
     return '<div class="cd3-nt" id="cd3-notes"><div class="cd3-nt-h">' + I('sticky', '🗒', 14) + ' この車の付箋 <span class="cd3-cnt">' + list.length + '</span>'
-      + '<button class="cd3-add" onclick="openCarNoteFromDetail()">＋ この車の付箋</button></div>' + cards
-      + '<div class="cd3-hint">題か本文に「' + esc(car.num || '管理番号') + '」が入っている付箋と、タスクメモから出た付箋が並びます。</div></div>';
+      + '<button class="cd3-add" onclick="openCarNoteFromDetail()">＋ この車の付箋</button></div>' + cards + arcHtml
+      + '<div class="cd3-hint">題か本文に「' + esc(car.num || '管理番号') + '」が入っている付箋と、タスクメモから出た付箋が並びます。済から3日たった物・アーカイブにした物は「この車のアーカイブ済付箋」に入ります。</div></div>';
   }
 
   /* ---------------- 左：フロー（今の操作ログ car.logs を並べ直す） ----------------
@@ -391,6 +414,7 @@
     tgFlow: function (k) { flowOpen[k] = !flowOpen[k]; var c = curCar(); if (c) render(c); },
     zoom: function () { var c = curCar(); if (c && c.photo && typeof openImagePreview === 'function') openImagePreview(c.photo); },
     splitDown: splitDown, splitReset: splitReset,
-    _kindOf: kindOf, _pretty: pretty, _carNotes: carNotes
+    arcToggle: function (id, on) { arcOpen[id] = !!on; },
+    _kindOf: kindOf, _pretty: pretty, _carNotes: carNotes, _carArchived: carArchived
   };
 })();
