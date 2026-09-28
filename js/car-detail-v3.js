@@ -170,22 +170,48 @@
     return carNotesAll(car).filter(function (n) { return R.isHidden(n, now); })
       .sort(function (a, b) { return R.doneMs(b) - R.doneMs(a); });
   }
-  var arcOpen = {};   /* 車ごとに「アーカイブ済」を開いているか（付箋の同期で描き直しても閉じない） */
+  /* 付箋アーカイブの開け閉め（付箋の同期で描き直しても保つ）。🗣 モック v3.0 と同じ＝箱は開いた状態から・1行は題だけ・押すと付箋が開く */
+  var arcClosed = {}, arcRowOpen = {};
   function cardsHtml(list) {
     return '<div class="cfnb"><div class="bn-grid">' + list.map(function (n) {
       try { return window.CFNoteBoard.cardHtml(n, { noDrag: true }); } catch (e) { return ''; }
     }).join('') + '</div></div>';
   }
+  function mdhm(ms) {
+    if (!ms) return '';
+    var t = new Date(ms);
+    return (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+  }
+  var DOT = { red: 1, orange: 1, yellow: 1, green: 1, blue: 1 };
+  function arcRowHtml(n) {
+    var B = window.CFNoteBoard, R = B.rules, op = !!arcRowOpen[n.id], body = (R.bodyOf(n) || '').trim();
+    var t1 = n.title || body || '(無題)', t2 = n.title && body ? body.replace(/\s+/g, ' ') : '';
+    var st = R.isArchived(n)
+      ? '<span class="st arc">アーカイブ ' + esc(mdhm(R.doneMs(n))) + '</span>'
+      : '<span class="st don">済 ' + esc(mdhm(R.doneMs(n))) + '</span>';
+    var full = '';
+    if (op) {
+      var card = ''; try { card = B.cardHtml(n, { noDrag: true, noMenu: true }); } catch (e) {}
+      var A = B.adapter && B.adapter(), can = !(A && A.canMutate) || !!A.canMutate();
+      full = '<div class="cd3-arc-full"><div class="cfnb">' + card + '</div>'
+        + (can ? '<button class="cd3-back" onclick="event.stopPropagation();CarDetailV3.arcBack(\'' + esc(n.id) + '\')">' + I('undo', '↩', 14) + ' ボードへ戻す</button>' : '') + '</div>';
+    }
+    return '<div class="cd3-arc-row' + (op ? ' open' : '') + '" onclick="CarDetailV3.arcRow(\'' + esc(n.id) + '\')">'
+      + '<span class="dot ' + (DOT[n.color] ? n.color : 'yellow') + '"></span>'
+      + '<div class="tx"><div class="t1">' + esc(t1) + '</div>' + (t2 ? '<div class="t2">' + esc(t2) + '</div>' : '') + '</div>' + st + '</div>' + full;
+  }
   function notesHtml(car) {
     var list = carNotes(car), arc = carArchived(car);
     var cards = list.length ? cardsHtml(list) : '<div class="cd3-empty">ボードに出ている、この車の付箋はありません</div>';
-    var arcHtml = arc.length
-      ? '<details class="cd3-arc"' + (arcOpen[car.id] ? ' open' : '') + ' ontoggle="CarDetailV3.arcToggle(\'' + esc(car.id) + '\', this.open)">'
-        + '<summary>' + I('archive', '🗂', 14) + ' この車のアーカイブ済付箋</summary>' + cardsHtml(arc) + '</details>'
-      : '';
+    /* 件数は出さない（共通部品の「アーカイブ済付箋」と同じ・2026-09-26 の決まり） */
+    var arcHtml = '<div class="cd3-arc' + (arcClosed[car.id] ? '' : ' open') + '">'
+      + '<div class="cd3-arc-h" onclick="CarDetailV3.arcToggle(\'' + esc(car.id) + '\')">' + I('archive', '🗂', 14) + ' 付箋アーカイブ<span class="ar">' + I('chevDown', '▼', 13) + '</span></div>'
+      + '<div class="cd3-arc-b">' + (arc.length ? arc.map(arcRowHtml).join('')
+        : '<div class="cd3-arc-row" style="cursor:default"><div class="tx"><div class="t2">まだありません。済から3日たった付箋・アーカイブにした付箋がここに残ります。</div></div></div>')
+      + '</div></div>';
     return '<div class="cd3-nt" id="cd3-notes"><div class="cd3-nt-h">' + I('sticky', '🗒', 14) + ' この車の付箋 <span class="cd3-cnt">' + list.length + '</span>'
       + '<button class="cd3-add" onclick="openCarNoteFromDetail()">＋ この車の付箋</button></div>' + cards + arcHtml
-      + '<div class="cd3-hint">題か本文に「' + esc(car.num || '管理番号') + '」が入っている付箋と、タスクメモから出た付箋が並びます。済から3日たった物・アーカイブにした物は「この車のアーカイブ済付箋」に入ります。</div></div>';
+      + '<div class="cd3-hint">題か本文に「' + esc(car.num || '管理番号') + '」が入っている付箋と、タスクメモから出た付箋が並びます。済から3日たった物・アーカイブにした物は「付箋アーカイブ」に入ります。</div></div>';
   }
 
   /* ---------------- 左：フロー（今の操作ログ car.logs を並べ直す） ----------------
@@ -365,24 +391,28 @@
   function splitReset() { ls(LS_LW, null); var c = curCar(); if (c) render(c); }
 
   /* 付箋が変わったら（リアルタイム同期で renderBoardNotes が呼ばれた時）、開いている車の付箋も描き直す */
+  /* ⚠ 丸ごと描き直さない（作業メモを書いている途中で消えるため）。付箋の欄とタブの数だけ差し替える */
+  function redrawNotes() {
+    try {
+      var m = modal(), c = curCar(), box = document.getElementById('cd3-notes');
+      if (m && m.classList.contains('open') && m.classList.contains('cd3-on') && c) {
+        if (box) box.outerHTML = notesHtml(c);
+        var tb = document.querySelector('#detail-body .cd3-col.l .cv-tab');
+        if (tb) {
+          var n = carNotes(c).length, old = tb.querySelector('.cv-tcnt');
+          if (old) old.remove();
+          if (n) tb.insertAdjacentHTML('beforeend', '<span class="cv-tcnt">' + n + '</span>');
+        }
+        if (typeof icHydrate === 'function') { var nb = document.getElementById('cd3-notes'); if (nb) icHydrate(nb); }
+      }
+    } catch (e) {}
+  }
   function hookNotes() {
     var B = window.CFNoteBoard; if (!B || B._cd3Hooked) return;
     var orig = B.render;
     B.render = function () {
       var r = orig.apply(this, arguments);
-      try {
-        /* ⚠ 丸ごと描き直さない（作業メモを書いている途中で消えるため）。付箋の欄とタブの数だけ差し替える */
-        var m = modal(), c = curCar(), box = document.getElementById('cd3-notes');
-        if (m && m.classList.contains('open') && m.classList.contains('cd3-on') && c) {
-          if (box) box.outerHTML = notesHtml(c);
-          var tb = document.querySelector('#detail-body .cd3-col.l .cv-tab');
-          if (tb) {
-            var n = carNotes(c).length, old = tb.querySelector('.cv-tcnt');
-            if (old) old.remove();
-            if (n) tb.insertAdjacentHTML('beforeend', '<span class="cv-tcnt">' + n + '</span>');
-          }
-        }
-      } catch (e) {}
+      redrawNotes();
       return r;
     };
     B._cd3Hooked = true;
@@ -414,7 +444,14 @@
     tgFlow: function (k) { flowOpen[k] = !flowOpen[k]; var c = curCar(); if (c) render(c); },
     zoom: function () { var c = curCar(); if (c && c.photo && typeof openImagePreview === 'function') openImagePreview(c.photo); },
     splitDown: splitDown, splitReset: splitReset,
-    arcToggle: function (id, on) { arcOpen[id] = !!on; },
+    arcToggle: function (carId) { arcClosed[carId] = !arcClosed[carId]; redrawNotes(); },
+    arcRow: function (id) { arcRowOpen[id] = !arcRowOpen[id]; redrawNotes(); },
+    /* ↩ ボードへ戻す＝未済に戻す（アーカイブからも出る）。共通部品の markUndone と同じ */
+    arcBack: function (id) {
+      var B = window.CFNoteBoard; if (!B || !B.markUndone) return;
+      delete arcRowOpen[id];
+      Promise.resolve(B.markUndone(id)).then(redrawNotes);
+    },
     _kindOf: kindOf, _pretty: pretty, _carNotes: carNotes, _carArchived: carArchived
   };
 })();
