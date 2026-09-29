@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.2.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.3.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -123,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.2.0</div>
+    <div class="login-ver">v3.3.0</div>
   </div>
 </div>
 
@@ -134,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.2.0</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.3.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -342,10 +342,8 @@
           <div class="settings-layout">
             <!-- 左：項目メニュー -->
             <nav class="settings-nav" id="settings-nav">
-              <button class="settings-nav-item active" data-section="profile">
-                <span class="settings-nav-icon"><i data-ic="user" data-s="15">👤</i></span><span class="settings-nav-label">プロフィール</span>
-              </button>
-              <button class="settings-nav-item" data-section="display">
+              <!-- v3.3.0: 「プロフィール」は外した（名前・写真・権限は CoreFlow と CoreMembers が正。PitFlow・MHS と同じ） -->
+              <button class="settings-nav-item active" data-section="display">
                 <span class="settings-nav-icon"><i data-ic="palette" data-s="16">🎨</i></span><span class="settings-nav-label">表示</span>
               </button>
               <button class="settings-nav-item" data-section="vehicle">
@@ -377,48 +375,8 @@
             <!-- 右：選択中セクションだけ表示 -->
             <div class="settings-content">
 
-              <!-- 👤 プロフィール（v1.5.10） -->
-              <section class="settings-section active" data-section="profile">
-                <h2 class="settings-section-title"><i data-ic="user" data-s="15">👤</i> プロフィール</h2>
-                <p class="settings-section-desc">CarFlow 内で使う表示名とアイコンを設定できます。Google アカウントの値が初期値です</p>
-
-                <div class="settings-card">
-                  <h3 class="settings-card-title">アイコン</h3>
-                  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-                    <div id="profile-avatar-preview" class="av" style="width:64px;height:64px;font-size:22px;background-size:cover;background-position:center"></div>
-                    <div style="flex:1;min-width:200px">
-                      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">推奨：正方形・最大2MB（自動でリサイズされます）</div>
-                      <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <button class="btn-sm" onclick="document.getElementById('profile-avatar-file').click()"><i data-ic="camera" data-s="16">📷</i> 画像を選択</button>
-                        <button class="btn-sm" onclick="resetProfilePhoto()">Google のアイコンに戻す</button>
-                      </div>
-                      <input type="file" id="profile-avatar-file" accept="image/*" style="display:none" onchange="onProfilePhotoPick(this)">
-                    </div>
-                  </div>
-                </div>
-
-                <div class="settings-card">
-                  <h3 class="settings-card-title">表示名</h3>
-                  <div class="settings-row">
-                    <input type="text" id="profile-displayname-inp" class="settings-input" placeholder="（Google の displayName）" style="flex:1" maxlength="30">
-                    <button class="btn-sm" onclick="saveProfileDisplayName()">保存</button>
-                    <button class="btn-sm" onclick="resetProfileDisplayName()" style="color:var(--text3)">Google に戻す</button>
-                  </div>
-                  <div class="settings-card-hint" id="profile-displayname-hint" style="margin-top:6px"></div>
-                </div>
-
-                <div class="settings-card">
-                  <h3 class="settings-card-title">アカウント情報</h3>
-                  <div style="font-size:12px;color:var(--text2);line-height:1.8">
-                    <div><i data-ic="send" data-s="15">📧</i> <span id="profile-email">—</span></div>
-                    <div><i data-ic="key" data-s="15">🔑</i> ロール：<span id="profile-role">—</span></div>
-                    <div>🆔 UID：<code id="profile-uid" style="font-size:10px;color:var(--text3)">—</code></div>
-                  </div>
-                </div>
-              </section>
-
               <!-- 🎨 表示 -->
-              <section class="settings-section" data-section="display">
+              <section class="settings-section active" data-section="display">
                 <h2 class="settings-section-title"><i data-ic="palette" data-s="16">🎨</i> 表示設定</h2>
                 <p class="settings-section-desc">画面の見え方を調整できます。設定はこのブラウザに保存されます</p>
                 <div class="settings-card">
@@ -2038,10 +1996,10 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=1c79064f"></script>
-<script src="js/auth.js?v=374"></script>
-<script src="js/navigation.js?v=314"></script>
+<script src="js/auth.js?v=375"></script>
+<script src="js/navigation.js?v=330"></script>
 <script src="js/archive.js?v=373"></script>
-<script src="js/settings.js?v=364"></script>
+<script src="js/settings.js?v=365"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=371"></script>

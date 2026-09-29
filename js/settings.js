@@ -1427,72 +1427,10 @@ function restoreTasksFromSettings() {
 
 
 // ========================================
-// v1.5.5: プロフィール section（自分の表示名・アイコン）
+// v3.3.0: 「プロフィール」section は外した（v2.18.0 から保存できず、CoreFlow へ案内するだけだったため）。
+//   名前・写真・権限は CoreFlow（portalMembers）と CoreMembers（呼び名）が正。PitFlow・MHS と同じ。
+//   ⚠ 下のアバタークロッパーは部品として残している（いまは呼び出し元なし）。
 // ========================================
-
-function renderProfileSection() {
-  const staff = (window.fb && window.fb.currentStaff) || {};
-  const user = (window.fb && window.fb.currentUser) || {};
-
-  // アイコンプレビュー
-  const photoURL = (typeof resolveStaffPhotoURL === 'function') ? resolveStaffPhotoURL(staff, user) : null;
-  const dispName = (typeof resolveStaffDisplayName === 'function') ? resolveStaffDisplayName(staff, user) : 'ゲスト';
-  const init = (typeof staffInitial === 'function') ? staffInitial(dispName) : String(dispName).slice(0, 2).toUpperCase();
-
-  const av = document.getElementById('profile-avatar-preview');
-  if (av) {
-    if (photoURL) {
-      av.style.backgroundImage = `url('${photoURL}')`;
-      av.style.color = 'transparent';
-      av.textContent = init;
-    } else {
-      av.style.backgroundImage = '';
-      av.style.color = '';
-      av.textContent = init;
-    }
-  }
-
-  // 表示名 input
-  const inp = document.getElementById('profile-displayname-inp');
-  if (inp) {
-    inp.value = staff.customDisplayName || '';
-    inp.placeholder = staff.displayName || user.displayName || '（未設定）';
-  }
-  const hint = document.getElementById('profile-displayname-hint');
-  if (hint) {
-    if (staff.customDisplayName) {
-      hint.textContent = `カスタム表示名「${staff.customDisplayName}」を使用中。Google の名前は「${staff.displayName || user.displayName || '—'}」です。`;
-    } else {
-      hint.textContent = `現在は Google の名前「${staff.displayName || user.displayName || '—'}」が使われています。`;
-    }
-  }
-
-  // アカウント情報
-  const emailEl = document.getElementById('profile-email');
-  if (emailEl) emailEl.textContent = staff.email || user.email || '—';
-  const roleEl = document.getElementById('profile-role');
-  if (roleEl) {
-    const labels = { admin: '管理者', manager: 'マネージャ', staff: 'スタッフ', viewer: '閲覧のみ' };
-    roleEl.textContent = labels[staff.role] || staff.role || '—';
-  }
-  const uidEl = document.getElementById('profile-uid');
-  if (uidEl) uidEl.textContent = (user.uid || staff.uid || '—');
-}
-
-// v1.5.10: 画像選択 → Storage アップロード → URL を staff.customPhotoURL に保存
-// v1.8.76: 写真選択時はそのまま保存せず、クロッパーモーダルを開く
-async function onProfilePhotoPick(input) {
-  if (!input || !input.files || !input.files[0]) return;
-  const file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('画像が大きすぎます（5MB以下にしてください）', 'CF-9011');
-    input.value = '';
-    return;
-  }
-  // クロッパーを開く
-  openAvatarCrop(file);
-  input.value = '';
-}
 
 // ====================================================================
 // v1.8.76: アバター画像クロッパー（円形トリミング + 拡大縮小 + ドラッグ）
@@ -1653,7 +1591,6 @@ async function applyAvatarCrop() {
       }
       await window.dbStaff.saveMyProfile({ customPhotoURL: url });
       showToast('アイコンを更新しました');
-      renderProfileSection();
       if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
       if (typeof renderMembers === 'function') renderMembers();
       closeAvatarCrop();
@@ -1690,58 +1627,6 @@ function _resizeImageToDataUrl(file, maxSize, quality) {
     reader.readAsDataURL(file);
   });
 }
-
-async function resetProfilePhoto() {
-  if (!confirm('Google アカウントのアイコンに戻しますか？')) return;
-  try {
-    await window.dbStaff.clearMyProfileOverride('photo');
-    showToast('Google のアイコンに戻しました');
-    renderProfileSection();
-    if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
-    if (typeof renderMembers === 'function') renderMembers();
-  } catch (err) {
-    console.error(err);
-    showToast('リセットに失敗しました', 'CF-9013');
-  }
-}
-
-async function saveProfileDisplayName() {
-  const inp = document.getElementById('profile-displayname-inp');
-  const v = (inp && inp.value || '').trim();
-  if (!v) {
-    showToast('表示名を入力してください（または「Google に戻す」を押してください）', 'CF-9014');
-    return;
-  }
-  if (v.length > 30) {
-    showToast('表示名は30文字以内にしてください', 'CF-9015');
-    return;
-  }
-  try {
-    await window.dbStaff.saveMyProfile({ customDisplayName: v });
-    showToast('表示名を更新しました');
-    renderProfileSection();
-    if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
-    if (typeof renderMembers === 'function') renderMembers();
-  } catch (err) {
-    console.error(err);
-    showToast('保存に失敗しました', 'CF-0018');
-  }
-}
-
-async function resetProfileDisplayName() {
-  if (!confirm('Google アカウントの表示名に戻しますか？')) return;
-  try {
-    await window.dbStaff.clearMyProfileOverride('name');
-    showToast('Google の表示名に戻しました');
-    renderProfileSection();
-    if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
-    if (typeof renderMembers === 'function') renderMembers();
-  } catch (err) {
-    console.error(err);
-    showToast('リセットに失敗しました', 'CF-9013');
-  }
-}
-
 
 // ========================================
 // v1.5.12: 写真 data:URL → Storage 一括移行
