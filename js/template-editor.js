@@ -48,6 +48,11 @@
     return true; // フォールバック
   }
 
+  // v3.2.0: 装備品チェックのタスクパターンか
+  function _isEquipTpl(tpl) {
+    return !!tpl && (tpl.sourceTaskId === 't_equip' || tpl.id === 'tpl_equipment');
+  }
+
   function _toast(msg) {
     if (typeof showToast === 'function') showToast(msg);
   }
@@ -1175,6 +1180,7 @@
         <div class="tpl-item-meta">
           <span class="tpl-item-type">${_esc(itemTypeLabel[inputType] || inputType)}</span>
           ${disabled ? '<span class="tpl-item-disabled">無効</span>' : ''}
+          ${(item.hideInPrint && _isEquipTpl(tpl)) ? '<span class="tpl-item-noprint">印刷しない</span>' : ''}
         </div>
         <div class="tpl-item-actions">
           <button class="btn-sm" onclick="openTemplateItemEditor('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${ic('pencil','✏️',15)} 編集</button>
@@ -1639,6 +1645,11 @@
     if (optsArea) optsArea.value = (Array.isArray(item.selectOptions) ? item.selectOptions : []).join('\n');
     const optsRow = document.getElementById('tpl-item-select-options-row');
     if (optsRow) optsRow.style.display = (itype === 'select') ? '' : 'none';
+    // v3.2.0: 「装備詳細の印刷に表示しない」は装備品チェックのパターンだけ
+    const hpRow = document.getElementById('tpl-item-hide-print-row');
+    if (hpRow) hpRow.style.display = _isEquipTpl(tpl) ? '' : 'none';
+    const hpSw = document.getElementById('tpl-item-hide-print');
+    if (hpSw) hpSw.classList.toggle('on', !!item.hideInPrint);
 
     // v1.7.12: media をワーキングコピーに載せて描画
     window._tplEditor.editingMedia = Array.isArray(item.media)
@@ -1848,6 +1859,13 @@
     } else {
       // select 以外は selectOptions 不要なので保存しない（既存があれば維持）
       // → 用途が変わるたびに消えると不便なので、そのまま保持する
+    }
+
+    // v3.2.0: 装備品チェックのパターンだけ「装備詳細の印刷に表示しない」
+    if (_isEquipTpl(tpl)) {
+      const hpSw = document.getElementById('tpl-item-hide-print');
+      if (hpSw && hpSw.classList.contains('on')) item.hideInPrint = true;
+      else delete item.hideInPrint;
     }
 
     // v1.7.12: media を確定保存（ワーキングコピーから item.media へ反映）

@@ -132,12 +132,14 @@ function renderEquipmentView(car, opts) {
     html += '<div class="eq-print-bar"><button class="eq-print-btn" onclick="printEquipmentSheet(\'' + car.id + '\')">'+ic('printer','🖨️',16)+' お客様用に印刷</button></div>';
   }
   sections.forEach(sec => {
-    const items = (sec.items || []).filter(it => !it._disabled);
+    // v3.2.0: 商談ビュー（opts.forCustomer）では「装備詳細の印刷に表示しない」項目を出さない
+    const items = (sec.items || []).filter(it => !it._disabled && !(opts.forCustomer && it.hideInPrint));
     if (items.length === 0) return;
     const rows = items.map(it => {
       const v = state[it.id];
       const f = _eqFormatValue(it, v);
-      return '<div class="eq-view-row"><span class="label">' + _eqEscape(it.name || '') + '</span><span class="val ' + f.cls + '">' + f.html + '</span></div>';
+      const noPrint = it.hideInPrint ? '<span class="eq-noprint" title="お客様用の印刷・商談ビューには出ません">印刷しない</span>' : '';
+      return '<div class="eq-view-row"><span class="label">' + _eqEscape(it.name || '') + noPrint + '</span><span class="val ' + f.cls + '">' + f.html + '</span></div>';
     }).join('');
     const title = sec.title || '';
     const icon = sec.icon || '';
@@ -279,7 +281,7 @@ function _buildPrintSheetHtml(car) {
   // ポジティブ項目だけ抽出
   const cats = [];
   (sections || []).forEach(sec => {
-    const items = (sec.items || []).filter(it => !it._disabled && isPositive(it, state[it.id]));
+    const items = (sec.items || []).filter(it => !it._disabled && !it.hideInPrint && isPositive(it, state[it.id]));  // v3.2.0: 印刷に表示しない項目は除く
     if (items.length === 0) return;
     cats.push({
       title: sec.title || '',
@@ -471,7 +473,7 @@ function dealShowEquipment(carId) {
   const car = (typeof cars !== 'undefined') ? cars.find(c => c.id === carId) : null;
   if (car) {
     // v1.8.46: 商談中は印刷ボタンを出さない
-    panel.innerHTML = renderEquipmentView(car, { backHandler: 'dealHideEquipment()', hidePrint: true });
+    panel.innerHTML = renderEquipmentView(car, { backHandler: 'dealHideEquipment()', hidePrint: true, forCustomer: true });
   }
 }
 
