@@ -48,7 +48,6 @@ function showPanel(name, el) {
     if (typeof refreshThemePickerUI === 'function') refreshThemePickerUI();
     if (typeof refreshFontSizePickerUI === 'function') refreshFontSizePickerUI();
     if (typeof renderTasksEditor === 'function') renderTasksEditor();
-    if (typeof renderProfileSection === 'function') renderProfileSection();
     if (typeof renderBoardLabelsEditor === 'function') renderBoardLabelsEditor();
   }
 }
