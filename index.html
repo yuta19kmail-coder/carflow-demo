@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.3.4"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.4.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -18,13 +18,13 @@
 <script src="js/ios-safe-pad.js?v=284"></script>
 
 <!-- ========== CSS ========== -->
-<link rel="stylesheet" href="css/base.css?v=295">
+<link rel="stylesheet" href="css/base.css?v=296">
 <link rel="stylesheet" href="css/login.css?v=285">
 <link rel="stylesheet" href="css/layout.css?v=287">
 <link rel="stylesheet" href="css/components.css?v=321">
 <link rel="stylesheet" href="css/panels.css?v=369">
 <link rel="stylesheet" href="css/kanban.css?v=325">
-<link rel="stylesheet" href="css/calendar.css?v=288">
+<link rel="stylesheet" href="css/calendar.css?v=289">
 <link rel="stylesheet" href="css/modal.css?v=318">
 <link rel="stylesheet" href="css/celebrate.css?v=284">
 <link rel="stylesheet" href="css/help.css?v=284">
@@ -123,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.3.4</div>
+    <div class="login-ver">v3.4.0</div>
   </div>
 </div>
 
@@ -134,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.3.4</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.4.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -565,10 +565,8 @@
                 <h2 class="settings-section-title"><i data-ic="shop" data-s="16">🏪</i> 店舗運営</h2>
                 <p class="settings-section-desc">定休日や売上目標など、店舗の基本ルール</p>
 
-                <!-- 🔴 2026-08-16 CarFlow 独自の「定休日ルール」「営業時間」は撤去した。
-                     直す場所は MHS の 管理 ▸ 定休日カレンダー／設定 だけ。ここは見るだけ。
-                     中身は js/cal-pit.js の pitCalCardHtml() が入れる（navigation.js の settings 分岐）。 -->
-                <div id="mhs-cal-card"></div>
+                <!-- v3.4.0: MHS の営業日・営業時間カード（見るだけ）は外した（ゆうた「もういらなくない？このエリア丸ごと」）。
+                     直す場所は MHS の 管理 ▸ 定休日カレンダー／設定 だけ。CarFlow は cal-pit.js で営業日を読んで使うだけ。 -->
 
                 <div class="settings-card">
                   <h3 class="settings-card-title"><i data-ic="target" data-s="16">🎯</i> 店舗目標・売上計上モード</h3>
@@ -1997,9 +1995,9 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=1c79064f"></script>
 <script src="js/auth.js?v=376"></script>
-<script src="js/navigation.js?v=330"></script>
+<script src="js/navigation.js?v=331"></script>
 <script src="js/archive.js?v=373"></script>
-<script src="js/settings.js?v=365"></script>
+<script src="js/settings.js?v=366"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=371"></script>
