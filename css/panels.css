@@ -1642,3 +1642,20 @@ body.mobile .task-item-mv-stack .task-item-variant-sel { max-width: 120px; font-
   color: var(--text2);
   line-height: 1.4;
 }
+
+/* ========================================
+   v3.3.3: 設定の「月別目標」と「付箋ボードの色ラベル」の行（ゆうた報告「CSSが効いてない」）
+   ⚠ 前は別の所にあった＝.goal-row は 2026-04「アコーディオン修正」で、
+      .bn-labels-editor-* は v2.60.0（付箋を共通部品に）で board-notes.css ごと消えていた。
+      どちらも CarFlow の設定画面だけの物なので、共通部品ではなくここに置く。
+   ======================================== */
+.goal-row{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.goal-row:last-child{border-bottom:none}
+.goal-row > div{justify-content:center}
+.goal-row span{white-space:nowrap}
+.goal-row input{width:120px;max-width:100%;min-width:0;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;text-align:right;box-sizing:border-box}
+
+.bn-labels-editor-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.bn-labels-editor-row:last-child{border-bottom:none}
+.bn-labels-editor-swatch{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex-shrink:0}
+.bn-labels-editor-row input{flex:1;min-width:0;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px}
