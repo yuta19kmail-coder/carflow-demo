@@ -424,8 +424,6 @@ function selectSettingsSection(sectionId) {
   if (sectionId === 'task-patterns' && typeof window.renderTaskPatternsInSettings === 'function') {
     window.renderTaskPatternsInSettings();
   }
-  // v2.38.0: 店舗運営を開いたら「MHSから届いている営業日・営業時間」を出す（見るだけ）
-  if (sectionId === 'store' && typeof window.renderMhsCalCard === 'function') window.renderMhsCalCard();
 }
 window.selectSettingsSection = selectSettingsSection;
 

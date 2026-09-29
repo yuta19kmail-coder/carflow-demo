@@ -36,8 +36,6 @@ function showPanel(name, el) {
     if (typeof renderTemplateEditor === 'function') renderTemplateEditor();
   }
   if (name === 'settings') {
-    // v2.38.0: 定休日・営業時間は MHS が基準。ここは「いま届いているもの」を見せるだけ
-    if (typeof window.renderMhsCalCard === 'function') window.renderMhsCalCard();
     renderSizeEditor();
     renderInvWarnEditor();
     renderDelWarnEditor();
@@ -101,13 +99,3 @@ function switchTab(name, el) {
   }
 }
 
-// ========================================
-// v2.38.0 設定「店舗運営」の中身＝MHSから届いている営業日・営業時間（見るだけ）
-// ========================================
-// 🔴 中身は共通部品 js/cal-pit.js の pitCalCardHtml() 1本。ここに書き写さないこと。
-window.renderMhsCalCard = function () {
-  var el = document.getElementById('mhs-cal-card');
-  if (!el) return;
-  try { el.innerHTML = (typeof pitCalCardHtml === 'function') ? pitCalCardHtml() : ''; }
-  catch (e) { el.innerHTML = ''; }
-};
