@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.1.2"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.2.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -32,10 +32,10 @@
 <link rel="stylesheet" href="css/deal.css?v=294">
 <link rel="stylesheet" href="css/worksheet.css?v=287">
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風） -->
-<link rel="stylesheet" href="css/equipment-view.css?v=310">
+<link rel="stylesheet" href="css/equipment-view.css?v=320">
 <link rel="stylesheet" href="css/forecast-print.css?v=368">
 <!-- v1.6.0: ChecklistTemplate 編集UI -->
-<link rel="stylesheet" href="css/template-editor.css?v=290">
+<link rel="stylesheet" href="css/template-editor.css?v=320">
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
 <link rel="stylesheet" href="css/coreflow-note-board.css?v=87c1247a"><!-- 📌 付箋ボードの見た目（全アプリ共通・_shared から配布）。v2.60.0 で前の付箋専用の見た目から置き換え -->
 <link rel="stylesheet" href="css/coreflow-note-reply.css?v=b5c2b3fb"><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.css より後ろに読む -->
@@ -123,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.1.2</div>
+    <div class="login-ver">v3.2.0</div>
   </div>
 </div>
 
@@ -134,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.1.2</span>
+    <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.2.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -1306,6 +1306,16 @@
         <textarea id="tpl-item-select-options" rows="4" placeholder="例：&#10;HDD&#10;SSD/メモリ&#10;DVD&#10;なし/不明"></textarea>
         <div class="tpl-modal-hint">空行は無視されます。並び順がそのまま画面に出ます。</div>
       </div>
+      <!-- v3.2.0: 装備品チェックのタスクパターンだけに出す。ON の項目は「お客様用に印刷」と商談ビューの装備詳細に出さない -->
+      <div class="tpl-modal-row" id="tpl-item-hide-print-row" style="display:none">
+        <div class="sell-switch-row">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:2px">装備詳細の印刷に表示しない</div>
+            <div class="tpl-modal-hint" style="margin-top:0">ON にすると「お客様用に印刷」と商談ビューの装備詳細に出なくなります（社内の装備詳細・チェック画面には出ます）</div>
+          </div>
+          <div id="tpl-item-hide-print" class="sell-switch" onclick="this.classList.toggle('on')"><div class="sell-switch-knob"></div></div>
+        </div>
+      </div>
       <div class="tpl-modal-row">
         <label>項目名 <span style="color:#c62828">*</span></label>
         <input type="text" id="tpl-item-name" maxlength="80" placeholder="例：ボディ全周チェック">
@@ -2044,7 +2054,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/workflow.js?v=284"></script>
 <script src="js/worksheet.js?v=326"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
-<script src="js/equipment-view.js?v=310"></script>
+<script src="js/equipment-view.js?v=320"></script>
 <!-- v1.8.83: 着地予測 期間集計＋印刷／集計対象 -->
 <script src="js/period-stats.js?v=343"></script>
 <script src="js/forecast-print.js?v=346"></script>
@@ -2065,7 +2075,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/theme.js?v=287"></script>
 
 <!-- v1.6.0: ChecklistTemplate 編集 -->
-<script src="js/template-editor.js?v=300"></script>
+<script src="js/template-editor.js?v=320"></script>
 
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
 <script src="js/coreflow-note-reply.js?v=a224b9c0"></script><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->

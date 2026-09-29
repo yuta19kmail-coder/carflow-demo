@@ -679,6 +679,7 @@
   color: var(--text3);
 }
 .tpl-item-disabled { color: #c62828; font-weight: 700; }
+.tpl-item-noprint { color: var(--text3); border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; font-size: 10px; } /* v3.2.0 */
 
 .tpl-item-actions {
   display: flex;
