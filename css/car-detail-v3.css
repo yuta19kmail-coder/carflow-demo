@@ -144,3 +144,35 @@ body.cd3-dragging{cursor:col-resize;user-select:none}
 .cd3-to-v3:hover{color:var(--text);border-color:var(--blue)}
 body.mobile .cd3-to-v3{display:none}
 @media (max-width:900px){ .cd3-to-v3{display:none} }
+
+
+/* ===== v3.5.0 見積もりPDF（価格履歴）＝ js/car-estimates.js ===== */
+.cd3-spec>.cd3-est{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.45);border-radius:7px;padding:5px 11px;min-width:0;cursor:pointer;color:var(--text);font:inherit;text-align:left;display:flex;flex-direction:column;justify-content:center}
+.cd3-spec>.cd3-est:hover{background:rgba(59,130,246,.24)}
+.cd3-est .k{color:var(--text3);font-size:10px;line-height:1.2}
+.cd3-est .v{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:4px;color:#60a5fa;white-space:nowrap}
+.est-drop{border:2px dashed var(--border);border-radius:10px;padding:18px 14px;text-align:center;color:var(--text2);margin-bottom:14px;transition:.15s}
+.est-drop.over{border-color:#60a5fa;background:rgba(59,130,246,.10);color:var(--text)}
+.est-drop.busy{opacity:.6;pointer-events:none}
+.est-drop-ic{opacity:.7;margin-bottom:4px}
+.est-drop-t{font-size:13px;font-weight:700}
+.est-drop-s{font-size:11px;color:var(--text3);margin-top:4px}
+.est-pick{color:#60a5fa;cursor:pointer;text-decoration:underline}
+.est-pick input{display:none}
+.est-empty{font-size:12px;color:var(--text3);text-align:center;padding:10px 0}
+.est-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);margin-bottom:6px}
+.est-row.new{border-color:rgba(59,130,246,.55);background:rgba(59,130,246,.08)}
+.est-no{font-size:11px;color:var(--text3);min-width:16px;text-align:right}
+.est-ic{color:#ef4444;display:flex}
+.est-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.est-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.est-sub{font-size:11px;color:var(--text3)}
+.est-badge{font-size:10px;font-weight:700;color:#fff;background:#3b82f6;border-radius:999px;padding:2px 8px}
+.est-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.est-btn:hover{border-color:#60a5fa}
+.est-viewer{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.72);display:flex;flex-direction:column;padding:18px 3vw}
+.est-v-bar{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:8px 12px}
+.est-v-t{flex:1;min-width:0;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.est-v-s{font-size:11px;font-weight:400;color:var(--text3);margin-left:6px}
+.est-v-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;white-space:nowrap}
+.est-v-frame{flex:1;width:100%;border:0;background:#525659;border-radius:0 0 10px 10px}
