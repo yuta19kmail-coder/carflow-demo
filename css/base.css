@@ -126,6 +126,7 @@
 :root[data-theme$="-liquid"] .action-area,
 :root[data-theme$="-liquid"] .panel-card,
 :root[data-theme$="-liquid"] .settings-card,
+:root[data-theme$="-liquid"] #mhs-cal-card .ps-card,
 :root[data-theme$="-liquid"] .pv-card,
 :root[data-theme$="-liquid"] .bo-card,
 :root[data-theme$="-liquid"] .modal,
