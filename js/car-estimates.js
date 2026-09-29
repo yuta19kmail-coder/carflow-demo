@@ -21,7 +21,7 @@
      アプリの上に重ねて開く（ブラウザの PDF 表示＝そのまま印刷ボタンが使える）。
      念のため「新しいタブで開く」も置く（ブラウザによって重ねた表示で印刷できない時の逃げ道）。
 
-   ⚠ 消す操作は作っていない（まだ頼まれていない）。間違えて入れた時は新しいのを入れれば最新が替わる。
+   ◎v3.5.2［編集］＝チェックして一括削除・理由の選び直し・行ごとの削除（消すと PDF も消える＝確認を1回出す）
    ⚠ PC・タブレットのカード詳細（car-detail-v3.js）だけ。スマホ・1カラム表示には出していない。
    ======================================== */
 (function () {
@@ -68,6 +68,11 @@
      ⚠ 並びと言葉はこの1か所。増やす時はここに足すだけ（保存は言葉そのもの＝reason）。
        「その他」だけは自由に書ける（reasonNote）。 */
   var REASONS = ['初稿', '見積内容更新', '月次プライス改定', '値下げ', 'その他'];
+  /* 🗣（v3.5.2）「最初が初稿なら そのまま最初は初稿のみ　2枚目以降は選択肢から初稿を抜いて」
+     ＝ 1枚目（No.1）は「初稿」だけ・選べない。2枚目以降の選択肢に「初稿」は出さない。 */
+  function reasonsFor(isFirst) {
+    return isFirst ? ['初稿'] : REASONS.filter(function (r) { return r !== '初稿'; });
+  }
   function reasonText(e) {
     if (!e || !e.reason) return '—';
     return e.reason === 'その他' && e.reasonNote ? 'その他：' + e.reasonNote : e.reason;
@@ -75,19 +80,53 @@
 
   /* ---------- 右のタブ［価格履歴］ ----------
      🗣「アーカイブはファイルネームは出さなくていいからもっとアーカイブ情報をメインに
-     　　ナンバー 日付 理由 人 ファイル サイズ」＝表にした（ファイル名は「開く」の上に乗せるだけ） */
-  function head() {
-    return '<div class="est-tr est-th"><span>No.</span><span>日付</span><span>理由</span><span>人</span><span>ファイル</span><span class="r">サイズ</span></div>';
+     　　ナンバー 日付 理由 人 ファイル サイズ」＝表にした（ファイル名は「開く」の上に乗せるだけ）
+     🗣（v3.5.2）「編集ボタンをどこかに置いて、チェックを入れて一括削除、理由の変更、個別消去が出来るように」
+        ＝［編集］を押している間だけ、行頭のチェック・理由の選び直し・行ごとの🗑 が出る。 */
+  var editing = {};   /* 車id → 編集中 */
+  var sel = {};       /* 車id → { 見積id: true } */
+  function canEdit() { return !(typeof canMutateWork === 'function' && !canMutateWork()); }
+  function head(car, ids) {
+    var ed = !!editing[car.id];
+    var all = ed && ids.length && ids.every(function (id) { return (sel[car.id] || {})[id]; });
+    return '<div class="est-tr est-th">'
+      + (ed ? '<span><input type="checkbox" title="この表をすべて選ぶ"' + (all ? ' checked' : '') + ' onchange="CarEstimates._selAll(\'' + esc(car.id) + '\',\'' + ids.join(',') + '\',this.checked)"></span>' : '')
+      + '<span>No.</span><span>日付</span><span>理由</span><span>人</span><span>ファイル</span><span class="r">サイズ</span>'
+      + (ed ? '<span></span>' : '') + '</div>';
+  }
+  function reasonCell(car, e, idx) {
+    if (!editing[car.id]) return '<span class="est-rs" title="' + esc(reasonText(e)) + '">' + esc(reasonText(e)) + '</span>';
+    var cid = esc(car.id), eid = esc(e.id);
+    if (idx === 0) return '<span class="est-rs" title="1枚目は初稿だけ">初稿</span>';   /* 1枚目は初稿だけ＝選び直しなし */
+    var opts = reasonsFor(false);
+    return '<span class="est-rs-ed"><select onchange="CarEstimates._reason(\'' + cid + '\',\'' + eid + '\',this.value)">'
+      + (e.reason && opts.indexOf(e.reason) >= 0 ? '' : '<option value="" selected>—（選ぶ）</option>')
+      + opts.map(function (r) { return '<option' + (r === e.reason ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('')
+      + '</select>'
+      + (e.reason === 'その他' ? '<input type="text" maxlength="60" placeholder="理由を書く" value="' + esc(e.reasonNote || '') + '" onchange="CarEstimates._note(\'' + cid + '\',\'' + eid + '\',this.value)">' : '')
+      + '</span>';
   }
   function row(car, e, idx, isNew) {
-    return '<div class="est-tr' + (isNew ? ' new' : '') + '">'
+    var ed = !!editing[car.id], on = ed && (sel[car.id] || {})[e.id];
+    return '<div class="est-tr' + (isNew ? ' new' : '') + (on ? ' sel' : '') + '">'
+      + (ed ? '<span><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="CarEstimates._sel(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\',this.checked)"></span>' : '')
       + '<span class="est-no">' + (idx + 1) + (isNew ? '<span class="est-badge">最新</span>' : '') + '</span>'
       + '<span class="est-dt">' + ymdhm(e.at) + '</span>'
-      + '<span class="est-rs" title="' + esc(reasonText(e)) + '">' + esc(reasonText(e)) + '</span>'
+      + reasonCell(car, e, idx)
       + '<span class="est-by">' + esc(e.byName || '—') + '</span>'
       + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
       + '<span class="r est-sz">' + (e.size ? kb(e.size) : '—') + '</span>'
+      + (ed ? '<span><button type="button" class="est-del1" title="この見積もりを消す" onclick="CarEstimates._del(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\')">' + I('trash', '🗑', 14) + '</button></span>' : '')
       + '</div>';
+  }
+  function bar(car) {
+    if (!canEdit()) return '';
+    var cid = esc(car.id);
+    if (!editing[car.id]) return '<div class="est-bar"><button type="button" class="est-btn" onclick="CarEstimates._edit(\'' + cid + '\',true)">' + I('pencil', '✏', 14) + ' 編集</button></div>';
+    var n = Object.keys(sel[car.id] || {}).length;
+    return '<div class="est-bar ed"><span class="est-bar-t">編集中　チェックして一括削除／理由はその場で選び直せます</span>'
+      + '<button type="button" class="est-btn danger"' + (n ? '' : ' disabled') + ' onclick="CarEstimates._delSel(\'' + cid + '\')">' + I('trash', '🗑', 14) + ' 選んだ' + (n ? n + '件' : '物') + 'を消す</button>'
+      + '<button type="button" class="est-btn pri" onclick="CarEstimates._edit(\'' + cid + '\',false)">' + I('check', '✓', 14) + ' 完了</button></div>';
   }
   function panel(car) {
     var L = list(car), e = latest(car), up = !!busy[car.id];
@@ -97,14 +136,67 @@
       + '<div class="est-drop-t">' + (up ? '登録しています…' : '見積もりの PDF をここへドラッグ') + '</div>'
       + '<div class="est-drop-s">または <label class="est-pick">ファイルを選ぶ<input type="file" accept="application/pdf,.pdf" onchange="CarEstimates.pick(this,\'' + esc(car.id) + '\')"></label>（PDF・10MBまで）</div>'
       + '</div>';
-    if (!e) return h + '<div class="est-empty">まだ見積もりが登録されていません</div>';
-    h += '<div class="cd3-lab">最新の見積もり</div><div class="est-tbl">' + head() + row(car, e, L.length - 1, true) + '</div>';
+    if (!e) { editing[car.id] = false; return h + '<div class="est-empty">まだ見積もりが登録されていません</div>'; }
+    var ed = editing[car.id] ? ' edit' : '';
+    h += bar(car);
+    h += '<div class="cd3-lab">最新の見積もり</div><div class="est-tbl' + ed + '">' + head(car, [e.id]) + row(car, e, L.length - 1, true) + '</div>';
     if (L.length > 1) {
-      h += '<div class="cd3-lab" style="margin-top:14px">これまでの見積もり（登録順）</div><div class="est-tbl">' + head();
-      for (var i = 0; i < L.length - 1; i++) h += row(car, L[i], i, false);
+      var old = L.slice(0, -1);
+      h += '<div class="cd3-lab" style="margin-top:14px">これまでの見積もり（登録順）</div><div class="est-tbl' + ed + '">' + head(car, old.map(function (x) { return x.id; }));
+      for (var i = 0; i < old.length; i++) h += row(car, old[i], i, false);
       h += '</div>';
     }
     return h;
+  }
+
+  /* ---------- 直す・消す ----------
+     ⚠ ここは「配列まるごと」を書く（並び＝登録順を崩さないため）。
+       同時に別の端末で登録された分を消さないよう、書く直前に今の車の一覧から作り直す。 */
+  function saveAll(car) {
+    var p = (window.dbCars && window.dbCars.saveCarField) ? window.dbCars.saveCarField(car.id, ['estimates'], list(car).slice()) : Promise.resolve();
+    return Promise.resolve(p).catch(function (err) {
+      console.error('[car-estimates] 保存に失敗', err);
+      toast('見積もりの変更を保存できませんでした', 'CF-1014');
+    });
+  }
+  function setReason(carId, estId, reason, note) {
+    var car = findCar(carId); if (!car) return;
+    var e = list(car).find(function (x) { return x.id === estId; }); if (!e) return;
+    if (reason !== undefined) {
+      if (!reason) return;
+      e.reason = reason;
+      if (reason !== 'その他') delete e.reasonNote;
+    }
+    if (note !== undefined) { note = String(note || '').trim().slice(0, 60); if (note) e.reasonNote = note; else delete e.reasonNote; }
+    redraw();
+    saveAll(car).then(function () {
+      if (typeof addLog === 'function') addLog(carId, '見積もりの理由を変更（' + reasonText(e) + '）');
+    });
+  }
+  function removeIds(carId, ids) {
+    var car = findCar(carId); if (!car || !ids.length) return;
+    var gone = list(car).filter(function (x) { return ids.indexOf(x.id) >= 0; });
+    if (!gone.length) return;
+    var msg = gone.length === 1
+      ? '見積もり（' + ymdhm(gone[0].at) + '・' + reasonText(gone[0]) + '）を消します。\nPDF も消えて、元に戻せません。よろしいですか？'
+      : '選んだ見積もり ' + gone.length + ' 件を消します。\nPDF も消えて、元に戻せません。よろしいですか？';
+    if (!confirm(msg)) return;
+    car.estimates = list(car).filter(function (x) { return ids.indexOf(x.id) < 0; });
+    /* 1枚目は必ず初稿（1枚目を消して繰り上がった時も揃える） */
+    if (car.estimates.length && car.estimates[0].reason !== '初稿') { car.estimates[0].reason = '初稿'; delete car.estimates[0].reasonNote; }
+    ids.forEach(function (id) { if (sel[carId]) delete sel[carId][id]; });
+    redraw();
+    saveAll(car).then(function () {
+      var st = window.fb && window.fb.storage;
+      gone.forEach(function (x) {
+        if (!st || !x.path) return;
+        st.ref(x.path).delete().catch(function (err) {
+          if (!err || err.code !== 'storage/object-not-found') console.warn('[car-estimates] PDF を消せませんでした', x.path, err);
+        });
+      });
+      if (typeof addLog === 'function') addLog(carId, '見積もりを' + gone.length + '件削除');
+      toast('見積もりを' + gone.length + '件消しました');
+    });
   }
 
   /* ---------- 登録 ---------- */
@@ -121,11 +213,12 @@
   }
 
   /* 理由を選ぶ小さな窓。選ぶまで［登録］は押せない。「その他」は一言書くまで押せない。
-     初めての1枚だけ「初稿」を最初から選んでおく。 */
+     1枚目は「初稿」だけ（選んだ状態）。2枚目以降は「初稿」を出さない。 */
   var ASK = null;
   function askReason(car, file, done) {
     closeAsk();
-    ASK = { done: done, reason: list(car).length ? '' : '初稿' };
+    var first = !list(car).length;
+    ASK = { done: done, reason: first ? '初稿' : '' };
     var ov = document.createElement('div');
     ov.id = 'est-ask';
     ov.className = 'est-viewer est-ask-ov';
@@ -133,7 +226,7 @@
       + '<div class="est-ask-h">' + I('estimate', '📄', 16) + ' 見積もりを登録</div>'
       + '<div class="est-ask-f" title="' + esc(file.name) + '">' + I('fileText', '📄', 14) + ' ' + esc(file.name) + '<span>' + kb(file.size) + '</span></div>'
       + '<div class="est-ask-l">登録の理由</div>'
-      + '<div class="est-ask-rs">' + REASONS.map(function (r) {
+      + '<div class="est-ask-rs">' + reasonsFor(first).map(function (r) {
           return '<label class="est-ask-r"><input type="radio" name="est-rs" value="' + esc(r) + '"' + (r === ASK.reason ? ' checked' : '') + ' onchange="CarEstimates._rs(this.value)"> ' + esc(r) + '</label>';
         }).join('') + '</div>'
       + '<input type="text" id="est-ask-note" class="est-ask-note" maxlength="60" placeholder="その他の理由（例：オプション追加）" oninput="CarEstimates._rs()" style="display:none">'
@@ -217,6 +310,13 @@
     open: open,
     close: close,
     REASONS: REASONS,
+    _edit: function (carId, on) { editing[carId] = !!on; if (!on) delete sel[carId]; redraw(); },
+    _sel: function (carId, id, on) { var m = sel[carId] = sel[carId] || {}; if (on) m[id] = true; else delete m[id]; redraw(); },
+    _selAll: function (carId, ids, on) { var m = sel[carId] = sel[carId] || {}; String(ids).split(',').forEach(function (id) { if (!id) return; if (on) m[id] = true; else delete m[id]; }); redraw(); },
+    _delSel: function (carId) { removeIds(carId, Object.keys(sel[carId] || {})); },
+    _del: function (carId, id) { removeIds(carId, [id]); },
+    _reason: function (carId, id, v) { setReason(carId, id, v); },
+    _note: function (carId, id, v) { setReason(carId, id, undefined, v); },
     _rs: function (v) { if (!ASK) return; if (v) ASK.reason = v; askSync(); },
     _ask: function (go) {
       if (!ASK) return;
