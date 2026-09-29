@@ -110,7 +110,8 @@
     return '<div class="cd3-band">' + photo
       + '<div class="cd3-mid"><div class="cd3-title"><span class="mk">' + esc(car.maker || '') + '</span><span class="md">' + esc(car.model || '') + '</span>'
       + (car.grade ? '<span class="gr">' + esc(car.grade) + '</span>' : '') + '</div>'
-      + '<div class="cd3-spec">' + sp.map(function (x) { return '<div><div class="k">' + x[0] + '</div><div class="v" title="' + esc(x[1]) + '">' + esc(x[1]) + '</div></div>'; }).join('') + '</div></div>'
+      + '<div class="cd3-spec">' + sp.map(function (x) { return '<div><div class="k">' + x[0] + '</div><div class="v" title="' + esc(x[1]) + '">' + esc(x[1]) + '</div></div>'; }).join('')
+      + (window.CarEstimates ? CarEstimates.bandCell(car) : '') + '</div></div>'   /* v3.5.0 走行距離の横＝最新の見積もりPDF */
       + '<div class="cd3-right">' + dayBlock(car) + priceBlock(car) + '</div></div>';
   }
   function header(car) {
@@ -328,6 +329,8 @@
     }
     if (car.col !== 'other') t.push({ k: 'now', ic: isD ? 'car' : 'wrench', fb: isD ? '🚗' : '🔧', lb: isD ? '売約後タスク' : '展示前タスク', c: calcProg(car) });
     if (eqOn()) t.push({ k: 'eq', ic: 'clipboard', fb: '📋', lb: '装備詳細' });
+    /* v3.5.0 価格履歴＝見積もりPDF（js/car-estimates.js） */
+    if (window.CarEstimates) t.push({ k: 'est', ic: 'estimate', fb: '📄', lb: '価格履歴', n: CarEstimates.count(car) });
     if (isD) {
       t.push({ gap: 1 });
       t.push({ k: 'regenPast', ic: 'wrench', fb: '🔧', lb: '展示フェーズ', past: 1, c: calcProg(Object.assign({}, car, { col: 'regen' })) });
@@ -348,9 +351,9 @@
     if (!k || !tabs.some(function (x) { return x.k === k; })) k = (tabs.find(function (x) { return x.k; }) || {}).k;
     var rbar = '<div class="cv-tabs">' + tabs.map(function (x) {
       if (x.gap) return '<span class="cv-tgap"></span>';
-      return '<button class="cv-tab' + (x.k === k ? ' on' : '') + (x.past ? ' past' : '') + '" onclick="CarDetailV3.tab(\'' + x.k + '\')">' + I(x.ic, x.fb, 16) + ' ' + x.lb + cnt(x.c) + '</button>';
+      return '<button class="cv-tab' + (x.k === k ? ' on' : '') + (x.past ? ' past' : '') + '" onclick="CarDetailV3.tab(\'' + x.k + '\')">' + I(x.ic, x.fb, 16) + ' ' + x.lb + cnt(x.c) + (x.n ? '<span class="cv-tcnt">' + x.n + '</span>' : '') + '</button>';
     }).join('') + '</div>';
-    var P = k === 'eq' ? eqPanel(car) : (k ? tasksPanel(car, k) : '');
+    var P = k === 'eq' ? eqPanel(car) : k === 'est' ? CarEstimates.panel(car) : (k ? tasksPanel(car, k) : '');
 
     var lk = leftTab[car.id] || 'memo';
     var nn = carNotes(car).length;
@@ -439,6 +442,7 @@
 
   window.CarDetailV3 = {
     isOn: isOn, leave: leave, render: render, setView: setView,
+    redraw: function () { var c = curCar(); if (c && isOn()) render(c); },   /* v3.5.0 見積もりの登録中・登録後の描き直し */
     tab: function (k) { var c = curCar(); if (!c) return; curTab[c.id] = k; render(c); },
     ltab: function (k) { var c = curCar(); if (!c) return; leftTab[c.id] = k; render(c); },
     tgFlow: function (k) { flowOpen[k] = !flowOpen[k]; var c = curCar(); if (c) render(c); },
