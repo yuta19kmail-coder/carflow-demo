@@ -318,7 +318,6 @@ async function _onSignedIn(user) {
     window.fb.currentMember = member;
     window.fb.currentStaff = staff;
     currentUser = staff.customDisplayName || staff.displayName || user.displayName || 'ゲスト';
-    _bindMyCoreName();   // v3.3.0: 画面に出す自分の名前は CoreMembers の呼び名を優先
 
     // v2.20.0: 本人↔CoreFlow名簿の橋渡しを userPrefs/{uid} に記録する。
     //   Firestoreルールの“追加判定”が、この memberId が指す名簿レコードの email と
@@ -752,25 +751,8 @@ if (document.readyState === 'loading') {
 
 // v1.5.5: トップバー / サイドバーのアバター・表示名を再描画
 // v1.7.42: サイドバー下のロール表示も動的化
-// v3.3.0: 自分の表示名＝CoreMembers の呼び名（dispName）があればそれ、無ければ CoreFlow の名前。
-//   PitFlow・MHS と同じ。ほかの人は members-core.js が v2.35.0 から同じ決め方をしている。
-//   ⚠ 操作ログ・通知に書く名前（currentUser）は変えない＝過去の記録と名前が混ざらないように。
-function _bindMyCoreName() {
-  if (!window.CFMembers || window._myCoreNameBound) return;
-  window._myCoreNameBound = true;
-  try { window.CFMembers.start(); } catch (e) {}
-  window.CFMembers.onChange(function () {
-    const staff = window.fb && window.fb.currentStaff;
-    if (!staff) return;
-    const me = window.CFMembers.byUid(staff.uid);
-    const base = (window.fb.currentMember && window.fb.currentMember.name) || staff.displayName || '';
-    const next = (me && me.dispName) || base;
-    if (next && next !== staff.customDisplayName) {
-      staff.customDisplayName = next;
-      _refreshHeaderAvatars();
-    }
-  });
-}
+// v3.3.1: ヘッダー右の名前は **フルネーム（CoreFlow の名簿の name）**。呼び名（dispName）は使わない（ゆうた指定）。
+//   全アプリ同じ（PitFlow・MHS・StockFlow・CoreBoard ほか）。v3.3.0 で呼び名にしたのは誤り＝戻した。
 
 function _refreshHeaderAvatars() {
   const user = window.fb && window.fb.currentUser;
