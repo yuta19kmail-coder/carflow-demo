@@ -759,47 +759,16 @@ function _refreshHeaderAvatars() {
   const staff = window.fb && window.fb.currentStaff;
   if (!user) return;
 
-  const name = (staff && (staff.customDisplayName || staff.displayName))
-    || user.displayName
-    || (user.email ? user.email.split('@')[0] : 'ゲスト');
-
-  const photoURL = (staff && (staff.customPhotoURL || staff.photoURL)) || user.photoURL || '';
-
-  function _initials(s) {
-    if (!s) return '?';
-    const t = String(s).trim();
-    const m = t.match(/[A-Za-z]+/g);
-    if (m && m.length >= 2) return (m[0][0] + m[1][0]).toUpperCase();
-    if (m && m.length === 1) return m[0].slice(0, 2).toUpperCase();
-    return t.slice(0, 2);
-  }
-
-  const ini = _initials(name);
+  // v3.4.0: 写真・フルネームの決め方は共通部品 coreflow-user.js（_shared が本体）。ここで決めない。
+  //   名前＝CoreFlow の名簿のフルネーム／写真が無ければ頭文字（Google の写真には落とさない）
+  const member = (window.fb && window.fb.currentMember) || null;
   const roleLabels = { admin: '管理者', manager: 'マネージャ', staff: 'スタッフ', viewer: '閲覧のみ' };
   const role = (staff && staff.role) || 'staff';
   const roleLabel = roleLabels[role] || 'スタッフ';
-
-  function _setAvatar(elId, ini, photoURL) {
-    const el = document.getElementById(elId);
-    if (!el) return;
-    if (photoURL) {
-      el.textContent = '';
-      el.style.backgroundImage = 'url("' + photoURL + '")';
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center';
-    } else {
-      el.textContent = ini;
-      el.style.backgroundImage = '';
-    }
+  if (window.CFUser) {
+    window.CFUser.paint({ av: 'u-av', name: 'u-name', member: member, user: user });
+    window.CFUser.paint({ av: 'sb-av', name: 'sb-name', member: member, user: user });
   }
-
-  _setAvatar('u-av', ini, photoURL);
-  _setAvatar('sb-av', ini, photoURL);
-
-  const uName = document.getElementById('u-name');
-  if (uName) uName.textContent = name;
-  const sbName = document.getElementById('sb-name');
-  if (sbName) sbName.textContent = name;
   const sbRole = document.getElementById('sb-role');
   if (sbRole) sbRole.textContent = roleLabel;
 }
