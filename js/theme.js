@@ -72,8 +72,8 @@ function applyStoredThemeAndSize() {
   try {
     const t = localStorage.getItem(THEME_KEY);
     if (VALID_THEMES.includes(t)) theme = t;
-    const s = localStorage.getItem(FONTSIZE_KEY);
-    if (FONTSIZE_ORDER.includes(s)) size = s;
+    /* 🔴 2026-10-03 文字サイズ（AAA）は無くした＝前に選んだ「大」「特大」が残っていても標準で開く。
+       大きくしたい人は「見やすさ」（coreflow-a11y.js・CoreFlow のメンバー管理でチェック）を使う */
   } catch (e) {}
   document.documentElement.setAttribute('data-theme', theme);
   document.documentElement.setAttribute('data-fontsize', size);
