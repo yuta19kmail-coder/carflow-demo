@@ -1055,6 +1055,9 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
    ---------------------------------------- */
 .bo-card {
   flex: 0 0 230px;
+  /* v3.6.2 幅をそろえる：flex の項目は中身の一番短い幅より縮まない（min-width:auto）ので、
+     グレード名が長いとカードが伸びていた。幅を固定して、長い名前は … で切る */
+  width: 230px; min-width: 0; max-width: 230px; box-sizing: border-box;
   scroll-snap-align: start;
   background: var(--bg1);
   border: 1px solid var(--border);
@@ -1073,6 +1076,7 @@ body.mobile-admin .tb-theme-cycle{display:none !important}
   box-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
 
+.bo-card > * { min-width: 0; }
 .bo-card-thumb {
   width: 100%; height: 110px;
   background: var(--bg3);

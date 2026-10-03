@@ -292,8 +292,16 @@
   // ----------------------------------------
   // バックオフィス完了ボタン押下（car-detail.js から呼ばれる）
   // ----------------------------------------
+  // v3.6.2 確認はアプリ内のダイアログ（UI.confirm・全アプリ共通）。ブラウザ標準の confirm() は使わない
+  function _ask(title, detail, ok) {
+    if (window.UI && typeof UI.confirm === 'function') return UI.confirm(title, { detail: detail, ok: ok, cancel: 'やめる' });
+    return Promise.resolve(window.confirm(title + '\n' + detail));
+  }
   function markComplete(carId) {
-    if (!confirm('バックオフィス処理を完了しますか？\nバックオフィス一覧から消えます（販売実績データは残ります）')) return;
+    _ask('バックオフィス処理を完了しますか？', 'バックオフィス一覧から消えます（販売実績のデータは残ります）', '完了する')
+      .then(function (ok) { if (ok) _markComplete(carId); });
+  }
+  function _markComplete(carId) {
     let car = (typeof cars !== 'undefined' && Array.isArray(cars))
       ? cars.find(c => c && c.id === carId) : null;
     let fromArchive = false;
@@ -332,7 +340,10 @@
   // バックオフィス完了の取り消し（モーダル「完了済み」表示からの復元）
   // ----------------------------------------
   function unmarkComplete(carId) {
-    if (!confirm('バックオフィス完了を取り消しますか？\nバックオフィス一覧に戻ります')) return;
+    _ask('バックオフィス完了を取り消しますか？', 'バックオフィス一覧に戻ります', '取り消す')
+      .then(function (ok) { if (ok) _unmarkComplete(carId); });
+  }
+  function _unmarkComplete(carId) {
     let car = (typeof cars !== 'undefined' && Array.isArray(cars))
       ? cars.find(c => c && c.id === carId) : null;
     let fromArchive = false;
