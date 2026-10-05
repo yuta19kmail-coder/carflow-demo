@@ -333,7 +333,10 @@ async function _onSignedIn(user) {
     if (window.dbUserPrefs && window.dbUserPrefs.loadMyPrefs) {
       try {
         const prefs = await window.dbUserPrefs.loadMyPrefs();
-        if (prefs && Array.isArray(prefs.readAnnouncements)) {
+        // v3.7.1：CarFlow 専用の欄 carflowReadAnnouncements ＋ 古い欄 readAnnouncements を合わせる（今までの既読を失わない）
+        if (prefs && window.dbUserPrefs.readAnnounceFrom) {
+          staff.readAnnouncements = window.dbUserPrefs.readAnnounceFrom(prefs);
+        } else if (prefs && Array.isArray(prefs.readAnnouncements)) {
           staff.readAnnouncements = prefs.readAnnouncements;
         }
       } catch (e) { console.warn('[auth] userPrefs load failed:', e); }
