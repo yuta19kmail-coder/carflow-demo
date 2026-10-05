@@ -3,8 +3,9 @@
 // 「お知らせ」：新機能の使い方などを“メール的”に配信する受信箱。
 //
 // ・お知らせ本体は ANNOUNCEMENTS 配列にコード定義（開発側が新機能リリース時に追記）。
-// ・既読状態はアカウントごと（Firestore のスタッフドキュメント staff/{uid}.readAnnouncements）。
-//     保存は _getReadAnnounce / _setReadAnnounce に集約（dbStaff.saveMyAnnounceRead 経由）。
+// ・既読状態はアカウントごと（Firestore userPrefs/{uid}.carflowReadAnnouncements ＋ 古い欄 readAnnouncements を合わせて読む）。
+//     保存は _getReadAnnounce / _setReadAnnounce に集約（dbStaff.saveMyAnnounceRead 経由・新しく既読にした id だけ足す）。
+//     🔴 v3.7.1：前は MHS と同じ欄 readAnnouncements を丸ごと上書きし合い、片方の既読が消えていた。
 // ・サイドバー「お知らせ」に未読件数バッジ（#announce-badge）。
 // ・ログイン後、未読があればポップアップを「古い順」に1件ずつ表示し「確認」で既読化。
 //   受信箱（パネル）はバージョンが新しい順に並べる。
@@ -673,13 +674,15 @@ function _getReadAnnounce() {
   const r = s && s.readAnnouncements;
   return Array.isArray(r) ? r.slice() : [];
 }
-function _setReadAnnounce(arr) {
+// addIds＝新しく既読にした id。クラウドへはこれだけを「足す」（v3.7.1・丸ごと上書きしない）
+function _setReadAnnounce(arr, addIds) {
   const list = Array.isArray(arr) ? arr.slice() : [];
   if (window.fb && window.fb.currentStaff) {
-    window.fb.currentStaff.readAnnouncements = list;   // ローカル即時反映
+    window.fb.currentStaff.readAnnouncements = list;   // ローカル即時反映（新旧の欄を合わせた一覧）
   }
-  if (window.dbStaff && typeof window.dbStaff.saveMyAnnounceRead === 'function') {
-    window.dbStaff.saveMyAnnounceRead(list);            // Firestore へ保存（非同期・待たない）
+  const add = Array.isArray(addIds) ? addIds.filter(Boolean) : [];
+  if (add.length && window.dbStaff && typeof window.dbStaff.saveMyAnnounceRead === 'function') {
+    window.dbStaff.saveMyAnnounceRead(add);             // Firestore へ足す（非同期・待たない）
   }
 }
 // seed:true（公開時点で全員既読扱い）か、保存済み既読に含まれていれば「既読」とみなす
@@ -694,11 +697,13 @@ function announceUnreadCount() {
 }
 function _markAnnounceRead(id) {
   const read = _getReadAnnounce();
-  if (read.indexOf(id) === -1) { read.push(id); _setReadAnnounce(read); }
+  if (read.indexOf(id) === -1) { read.push(id); _setReadAnnounce(read, [id]); }
   refreshAnnounceBadge();
 }
 function markAllAnnounceRead() {
-  _setReadAnnounce(ANNOUNCEMENTS.map(a => a.id));
+  const read = _getReadAnnounce();
+  const add = ANNOUNCEMENTS.map(a => a.id).filter(id => read.indexOf(id) === -1);
+  _setReadAnnounce(read.concat(add), add);
   refreshAnnounceBadge();
   renderAnnounce();
 }

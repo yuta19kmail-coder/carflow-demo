@@ -173,12 +173,12 @@
   // -----------------------------------------
   // お知らせ既読の保存（保存先は userPrefs/{uid} に変更）
   // -----------------------------------------
+  // v3.7.1：arr＝新しく既読にした id だけ（足すだけ）。手元の一覧は announcements.js が持つので、ここでは置き換えない
   async function saveMyAnnounceRead(arr) {
     const list = Array.isArray(arr) ? arr.slice() : [];
     if (window.dbUserPrefs && window.dbUserPrefs.saveMyAnnounceRead) {
       try {
         await window.dbUserPrefs.saveMyAnnounceRead(list);
-        if (window.fb.currentStaff) window.fb.currentStaff.readAnnouncements = list;
       } catch (err) {
         console.error('[db-staff] saveMyAnnounceRead error:', err);
       }
