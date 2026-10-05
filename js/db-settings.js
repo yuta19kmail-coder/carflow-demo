@@ -280,6 +280,9 @@
     loadSettings,
     saveSettings,
     seedSettingsIfEmpty,
+    // v3.7.0 📊 分析用の書き出し（analytics-car.js）が借りる。毎晩サーバーが settings/main の中身を
+    //   「アプリが読み込んだ時と同じ形」で入れるため（画面からは呼ばない・動きは変わらない）
+    _applyToMemory,
   };
 
   console.log('[db-settings] ready');
