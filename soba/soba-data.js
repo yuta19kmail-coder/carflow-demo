@@ -1,8 +1,8 @@
 /* ========================================
    soba/soba-data.js ─ 相場ビューのデータの読み込み  v3.8.0（2026-10-10）
    ----------------------------------------
-   ◎ 置き場＝Firebase Storage の soba/v1/（相場DB の 出力\ をそのまま）
-       meta.json・index.json・cards/<キー>.json・det.json・soba-calc.js（katashiki.json は見積もりで使う）
+   ◎ 置き場＝Firebase Storage の soba/v1/（相場DB の 受け渡し\第◯回 をそのまま）
+       meta.json・index.json・cards/<キー>.json・det.json・soba-calc.js・rival.js（katashiki.json は見積もりで使う）
      上げるのは D:\Claude\CoreFlowアプリ\deploy-soba.ps1（画面からは書かない）
    🔴 DataLine のデータが元なので Hosting には置かない。読めるのは CarFlow にログインした人だけ（storage.rules の /soba/）
      ＝ Storage の窓口に、ログインの通行証（ID トークン）を付けて読む。ダウンロード URL（誰でも開ける鍵つき URL）は作らない
@@ -79,13 +79,17 @@
     }
     if (meta.schema !== 1) { fail(new Error('相場データの形が変わりました（schema ' + meta.schema + '）。CarFlow 側の対応が要ります')); return; }
     try {
-      const [idx, calc] = await Promise.all([get('index.json'), get('soba-calc.js', 'text')]);
+      // rival.js＝ライバル店DB（第2回の受け渡しから。無い時は店のカテゴリ別の欄を出さないだけ）
+      const [idx, calc, rival] = await Promise.all([get('index.json'), get('soba-calc.js', 'text'),
+        get('rival.js', 'text').catch(e => { if (e.notFound) return null; throw e; })]);
       await addScript(null, calc + '\n//# sourceURL=soba-calc.js');
       if (!window.SobaCalc) throw new Error('計算（soba-calc.js）を読み込めませんでした');
       window.SOBA = { built: meta.built, raw: meta.raw, avg: meta.avg || {}, tax: meta.tax, notes: meta.notes || {}, n: meta.n, det: null, demo: DEMO };
-      window.SOBA_INDEX = idx.map(e => Object.assign({}, e, { years: Object.fromEntries((e.years || []).map(y => [String(y), 1])) }));
+      // gens（世代名・第2回から）は kn.gens に入れる＝一覧の名前と検索がビューアと同じになる
+      window.SOBA_INDEX = idx.map(e => Object.assign({}, e, { years: Object.fromEntries((e.years || []).map(y => [String(y), 1])) }, e.gens ? { kn: { gens: e.gens } } : {}));
+      if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
       document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。</p>';
-      await addScript('view.js?v=3.8.1');
+      await addScript('view.js?v=3.8.2');
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す
     get('det.json').then(d => { window.SOBA.det = d; if (typeof window.sobaRedraw === 'function') try { window.sobaRedraw(); } catch (e) {} })
