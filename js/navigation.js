@@ -29,6 +29,11 @@ function showPanel(name, el) {
   if (name === 'backoffice' && typeof renderBackoffice === 'function') renderBackoffice();
   // v2.33.0: 整備依頼業務（PitFlow の車販作業）
   if (name === 'pitsales' && window.PitEmbed) PitEmbed.renderPanel();
+  // v3.8.0: 相場ビュー（セールス）。iframe は初めて開いた時だけ読み込む（相場データは中で Storage から）
+  if (name === 'soba') {
+    const f = document.getElementById('soba-frame');
+    if (f && !f.getAttribute('src')) f.setAttribute('src', 'soba/index.html?v=3.8.0');
+  }
   if (name === 'help') {
     if (typeof initHelpPanel === 'function') initHelpPanel();
   }
