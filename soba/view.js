@@ -1,18 +1,18 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.8.0（2026-10-10）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.0（2026-10-10）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
    CarFlow で変えた所：
      ・データは soba-data.js が Storage（soba/v1/）から読む。カードは開いた時だけ（FULLC／openCard）
-     ・サンプル・見かた（練習用の車・サンプルG）は入れない
-     ・ライバル店DB（rival.js）は Storage から読む（第2回の受け渡しから。無ければ店のカテゴリ別の欄を出さない）
+     ・サンプル・見かた（sample.js）は Storage から読む（無ければ出ない）
+     ・ライバル店DB（rival.js）は Storage から読む（無ければ店のカテゴリ別の欄を出さない）
      ・この車種の注意＝カードの notes
-     ・色は CarFlow のテーマに合わせる（index.html）
+     ・色・ボタン・スクロールは CarFlow に合わせる（index.html の上書き）
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
-const SMPD=null,SMK='';   // CarFlow：サンプル・見かたは入れない（2026-10-10 依頼）
-const D=(window.SOBA_INDEX||[]).filter(m=>Object.keys(m.years||{}).length),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：一覧だけ。カードの中身は SobaData.card() で開いた時に読む
+const SMPD=window.SAMPLE&&Array.isArray(window.SAMPLE.cards)?window.SAMPLE:null,SMK=SMPD?SMPD.maker:'';
+const D=[...(SMPD?SMPD.cards:[]),...(window.SOBA_INDEX||[])].filter(m=>Object.keys(m.years||{}).length),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：本物は一覧だけ（中身は SobaData.card() で開いた時に読む）。サンプルは中身ごと
 // 計算はすべて soba-calc.js（SobaCalc）。ここには書かない。D は年式が1つも無い車種（販売が終わった後の年式など）を外した一覧
 const {AA_SELL,BUY_AA_PROF}=SobaCalc.CFG;
 
@@ -153,10 +153,9 @@ function list(){const q=document.getElementById('q').value.trim().toLowerCase();
    S.ys＝選んだ年式（複数可）／S.f＝絞り込み {g グレード, m 型式, kb 走行の帯, col 色区分, sb 詳細, e 評価点, i 内装}（null＝指定なし）／S.kmx＝ぴったりの走行（千km・入れた時だけ）
    値＝当てはまる実績の組ごとに式で出した値の、台数の重みの真ん中（SobaCalc.quoteMix）。
    S.y・S.g・S.m・S.sb・S.km・S.col・S.e・S.i は「代表の1台」（台数が一番多い年式・一番多い組）＝グラフの形・年式ごとの欄・比較などに使う（calc の後に入る） */
-function initS(){const ys=Object.keys(M.years).sort().reverse();
+function initS(){const ys0=Object.keys(M.years).sort().reverse(),y0=ys0.find(y=>{const n=SobaCalc.cxCount(M,[y],{g:M.years[y].std.grade});return n.aa+n.rt>=1})||ys0[0],ys=[y0,...ys0.filter(y=>y!==y0)];   // 最初は実績のある一番新しい年式から開く（その年式の標準グレードで AA＋小売が1台以上。CarFlow とそろえた。2026-10-10。一番新しい年式に実績が無いと「データが足りません」で始まっていた）
  if(S.ph!=null&&!(M.phases||[])[S.ph])S.ph=null;if(S.f&&S.ph==null)S.f.ph=null;   // 期（2026-10-09）：期を押した時だけ、その期の車（初度登録の年月で振り分け）に絞る
- // 開いた時は「実績のある一番新しい年式」から（2026-10-10 ゆうた・相場DB と合意。一番新しい年式が0台だと「データが足りません」から始まり、壊れて見えた）
- if(!S.ys||!S.ys.length){const y0=ys.find(y=>{const n=SobaCalc.cxCount(M,[y],{g:M.years[y].std.grade});return n.aa+n.rt>0});S.ys=[y0||ys[0]]}S.ys=S.ys.filter(y=>M.years[y]);if(!S.ys.length)S.ys=[ys[0]];S.ys.sort().reverse();
+ if(!S.ys||!S.ys.length)S.ys=[ys[0]];S.ys=S.ys.filter(y=>M.years[y]);if(!S.ys.length)S.ys=[ys[0]];S.ys.sort().reverse();
  S.f=S.f||{};if(S.f.g===undefined)S.f.g=M.years[S.ys[0]].std.grade;
  if(!S.y||!S.ys.includes(S.y))S.y=S.ys[0]}
 // 選び肢ごとの台数（ほかの条件はそのまま・その条件だけ外して数える）。{値: {a: AA 台数, r: 小売 台数}}
@@ -481,8 +480,8 @@ function STUDY(){const G=M,rg=r=>r?`${r[0]}〜${r[1]}%`:'—',me=G.meta||{};
   <details><summary>数え方</summary>${me.how||''}。${me.weeks||''}。数えた日 ${me.built||''}（ビューアを作り直しても変わらない）。グラフの点・棒にマウスを乗せると値が出る</details></div>
  <div class="stdy">${(()=>{let g0='';return (G.patterns||[]).map(p=>{const g=p.grp||'move',h=g!==g0&&STG[g]?`<h3 class="stg">${STG[g][0]}<small>${STG[g][1]}</small></h3>`:'';g0=g;return h+card(p)}).join('')})()}</div>`}
 // この車種の注意（2026-10-10）：本物の車の画面の名前の横に、当てはまる物だけ短い札（1〜3個）。説明はホバー。サンプルの車には出さない
-function CNOTE(){const a=M&&!M.lesson&&M.notes;if(!a||!a.length)return '';
- return `<span class="cnote">${a.map(x=>`<span class="${x.c==='ok'?'ok':''}" data-tip="${(x.tip+'&lt;br&gt;（'+(((window.SOBA||{}).notes||{}).built||'')+' の数え）').replace(/"/g,'&quot;')}">${x.t}</span>`).join('')}</span>`}
+function CNOTE(){const N=SMPD&&SMPD.notes,a=M&&!M.lesson&&(M.notes||(N&&N[M.key]));if(!a||!a.length)return '';
+ return `<span class="cnote">${a.map(x=>`<span class="${x.c==='ok'?'ok':''}" data-tip="${(x.tip+'&lt;br&gt;（2026-10-10 の数え。くわしくは サンプルG）').replace(/"/g,'&quot;')}">${x.t}</span>`).join('')}</span>`}
 function GUIDE(){if(!M||!M.lesson)return '';
  const tx=(x,y,t,c,a)=>`<text x="${x}" y="${y}" font-size="10.5" fill="${c||'var(--sub)'}" text-anchor="${a||'start'}">${t}</text>`,ld=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--sub)" stroke-width=".6" stroke-dasharray="2 2"/>`;
  const cdl=(x,a,b,c,d,e,n,op)=>`<g opacity="${op}"><line x1="${x}" x2="${x}" y1="${a}" y2="${e}" stroke="var(--rt)" stroke-width="1"/><rect x="${x-11}" y="${b}" width="22" height="${d-b}" fill="var(--rt)" fill-opacity=".15" stroke="var(--rt)"/><line x1="${x-11}" x2="${x+11}" y1="${c}" y2="${c}" stroke="var(--rt)" stroke-width="2.4"/>${tx(x,a-4,n,'var(--rt)','middle')}</g>`;
@@ -629,10 +628,10 @@ document.getElementById('q').oninput=list;
 {const _d=draw;draw=function(){_d.apply(this,arguments);try{simAll()}catch(e){}}}   // 描いた後に計算の欄を埋める
 list();   // 開いた時は車を選ばない（空欄から。2026-10-09 ゆうた。前は一覧の先頭＝アトレーを自動で選んでいた）
 
+function sobaRedraw(){if(M)draw()}   // det.json（カタログ）が後から来た時
 /* ---- CarFlow：カードを開く ---- */
-function FULLC(k){const c=SobaData.cached(k);if(!c&&k)SobaData.card(k).then(()=>draw()).catch(()=>{});return c}
+function FULLC(k){const s=D.find(x=>x.key===k&&x.fit);if(s)return s;const c=SobaData.cached(k);if(!c&&k)SobaData.card(k).then(()=>draw()).catch(()=>{});return c}
 function openCard(k){const mm=document.getElementById('main');const was=M;
  const c=SobaData.cached(k);if(c){M=c;S={};list();draw();return}
  mm.innerHTML='<p class="muted">読み込み中…</p>';
  SobaData.card(k).then(c=>{M=c;S={};CDLG=null;list();draw();mm.scrollTop=0}).catch(e=>{M=was;SobaData.fail(e)})}
-function sobaRedraw(){if(M)draw()}   // det.json（カタログ）が後から来た時

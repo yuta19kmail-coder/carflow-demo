@@ -11,6 +11,8 @@
   データ＝soba-data.js（Storage の soba/v1/）／画面＝view.js（相場DB の相場ビューアの写し）／計算＝soba-calc.js（Storage から）
   🔴 このフォルダに相場データ（json）を置かない。Hosting に乗る＝誰でも落とせる
 -->
+<!-- CoreFlow 共通の見た目の基準（ボタンの大きさ・角の丸み・スクロールの棒）。CarFlow 本体と同じファイル（_shared から配られた物） -->
+<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.0">
 <style>
 /* 色：土台（背景・文字・線）は CarFlow のテーマから借りる（下の script）。意味の色（小売＝青・AA＝橙・良し悪し）は相場ビューアと同じ */
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--sub:#667085;--line:#e3e6eb;--chip:#eef2f7;
@@ -26,18 +28,54 @@
  function sync(){try{
   const pr=P.document.documentElement,th=pr.getAttribute('data-theme')||'dark',cs=P.getComputedStyle(pr);
   R.classList.toggle('dk',!/light/.test(th));
-  [['--bg','--bg'],['--card','--bg2'],['--ink','--text'],['--sub','--text2'],['--line','--border'],['--chip','--bg3']].forEach(([a,b])=>{const v=cs.getPropertyValue(b).trim();if(v)R.style.setProperty(a,v);else R.style.removeProperty(a)});
+  [['--bg','--bg'],['--card','--bg2'],['--ink','--text'],['--sub','--text2'],['--line','--border'],['--chip','--bg3'],['--cfb','--blue'],['--cfr','--r'],['--cft3','--text3']].forEach(([a,b])=>{const v=cs.getPropertyValue(b).trim();if(v)R.style.setProperty(a,v);else R.style.removeProperty(a)});
  }catch(e){}}
  sync();
  try{new P.MutationObserver(sync).observe(P.document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
 })();
 </script>
-<link rel="stylesheet" href="view.css?v=3.8.2">
+<link rel="stylesheet" href="view.css?v=3.9.0">
 <style>
-/* CarFlow の中に収める（上の帯は CarFlow のヘッダーがあるので小さく） */
-header{padding:8px 16px}
-h1{font-size:15px}
-.wrap{min-height:calc(100vh - 50px)}nav{top:50px;max-height:calc(100vh - 50px)}
+/* ===== CarFlow に寄せる（2026-10-10 ゆうた「スクロールやボタンは CarFlow に寄せて」）=====
+   view.css（相場ビューアの写し）には手を入れず、ここで上書きする。中身と並びはビューアのまま */
+:root{--cfb:#378ADD;--cfr:8px;--cft3:#5c6490;--acc:var(--cfb)}
+/* 上の帯：CarFlow のヘッダーの下に入るので小さく */
+header{padding:8px 16px;gap:10px}
+h1{font-size:14px}
+/* スクロール：左の一覧と右の中身がそれぞれ動く（CarFlow のサイドバーと中身と同じ）。棒は coreflow-ui.css の細い棒 */
+@media (min-width:761px){
+ html,body{height:100%;overflow:hidden}
+ body{display:flex;flex-direction:column}
+ header{position:static;flex:none}
+ .wrap{flex:1;min-height:0;grid-template-columns:240px minmax(0,1fr)}
+ nav{position:static;max-height:none;height:100%;overflow-y:auto;overscroll-behavior:contain}
+ main{height:100%;overflow-y:auto;max-width:none;overscroll-behavior:contain}
+ main>*{max-width:1400px}
+}
+/* 左の一覧＝CarFlow のサイドバーと同じ形（角丸の行・押した行は青） */
+nav{background:var(--card);padding:4px 0 12px}
+nav .mkh{background:var(--card);border-bottom:0;font-size:11px;letter-spacing:.06em;color:var(--cft3);padding:10px 14px 4px}
+nav .mkh:hover{color:var(--ink)}
+nav button{border-bottom:0;border-radius:var(--cfr);margin:1px 6px;width:calc(100% - 12px);padding:7px 11px;font-size:13px;color:var(--sub);transition:background .15s,color .15s}
+nav button:hover{background:var(--chip);color:var(--ink)}
+nav button.on,nav button.child.on{background:color-mix(in srgb,var(--cfb) 15%,transparent);color:var(--cfb);font-weight:600}
+nav button.grp.has{color:var(--ink)}
+nav button.child{background:transparent;padding-left:26px;font-size:12.5px}
+nav button.child.c2{padding-left:40px}
+/* ボタン＝CarFlow の小さいボタン（枠・角丸6px）。選んでいる物は CarFlow の青 */
+.years button,.chtool button,.addcmp,.cmpdlg .res button,.kmsw button{font:inherit;font-size:var(--ui-btn-fs,12.5px);border:1px solid var(--line);border-radius:var(--ui-r-sm,6px);background:transparent;color:var(--sub);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.years button{padding:4px 11px}
+.chtool button{padding:3px 10px}
+.addcmp{padding:6px 12px;color:var(--ink)}
+.years button:hover,.chtool button:hover,.addcmp:hover:not(:disabled),.cmpdlg .res button:hover{background:var(--chip);color:var(--ink);border-color:var(--sub)}
+.years button.on,.chtool button.on,.cmpdlg .res button.on,.kmsw button.on{background:color-mix(in srgb,var(--cfb) 15%,transparent);color:var(--cfb);border-color:color-mix(in srgb,var(--cfb) 55%,transparent);font-weight:600}
+.kmsw{border-radius:var(--ui-r-sm,6px)}.kmsw button{border:0;border-radius:0}
+.chtool button:disabled,.addcmp:disabled{opacity:.4;cursor:not-allowed}
+/* 入力欄・選ぶ欄＝CarFlow の欄（角丸8px・押すと青い枠） */
+input,select{border-radius:var(--cfr);border-color:var(--line);background:var(--bg)}
+input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2px color-mix(in srgb,var(--cfb) 25%,transparent)}
+/* 枠の下の「▾ 詳細」＝CarFlow の青 */
+.boxmore,.nowmore,.rvclose,.rvarrow{color:var(--cfb)}
 </style>
 </head>
 <body>
@@ -51,7 +89,7 @@ h1{font-size:15px}
   <main id="main"></main>
 </div>
 <div id="tip"></div>
-<script src="tip.js?v=3.8.2"></script>
-<script src="soba-data.js?v=3.8.2"></script>
+<script src="tip.js?v=3.9.0"></script>
+<script src="soba-data.js?v=3.9.0"></script>
 </body>
 </html>
