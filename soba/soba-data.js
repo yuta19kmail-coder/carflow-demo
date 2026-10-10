@@ -7,7 +7,8 @@
    🔴 DataLine のデータが元なので Hosting には置かない。読めるのは CarFlow にログインした人だけ（storage.rules の /soba/）
      ＝ Storage の窓口に、ログインの通行証（ID トークン）を付けて読む。ダウンロード URL（誰でも開ける鍵つき URL）は作らない
    ◎ この画面は CarFlow の中の iframe（同じサイト）。ログインは親（CarFlow）の firebase を借りる
-   ◎ デモ版（親に window.__DEMO_MODE）は本物を読まない。soba/demo/ に見本の値があればそれ、無ければ「デモ版では出さない」
+   ◎ デモ版（親に window.__DEMO_MODE）は本物を読まない。soba/demo/（相場DB のデモ見本＝架空の6台・make-demo-carflow.ps1 がデモ版にだけ入れる）だけを読む。
+     sample.js は読まない（本物の相場を借りている）。meta.json に demo:true が無ければ止める。demo_note を上に1行
    ◎ 計算は soba-calc.js をファイルごと読み込む（写して書き直さない＝相場DB の決まり）
    ======================================== */
 (function () {
@@ -82,7 +83,13 @@
       // rival.js＝ライバル店DB（第2回の受け渡しから。無い時は店のカテゴリ別の欄を出さないだけ）
       // sample.js＝サンプル・見かた（練習用の車。本物の車の形を借りた物なので、相場データと同じく Storage に置く。無ければ出ない）
       const opt = f => get(f, 'text').catch(e => { if (e.notFound) return null; throw e; });
-      const [idx, calc, rival, sample] = await Promise.all([get('index.json'), get('soba-calc.js', 'text'), opt('rival.js'), opt('sample.js')]);
+      // 🔴 デモ版は sample.js を読まない（本物の相場を借りている。デモ見本＝soba/demo/ は架空の6台だけ）
+      const [idx, calc, rival, sample] = await Promise.all([get('index.json'), get('soba-calc.js', 'text'), opt('rival.js'), DEMO ? null : opt('sample.js')]);
+      if (DEMO && meta.demo !== true) throw new Error('デモの見本に作り物の印（demo:true）がありません');
+      if (meta.demo && meta.demo_note) {   // 作り物のデータの断り書き（上の帯のすぐ下に1行）
+        const n = document.createElement('div'); n.className = 'sbdemo'; n.textContent = meta.demo_note;
+        document.body.insertBefore(n, document.querySelector('.wrap'));
+      }
       await addScript(null, calc + '\n//# sourceURL=soba-calc.js');
       if (!window.SobaCalc) throw new Error('計算（soba-calc.js）を読み込めませんでした');
       window.SOBA = { built: meta.built, raw: meta.raw, avg: meta.avg || {}, tax: meta.tax, notes: meta.notes || {}, n: meta.n, det: null, demo: DEMO };
@@ -91,7 +98,7 @@
       if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
       if (sample) await addScript(null, sample + '\n//# sourceURL=sample.js');
       document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
-      await addScript('view.js?v=3.9.0');
+      await addScript('view.js?v=3.9.1');
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す
     get('det.json').then(d => { window.SOBA.det = d; if (typeof window.sobaRedraw === 'function') try { window.sobaRedraw(); } catch (e) {} })

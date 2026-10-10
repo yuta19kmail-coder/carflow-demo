@@ -12,13 +12,14 @@
   🔴 このフォルダに相場データ（json）を置かない。Hosting に乗る＝誰でも落とせる
 -->
 <!-- CoreFlow 共通の見た目の基準（ボタンの大きさ・角の丸み・スクロールの棒）。CarFlow 本体と同じファイル（_shared から配られた物） -->
-<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.0">
+<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.1">
 <style>
 /* 色：土台（背景・文字・線）は CarFlow のテーマから借りる（下の script）。意味の色（小売＝青・AA＝橙・良し悪し）は相場ビューアと同じ */
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--sub:#667085;--line:#e3e6eb;--chip:#eef2f7;
  --rt:#2563eb;--aa:#dc6b19;--ok:#0f766e;--okbg:#e6f5f2;--mid:#a16207;--midbg:#fdf6e3;--ng:#b91c1c;--ngbg:#fdecec;--c2:#7c3aed;--c3:#0d9488}
 :root.dk{--bg:#12151b;--card:#1b2029;--ink:#e6e9ef;--sub:#98a2b3;--line:#2b3340;--chip:#252c38;
  --rt:#6ea0ff;--aa:#f59e57;--ok:#2dd4bf;--okbg:#10302c;--mid:#facc15;--midbg:#332b10;--ng:#f87171;--ngbg:#3a1a1a;--c2:#b794f6;--c3:#2dd4bf}
+.sbdemo{flex:none;padding:5px 16px;font-size:12px;background:var(--midbg);color:var(--mid);border-bottom:1px solid var(--line)}
 .sbmsg{margin:24px 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);line-height:1.8}
 </style>
 <script>
@@ -34,7 +35,7 @@
  try{new P.MutationObserver(sync).observe(P.document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
 })();
 </script>
-<link rel="stylesheet" href="view.css?v=3.9.0">
+<link rel="stylesheet" href="view.css?v=3.9.1">
 <style>
 /* ===== CarFlow に寄せる（2026-10-10 ゆうた「スクロールやボタンは CarFlow に寄せて」）=====
    view.css（相場ビューアの写し）には手を入れず、ここで上書きする。中身と並びはビューアのまま */
@@ -89,7 +90,7 @@ input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2
   <main id="main"></main>
 </div>
 <div id="tip"></div>
-<script src="tip.js?v=3.9.0"></script>
-<script src="soba-data.js?v=3.9.0"></script>
+<script src="tip.js?v=3.9.1"></script>
+<script src="soba-data.js?v=3.9.1"></script>
 </body>
 </html>
