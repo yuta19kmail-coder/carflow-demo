@@ -155,7 +155,8 @@ function list(){const q=document.getElementById('q').value.trim().toLowerCase();
    S.y・S.g・S.m・S.sb・S.km・S.col・S.e・S.i は「代表の1台」（台数が一番多い年式・一番多い組）＝グラフの形・年式ごとの欄・比較などに使う（calc の後に入る） */
 function initS(){const ys=Object.keys(M.years).sort().reverse();
  if(S.ph!=null&&!(M.phases||[])[S.ph])S.ph=null;if(S.f&&S.ph==null)S.f.ph=null;   // 期（2026-10-09）：期を押した時だけ、その期の車（初度登録の年月で振り分け）に絞る
- if(!S.ys||!S.ys.length)S.ys=[ys[0]];S.ys=S.ys.filter(y=>M.years[y]);if(!S.ys.length)S.ys=[ys[0]];S.ys.sort().reverse();
+ // 開いた時は「実績のある一番新しい年式」から（2026-10-10 ゆうた・相場DB と合意。一番新しい年式が0台だと「データが足りません」から始まり、壊れて見えた）
+ if(!S.ys||!S.ys.length){const y0=ys.find(y=>{const n=SobaCalc.cxCount(M,[y],{g:M.years[y].std.grade});return n.aa+n.rt>0});S.ys=[y0||ys[0]]}S.ys=S.ys.filter(y=>M.years[y]);if(!S.ys.length)S.ys=[ys[0]];S.ys.sort().reverse();
  S.f=S.f||{};if(S.f.g===undefined)S.f.g=M.years[S.ys[0]].std.grade;
  if(!S.y||!S.ys.includes(S.y))S.y=S.ys[0]}
 // 選び肢ごとの台数（ほかの条件はそのまま・その条件だけ外して数える）。{値: {a: AA 台数, r: 小売 台数}}
