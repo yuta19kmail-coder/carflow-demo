@@ -32,7 +32,7 @@ function showPanel(name, el) {
   // v3.8.0: 相場ビュー（セールス）。iframe は初めて開いた時だけ読み込む（相場データは中で Storage から）
   if (name === 'soba') {
     const f = document.getElementById('soba-frame');
-    if (f && !f.getAttribute('src')) f.setAttribute('src', 'soba/index.html?v=3.8.2');
+    if (f && !f.getAttribute('src')) f.setAttribute('src', 'soba/index.html?v=3.9.0');
   }
   if (name === 'help') {
     if (typeof initHelpPanel === 'function') initHelpPanel();
