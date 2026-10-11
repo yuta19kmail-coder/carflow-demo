@@ -455,5 +455,15 @@
     const fin = O => Object.keys(O).map(Number).sort((a, b) => a - b).map(t => { const m = merge(O[t]), wk = t >= 50; return [wk ? (t - 100) / 4.345 : t, ...m, wk ? 1 : 0]; });
     return { a: fin(o.a), r: fin(o.r), wide };
   }
-  G.SobaCalc = { CFG, row, pr, prX, conf, quote, quotePhase, cautions, eqFill, eqTop, gbmZ, thin, unusedRatio, venueAdj, quoteMix, cxOf, cxMatch, cxCount, cxKb, CX_KB, CX_KBN, wmed, candles, phpMix };
+  /* 2026-10-11 未使用車の「自動」（画面の既定）。①今年・去年式で走行1千km未満（ぴったり）なら未使用車
+   *  ②ふつうの中古車で AA も小売も出ず、未使用車なら出る（出たばかりの世代＝エルグランド E53 等。AA は未使用車しか無い）なら未使用車
+   *  CarFlow とビューアは、未使用車を「自動」にした時これを呼ぶ（見る所は3つ・中身は1つ） */
+  function autoUnused(card, years, f, km) {
+    const ys = (years || []).map(Number);
+    if (ys.length && Math.max(...ys) >= new Date().getFullYear() - 1 && km != null && km < 1) return true;
+    const has = R => !!(R && (R.aa > 0 || R.rt > 0));
+    if (has(quoteMix(card, years, f, { km, unused: false }))) return false;
+    return has(quoteMix(card, years, f, { km, unused: true }));
+  }
+  G.SobaCalc = { CFG, autoUnused, row, pr, prX, conf, quote, quotePhase, cautions, eqFill, eqTop, gbmZ, thin, unusedRatio, venueAdj, quoteMix, cxOf, cxMatch, cxCount, cxKb, CX_KB, CX_KBN, wmed, candles, phpMix };
 })(typeof window !== 'undefined' ? window : globalThis);
