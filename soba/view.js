@@ -1,5 +1,5 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.2（2026-10-11）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.3（2026-10-11）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
@@ -7,7 +7,7 @@
      ・データは soba-data.js が Storage（soba/v1/）から読む。カードは開いた時だけ（FULLC／openCard）
      ・サンプル・見かた（sample.js）は Storage から読む（無ければ出ない）
      ・ライバル店DB（rival.js）は Storage から読む（無ければ店のカテゴリ別の欄を出さない）
-     ・この車種の注意＝カードの notes
+     ・この車種の注意＝カードの notes。特殊車両枠（special）は車名の横に「参考」の札（CarFlow だけ）
      ・色・ボタン・スクロールは CarFlow に合わせる（index.html の上書き）
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
@@ -516,7 +516,7 @@ function draw(){if(!M)return;if(M.study){STUDY();return}initS();
   Y.sold.z!=null&&AV.z_sold?`売れるまで${Y.sold.z}日（平均${AV.z_sold}日）。`:''].join('');
  const w_mv=sr==null?'値動きはまだ計算できていない。':`小売は月${pc(sr)}で、${nA}（${pc(AV.slope_rt)}）${sr<AV.slope_rt-0.2?'より<b>速く下がる</b>':sr>AV.slope_rt+0.2?'より<b>下がりにくい</b>':'と同じくらい'}。AAは月${pc(sa)}（平均${pc(AV.slope_aa)}）。走行1万kmで小売${pc(Fs.km10)}（平均${pc(AV.km10_rt)}）。`;
  document.getElementById('main').innerHTML=`
- <div class="h2row"><h2 style="margin:0 0 8px"><span class="muted" style="font-size:14px">${M.maker}</span> ${M.car} <span class="muted" style="font-size:13px;font-weight:400">${M.lesson?(M.kei?'軽':''):(M.mods||[]).join('・')+(M.kei?'・軽':'')}</span>${CNOTE()}</h2><button class="addcmp" onclick="cdOpen()" ${CMPS.length>=2&&!CDLG?'disabled data-tip="比較は3車種まで"':''}>＋ 比較する車種を足す${CMPS.length?`（${CMPS.length+1}/3）`:''}</button></div>
+ <div class="h2row"><h2 style="margin:0 0 8px"><span class="muted" style="font-size:14px">${M.maker}</span> ${M.car} <span class="muted" style="font-size:13px;font-weight:400">${M.lesson?(M.kei?'軽':''):(M.mods||[]).join('・')+(M.kei?'・軽':'')}</span>${SPECIAL()}${CNOTE()}</h2><button class="addcmp" onclick="cdOpen()" ${CMPS.length>=2&&!CDLG?'disabled data-tip="比較は3車種まで"':''}>＋ 比較する車種を足す${CMPS.length?`（${CMPS.length+1}/3）`:''}</button></div>
  ${LESSON()}
  ${CDLGH()}
  <div class="pick">
@@ -629,6 +629,8 @@ document.getElementById('q').oninput=list;
 {const _d=draw;draw=function(){_d.apply(this,arguments);try{simAll()}catch(e){}}}   // 描いた後に計算の欄を埋める
 list();   // 開いた時は車を選ばない（空欄から。2026-10-09 ゆうた。前は一覧の先頭＝アトレーを自動で選んでいた）
 
+// 特殊車両枠（カードの special＝台数が少ない希少車。年式の表5台・式30台から作る）＝車名の横に「参考」（2026-10-11 相場DB から依頼）
+function SPECIAL(){if(!M||!M.special)return '';return `<span class="cnote"><span class="sp" data-tip="${String(M.special).replace(/"/g,'&quot;')}：台数が少ない希少車。値のばらつきが大きい（±20〜30%）ので、金額は参考として見る。出品票・掲載で1台ずつ確かめる">参考</span></span>`}
 function sobaRedraw(){if(M)draw()}   // det.json（カタログ）が後から来た時
 /* ---- CarFlow：カードを開く ---- */
 function FULLC(k){const s=D.find(x=>x.key===k&&x.fit);if(s)return s;const c=SobaData.cached(k);if(!c&&k)SobaData.card(k).then(()=>draw()).catch(()=>{});return c}
