@@ -12,7 +12,7 @@
   🔴 このフォルダに相場データ（json）を置かない。Hosting に乗る＝誰でも落とせる
 -->
 <!-- CoreFlow 共通の見た目の基準（ボタンの大きさ・角の丸み・スクロールの棒）。CarFlow 本体と同じファイル（_shared から配られた物） -->
-<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.2">
+<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.3">
 <style>
 /* 色：土台（背景・文字・線）は CarFlow のテーマから借りる（下の script）。意味の色（小売＝青・AA＝橙・良し悪し）は相場ビューアと同じ */
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--sub:#667085;--line:#e3e6eb;--chip:#eef2f7;
@@ -35,7 +35,7 @@
  try{new P.MutationObserver(sync).observe(P.document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
 })();
 </script>
-<link rel="stylesheet" href="view.css?v=3.9.2">
+<link rel="stylesheet" href="view.css?v=3.9.3">
 <style>
 /* ===== CarFlow に寄せる（2026-10-10 ゆうた「スクロールやボタンは CarFlow に寄せて」）=====
    view.css（相場ビューアの写し）には手を入れず、ここで上書きする。中身と並びはビューアのまま */
@@ -75,6 +75,8 @@ nav button.child.c2{padding-left:40px}
 /* 入力欄・選ぶ欄＝CarFlow の欄（角丸8px・押すと青い枠） */
 input,select{border-radius:var(--cfr);border-color:var(--line);background:var(--bg)}
 input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2px color-mix(in srgb,var(--cfb) 25%,transparent)}
+/* 特殊車両枠の「参考」の札（注意の札と並ぶ・灰色の点線） */
+.cnote span.sp{background:var(--chip);color:var(--sub);border:1px dashed var(--sub)}
 /* 枠の下の「▾ 詳細」＝CarFlow の青 */
 .boxmore,.nowmore,.rvclose,.rvarrow{color:var(--cfb)}
 </style>
@@ -90,7 +92,7 @@ input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2
   <main id="main"></main>
 </div>
 <div id="tip"></div>
-<script src="tip.js?v=3.9.2"></script>
-<script src="soba-data.js?v=3.9.2"></script>
+<script src="tip.js?v=3.9.3"></script>
+<script src="soba-data.js?v=3.9.3"></script>
 </body>
 </html>
