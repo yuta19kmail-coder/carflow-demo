@@ -1,5 +1,5 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.0（2026-10-10）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.2（2026-10-11）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
@@ -12,7 +12,8 @@
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
 const SMPD=window.SAMPLE&&Array.isArray(window.SAMPLE.cards)?window.SAMPLE:null,SMK=SMPD?SMPD.maker:'';
-const D=[...(SMPD?SMPD.cards:[]),...(window.SOBA_INDEX||[])].filter(m=>Object.keys(m.years||{}).length),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：本物は一覧だけ（中身は SobaData.card() で開いた時に読む）。サンプルは中身ごと
+const HIDK=new Set((window.SOBA&&window.SOBA.hidden)||[]);   /* 2026-10-11 値の出ないカード（export.py が ready_check.js で決める＝index.json と同じ）は一覧に出さない */
+const D=[...(SMPD?SMPD.cards:[]),...(window.SOBA_INDEX||[])].filter(m=>Object.keys(m.years||{}).length&&!HIDK.has(m.key)),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：本物は一覧（index.json＝hidden は入っていない）だけ（中身は SobaData.card() で開いた時に読む）。サンプルは中身ごと
 // 計算はすべて soba-calc.js（SobaCalc）。ここには書かない。D は年式が1つも無い車種（販売が終わった後の年式など）を外した一覧
 const {AA_SELL,BUY_AA_PROF}=SobaCalc.CFG;
 
@@ -222,11 +223,11 @@ const EQL={q_psd:['スライドドア',[[2,'両側電動'],[1,'片側電動'],[0
  q_aw:['アルミ（インチ）',[[0,'なし'],...[13,14,15,16,17,18,19,20,21].map(x=>[x,x+'インチ'])]],q_seat:['定員',[[0,'不明'],...[4,5,6,7,8,9,10].map(x=>[x,x+'人'])]],q_nav:['ナビ',[[1,'あり'],[0,'なし']]],q_tv:['TV',[[2,'フルセグ'],[1,'ワンセグ'],[0,'なし']]],
  q_shk:['車検',[[24,'整備付（2年）'],[18,'残り1年半'],[12,'残り1年'],[6,'残り半年'],[0,'なし']]],q_full:['フル装備',[[1,'あり'],[0,'なし']]]};
 function eqAuto(Y){const G=M.fit.sold&&M.fit.sold.gbm;return G&&G.eqm?SobaCalc.eqTop(G,+S.y,S.g):null}
-function unusedOn(){if(S.un!=null)return S.un;return Math.max(...(S.ys||[S.y]).map(Number))>=new Date().getFullYear()-1&&S.kmx!=null&&S.kmx<1}
+function unusedOn(){if(S.un!=null)return S.un;return SobaCalc.autoUnused?SobaCalc.autoUnused(M,S.ys||[S.y],S.f,S.kmx):Math.max(...(S.ys||[S.y]).map(Number))>=new Date().getFullYear()-1&&S.kmx!=null&&S.kmx<1}   // CarFlow：autoUnused の無い古い soba-calc.js（デモ見本）では前の決め方   // 自動の決め方は soba-calc.js（2026-10-11。ふつうの中古車で値が出ず未使用車なら出る車も未使用車に）
 function EQH(Y){const E=M.fit.sold&&M.fit.sold.gbm&&M.fit.sold.gbm.eqm,au=eqAuto(Y)||{},q=S.q||{},un=unusedOn();
  const lab=(k,v)=>((EQL[k]||[k,[]])[1].find(x=>x[0]===v)||[v,String(v)])[1];
  const sel=E?E.f.filter(k=>EQL[k]).map(k=>`<label>${EQL[k][0]}<select data-q="${k}"><option value="" ${q[k]==null?'selected':''}>自動（多いのは${lab(k,au[k])}）</option>${EQL[k][1].map(x=>`<option value="${x[0]}" ${q[k]===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></label>`).join(''):'';
- return `<label><span>未使用車<span class="qi" data-tip="自動＝今年・去年式で走行1千km未満なら未使用車（新車価格の何%で出す）">?</span></span><select id="sun"><option value="" ${S.un==null?'selected':''}>自動（${un?'未使用車':'ふつうの中古車'}）</option><option value="1" ${S.un===true?'selected':''}>未使用車</option><option value="0" ${S.un===false?'selected':''}>ふつうの中古車</option></select></label>`+
+ return `<label><span>未使用車<span class="qi" data-tip="自動＝今年・去年式で走行1千km未満、またはふつうの中古車の実績が無く未使用車の実績だけある時は未使用車（新車価格の何%で出す）">?</span></span><select id="sun"><option value="" ${S.un==null?'selected':''}>自動（${un?'未使用車':'ふつうの中古車'}）</option><option value="1" ${S.un===true?'selected':''}>未使用車</option><option value="0" ${S.un===false?'selected':''}>ふつうの中古車</option></select></label>`+
   (sel?`<details class="eqd" ${Object.keys(q).length?'open':''}><summary>装備<span class="qi" data-tip="小売の値に効く装備。選ばない物は「この年式・グレードのよくある形」の平均">?</span></summary><div class="pick">${sel}</div></details>`:'')}
 function unusedLine(R){const U=R.unused;if(!U)return '';if(!U.np&&U.paa!=null)return `<div class="note" style="margin:0 0 6px"><b>未使用車として計算</b>：新車価格が分からないので、AA＝AA の未使用車 ${U.naa}台の落札の真ん中 <b>${man(U.paa)}</b>（税抜）。小売＝機械学習（未使用車の印つき）</div>`;if(!U.np)return '';
  return `<div class="note" style="margin:0 0 6px"><b>未使用車として計算</b>：新車価格 ${man(U.np)}（税込）。AA＝新車価格 × <b>${U.raa!=null?(U.raa*100).toFixed(1)+'%':'—'}</b>${U.naa?`（AA の未使用車 ${U.naa}台の比）`:''}${U.src}。小売＝機械学習（未使用車の印つき）で、新車価格の <b>${U.rrt!=null?(U.rrt*100).toFixed(1)+'%':'—'}</b></div>`}

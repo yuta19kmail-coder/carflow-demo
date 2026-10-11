@@ -92,13 +92,13 @@
       }
       await addScript(null, calc + '\n//# sourceURL=soba-calc.js');
       if (!window.SobaCalc) throw new Error('計算（soba-calc.js）を読み込めませんでした');
-      window.SOBA = { built: meta.built, raw: meta.raw, avg: meta.avg || {}, tax: meta.tax, notes: meta.notes || {}, n: meta.n, det: null, demo: DEMO };
+      window.SOBA = { built: meta.built, raw: meta.raw, avg: meta.avg || {}, tax: meta.tax, notes: meta.notes || {}, n: meta.n, hidden: meta.hidden || [], det: null, demo: DEMO };
       // gens（世代名・第2回から）は kn.gens に入れる＝一覧の名前と検索がビューアと同じになる
       window.SOBA_INDEX = idx.map(e => Object.assign({}, e, { years: Object.fromEntries((e.years || []).map(y => [String(y), 1])) }, e.gens ? { kn: { gens: e.gens } } : {}));
       if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
       if (sample) await addScript(null, sample + '\n//# sourceURL=sample.js');
       document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
-      await addScript('view.js?v=3.9.1');
+      await addScript('view.js?v=3.9.2');
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す
     get('det.json').then(d => { window.SOBA.det = d; if (typeof window.sobaRedraw === 'function') try { window.sobaRedraw(); } catch (e) {} })
