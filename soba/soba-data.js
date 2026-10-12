@@ -1,5 +1,5 @@
 /* ========================================
-   soba/soba-data.js ─ 相場ビューのデータの読み込み  v3.8.0（2026-10-10）
+   soba/soba-data.js ─ 相場ビューのデータの読み込み  v3.8.0（2026-10-10）・v3.10.0 車両詳細の［相場］タブ（?car=）
    ----------------------------------------
    ◎ 置き場＝Firebase Storage の soba/v1/（相場DB の 受け渡し\第◯回 をそのまま）
        meta.json・index.json・cards/<キー>.json・det.json・soba-calc.js・rival.js・sample.js（katashiki.json は見積もりで使う）
@@ -18,6 +18,9 @@
   const DEMO = !!(P && P.__DEMO_MODE === true);
   // 手元の確かめ用（localhost の時だけ）：?src=http://127.0.0.1:8899/ で 出力\ を直接読む
   const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? new URLSearchParams(location.search).get('src') : null;
+  // v3.10.0 車両詳細の［相場］タブ（?car=<車のID>）：view.js の後に stock.js（当て方）と embed.js（在庫車の条件で開く）を読む
+  const EMBED = !!new URLSearchParams(location.search).get('car');
+  if (EMBED) document.documentElement.classList.add('emb');
 
   let token = null, tokenAt = 0;
   async function idToken() {
@@ -97,8 +100,9 @@
       window.SOBA_INDEX = idx.map(e => Object.assign({}, e, { years: Object.fromEntries((e.years || []).map(y => [String(y), 1])) }, e.gens ? { kn: { gens: e.gens } } : {}));
       if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
       if (sample) await addScript(null, sample + '\n//# sourceURL=sample.js');
-      document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
-      await addScript('view.js?v=3.9.3');
+      if (!EMBED) document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
+      await addScript('view.js?v=3.10.0');
+      if (EMBED) { await addScript('stock.js?v=3.10.0'); await addScript('embed.js?v=3.10.0'); }
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す
     get('det.json').then(d => { window.SOBA.det = d; if (typeof window.sobaRedraw === 'function') try { window.sobaRedraw(); } catch (e) {} })
