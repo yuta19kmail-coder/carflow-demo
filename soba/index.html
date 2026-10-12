@@ -12,7 +12,7 @@
   🔴 このフォルダに相場データ（json）を置かない。Hosting に乗る＝誰でも落とせる
 -->
 <!-- CoreFlow 共通の見た目の基準（ボタンの大きさ・角の丸み・スクロールの棒）。CarFlow 本体と同じファイル（_shared から配られた物） -->
-<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.9.3">
+<link rel="stylesheet" href="../css/coreflow-ui.css?v=3.10.0">
 <style>
 /* 色：土台（背景・文字・線）は CarFlow のテーマから借りる（下の script）。意味の色（小売＝青・AA＝橙・良し悪し）は相場ビューアと同じ */
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--sub:#667085;--line:#e3e6eb;--chip:#eef2f7;
@@ -35,7 +35,7 @@
  try{new P.MutationObserver(sync).observe(P.document.documentElement,{attributes:true,attributeFilter:['data-theme','style','class']})}catch(e){}
 })();
 </script>
-<link rel="stylesheet" href="view.css?v=3.9.3">
+<link rel="stylesheet" href="view.css?v=3.10.0">
 <style>
 /* ===== CarFlow に寄せる（2026-10-10 ゆうた「スクロールやボタンは CarFlow に寄せて」）=====
    view.css（相場ビューアの写し）には手を入れず、ここで上書きする。中身と並びはビューアのまま */
@@ -79,6 +79,30 @@ input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2
 .cnote span.sp{background:var(--chip);color:var(--sub);border:1px dashed var(--sub)}
 /* 枠の下の「▾ 詳細」＝CarFlow の青 */
 .boxmore,.nowmore,.rvclose,.rvarrow{color:var(--cfb)}
+/* ===== v3.10.0 車両詳細の［相場］タブ（?car=＝html.emb）：左の一覧と上の帯を出さず、中身だけ。上に「この車 → 相場カードと条件」の1枚（embed.js） ===== */
+html.emb header,html.emb nav{display:none!important}
+html.emb .wrap{grid-template-columns:minmax(0,1fr)!important;min-height:0}
+html.emb main{padding-top:12px}
+@media (min-width:1px){html.emb,html.emb body{height:100%;overflow:hidden}html.emb body{display:flex;flex-direction:column}html.emb .wrap{flex:1;min-height:0;display:grid}html.emb main{height:100%;overflow-y:auto;max-width:none}}
+.emb-card{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.6}
+.emb-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:3px 0}
+.emb-lb{flex:0 0 74px;font-size:11.5px;color:var(--sub)}
+.emb-cond{color:var(--ink)}
+.emb-row select{max-width:min(100%,360px);font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--line);color:var(--ink)}
+.emb-w{display:inline-block;font-size:11px;padding:0 6px;border-radius:6px;background:var(--midbg);color:var(--mid);cursor:help}
+.emb-miss{color:var(--ng);font-weight:600}
+.emb-moved{color:var(--mid);font-size:12.5px}
+.emb-btn,.emb-lnk{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--cfb);padding:3px 10px;cursor:pointer}
+.emb-lnk{border:0;padding:0 4px;text-decoration:underline}
+.emb-btn:hover{background:var(--chip)}
+.emb-px{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
+.emb-px>div{display:flex;flex-direction:column;min-width:120px}
+.emb-px .k{font-size:11.5px;color:var(--sub)}
+.emb-px b{font-size:20px;line-height:1.3}
+.emb-px small{font-size:11.5px;color:var(--sub)}
+.emb-hint{font-size:11.5px;color:var(--sub);margin-top:4px}
+.emb-stamp{margin-left:auto;font-size:11px;color:var(--sub)}
+.emb-ok{color:var(--ok)}.emb-ok2{color:var(--ok)}.emb-mid{color:var(--mid)}.emb-ng{color:var(--ng)}
 </style>
 </head>
 <body>
@@ -92,7 +116,7 @@ input:focus,select:focus{outline:none;border-color:var(--cfb);box-shadow:0 0 0 2
   <main id="main"></main>
 </div>
 <div id="tip"></div>
-<script src="tip.js?v=3.9.3"></script>
-<script src="soba-data.js?v=3.9.3"></script>
+<script src="tip.js?v=3.10.0"></script>
+<script src="soba-data.js?v=3.10.0"></script>
 </body>
 </html>

@@ -212,3 +212,7 @@ body.mobile .cd3-to-v3{display:none}
 .est-rs-ed input{flex:1}
 .est-del1{background:transparent;border:1px solid transparent;border-radius:6px;color:#f87171;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center}
 .est-del1:hover{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.1)}
+
+/* v3.10.0 ［相場］タブ＝相場ビュー（soba/）の iframe。右の中身いっぱいに出し、スクロールは iframe の中で */
+.cd3-col .cv-body.cd3-sobab{padding:0;overflow:hidden;display:flex}
+.cd3-col .cd3-soba-f{flex:1;width:100%;height:100%;min-height:0;border:0;display:block;background:var(--bg)}

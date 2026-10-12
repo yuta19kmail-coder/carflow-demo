@@ -331,6 +331,8 @@
     if (eqOn()) t.push({ k: 'eq', ic: 'clipboard', fb: '📋', lb: '装備詳細' });
     /* v3.5.0 価格履歴＝見積もりPDF（js/car-estimates.js） */
     if (window.CarEstimates) t.push({ k: 'est', ic: 'estimate', fb: '📄', lb: '価格履歴', n: CarEstimates.count(car) });
+    /* v3.10.0 相場＝相場ビューをこの車の条件で（js/car-soba.js・soba/embed.js） */
+    if (window.CarSoba && (car.model || car.maker)) t.push({ k: 'soba', ic: 'signal', fb: '📶', lb: '相場' });
     if (isD) {
       t.push({ gap: 1 });
       t.push({ k: 'regenPast', ic: 'wrench', fb: '🔧', lb: '展示フェーズ', past: 1, c: calcProg(Object.assign({}, car, { col: 'regen' })) });
@@ -353,7 +355,11 @@
       if (x.gap) return '<span class="cv-tgap"></span>';
       return '<button class="cv-tab' + (x.k === k ? ' on' : '') + (x.past ? ' past' : '') + '" onclick="CarDetailV3.tab(\'' + x.k + '\')">' + I(x.ic, x.fb, 16) + ' ' + x.lb + cnt(x.c) + (x.n ? '<span class="cv-tcnt">' + x.n + '</span>' : '') + '</button>';
     }).join('') + '</div>';
-    var P = k === 'eq' ? eqPanel(car) : k === 'est' ? CarEstimates.panel(car) : (k ? tasksPanel(car, k) : '');
+    /* ［相場］は iframe。開いたままの描き直し（同期・付箋など）で読み直さないよう、右の中身はそのまま残す */
+    /* 　車の名前・年式・走行・色・価格が変わった時（data-sig が違う時）は読み直す */
+    var sobaF = same && k === 'soba' ? body.querySelector('.cd3-col.r iframe.cd3-soba-f') : null;
+    var keepSoba = !!sobaF && sobaF.getAttribute('data-car') === String(car.id) && sobaF.getAttribute('data-sig') === CarSoba.sig(car);
+    var P = keepSoba ? '' : k === 'eq' ? eqPanel(car) : k === 'est' ? CarEstimates.panel(car) : k === 'soba' ? CarSoba.panel(car) : (k ? tasksPanel(car, k) : '');
 
     var lk = leftTab[car.id] || 'memo';
     var nn = carNotes(car).length;
@@ -363,12 +369,22 @@
     var LP = lk === 'flow' ? flowHtml(car) : coreMemoHtml(car) + (mode() === 'backoffice' ? '' : workMemoHtml(car)) + notesHtml(car);
 
     var lw = +ls(LS_LW) || 0;
+    if (keepSoba) {
+      var oh = body.querySelector('.cd3-hdr'), ob = body.querySelector('.cd3-band'), ol = body.querySelector('.cd3-col.l'), ort = body.querySelector('.cd3-col.r .cv-tabs');
+      if (oh) oh.outerHTML = header(car);
+      if (ob) ob.outerHTML = band(car);
+      if (ol) ol.innerHTML = lbar + '<div class="cv-body">' + LP + '</div>';
+      if (ort) ort.outerHTML = rbar;
+      var nl0 = body.querySelector('.cd3-col.l .cv-body'); if (nl0) nl0.scrollTop = sl;
+      if (typeof icHydrate === 'function') icHydrate(body);
+      return;
+    }
     body.setAttribute('data-car', car.id);
     body.innerHTML = header(car) + band(car)
       + '<div class="cd3-body"' + (lw ? ' style="--lw:' + lw + 'px"' : '') + '>'
       + '<div class="cd3-col l">' + lbar + '<div class="cv-body">' + LP + '</div></div>'
       + '<div class="cd3-split" title="ドラッグで幅を変える（ダブルクリックで元に戻す）" onpointerdown="CarDetailV3.splitDown(event)" ondblclick="CarDetailV3.splitReset()"></div>'
-      + '<div class="cd3-col r">' + rbar + '<div class="cv-body">' + P + '</div></div></div>';
+      + '<div class="cd3-col r">' + rbar + '<div class="cv-body' + (k === 'soba' ? ' cd3-sobab' : '') + '">' + P + '</div></div></div>';
     if (same) {
       var nl = body.querySelector('.cd3-col.l .cv-body'), nr = body.querySelector('.cd3-col.r .cv-body');
       if (nl) nl.scrollTop = sl; if (nr) nr.scrollTop = sr;
