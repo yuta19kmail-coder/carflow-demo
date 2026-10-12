@@ -124,7 +124,8 @@
     // 骨では元の文字に戻せないので、グレード欄がある時はグレード欄＋車種の欄の残り、無ければ車種の欄の残り
     const extra = mb.length > best ? mb.slice(best) : '';
     const gb = bone(grade);
-    const hint = best > mb.length ? full.slice(best) : (gb && extra.includes(gb) ? extra : extra + gb);   // 「VOXY ZS」＋「ZS」を ZSZS にしない
+    // 「VOXY ZS」＋「ZS」を ZSZS に、「シエンタハイブリッド」＋「ハイブリッドG」をハイブリッドハイブリッドG にしない
+    const hint = best > mb.length ? full.slice(best) : (gb && extra.includes(gb) ? extra : gb && extra && gb.startsWith(extra) ? gb : extra + gb);
     return { list: L, hint, how: 'name' };
   }
 
