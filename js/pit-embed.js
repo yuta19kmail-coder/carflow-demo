@@ -421,12 +421,12 @@
         && ((c.status === 'reserved' && c.reserveDate && c.reserveDate <= monthAhead) || CS_INTASK.indexOf(c.status) >= 0);
     });
     var salesReq = cards.filter(function (c) { return c.salesReq && active(c); });
-    /* 🚙 PitFlow v2.173.0 洗う代車（今日以前＝今日／翌営業日＝明日／それより後〜日曜＝今週） */
-    var lo = loanerWash(todayStr, sun).sort(loSort);
+    /* 🚙 PitFlow v2.173.0 洗う代車（今日以前＝今日／翌営業日＝明日）
+       🔴 PitFlow v2.180.0（ゆうた 2026-10-12）**今週の洗車予定には出さない**＝拾う範囲も翌営業日まで */
+    var lo = loanerWash(todayStr, nextBiz).sort(loSort);
     var loToday = lo.filter(function (x) { return x.washDay <= todayStr; });
     var loTomorrow = lo.filter(function (x) { return x.washDay > todayStr && x.washDay <= nextBiz; });
-    var loWeek = lo.filter(function (x) { return x.washDay > nextBiz; });
-    return { loToday: loToday, loTomorrow: loTomorrow, loWeek: loWeek, nextBiz: nextBiz, washToday: washToday, washTomorrow: washTomorrow, washWeek: washWeek,
+    return { loToday: loToday, loTomorrow: loTomorrow, nextBiz: nextBiz, washToday: washToday, washTomorrow: washTomorrow, washWeek: washWeek,
              washNoDate: washNoDate, headlight: headlight, coatReq: coatReq, coatPlan: coatPlan, salesReq: salesReq };
   }
 
@@ -471,14 +471,11 @@
          ⚠ 日付が無い車は並びの最後（sortDate が 9999 として扱う）。**消えはしない。** */
       var weekAll = S.washWeek.concat(S.washNoDate);
       var sw = split(weekAll.sort(sortDate), 'washSalesDone');
-      /* 🚙 代車も同じ並びに、洗う日の順で混ぜる（PitFlow v2.173.0） */
-      var rows = sw.open.map(function (c) { return { k: String(planDate(c) || '9999'), h: csCard(c, 'wash', washLabel(c)) }; })
-        .concat(S.loWeek.filter(function (x) { return !loWashDone(x.a); }).map(function (x) { return { k: x.washDay, h: loItem(x) }; }));
-      rows.sort(function (p, q) { return p.k.localeCompare(q.k); });
-      var b2 = rows.length ? rows.map(function (r) { return r.h; }).join('') : '<div class="cs-empty">なし</div>';
+      /* 🔴 PitFlow v2.180.0 ここは**お客様の車だけ**（代車は今日・明日の段だけ） */
+      var b2 = (sw.open.length ? sw.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('')
+                               : '<div class="cs-empty">なし</div>');
       h += csSec(icon('calendar', '📅', 16) + ' 今週の洗車予定', '〜今週日曜（暫定・未完・未定も一緒に）', b2,
-                 sw.done.map(function (c) { return csDoneCard(c, 'wash'); }).join('')
-                 + S.loWeek.filter(function (x) { return loWashDone(x.a); }).map(loDoneItem).join(''));
+                 sw.done.map(function (c) { return csDoneCard(c, 'wash'); }).join(''));
     }
     {
       var s3 = split(S.headlight.sort(sortDate), 'headlightDone');
@@ -540,8 +537,7 @@
     var rest = 0;
     var notDone = function (arr, f) { return arr.filter(function (c) { return !c[f]; }).length; };
     rest += notDone(S.washWeek, 'washSalesDone') + notDone(S.washNoDate, 'washSalesDone');
-    rest += S.loWeek.filter(function (x) { return !loWashDone(x.a); }).length
-          + S.loToday.concat(S.loTomorrow).filter(function (x) { return !loWashDone(x.a) && !x.back; }).length;
+    rest += S.loToday.concat(S.loTomorrow).filter(function (x) { return !loWashDone(x.a) && !x.back; }).length;
     rest += notDone(S.headlight.filter(function (c) { return !dueSoon(c); }), 'headlightDone');
     rest += notDone(S.coatReq.filter(function (c) { return !dueSoon(c); }), 'coatingDone');
     rest += notDone(S.salesReq.filter(function (c) { return !dueSoon(c); }), 'salesReqDone');
