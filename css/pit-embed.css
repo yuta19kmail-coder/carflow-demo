@@ -113,6 +113,16 @@
 .cs-done-lb{ font-size:10.5px; font-weight:700; color:var(--text3); margin-bottom:6px; }
 .cs-done-row{ display:flex; flex-wrap:wrap; gap:8px; }
 .cs-doneitem{ opacity:.5; }
+/* 🚙 洗車の段の代車（PitFlow v2.173.0〜v2.174.0 polish.css / views.css の写し）
+   ⚠ 行を足さない＝お客様の車と同じ高さ。耳の無いカードは耳の高さ（9px）ぶん下げてそろえる */
+.cs-cardwrap > .pit-card.pcm:not(.pcm-tab){ margin-top:9px; }
+.cs-lo-ex{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cs-lo-back{ background:#475569; color:#fff; border:1px solid #64748b; }
+.cs-wait{ align-self:stretch; font-size:12px; font-weight:700; padding:5px 0; border-radius:7px; text-align:center; line-height:normal;
+  color:var(--text3); border:1px dashed var(--border2); }
+.pit-card.is-retpend{ background:rgba(131,144,166,.10); border-color:rgba(131,144,166,.45); border-left-color:var(--text3) !important; }
+.is-retpend .pcm-name, .is-retpend .pcm-car, .is-retpend .pcm-front{ color:var(--text3) !important; }
+.is-retpend .pcm-wash{ filter:grayscale(.9); opacity:.72; }
 
 /* ===== ここから CarFlow だけのもの ===== */
 .pe-note{ font-size:12.5px; color:var(--text3); padding:10px 2px; }

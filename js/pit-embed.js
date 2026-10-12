@@ -287,6 +287,104 @@
     return icon('factory', '🏭', 16) + ' 入庫中';
   }
 
+  /* ---------------- 🚙 洗車の段の代車（PitFlow v2.173.0 car-sales.js `_csLoanerWash` の写し） ----------------
+     🗣（ゆうた 2026-10-12）「代車は戻ってきてから、次の顧客に出す前日に洗車する」
+     ◎1枚＝次に出す貸出（札）1枚。洗う日＝その札の「から」の前の営業日（定休・祝日は飛ばす）。
+     ◎戻ったか＝1つ前の札が返却済み、または前の予約が返車済み。戻っていなければグレー＋「未返却」＋完了は押せない。
+     ◎洗った印は**札（pitLoanerAssigns）の washDone ＝洗った代車のid**。代車を差し替えたら印は外れる。
+     ⚠ CarFlow は「終わっていないカード」しか読まない（ACTIVE_STATUS）。
+        **前の予約が読めていない＝返車済み・取消・削除**なので、戻った扱いにする（PitFlow と同じ答えになる）。
+     🔴 **PitFlow 側の _csLoanerWash を直したら、ここも直すこと。** */
+  var LO_COLOR = '#3b82f6';
+  function prevBiz(ds) {
+    var p = String(ds).split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    for (var i = 0; i < 14; i++) {
+      d.setDate(d.getDate() - 1);
+      var s2 = ymd(d);
+      var closed = (window.PitCal ? PitCal.isClosed(s2) : false);
+      var hol = !!(window.Holidays && Holidays.name && Holidays.name(s2));
+      if (!closed && !hol) return s2;
+    }
+    return ymd(d);
+  }
+  function mdw(ds) {
+    var p = String(ds || '').split('-'); if (p.length !== 3) return '';
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return (d.getMonth() + 1) + '/' + d.getDate() + '（' + '日月火水木金土'[d.getDay()] + '）';
+  }
+  function loWashDone(a) { return !!a.washDone && a.washDone === a.loanerId; }
+  function loanerWash(todayStr, sun) {
+    var cards = PS.cards || [];
+    var byId = function (id) { return cards.find(function (c) { return c.id === id; }) || null; };
+    var byLo = {};
+    (PS.loanerAssigns || []).forEach(function (a) {
+      if (!a || a.hold || !a.loanerId || !a.fromDate) return;
+      (byLo[a.loanerId] = byLo[a.loanerId] || []).push(a);
+    });
+    var out = [];
+    (PS.loaners || []).forEach(function (lo) {
+      if (!lo || lo.retired) return;
+      var list = (byLo[lo.id] || []).slice().sort(function (x, y) { return String(x.fromDate).localeCompare(String(y.fromDate)); });
+      list.forEach(function (a, i) {
+        if (a.returned || a.fromDate < todayStr) return;
+        var card = a.cardId ? byId(a.cardId) : null;
+        if (a.cardId && !card) return;                         /* 読めていない＝返車済み・取消・削除 */
+        if (card && (card.status === 'cancelled' || card.status === 'returned' || card.status === 'scrap')) return;
+        var washDay = prevBiz(a.fromDate);
+        if (washDay > sun) return;
+        var prev = i > 0 ? list[i - 1] : null;
+        var prevCard = (prev && prev.cardId) ? byId(prev.cardId) : null;
+        var back = true;
+        if (prev && !prev.returned) {
+          if (prev.cardId && !prevCard) back = true;            /* 前の予約は終わっている */
+          else back = !!(prevCard && (prevCard.status === 'returned'
+                    || (window.CFLoanerRemain && CFLoanerRemain.backOf(prevCard).back)));
+        }
+        out.push({ a: a, prev: prev, lo: lo, card: card, prevCard: prevCard, washDay: washDay, back: back });
+      });
+    });
+    return out;
+  }
+  function loCardHtml(x) {
+    var a = x.a, c = x.card;
+    var stf = c ? (c.frontStaff || c.staff || '') : '';
+    var nm = c ? custSurname(c) : (a.customer || '');
+    var tip = '出す相手：' + (nm ? nm + '様' : '（予約以外の貸出）') + (((c && c.car) || a.car) ? '　' + ((c && c.car) || a.car) : '');
+    if (!x.back && x.prev) {
+      var pc = x.prevCard;
+      var pn = pc ? custSurname(pc) : (x.prev.customer || '');
+      tip += '\n未返却：' + (pn ? pn + '様から ' : '') + mdw(x.prev.toDate) + ' 戻り予定';
+    }
+    var click = c ? ("PitEmbed.open('" + esc(c.id) + "')") : 'PitEmbed.openLoaner()';
+    var h = '<div class="pit-card pcm cs-lo' + (x.back ? '' : ' is-retpend') + '" onclick="' + click + '" title="' + esc(tip) + '" style="border-left-color:' + LO_COLOR + ';">';
+    h += '<div class="pcm-r"><span class="pcm-nm2"><span class="pcm-name">' + esc(x.lo.name || '代車') + '</span></span>'
+       + (x.back ? '' : '<span class="pcm-badges"><span class="cs-lo-back">未返却</span></span>') + '</div>';
+    h += '<div class="pcm-r"><span class="pcm-car">' + esc(x.lo.model || '') + '</span><span class="pcm-wash">洗車</span>'
+       + (stf ? '<span class="pcm-front">' + esc(pitSurname(stf)) + '</span>' : '') + '</div>';
+    return h + '</div>';
+  }
+  function loItem(x) {
+    var a = x.a, c = x.card;
+    var tm = (c && c.reserveDate === a.fromDate && c.reserveTime) ? ' ' + esc(c.reserveTime) : '';
+    var ex = '<div class="cs-extra cs-lo-ex">' + icon('calendar', '📅', 16) + ' ' + (c ? '入庫 ' : '貸出 ') + mdw(a.fromDate) + tm + '</div>';
+    var btn = x.back
+      ? '<button class="cs-done" onclick="event.stopPropagation();PitEmbed.loDone(\'' + esc(a.id) + '\')">' + icon('check', '✓', 14) + ' 完了</button>'
+      : '<div class="cs-wait">戻ってから洗車</div>';
+    return '<div class="cs-item"><div class="cs-cardwrap">' + loCardHtml(x) + ex + '</div>' + btn + '</div>';
+  }
+  function loDoneItem(x) {
+    return '<div class="cs-item cs-doneitem"><div class="cs-cardwrap">' + loCardHtml(x) + '</div>'
+      + '<button class="cs-undo" onclick="event.stopPropagation();PitEmbed.loUndo(\'' + esc(x.a.id) + '\')">' + icon('undo', '↩', 14) + ' 戻す</button></div>';
+  }
+  function loSort(p, q) {
+    /* 時刻は分に直してくらべる（文字のままだと 10:00 が 9:30 より前に来る） */
+    var t = function (x) {
+      var m = (x.card && x.card.reserveDate === x.a.fromDate) ? String(x.card.reserveTime || '').match(/(\d{1,2}):(\d{2})/) : null;
+      return m ? (+m[1] * 60 + +m[2]) : 99999;
+    };
+    return String(p.a.fromDate).localeCompare(String(q.a.fromDate)) || (t(p) - t(q));
+  }
+
   /* ---------------- ① 整備依頼業務（＝PitFlow 車販作業の丸写し） ---------------- */
   function buildSections() {
     var cards = PS.cards || [];
@@ -323,7 +421,12 @@
         && ((c.status === 'reserved' && c.reserveDate && c.reserveDate <= monthAhead) || CS_INTASK.indexOf(c.status) >= 0);
     });
     var salesReq = cards.filter(function (c) { return c.salesReq && active(c); });
-    return { nextBiz: nextBiz, washToday: washToday, washTomorrow: washTomorrow, washWeek: washWeek,
+    /* 🚙 PitFlow v2.173.0 洗う代車（今日以前＝今日／翌営業日＝明日／それより後〜日曜＝今週） */
+    var lo = loanerWash(todayStr, sun).sort(loSort);
+    var loToday = lo.filter(function (x) { return x.washDay <= todayStr; });
+    var loTomorrow = lo.filter(function (x) { return x.washDay > todayStr && x.washDay <= nextBiz; });
+    var loWeek = lo.filter(function (x) { return x.washDay > nextBiz; });
+    return { loToday: loToday, loTomorrow: loTomorrow, loWeek: loWeek, nextBiz: nextBiz, washToday: washToday, washTomorrow: washTomorrow, washWeek: washWeek,
              washNoDate: washNoDate, headlight: headlight, coatReq: coatReq, coatPlan: coatPlan, salesReq: salesReq };
   }
 
@@ -342,17 +445,20 @@
     var sortDate = function (a, b) { return String(planDate(a) || '9999').localeCompare(String(planDate(b) || '9999')); };
     var split = function (arr, flag) { return { open: arr.filter(function (c) { return !c[flag]; }), done: arr.filter(function (c) { return c[flag]; }) }; };
 
+    /* 🚙 代車（PitFlow v2.173.0）＝お客様の車の後ろに並べる */
+    var loOpen = function (arr) { return arr.filter(function (x) { return !loWashDone(x.a); }).map(loItem).join(''); };
     var h = '<div class="cs-cols">';
     {
       var st = split(S.washToday.sort(sortTime), 'washSalesDone');
       var sm = split(S.washTomorrow.sort(sortTime), 'washSalesDone');
       /* 🔴 v2.45.0 どの札の日で出ているのかが分からないと現場が困るので、**全部に返車予定を付ける** */
       var bodyHtml = '<div class="cs-subh">' + icon('sun', '☀️', 16) + ' 今日</div>'
-        + (st.open.length ? st.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('') : '<div class="cs-empty">なし</div>')
+        + ((st.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('') + loOpen(S.loToday)) || '<div class="cs-empty">なし</div>')
         + '<div class="cs-subh">' + icon('moon', '🌙', 16) + ' 明日 <small>（翌営業日 ' + S.nextBiz.slice(5).replace('-', '/') + '）</small></div>'
-        + (sm.open.length ? sm.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('') : '<div class="cs-empty">なし</div>');
+        + ((sm.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('') + loOpen(S.loTomorrow)) || '<div class="cs-empty">なし</div>');
       h += csSec(icon('drop', '💧', 16) + ' 洗車', '今日・明日ぶん（暫定・未完も出します）', bodyHtml,
-                 st.done.concat(sm.done).map(function (c) { return csDoneCard(c, 'wash'); }).join(''));
+                 st.done.concat(sm.done).map(function (c) { return csDoneCard(c, 'wash'); }).join('')
+                 + S.loToday.concat(S.loTomorrow).filter(function (x) { return loWashDone(x.a); }).map(loDoneItem).join(''));
     }
     {
       /* 🔄 v2.45.0（PitFlow v1.152.0 と同じ）**「洗車で返車日未定」を別枠から出して、同じ並びに混ぜた。**
@@ -365,10 +471,14 @@
          ⚠ 日付が無い車は並びの最後（sortDate が 9999 として扱う）。**消えはしない。** */
       var weekAll = S.washWeek.concat(S.washNoDate);
       var sw = split(weekAll.sort(sortDate), 'washSalesDone');
-      var b2 = (sw.open.length ? sw.open.map(function (c) { return csCard(c, 'wash', washLabel(c)); }).join('')
-                               : '<div class="cs-empty">なし</div>');
+      /* 🚙 代車も同じ並びに、洗う日の順で混ぜる（PitFlow v2.173.0） */
+      var rows = sw.open.map(function (c) { return { k: String(planDate(c) || '9999'), h: csCard(c, 'wash', washLabel(c)) }; })
+        .concat(S.loWeek.filter(function (x) { return !loWashDone(x.a); }).map(function (x) { return { k: x.washDay, h: loItem(x) }; }));
+      rows.sort(function (p, q) { return p.k.localeCompare(q.k); });
+      var b2 = rows.length ? rows.map(function (r) { return r.h; }).join('') : '<div class="cs-empty">なし</div>';
       h += csSec(icon('calendar', '📅', 16) + ' 今週の洗車予定', '〜今週日曜（暫定・未完・未定も一緒に）', b2,
-                 sw.done.map(function (c) { return csDoneCard(c, 'wash'); }).join(''));
+                 sw.done.map(function (c) { return csDoneCard(c, 'wash'); }).join('')
+                 + S.loWeek.filter(function (x) { return loWashDone(x.a); }).map(loDoneItem).join(''));
     }
     {
       var s3 = split(S.headlight.sort(sortDate), 'headlightDone');
@@ -417,6 +527,10 @@
     S.headlight.filter(dueSoon).forEach(function (c) { push(c, 'headlight', c.returnDate === todayStr ? 'today' : 'tomorrow', 'ヘッドライト磨き'); });
     S.coatReq.filter(dueSoon).forEach(function (c) { push(c, 'coating', c.returnDate === todayStr ? 'today' : 'tomorrow', 'コーティング'); });
     S.salesReq.filter(dueSoon).forEach(function (c) { push(c, 'salesReq', c.returnDate === todayStr ? 'today' : 'tomorrow', '車販依頼'); });
+    /* 🚙 代車の洗車（PitFlow v2.173.0）。戻っていない代車は「済」を押せないので、ここには出さない（数だけ・ページで見る） */
+    var loRow = function (x, when) { if (loWashDone(x.a) || !x.back) return; out.push({ lo: x, c: x.card || {}, task: 'loWash', when: when, what: '代車洗車' }); };
+    S.loToday.forEach(function (x) { loRow(x, 'today'); });
+    S.loTomorrow.forEach(function (x) { loRow(x, 'tomorrow'); });
     /* 今日が先・時刻順 */
     out.sort(function (a, b) {
       if (a.when !== b.when) return a.when === 'today' ? -1 : 1;
@@ -426,6 +540,8 @@
     var rest = 0;
     var notDone = function (arr, f) { return arr.filter(function (c) { return !c[f]; }).length; };
     rest += notDone(S.washWeek, 'washSalesDone') + notDone(S.washNoDate, 'washSalesDone');
+    rest += S.loWeek.filter(function (x) { return !loWashDone(x.a); }).length
+          + S.loToday.concat(S.loTomorrow).filter(function (x) { return !loWashDone(x.a) && !x.back; }).length;
     rest += notDone(S.headlight.filter(function (c) { return !dueSoon(c); }), 'headlightDone');
     rest += notDone(S.coatReq.filter(function (c) { return !dueSoon(c); }), 'coatingDone');
     rest += notDone(S.salesReq.filter(function (c) { return !dueSoon(c); }), 'salesReqDone');
@@ -452,6 +568,18 @@
       h += '<div class="pe-rows">';
       R.items.forEach(function (it) {
         var c = it.c;
+        if (it.lo) {
+          var x = it.lo, a = x.a;
+          h += '<div class="pe-row" onclick="' + (x.card ? "PitEmbed.open('" + esc(x.card.id) + "')" : 'PitEmbed.openLoaner()') + '" title="クリックで PitFlow を開きます">';
+          h += '<span class="pe-when ' + it.when + '">' + (it.when === 'today' ? '今日' : '明日') + '</span>';
+          h += '<span class="pe-what pe-t-wash">' + esc(it.what) + '</span>';
+          h += '<span class="pe-nm">' + esc(x.lo.name || '代車') + '</span>';
+          h += '<span class="pe-car">' + esc(x.lo.model || '') + '</span>';
+          h += '<span class="pe-time">' + esc((x.card && x.card.reserveDate === a.fromDate && x.card.reserveTime) || '') + '</span>';
+          h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.loDone(\'' + esc(a.id) + '\')">' + icon('check', '✓', 14) + ' 済</button>';
+          h += '</div>';
+          return;
+        }
         /* data-card-id ＝ マウスオーバーで詳細を出すため（js/pit-hover.js が読む） */
         h += '<div class="pe-row" data-card-id="' + esc(c.id) + '" onclick="PitEmbed.open(\'' + esc(c.id) + '\')" title="マウスを乗せると詳細／クリックで PitFlow のカードを開きます">';
         h += '<span class="pe-when ' + it.when + '">' + (it.when === 'today' ? '今日' : '明日') + '</span>';
@@ -525,6 +653,28 @@
     });
   }
 
+  /* 🚙 代車の洗った印（PitFlow v2.173.0）＝札（pitLoanerAssigns）の washDone だけを update で書く。
+     ⚠ 札には版番号（rev）の決まりが無い（ルール：社員なら update 可）。丸ごと書かないこと。 */
+  function setLoDone(aid, val) {
+    var a = (PS.loanerAssigns || []).find(function (x) { return x.id === aid; });
+    if (!a || !(window.fb && window.fb.db && window.fb.currentCompanyId)) {
+      if (window.showToast) showToast('ログインが確認できません', 'CF-7001'); return;
+    }
+    var before = a.washDone;
+    if (val) a.washDone = a.loanerId; else delete a.washDone;
+    renderPitSales(); renderPitToday();
+    var FV = window.firebase && firebase.firestore && firebase.firestore.FieldValue;
+    var patch = { washDone: val ? a.loanerId : (FV && FV.delete ? FV.delete() : null) };
+    window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitLoanerAssigns').doc(aid).update(patch)
+      .then(function () { if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）'); })
+      .catch(function (e) {
+        if (before === undefined) delete a.washDone; else a.washDone = before;
+        renderPitSales(); renderPitToday();
+        console.error('[pit-embed] 代車の洗車を書けませんでした', e);
+        if (window.showToast) showToast('PitFlow に反映できませんでした（通信または権限）', 'CF-7002');
+      });
+  }
+
   /* ---------------- 購読 ---------------- */
   function repaint() {
     try { renderPitSales(); } catch (e) { console.error('[pit-embed] renderPitSales', e); }
@@ -573,6 +723,7 @@
         .collection('pitLoaners').onSnapshot(function (snap) {
           var arr = []; snap.forEach(function (d) { var o = d.data() || {}; o.id = d.id; arr.push(o); });
           PS.loaners = arr;
+          repaint();   /* 🚙 PitFlow v2.173.0 洗車の段に代車を出すので、代車の一覧が来たら描き直す */
         }, function (e) { console.warn('[pit-embed] pitLoaners を読めませんでした（代車名なしで続けます）', e && e.code); });
     } catch (e) {}
 
@@ -611,6 +762,12 @@
     renderToday: renderPitToday,
     done: function (id, task) { setDone(id, task, true); },
     undo: function (id, task) { setDone(id, task, false); },
+    loDone: function (aid) { setLoDone(aid, true); },
+    loUndo: function (aid) { setLoDone(aid, false); },
+    openLoaner: function () {
+      try { window.open(PITFLOW_URL + '/#/loaner', '_blank', 'noopener'); }
+      catch (e) { location.href = PITFLOW_URL + '/#/loaner'; }
+    },
     open: function (id) {
       try { window.open(PITFLOW_URL + '/?card=' + encodeURIComponent(id), '_blank', 'noopener'); }
       catch (e) { location.href = PITFLOW_URL + '/?card=' + encodeURIComponent(id); }
@@ -623,7 +780,7 @@
       custName: custName, loanerRem: loanerRem, loanerKey: loanerKey, esc: esc
     },
     /* テスト用の窓口（本体からは使わない） */
-    _debug: { PS: PS, buildSections: buildSections, todayItems: todayItems, cardHtml: cardHtml,
+    _debug: { PS: PS, buildSections: buildSections, loanerWash: loanerWash, todayItems: todayItems, cardHtml: cardHtml,
               setLoaded: function (v) { _loaded = v; }, setCards: function (a) { PS.cards = a; _loaded = true; } }
   };
 
