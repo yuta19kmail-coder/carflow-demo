@@ -592,6 +592,11 @@ function _tableSorter() {
       av = a.deliveryDate || '';
       bv = b.deliveryDate || '';
       return av.localeCompare(bv) * sign;
+    } else if (key === 'soba') {
+      // v3.11.0 相場との差（%）。出ていない車は向きに関係なく後ろ
+      const pv = c => { const r = window.SobaQuick && SobaQuick.result(c); return r && r.rt && r.d != null ? r.d / r.rt : null; };
+      av = pv(a); bv = pv(b);
+      if (av == null || bv == null) return (av == null) - (bv == null);
     } else {
       return 0;
     }
@@ -611,6 +616,7 @@ function _renderTableSortBar() {
     {key:'status', label:'ステータス', icon:'🏷️'},
     {key:'progress', label:'進捗％', icon:'⚡'},
     {key:'deliveryDate', label:'納車予定日', icon:'🚗'},
+    ...(window.SobaQuick ? [{key:'soba', label:'相場との差', icon:'📶'}] : []),
   ];
   bar.innerHTML = `
     <div class="ex-toolbar-label">並び替え</div>
@@ -627,6 +633,12 @@ function _renderTableSortBar() {
     }
   });
 }
+
+/* v3.11.0 相場との差（js/soba-quick.js）が出たら、全体一覧を開いている時だけ描き直す */
+if (window.SobaQuick) SobaQuick.onUpdate = function () {
+  const w = document.getElementById('table-body-wrap');
+  if (w && w.offsetParent !== null) renderTable();
+};
 
 function renderTable() {
   _renderTableSortBar();
@@ -658,6 +670,7 @@ function renderTable() {
       <td>${Number(car.km||0).toLocaleString()}km</td>
       <td style="color:var(--green);font-weight:600">${totalCell}</td>
       <td style="color:var(--text2);font-weight:500">${bodyCell}</td>
+      ${window.SobaQuick ? `<td style="white-space:nowrap">${SobaQuick.cell(car)}</td>` : ''}
       <td>${car.purchaseDate?fmtDate(car.purchaseDate):'—'}</td>
       <td>${invHtml}</td>
       <td><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></td>
@@ -672,7 +685,7 @@ function renderTable() {
   wrap.innerHTML = `<div style="overflow-x:auto"><table class="dtable">
     <thead><tr>
       <th>管理番号</th><th>メーカー/車種</th><th>年式</th><th>ボディ</th>
-      <th>走行距離</th><th>総額<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tltH}）</span></th><th>本体<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tlbH}）</span></th><th>仕入日</th><th>在庫日数</th>
+      <th>走行距離</th><th>総額<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tltH}）</span></th><th>本体<span style="font-size:10px;color:var(--text3);margin-left:3px">（${tlbH}）</span></th>${window.SobaQuick ? '<th title="本体価格（税込）と小売相場（税込）の差。カード詳細の［相場］タブの一番上と同じ数字">相場との差</th>' : ''}<th>仕入日</th><th>在庫日数</th>
       <th>ステータス</th><th>成約</th><th>納車予定</th><th>進捗</th>
     </tr></thead>
     <tbody>${rows}</tbody>

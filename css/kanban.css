@@ -721,3 +721,12 @@
 .tent-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:18px}
 .btn-ghost{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text2);padding:8px 14px;font-size:13px;cursor:pointer}
 .btn-ghost:hover{color:var(--text);border-color:var(--border2)}
+
+/* v3.11.0 全体一覧の「相場との差」の1行（js/soba-quick.js） */
+.sq{font-size:12px;font-weight:600}
+.sq-ok{color:var(--green)}
+.sq-mid{color:var(--orange)}
+.sq-ng{color:var(--red)}
+.sq-eq{color:var(--text2)}
+.sq-na,.sq-wait{color:var(--text3);font-weight:400}
+.sq-na{cursor:help}
