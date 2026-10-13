@@ -1,5 +1,5 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.9.3（2026-10-11）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.13.0（2026-10-13）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
@@ -8,12 +8,13 @@
      ・サンプル・見かた（sample.js）は Storage から読む（無ければ出ない）
      ・ライバル店DB（rival.js）は Storage から読む（無ければ店のカテゴリ別の欄を出さない）
      ・この車種の注意＝カードの notes。特殊車両枠（special）は車名の横に「参考」の札（CarFlow だけ）
+     ・希少車（rare）・全期間のボタン（lt がある車だけ）はビューアの RARE()・chart() のまま（第11回〜）
      ・色・ボタン・スクロールは CarFlow に合わせる（index.html の上書き）
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
 const SMPD=window.SAMPLE&&Array.isArray(window.SAMPLE.cards)?window.SAMPLE:null,SMK=SMPD?SMPD.maker:'';
 const HIDK=new Set((window.SOBA&&window.SOBA.hidden)||[]);   /* 2026-10-11 値の出ないカード（export.py が ready_check.js で決める＝index.json と同じ）は一覧に出さない */
-const D=[...(SMPD?SMPD.cards:[]),...(window.SOBA_INDEX||[])].filter(m=>Object.keys(m.years||{}).length&&!HIDK.has(m.key)),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：本物は一覧（index.json＝hidden は入っていない）だけ（中身は SobaData.card() で開いた時に読む）。サンプルは中身ごと
+const D=[...(SMPD?SMPD.cards:[]),...(window.SOBA_INDEX||[])].filter(m=>(Object.keys(m.years||{}).length||m.rare)&&!HIDK.has(m.key)),AV=(window.SOBA&&window.SOBA.avg)||{};   // CarFlow：本物は一覧（index.json＝hidden は入っていない）だけ（中身は SobaData.card() で開いた時に読む）。サンプルは中身ごと
 // 計算はすべて soba-calc.js（SobaCalc）。ここには書かない。D は年式が1つも無い車種（販売が終わった後の年式など）を外した一覧
 const {AA_SELL,BUY_AA_PROF}=SobaCalc.CFG;
 
@@ -125,7 +126,7 @@ const MK_ORDER=[SMK||'サンプル・見かた','トヨタ','日産','ホンダ'
 // 左の一覧：同じ車名の歴代モデル（「〜（2013年以前）」なども）は1つにまとめ、押すと開く（ゆうた 2026-10-04）
 const OPEN=new Set(),SHUT=new Set(),MKSHUT=new Set();   // MKSHUT＝閉じたメーカー（ゆうた 2026-10-05「メーカーで閉じれるように」）
 const baseName=m=>(m.family||m.car.replace(/（[^）]*）$/,'')).trim();
-const yr0=m=>Math.min(...Object.keys(m.years).map(Number)),yr1=m=>Math.max(...Object.keys(m.years).map(Number));
+const YRS=m=>m.rare&&m.rare.ys?m.rare.ys:Object.keys(m.years).map(Number),yr0=m=>Math.min(...YRS(m)),yr1=m=>Math.max(...YRS(m));   // 2026-10-13 希少車は売れた実績の年式
 let MKINIT=false;   // 開いた時はメーカーを全部閉じる（2026-10-09 ゆうた）
 // 全角の英数字（ＪＦ３・ＡＧＨ３０Ｗ・－）を半角に（2026-10-09 ゆうた「左の一覧のモデルコードも半角英数に」）。カタカナ・（）はそのまま
 const hw=t=>String(t==null?'':t).replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[－‐]/g,'-').replace(/＋/g,'+').replace(/＆/g,'&');
@@ -134,7 +135,7 @@ function list(){const q=document.getElementById('q').value.trim().toLowerCase();
  const mks=[...new Set(L.map(m=>m.maker))].sort((a,b)=>(MK_ORDER.indexOf(a)+99)%99-(MK_ORDER.indexOf(b)+99)%99);
  const item=(m,child,c2)=>{const b=document.createElement('button');b.className=(M&&M.key===m.key?'on ':'')+(child?'child':'')+(c2?' c2':'');
   const gn=((m.kn||{}).gens||[]).join('・'),md=(m.mods||[]).includes('*')?'全型式':(m.mods||[]).slice(0,3).join('・').replace(/■/g,'');
-  b.innerHTML=hw(child?`${c2&&m.sub?m.sub+(gn?' '+gn:''):m.sub&&!c2?m.sub+' '+(gn||m.car.replace(baseName(m),'').trim()):gn||m.car.replace(baseName(m),'').replace(/[（）]/g,'').trim()||md}<small>${yr0(m)}〜${yr1(m)}年式　${md}</small>`:`${m.car}<small>${md}　${Object.keys(m.years).length}年式</small>`);
+  b.innerHTML=hw(child?`${c2&&m.sub?m.sub+(gn?' '+gn:''):m.sub&&!c2?m.sub+' '+(gn||m.car.replace(baseName(m),'').trim()):gn||m.car.replace(baseName(m),'').replace(/[（）]/g,'').trim()||md}<small>${yr0(m)}〜${yr1(m)}年式　${md}</small>`:`${m.car}<small>${md}　${YRS(m).length}年式</small>`)+(m.rare?'<span class="rtag">希少車</span>':'');
   b.onclick=()=>openCard(m.key);return b};
  mks.forEach(mk=>{const shut=!q&&MKSHUT.has(mk),h=document.createElement('div');h.className='mkh'+(shut?' shut':'');const nc=new Set(L.filter(m=>m.maker===mk).map(baseName)).size;h.innerHTML=`<span class="arw">${shut?'▸':'▾'}</span>${mk}<small>${nc}車種</small>`;h.onclick=()=>{MKSHUT.has(mk)?MKSHUT.delete(mk):MKSHUT.add(mk);list()};nav.appendChild(h);
   if(shut)return;
@@ -189,7 +190,7 @@ function cdSet(k,v){const C=()=>FULLC(CDLG.key);if(k==='key'&&!FULLC(v)){SobaDat
  if(k==='q'){draw();const e=document.getElementById('cdq');if(e){e.focus();e.setSelectionRange(v.length,v.length)}return}draw()}
 function cdAdd(){if(!CDLG||!CDLG.key)return;const o={key:CDLG.key,y:CDLG.y,m:CDLG.m,g:CDLG.g,sb:CDLG.sb,km:CDLG.km,col:CDLG.col,e:CDLG.e,i:CDLG.i};if(CDLG.idx!=null)CMPS[CDLG.idx]=o;else if(CMPS.length<2)CMPS.push(o);CDLG=null;draw()}
 function cmpDel(i){CMPS.splice(i,1);draw()}
-function CDLGH(){if(!CDLG)return '';const q=CDLG.q.trim().toLowerCase();const L=D.filter(m=>!q||(m.maker+m.car+m.key+(m.mods||[]).join(' ')).toLowerCase().includes(q)).slice(0,60);const C=CDLG.key&&FULLC(CDLG.key);
+function CDLGH(){if(!CDLG)return '';const q=CDLG.q.trim().toLowerCase();const L=D.filter(m=>!m.rare&&(!q||(m.maker+m.car+m.key+(m.mods||[]).join(' ')).toLowerCase().includes(q))).slice(0,60);const C=CDLG.key&&FULLC(CDLG.key);
  const Y=C&&C.years[CDLG.y],o=(v,cur,lb)=>`<option value="${String(v).replace(/"/g,'&quot;')}" ${v===cur?'selected':''}>${lb==null?v:lb}</option>`;
  const cols=C?[...new Set([...((C.fit.sold||{}).cs||[]),...Y.colors.map(c=>c[0])])]:[];
  const gl=Y?((Y.mg||{})[CDLG.m]||[]):[];
@@ -241,25 +242,27 @@ try{const o=JSON.parse(localStorage.getItem('chshow')||'{}');if(o.ln===false)CH.
 function setCh(k,v){CH[k]=v;if(k==='ln'||k==='cdl')try{localStorage.setItem('chshow',JSON.stringify({ln:CH.ln,cdl:CH.cdl}))}catch(e){}draw()}
 const mon=t=>{const d=new Date();d.setMonth(d.getMonth()+t);return (d.getMonth()+1)+'月'};
 // モデル平均の動き：選んだ型式を含む年式（全年式が対象の車種は全部の年式）の月ごとの値を、年式ごとに「いま」を基準にした比にして、台数の重みで平均（対数）
-function MIDX(card,ys,kind){const A={};ys.forEach(y=>{const s=((card.years[y]||{})['ser_'+kind])||[];if(s.length<4)return;const b=s.reduce((a,x)=>x[0]>a[0]?x:a);s.forEach(x=>{const w=Math.min(x[2],60);(A[x[0]]=A[x[0]]||[0,0,0,0])[0]+=Math.log(x[1]/b[1])*w;A[x[0]][1]+=w;A[x[0]][2]+=x[2];A[x[0]][3]++})});
+let LONGF=false;   // 2026-10-13 全期間の時は比べる線（モデル平均・前のモデル）も古い月をつなぐ
+function MIDX(card,ys,kind){const A={};ys.forEach(y=>{const s=[...(LONGF?((card.years[y]||{})['ser_'+kind+'_l']||[]):[]),...(((card.years[y]||{})['ser_'+kind])||[])];if(s.length<4)return;const b=s.reduce((a,x)=>x[0]>a[0]?x:a);s.forEach(x=>{const w=Math.min(x[2],60);(A[x[0]]=A[x[0]]||[0,0,0,0])[0]+=Math.log(x[1]/b[1])*w;A[x[0]][1]+=w;A[x[0]][2]+=x[2];A[x[0]][3]++})});
  return Object.keys(A).map(Number).sort((a,b)=>a-b).filter(t=>A[t][2]>=10).map(t=>[t,A[t][0]/A[t][1],A[t][2],A[t][3]])}
-function MABS(card,ys,kind){const A={};ys.forEach(y=>{const s=((card.years[y]||{})['ser_'+kind])||[];s.forEach(x=>{const w=Math.min(x[2],60);(A[x[0]]=A[x[0]]||[0,0,0,0])[0]+=Math.log(x[1])*w;A[x[0]][1]+=w;A[x[0]][2]+=x[2];A[x[0]][3]++})});
+function MABS(card,ys,kind){const A={};ys.forEach(y=>{const s=[...(LONGF?((card.years[y]||{})['ser_'+kind+'_l']||[]):[]),...(((card.years[y]||{})['ser_'+kind])||[])];s.forEach(x=>{const w=Math.min(x[2],60);(A[x[0]]=A[x[0]]||[0,0,0,0])[0]+=Math.log(x[1])*w;A[x[0]][1]+=w;A[x[0]][2]+=x[2];A[x[0]][3]++})});
  return Object.keys(A).map(Number).sort((a,b)=>a-b).filter(t=>A[t][2]>=10).map(t=>[t,Math.exp(A[t][0]/A[t][1]),A[t][2],A[t][3]])}
 /* 複数の年式を選んだ時のグラフの線（2026-10-09）：年式ごとの月・週の値を、その年式の直近の値で割った「形」にし、今の条件に当てはまる台数で重みをつけて合わせる。
    高さは下で「いまの値」（顔ぶれの真ん中）にそろえるので、形だけを使う。件数は足し合わせ */
 function yMerged(){const Y=M.years[S.y];if(!S.ys||S.ys.length<2)return Y;
  const W={};S.ys.forEach(y=>{const n=SobaCalc.cxCount(M,[y],S.f);W[y]=(n.aa+n.rt)||1});const o={...Y};
  ['sold','aa'].forEach(k=>{const anc={};S.ys.forEach(y=>{const Yy=M.years[y];const w=(Yy['ser_'+k+'_w']||[]).filter(x=>x[0]>=-4).map(x=>x[1]),m=(Yy['ser_'+k]||[]).filter(x=>x[0]>=-1).map(x=>x[1]);const v=(w.length?w:m).sort((a,b)=>a-b);if(v.length)anc[y]=v[Math.floor(v.length/2)]});
-  ['','_w'].forEach(sf=>{const A={};S.ys.forEach(y=>{if(!anc[y])return;(M.years[y]['ser_'+k+sf]||[]).forEach(x=>{const a=(A[x[0]]=A[x[0]]||[0,0,0]);a[0]+=Math.log(x[1]/anc[y])*W[y];a[1]+=W[y];a[2]+=x[2]})});
+  ['','_w','_l'].forEach(sf=>{const A={};S.ys.forEach(y=>{if(!anc[y])return;(M.years[y]['ser_'+k+sf]||[]).forEach(x=>{const a=(A[x[0]]=A[x[0]]||[0,0,0]);a[0]+=Math.log(x[1]/anc[y])*W[y];a[1]+=W[y];a[2]+=x[2]})});
    o['ser_'+k+sf]=Object.keys(A).map(Number).sort((a,b)=>a-b).map(t=>[t,Math.exp(A[t][0]/A[t][1]),A[t][2]])})});
  return o}
-function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.years[S.y],ser_sold:PH.ser_sold||[],ser_aa:PH.ser_aa||[],ser_sold_w:PH.ser_sold_w||[],ser_aa_w:PH.ser_aa_w||[]}:yMerged(),F=M.fit,TX=SobaCalc.CFG.TAX,ks=R.rtStd?R.rt/R.rtStd:1,ka=R.aaStd?R.aa/R.aaStd:1,same=Math.abs(ks-1)<0.005&&Math.abs(ka-1)<0.005;
+function chart(R){const PH0=PHSEL(),LT=M.lt&&!PH0?M.lt:null,RNG=CH.rng==='all'?(LT?LT.span-1:12):(CH.rng>12?(LT?Math.min(CH.rng,LT.span-1):12):CH.rng),LONG=RNG>12&&!!LT;   // 2026-10-13 全期間（13か月より古い月がたまった車だけ。M.lt）
+ LONGF=LONG;const PH=PH0,MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.years[S.y],ser_sold:PH.ser_sold||[],ser_aa:PH.ser_aa||[],ser_sold_w:PH.ser_sold_w||[],ser_aa_w:PH.ser_aa_w||[]}:yMerged(),F=M.fit,TX=SobaCalc.CFG.TAX,ks=R.rtStd?R.rt/R.rtStd:1,ka=R.aaStd?R.aa/R.aaStd:1,same=Math.abs(ks-1)<0.005&&Math.abs(ka-1)<0.005;
  // 月ごと（t＝月）と週ごと（w＝週→月に直す）。直近は週ごと、それより前は月ごと。小売は税込→÷1.1（グラフは税抜でそろえる）
  const WK=4.345,mix=(mon,wk,div)=>{const W=(wk||[]).map(x=>[x[0]/WK,x[1]/div,x[2]]);const cut=W.length?Math.min(...W.map(x=>x[0]))-0.3:1;return [...(mon||[]).filter(x=>x[0]<cut).map(x=>[x[0],x[1]/div,x[2]]),...W]};
- const S0=mix(Y.ser_sold,Y.ser_sold_w,TX),A0=mix(Y.ser_aa,Y.ser_aa_w,1);
+ const S0=mix(LONG?[...(Y.ser_sold_l||[]),...(Y.ser_sold||[])]:Y.ser_sold,Y.ser_sold_w,TX),A0=mix(LONG?[...(Y.ser_aa_l||[]),...(Y.ser_aa||[])]:Y.ser_aa,Y.ser_aa_w,1);
  // 実際の値のローソク足（2026-10-09 ゆうた）：今の条件（年式・グレード・期・走行の帯）に当てはまる車の、月ごと（直近4か月は週ごと）の 10・25・50・75・90%
  const CDL=SobaCalc.candles(M,S.ys,S.f),cdmix=(L,div)=>{const W=L.filter(x=>x[7]),cut=W.length?Math.min(...W.map(x=>x[0]))-0.3:1;return [...L.filter(x=>!x[7]&&x[0]<cut),...W].map(x=>[x[0],...x.slice(1,6).map(v=>v/div),x[6],x[7]])};
- const CA=cdmix(CDL.a,1),CR=cdmix(CDL.r,TX);
+ const CDLL=LONG?SobaCalc.candlesLong(M,S.ys):{a:[],r:[]},CA=cdmix([...CDLL.a,...CDL.a],1),CR=cdmix([...CDLL.r,...CDL.r],TX);
  if(!S0.length&&!A0.length&&!CA.length&&!CR.length)return PH?`<div class="note" style="margin:8px 0">${PH.name}の車（初度登録 ${PH.ym}〜）は、まだ取引が少ない（AA ${(PH.n||{}).aa??0}台・小売 ${(PH.n||{}).sold??0}台・1か月3台未満）ので、線とローソク足は出せません。上の値は当てはまる実績から出しています。</div>`:'';
  // 線の高さを「いまの値」にそろえる（ゆうた 2026-10-05「グラフがズレてる」）：過去の線は式で作った標準の車、いまの値は機械学習なので高さがずれる。
  // 直近（1か月以内）の点の真ん中を、選んだ車＝いまの値・標準の車＝標準の車のいまの値に合わせ、形（上がり下がり）だけを使う
@@ -274,7 +277,7 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
  const sc0=(f,v)=>f.length&&v!=null&&f[0][1]>0?f.map(x=>[x[0],x[1]*v/f[0][1]]):f;
  const FS=F.sold?sc0(fc(F.sold,TX),R.rt!=null?R.rt/TX:null):[],FA=F.aa?sc0(fc(F.aa,1),R.aa):[];
  const bs=R.conf.rt?R.conf.rt.pct/100:0,ba=R.conf.aa?R.conf.aa.pct/100:0;
- const r0=-CH.rng,inr=x=>x[0]>=r0-0.01;
+ const r0=-RNG,inr=x=>x[0]>=r0-0.01;
  // 比較の車：小売＝実線・AA＝破線、車ごとに色（2台目＝紫・3台目＝緑）。値そのもの（税抜）
  const CQ=CMPS.map((o,i)=>{const q=cmpQ(o);if(!q)return null;const k2=q.R.rtStd?q.R.rt/q.R.rtStd:1,a2=q.R.aaStd?q.R.aa/q.R.aaStd:1;const me2={...q.c,y:+q.y,t:0};
   const fc2=(f,div)=>f?[0,1,2,3,4].map(t=>[t,(SobaCalc.prX(f,{...me2,t},q.Y)||NaN)/div]).filter(x=>!isNaN(x[1])):[];
@@ -295,7 +298,7 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
  else if(solo&&CH.mc&&(M.phases||[]).length>1){const ph=M.phases.filter(p=>p.years.some(y=>M.years[y]));const cur=ph.find(p=>p.years.map(String).includes(S.y));const gn=cur&&cur.gen;ph.filter(p=>!gn||!p.gen||p.gen===gn).forEach((p,i)=>{const ys=p.years.map(String).filter(y=>M.years[y]&&(star||(M.years[y].models||[]).some(m=>m[0]===S.m)));if(ys.length)addCmp(M,ys,`${p.gen?p.gen+' ':''}${p.name}（${ys[0]}〜${ys[ys.length-1]}年式）`,['12 4','4 4','12 4 2 4'][i%3],`${p.name}（${ys[0]}〜${ys[ys.length-1]}年式・${p.ym||''}〜）の標準の車の値の平均${p.what?'。'+p.what.slice(0,60):''}`,1)})}
  if(solo&&CH.gen){const K=M.kn||{};[[K.prev,'前のモデル','6 3 1 3']].forEach(([k,lb,ds])=>{const c=k&&FULLC(k);if(c)addCmp(c,Object.keys(c.years),`${lb} ${gnm(c)}`,ds,`${c.car}（${gnm(c)}）全${Object.keys(c.years).length}年式（${Object.keys(c.years)[0]}〜${Object.keys(c.years).slice(-1)[0]}）の標準の車の値の平均`,1)})}
  // 3か月＝「直近の動きを見る画面」（2026-10-09 ゆうた「3か月と6か月がほぼ同じ。3か月のキャラを立たせる」）：先は1か月だけ・縦は直近に寄せる・下の棒は週ごと・直近4週とその前の4週の比べ
- const SH=CH.rng<=3&&!CH.y1,XMv=SH?1:(CH.y1?12:4),FSd=SH?FS.filter(x=>x[0]<=XMv):FS,FAd=SH?FA.filter(x=>x[0]<=XMv):FA;
+ const SH=RNG<=3&&!CH.y1,XMv=SH?1:(CH.y1?12:4),FSd=SH?FS.filter(x=>x[0]<=XMv):FS,FAd=SH?FA.filter(x=>x[0]<=XMv):FA;
  const vis=[...(SH?[]:[...S0,...A0]),...(CH.ln?[...Ss,...As]:[])].filter(inr).map(x=>x[1]).concat(CH.cdl?[...CA,...CR].filter(x=>inr(x)&&x[6]>=5).flatMap(x=>[x[1],x[5]]):[],[R.aa,R.rt!=null?R.rt/TX:null].filter(v=>v!=null)).concat(FSd.map(x=>x[1]*(1+(SH?0:bs))),FAd.map(x=>x[1]*(1-(SH?0:ba))),FSd.map(x=>x[1]*(1-(SH?0:bs))),R.up!=null&&!SH?[R.up]:[],CH.y1&&R.rt1y?[R.rt1y/TX*1.15,R.rt1y/TX*0.85]:[],CH.y1&&R.aa1y?[R.aa1y*1.15,R.aa1y*0.85]:[],...CMP.map(c=>c.L.filter(inr).map(x=>x[1])),...CQ.map(q=>[...q.S,...q.A].filter(inr).map(x=>x[1]).concat(q.FS.map(x=>x[1]),q.FA.map(x=>x[1]),[q.R.tax.rt&&q.R.tax.rt.ex,q.R.tax.aa&&q.R.tax.aa.ex].filter(v=>v!=null))));
  const W=760,H=318,L=54,Rr=18,T=14,B=58;let lo=Math.min(...vis)*(SH?0.985:0.95),hi=Math.max(...vis)*(SH?1.015:1.03);if(CH.zoom==='zero')lo=0;
  const XM=XMv,X=t=>L+(t-r0)/(XM-r0)*(W-L-Rr),Yp=v=>T+(hi-v)/(hi-lo)*(H-T-B);let g='';
@@ -308,13 +311,13 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
  const SMP=-3.5;if(r0<SMP)g+=`<rect x="${X(r0)}" y="${T}" width="${X(SMP)-X(r0)}" height="${H-T-B}" fill="var(--line)" opacity=".35"/><text x="${(X(r0)+X(SMP))/2}" y="${T+11}" font-size="10.5" text-anchor="middle" fill="var(--sub)" data-tip="この区間は DataLine の抜き取りのデータ（1か月100台前後）。台数が少なく偏ることがあるので、だいたいの流れとして見る。直近3か月は全件">抜き取り（台数少・流れの目安）</text><line x1="${X(SMP)}" x2="${X(SMP)}" y1="${T}" y2="${H-B}" stroke="var(--sub)" stroke-width="1" stroke-dasharray="1 3"/>`;
  // 横軸：月の目盛り（3か月表示は毎月・それ以外は期間に応じて）
  // 縦の目盛り線（2026-10-09 ゆうた「3か月・6か月は月・週の線を多く」）：月の線＝細い実線、週の線＝点線（3か月表示は日付も）
- if(CH.rng<=6){const WK=4.345;for(let t=Math.ceil(r0);t<=XM;t++)g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="1"/>`;
+ if(RNG<=6){const WK=4.345;for(let t=Math.ceil(r0);t<=XM;t++)g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="1"/>`;
   for(let w=Math.ceil(r0*WK);w<=XM*WK;w++){const t=w/WK;if(Math.abs(t-Math.round(t))<0.06)continue;g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4" opacity=".8"/>`;
-   if(CH.rng<=3&&Math.abs(t-Math.round(t))>0.25){const d=new Date();d.setDate(d.getDate()+Math.round(w*7));g+=`<text x="${X(t)}" y="${H-B+16}" font-size="9" text-anchor="middle" fill="var(--sub)" opacity=".8">${d.getMonth()+1}/${d.getDate()}</text>`}}}
- const tk=CH.rng<=6?1:CH.rng<=12?2:3;for(let t=Math.ceil(r0);t<=XM;t++){if((t%tk)!==0&&t!==4&&t!==XM)continue;const d=new Date();d.setMonth(d.getMonth()+t);g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${H-B}" y2="${H-B+4}" stroke="var(--sub)"/><text x="${X(t)}" y="${H-B+16}" font-size="11" text-anchor="middle" fill="var(--sub)">${t===0?'いま':(d.getMonth()+1)+'月'}</text>`}
+   if(RNG<=3&&Math.abs(t-Math.round(t))>0.25){const d=new Date();d.setDate(d.getDate()+Math.round(w*7));g+=`<text x="${X(t)}" y="${H-B+16}" font-size="9" text-anchor="middle" fill="var(--sub)" opacity=".8">${d.getMonth()+1}/${d.getDate()}</text>`}}}
+ const tk=RNG<=6?1:RNG<=12?2:RNG<=24?3:RNG<=48?6:12;for(let t=Math.ceil(r0);t<=XM;t++){if((t%tk)!==0&&t!==4&&t!==XM)continue;const d=new Date();d.setMonth(d.getMonth()+t);g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${H-B}" y2="${H-B+4}" stroke="var(--sub)"/><text x="${X(t)}" y="${H-B+16}" font-size="11" text-anchor="middle" fill="var(--sub)">${t===0?'いま':RNG>12&&t<=0?String(d.getFullYear()).slice(2)+'/'+(d.getMonth()+1):(d.getMonth()+1)+'月'}</text>`}
  // 市場全体の相場が一番高かった月・一番安かった月（全車種の水準の真ん中）と、新型・マイナーチェンジ。
  // 線は細く、名前は月ラベルの下に小さな札で出す。札にマウスを乗せると詳しく（ゆうた 2026-10-03）
- const MK=(AV.mkt||{}),mkl=[],tags=[];
+ const MK=LONG&&AV.mkt_l?{rt:[...(AV.mkt_l.rt||[]),...((AV.mkt||{}).rt||[])],aa:[...(AV.mkt_l.aa||[]),...((AV.mkt||{}).aa||[])]}:(AV.mkt||{}),mkl=[],tags=[];
  if(CH.mk)[['rt','小売','var(--rt)'],['aa','AA','var(--aa)']].forEach(([k,nm,col])=>{const A=MK[k]||[],L2=A.filter(x=>x[0]>=r0&&x[0]<=0);if(L2.length<3)return;
   const hi=L2.reduce((a,b)=>b[1]>a[1]?b:a),lo=L2.reduce((a,b)=>b[1]<a[1]?b:a);
   [[hi,'高'],[lo,'安']].forEach(([x,w])=>{const prv=A.find(y=>y[0]===x[0]-1),ch=prv?((1+x[1]/100)/(1+prv[1]/100)-1)*100:null;
@@ -353,7 +356,7 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
  const btn=(k,v,lb)=>`<button class="${CH[k]===v?'on':''}" onclick="setCh('${k}',${typeof v==='string'?`'${v}'`:v})">${lb}</button>`;
  const tg=(k,lb)=>`<button class="${CH[k]?'on':''}" onclick="setCh('${k}',${!CH[k]})">${lb}</button>`;
  const last=(f,lb)=>f.length?`${lb} ${man(f[0][1])} → 4か月後 ${man(f[f.length-1][1])}（${pc((f[f.length-1][1]/f[0][1]-1)*100)}）`:'';
- return `<div class="chart"><div class="chtool"><span class="grp">期間 ${btn('rng',3,'3か月')}${btn('rng',6,'6か月')}${btn('rng',12,'12か月')}</span><span class="grp">縦軸 ${btn('zoom','fit','拡大')}${btn('zoom','zero','0から')}</span><span class="grp">表示 ${tg('ln','折れ線')}${tg('cdl','ローソク足')}</span><span class="grp">先 ${tg('y1','1年後の目安')}</span><span class="grp">縦線 ${tg('mk','相場')}${tg('ev','車種データ')}</span>${solo?`<span class="grp">比べる ${tg('mavg','モデル平均')}${(M.phases||[]).length>1?tg('mc','マイナーチェンジ前後'):'<button disabled data-tip="前期・後期の区切りがない車種です">マイナーチェンジ前後</button>'}${(M.kn||{}).prev?tg('gen','前のモデル'):'<button disabled data-tip="前のモデルの相場カードがありません">前のモデル</button>'}${M.nag?tg('nag','流札率'):''}${M.cnt?tg('cnt','件数'):''}</span>`:''}</div>
+ return `<div class="chart"><div class="chtool"><span class="grp">期間 ${btn('rng',3,'3か月')}${btn('rng',6,'6か月')}${btn('rng',12,'12か月')}${LT?LT.opts.map(o=>o==='all'?`<button class="${CH.rng==='all'?'on':''}" onclick="setCh('rng','all')" data-tip="たまったデータの全部（${LT.span}か月分）。13か月より前は月ごと・ローソク足は年式全体">全期間</button>`:btn('rng',o,o+'か月')).join(''):''}</span><span class="grp">縦軸 ${btn('zoom','fit','拡大')}${btn('zoom','zero','0から')}</span><span class="grp">表示 ${tg('ln','折れ線')}${tg('cdl','ローソク足')}</span><span class="grp">先 ${tg('y1','1年後の目安')}</span><span class="grp">縦線 ${tg('mk','相場')}${tg('ev','車種データ')}</span>${solo?`<span class="grp">比べる ${tg('mavg','モデル平均')}${(M.phases||[]).length>1?tg('mc','マイナーチェンジ前後'):'<button disabled data-tip="前期・後期の区切りがない車種です">マイナーチェンジ前後</button>'}${(M.kn||{}).prev?tg('gen','前のモデル'):'<button disabled data-tip="前のモデルの相場カードがありません">前のモデル</button>'}${M.nag?tg('nag','流札率'):''}${M.cnt?tg('cnt','件数'):''}</span>`:''}</div>
  <div class="lgd"><span style="color:var(--rt)">● 小売</span><span style="color:var(--aa)">● AA</span><b>税抜</b>${CH.cdl?`<span data-tip="ローソク足＝実際の値（今の条件の車の月ごと・直近4か月は週ごと）。細い線＝1〜9割・箱＝真ん中の半分・太線＝真ん中（20台未満は真ん中の半分の平均）・上の数＝台数。5台未満は薄く出す。顔ぶれでぶれる">ローソク足</span>`:''}${CH.ln?`<span data-tip="${((PH?`折れ線＝${PH.name}の車だけ（初度登録 ${S.ph?PH.ym+' 以降':ymPrev((M.phases[S.ph+1]||{}).ym)+' まで'}）の条件をそろえた動き（高さは今の値）`:MULTI?`折れ線＝選んだ${S.ys.length}つの年式の線を台数の重みで合わせた形（高さは今の値）`:`折れ線＝今の条件（世代全体の動きを、この年式の標準の車に合わせた形）。薄い点線＝標準の車（${Y.std.grade}・${(Y.std.km/10).toFixed(1)}万km）`)+`&lt;br&gt;直近4か月は週ごと（${CH.cdl?'線＝前後3週の平均':'細い線＝その週に売れた車・太い線＝前後3週の平均'}）`).replace(/"/g,'&quot;')}">折れ線</span>`:''}<span data-tip="今の条件で出した相場（税抜）。ローソク足の箱と比べる">横の点線＝今の相場</span><span data-tip="${SH?'1か月先':'4か月先'}の予測。帯＝外れの目安">太い点線＝予測</span>${r0<-3.5?'<span data-tip="DataLine の抜き取りの区間（1か月100台前後）。台数が少なく偏ることがあるので、流れの目安として見る">灰色＝抜き取り</span>':''}</div>
  <svg viewBox="0 0 ${W} ${H}">${g}${band(FSd,bs,'var(--rt)')}${band(FAd,ba,'var(--aa)')}${CH.cdl?cdlSvg(CR,'var(--rt)',-1,'小売（税抜）')+cdlSvg(CA,'var(--aa)',1,'AA'):''}${hl(R.rt!=null?R.rt/TX:null,'var(--rt)','小売相場')}${hl(R.aa,'var(--aa)','AA相場')}${CH.ln?(same||SH?'':line(S0,'var(--rt)',1)+line(A0,'var(--aa)',1))+lineW(Ss,'var(--rt)')+lineW(As,'var(--aa)')+pts(Ss,'var(--rt)')+pts(As,'var(--aa)'):''}${fl(FSd,'var(--rt)')}${fl(FAd,'var(--aa)')}${CH.y1?[[FS,R.rt1y&&R.rt1y/TX,'var(--rt)','小売',bs],[FA,R.aa1y,'var(--aa)','AA',ba]].map(([f,v,col,nm,b0])=>{if(!v||!f.length)return '';
    // 4か月先の予測と同じ見た目：月ごとの点と太い点線、外れの目安の帯（4か月先の幅から1年後の ±15% へ広げる）
@@ -365,7 +368,7 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
  ${CH.cdl&&(CDL.wide||['m','sb','col','e','i'].some(k=>S.f[k]!=null))?`<div class="fcap">${CDL.wide?'<span data-tip="条件が細かすぎる（直近3か月で10台未満）ので、走行の帯を外した年式・グレード'+(PH?'・期':'')+'の車で出している">ローソク足は走行の帯を外して表示</span>　':''}${['m','sb','col','e','i'].some(k=>S.f[k]!=null)?'<span data-tip="ローソク足は年式・グレード・期・走行の帯までで絞る。型式・詳細・色・評価点・内装は効かない">ローソク足は型式・色などで絞らない</span>':''}</div>`:''}
  ${CQ.length?`<div class="cmpleg"><span><svg class="sw" width="32" height="10" viewBox="0 0 32 10"><line x1="2" x2="30" y1="5" y2="5" stroke="var(--rt)" stroke-width="2"/></svg><svg class="sw" width="32" height="10" viewBox="0 0 32 10"><line x1="2" x2="30" y1="5" y2="5" stroke="var(--aa)" stroke-width="2"/></svg> ${M.car} ${S.y}年式 ${S.g}（青＝小売・橙＝AA）</span>${CQ.map(q=>`<span><svg class="sw" width="32" height="10" viewBox="0 0 32 10"><line x1="2" x2="30" y1="5" y2="5" stroke="${q.col}" stroke-width="2"/></svg><svg class="sw" width="32" height="10" viewBox="0 0 32 10"><line x1="2" x2="30" y1="5" y2="5" stroke="${q.col}" stroke-width="2" stroke-dasharray="6 3"/></svg> ${q.C.car} ${q.y}年式 ${q.c.g}（実線＝小売・破線＝AA）</span>`).join('')}<div class="muted" data-tip="比較の車は値そのもの（税抜）。走行は今の車にそろえ、色・評価点は標準。細い点線＝4か月先の予測">比較の車＝値そのもの（税抜）</div></div>`:''}
  ${CMP.length?`<div class="cmpleg">${[...new Set(CMP.map(c=>c.base))].map(n=>{const cs=CMP.filter(x=>x.base===n),c=cs[0];const sw=col=>`<svg class="sw" width="32" height="10" viewBox="0 0 32 10"><line x1="2" x2="30" y1="5" y2="5" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${c.dash}"/></svg>`;return `<span data-tip="${c.why.replace(/"/g,'&quot;')}">${cs.map(x=>sw(x.col)).join('')} ${n}<span class="muted">（${c.abs?'値そのもの':'動きだけ'}）</span></span>`}).join('')}<div class="muted" data-tip="「動きだけ」の線は選んだ車の「いま」の値にそろえて重ねている（値の高さは比べられない）。「値そのもの」は、その年式の標準の車の値を台数の重みで平均した金額（税抜）">青＝小売・橙＝AA</div></div>`:''}
- ${(()=>{if(!solo||!CH.cnt||(!M.cnt&&!SH))return '';const WK=4.345,wkc=k=>(Y['ser_'+k+'_w']||[]).map(x=>[x[0]/WK,x[2]]).filter(inr);const CN=PH&&PH.cnt?PH.cnt:M.cnt,a=SH?wkc('aa'):(CN.aa||[]).filter(inr),r=SH?wkc('sold'):(CN.sold||[]).filter(inr);if(!a.length&&!r.length)return '';const h=88,tp=10,bt=18,mx=Math.max(...a.map(x=>x[1]),...r.map(x=>x[1]))*1.12,Yn=v=>tp+(1-v/mx)*(h-tp-bt),bw=Math.max(3,(X(SH?1/WK:1)-X(0))*(SH?0.36:0.28));let q='';
+ ${(()=>{if(!solo||!CH.cnt||(!M.cnt&&!SH))return '';const WK=4.345,wkc=k=>(Y['ser_'+k+'_w']||[]).map(x=>[x[0]/WK,x[2]]).filter(inr);const CN=PH&&PH.cnt?PH.cnt:M.cnt,CL=LONG&&M.cnt_l?M.cnt_l:{},a=SH?wkc('aa'):[...(CL.aa||[]),...(CN.aa||[])].filter(inr),r=SH?wkc('sold'):[...(CL.sold||[]),...(CN.sold||[])].filter(inr);if(!a.length&&!r.length)return '';const h=88,tp=10,bt=18,mx=Math.max(...a.map(x=>x[1]),...r.map(x=>x[1]))*1.12,Yn=v=>tp+(1-v/mx)*(h-tp-bt),bw=Math.max(3,(X(SH?1/WK:1)-X(0))*(SH?0.36:0.28));let q='';
   const st=[10,20,50,100,200,500,1000,2000,5000,10000].find(v=>mx/v<=3)||20000;for(let v=st;v<mx;v+=st)q+=`<line x1="${L}" x2="${X(0)}" y1="${Yn(v)}" y2="${Yn(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Yn(v)+4}" font-size="10" text-anchor="end" fill="var(--sub)">${v.toLocaleString()}</text>`;
   const rough=t=>!SH&&t<-3.5;
   [[r,'var(--rt)',-1,'小売で売れた'],[a,'var(--aa)',1,'AAに出た']].forEach(([L2,col,sd,nm])=>L2.forEach(x=>q+=`<rect x="${X(x[0])+(sd<0?-bw:0)}" y="${Yn(x[1])}" width="${bw}" height="${h-bt-Yn(x[1])}" fill="${col}" opacity="${rough(x[0])?.4:.8}" data-tip="${SH?per(x[0])+'：'+nm+'件数 '+x[1]+'件（線の点の元データ）':mon(x[0])+'：'+M.car+(PH?'（'+PH.name+'の車）':'（車種全体）')+'が'+nm+'台数 約'+x[1].toLocaleString()+'台（推定）'}${rough(x[0])?'&lt;br&gt;4か月より前は、DataLine を飛び飛びのページで読んだ分からの推定なので粗い（±3割くらい）':''}"/>`));
@@ -373,8 +376,8 @@ function chart(R){const PH=PHSEL(),MULTI=S.ys&&S.ys.length>1||!!PH,Y=PH?{...M.ye
   return `<svg viewBox="0 0 ${W} ${h}" style="margin-top:2px">${q}</svg>`})()}
  ${(()=>{const NG=PH&&PH.nag?PH.nag:M.nag;if(!solo||!CH.nag||!NG||!NG.ser)return '';
   // 3か月・6か月は直近4か月を週ごと（M.nag.serw＝[週, 率, 台数]）＋それより前は月ごと（2026-10-09 ゆうた）。12か月は月ごと
-  const WK=4.345,WKV=CH.rng<=6&&(NG.serw||[]).length,wmix=(mo,wk)=>{if(!WKV||!(wk||[]).length)return (mo||[]).map(x=>[...x,0]);const W=wk.map(x=>[x[0]/WK,x[1],x[2],1]);const cut=Math.min(...W.map(x=>x[0]))-0.3;return [...(mo||[]).filter(x=>x[0]<cut).map(x=>[...x,0]),...W]};
-  const ser=wmix(NG.ser,NG.serw).filter(inr),AS=wmix((AV.nag||{}).ser,(AV.nag||{}).serw).filter(inr);if(!ser.length)return '';const h=78,tp=10,bt=18,mx=Math.max(10,...ser.filter(x=>x[2]>=5).map(x=>x[1]),...AS.map(x=>x[1]))*1.1,Yn=v=>tp+(1-v/mx)*(h-tp-bt),bwM=Math.min(28,Math.max(4,(X(1)-X(0))*0.55)),bwW=Math.max(2,(X(1/WK)-X(0))*0.6);let q='';
+  const WK=4.345,WKV=RNG<=6&&(NG.serw||[]).length,wmix=(mo,wk)=>{if(!WKV||!(wk||[]).length)return (mo||[]).map(x=>[...x,0]);const W=wk.map(x=>[x[0]/WK,x[1],x[2],1]);const cut=Math.min(...W.map(x=>x[0]))-0.3;return [...(mo||[]).filter(x=>x[0]<cut).map(x=>[...x,0]),...W]};
+  const ser=wmix(LONG?[...(NG.ser_l||[]),...NG.ser]:NG.ser,NG.serw).filter(inr),AS=wmix(LONG?[...((AV.nag||{}).ser_l||[]),...((AV.nag||{}).ser||[])]:(AV.nag||{}).ser,(AV.nag||{}).serw).filter(inr);if(!ser.length)return '';const h=78,tp=10,bt=18,mx=Math.max(10,...ser.filter(x=>x[2]>=5).map(x=>x[1]),...AS.map(x=>x[1]))*1.1,Yn=v=>tp+(1-v/mx)*(h-tp-bt),bwM=Math.min(28,Math.max(4,(X(1)-X(0))*0.55)),bwW=Math.max(2,(X(1/WK)-X(0))*0.6);let q='';
   [0,Math.round(mx/2/5)*5].filter((v,i)=>i===0||v>0).forEach(v=>q+=`<line x1="${L}" x2="${X(0)}" y1="${Yn(v)}" y2="${Yn(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Yn(v)+4}" font-size="10" text-anchor="end" fill="var(--sub)">${v}%</text>`);
   const av=(AV.nag||{}).all?AV.nag.all[0]:null;
   ser.forEach(x=>{const r=av?x[1]/av:1,col=r>=2.5?'var(--ng)':r>=1.5?'var(--mid)':'var(--aa)',bw=x[3]?bwW:bwM,v=Math.min(x[1],mx),few=x[3]&&x[2]<5;q+=`<rect x="${X(x[0])-bw/2}" y="${Yn(v)}" width="${bw}" height="${h-bt-Yn(v)}" fill="${col}" opacity="${few?.3:.75}" data-tip="${x[3]?per(x[0]):mon(x[0])}：${M.car}${PH?'（'+PH.name+'の車）':''}の流札率 ${x[1]}%（AAに出た${x[2]}台のうち）${few?'&lt;br&gt;台数が少ない週（5台未満）なので薄く出している':''}${av?`&lt;br&gt;全体の平均 ${av}%の${(x[1]/av).toFixed(1)}倍`:''}"/>`});
@@ -494,7 +497,49 @@ function GUIDE(){if(!M||!M.lesson)return '';
  return `<div class="guide"><div><h5>ローソク足＝実際に売れた値の散らばり</h5>${s1}<p>1本＝1か月（直近4か月は1週）。箱に真ん中の半分の車が入る。箱が長い＝値がばらばら。上の数字＝台数。薄い＝5台未満</p></div>
   <div><h5>折れ線＝相場の流れ</h5>${s2}<p>年式・グレード・走行をそろえた値の動き。右下がりなら値下がり中。予測は4か月先まで、帯が広いほど外れやすい</p></div>
   <div><h5>灰色・縦線・下の棒</h5>${s3}<p>灰色＝昔の月（抜き取りで台数少・流れの目安）。縦線と札＝相場の高安・新型など（札にマウス）。下の棒＝台数・流札率</p></div></div>`}
-function draw(){if(!M)return;if(M.study){STUDY();return}initS();
+/* ===== 希少車（2026-10-13）：台数が少なく式が作れない車。売れた1台ずつを年数・走行だけ「似た高級車の下がり方」でそろえ、幅で出す（計算＝SobaCalc.rareAll）。
+   長い説明は置かない（ホバー）。グラフ＝売れた実績の点（そのままの値）と、選んだ年式・走行の今の幅から先2年の下がり方の帯 */
+function RARE(){const Rr=M.rare,TX=SobaCalc.CFG.TAX;
+ if(S.ry==null||!Rr.ys.includes(+S.ry)){const c={};Rr.sales.forEach(x=>c[x[2]]=(c[x[2]]||0)+1);S.ry=Rr.ys.slice().sort((a,b)=>(c[b]-c[a])||(b-a))[0];S.rkm=null}
+ const y=+S.ry,km=S.rkm!=null?S.rkm:Rr.std[String(y)],Q=SobaCalc.rareAll(M,y,km);
+ const rg=(q,div)=>q?`${man(q[0]/div)}〜${man(q[2]/div)}`:'—';
+ const yc=Rr.sales.filter(x=>x[2]===y).length,H=Rr.ho||{};
+ const tipH=`この車は台数が少なく、ほかの車のような式が作れない。売れた1台ずつ（AA ${Rr.n.aa}台・小売 ${Rr.n.rt}台）を、年数と走行だけ「似た高級車の下がり方」（${Rr.par.aa.src}：1年で ${(100-Math.exp(-Rr.par.aa.a)*100).toFixed(1)}%・1万kmで ${(100*(Math.exp(Rr.par.aa.k)-1)).toFixed(1)}%）でこの条件にそろえた値の、真ん中の半分`;
+ const box=(nm,col,q,div,tip)=>`<div class="num"><div class="h" data-tip="${tip}">${nm}</div><div class="v" style="color:${col};font-size:22px">${q?`${(q[0]/div/10).toFixed(1)}〜${(q[2]/div/10).toFixed(1)}<small>万</small>`:'—'}<span class="tx">税抜</span></div><div class="inc">${q?`真ん中 ${man(q[1]/div)}・税込 ${man(q[0]/div*TX)}〜${man(q[2]/div*TX)}・${q[3]}台から`:'実績なし'}</div></div>`;
+ const fl=(f,div)=>f?`${man(f[1]/div)}<span class="muted">（${man(f[0]/div)}〜${man(f[2]/div)}）</span>`:'—';
+ // グラフ：横＝月（売れた月〜2年先）、縦＝税抜の値
+ const ts=Rr.sales.map(x=>x[0]),t0=Math.min(-3,...ts),t1=24,W=760,Hh=300,L=54,Rg=18,T=14,B=40;
+ const aaq=Q.aa,rtq=Q.rt,pa=Rr.par.aa,pr=Rr.par.rt;
+ const bandP=(q,par,div)=>{if(!q)return [];const P=[];for(let t=t0;t<=t1;t+=1){const n=t/12,lo=q[0]/div*Math.exp(-(t>0?par.ahi:par.a)*n),hi=q[2]/div*Math.exp(-(t>0?par.alo:par.a)*n),md=q[1]/div*Math.exp(-par.a*n);P.push([t,lo,md,hi])}return P};
+ const BA=bandP(aaq,pa,1),BR=bandP(rtq,pr,TX),pv=Rr.sales.map(x=>x[1]==='r'?x[4]/TX:x[4]);
+ const bv=[...BA.flatMap(x=>[x[1],x[3]]),...BR.flatMap(x=>[x[1],x[3]])],bh=bv.length?Math.max(...bv)*2.2:Infinity,bl=bv.length?Math.min(...bv)/2.2:0;   // 帯から離れすぎた点は端に寄せる（縦がつぶれないように）
+ const vis=[...pv.filter(v=>v<=bh&&v>=bl),...bv].filter(v=>v>0);
+ let lo=Math.min(...vis)*0.92,hi=Math.max(...vis)*1.05;const clip=v=>Math.max(lo,Math.min(hi,v));const X=t=>L+(t-t0)/(t1-t0)*(W-L-Rg),Yp=v=>T+(hi-v)/(hi-lo)*(Hh-T-B);let g='';
+ const step=[5,10,20,50,100,200,500,1000,2000,5000].find(s=>(hi-lo)/s<=7)||10000;for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step)g+=`<line x1="${L}" x2="${W-Rg}" y1="${Yp(v)}" y2="${Yp(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Yp(v)+4}" font-size="11" text-anchor="end" fill="var(--sub)">${(v/10).toFixed(0)}万</text>`;
+ g+=`<rect x="${X(0)}" y="${T}" width="${X(t1)-X(0)}" height="${Hh-T-B}" fill="var(--chip)" opacity=".6"/>`;
+ for(let t=Math.ceil(t0/3)*3;t<=t1;t+=3){const d=new Date(Math.floor(Rr.b0/12),Rr.b0%12+t,1);g+=`<text x="${X(t)}" y="${Hh-B+16}" font-size="10.5" text-anchor="middle" fill="var(--sub)">${t===0?'いま':String(d.getFullYear()).slice(2)+'/'+(d.getMonth()+1)}</text>`}
+ const poly=(P,col)=>P.length?`<polygon points="${[...P.map(x=>X(x[0])+','+Yp(x[3])),...P.slice().reverse().map(x=>X(x[0])+','+Yp(x[1]))].join(' ')}" fill="${col}" opacity=".13"/><polyline points="${P.map(x=>X(x[0])+','+Yp(x[2])).join(' ')}" fill="none" stroke="${col}" stroke-width="1.4" stroke-dasharray="6 4"/>`:'';
+ g+=poly(BA,'var(--aa)')+poly(BR,'var(--rt)');
+ const per=t=>{const d=new Date(Math.floor(Rr.b0/12),Rr.b0%12+t,1);return `${d.getFullYear()}年${d.getMonth()+1}月`};
+ Rr.sales.forEach(x=>{const v=x[1]==='r'?x[4]/TX:x[4],me=x[2]===y,col=x[1]==='r'?'var(--rt)':'var(--aa)',jx=((x[3]*7)%10-5)*0.08;
+  g+=`<circle cx="${X(x[0]+jx)}" cy="${Yp(clip(v))}" r="${me?4.2:3}" fill="${me?col:'var(--card)'}" stroke="${col}" stroke-width="1.3" opacity="${me?.95:.55}" data-tip="${per(x[0])}・${x[1]==='r'?'小売で売れた（税込 '+man(x[4])+'）':'AA落札'+(x[5]?'・評価'+x[5]:'')+(x[7]?'・'+x[7]:'')}&lt;br&gt;${x[2]}年式・${(x[3]/10).toFixed(1)}万km・${String(x[6]).replace(/"/g,'&quot;')}&lt;br&gt;${man(v)}（税抜）"></circle>`});
+ const chartS=`<div class="chart"><div class="lgd"><span style="color:var(--rt)">● 小売</span><span style="color:var(--aa)">● AA</span><b>税抜</b><span data-tip="塗った点＝選んだ年式・白抜き＝ほかの年式。値はそのまま（そろえていない）">点＝売れた実績</span><span data-tip="選んだ年式・走行の今の幅（真ん中の半分）を、似た高級車の下がり方で前後に伸ばした帯。先は下がり方のばらつき（似た車の4分の1〜4分の3）で広げる">帯＝目安と下がり方</span></div><svg viewBox="0 0 ${W} ${Hh}">${g}</svg></div>`;
+ const rows=Rr.sales.slice().reverse().map(x=>`<tr><td>${per(x[0])}</td><td>${x[1]==='r'?'小売':'AA'}</td><td class="n">${x[2]}</td><td class="n">${(x[3]/10).toFixed(1)}万km</td><td>${x[6]||''}</td><td class="n">${x[5]??''}</td><td>${x[7]||''}</td><td class="n">${man(x[1]==='r'?x[4]/TX:x[4])}</td></tr>`).join('');
+ document.getElementById('main').innerHTML=`
+ <div class="h2row"><h2 style="margin:0 0 8px"><span class="muted" style="font-size:14px">${M.maker}</span> ${M.car} <span class="rtag big" data-tip="${tipH}">${Rr.label}</span></h2></div>
+ <div class="pick"><div class="yl">年式<div class="years">${Rr.ys.slice().reverse().map(v=>`<button class="${v===y?'on':''}" onclick="S.ry=${v};S.rkm=null;draw()">${wy(v)}</button>`).join('')}</div></div>
+  <label>走行（万km）<input type="number" step="0.1" min="0" value="${(km/10).toFixed(1)}" onchange="S.rkm=Math.max(0,parseFloat(this.value)*10||0);draw()" style="width:90px"></label>
+  <div class="hit ${yc<3?'few':''}">この年式の実績 <b>${yc}台</b>（全部で AA ${Rr.n.aa}台・小売 ${Rr.n.rt}台）</div></div>
+ <div class="verdict mid vopen"><div class="bh">目安（幅）</div>
+  <div class="main3">${box('AA相場','var(--aa)',aaq,1,'AAで落ちる値の目安（真ん中の半分）。'+tipH)}${box('小売相場','var(--rt)',rtq,TX,'お店で売れた値の目安（真ん中の半分・税抜にした値）')}
+   <div class="num"><div class="h" data-tip="AA の幅の上と、小売の幅の下 ÷1.1 − 落札経費${SobaCalc.CFG.AA_FEE/10}万 − 粗利${SobaCalc.CFG.PROF.normal/10}万 の低い方。台数が少ないので目安">参考の上限</div><div class="v">${Q.up!=null?(Q.up/10).toFixed(1)+'<small>万</small>':'—'}<span class="tx">税抜</span></div><div class="inc">${Q.up!=null?'税込 '+man(Q.up*TX):''}</div></div></div>
+  <div class="s" style="margin-top:6px" data-tip="同じ走行のまま。似た高級車の1年の下がり方の真ん中（かっこ＝4分の1〜4分の3）">1年後 AA ${fl(Q.f1.aa,1)}・小売 ${fl(Q.f1.rt,TX)}　／　2年後 AA ${fl(Q.f2.aa,1)}・小売 ${fl(Q.f2.rt,TX)}</div>
+  <div class="s" data-tip="新しい方の${H.n||0}台を伏せて、残りの実績で当てた外れの真ん中（目安 ±15〜25%）。幅に入った割合${H.inr!=null?' '+H.inr+'%':''}">当たり方 ${H.err!=null?'±'+H.err+'%（'+H.n+'台で試した）':'台数が少なく試せない'}</div>
+ </div>
+ ${chartS}
+ <details class="box4"><summary>売れた実績（${Rr.sales.length}台・新しい順）</summary><table class="sc"><tr><th>いつ</th><th></th><th class="n">年式</th><th class="n">走行</th><th>グレード</th><th class="n">評価</th><th>会場</th><th class="n">値（税抜）</th></tr>${rows}</table></details>`;
+}
+function draw(){if(!M)return;if(M.study){STUDY();return}if(M.rare){RARE();return}initS();
  FC={};['g','m','kb','col','sb','e','i'].forEach(k=>FC[k]=facet(k));
  {const n=SobaCalc.cxCount(M,S.ys,S.f);HIT={aa:n.aa,rt:n.rt,few:n.aa<10||n.rt<10}}
  const R=calc(),Y=M.years[S.y],F=M.fit,Fs=F.sold||{},Fa=F.aa||{},tot=Y.tot||{};
