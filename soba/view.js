@@ -1,5 +1,5 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.13.0（2026-10-13）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.14.0（2026-10-14）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
@@ -9,6 +9,7 @@
      ・ライバル店DB（rival.js）は Storage から読む（無ければ店のカテゴリ別の欄を出さない）
      ・この車種の注意＝カードの notes。特殊車両枠（special）は車名の横に「参考」の札（CarFlow だけ）
      ・希少車（rare）・全期間のボタン（lt がある車だけ）はビューアの RARE()・chart() のまま（第11回〜）
+     ・この車について（about）はビューアの ABOUT() のまま（第13回〜）
      ・色・ボタン・スクロールは CarFlow に合わせる（index.html の上書き）
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
@@ -499,6 +500,10 @@ function GUIDE(){if(!M||!M.lesson)return '';
   <div><h5>灰色・縦線・下の棒</h5>${s3}<p>灰色＝昔の月（抜き取りで台数少・流れの目安）。縦線と札＝相場の高安・新型など（札にマウス）。下の棒＝台数・流札率</p></div></div>`}
 /* ===== 希少車（2026-10-13）：台数が少なく式が作れない車。売れた1台ずつを年数・走行だけ「似た高級車の下がり方」でそろえ、幅で出す（計算＝SobaCalc.rareAll）。
    長い説明は置かない（ホバー）。グラフ＝売れた実績の点（そのままの値）と、選んだ年式・走行の今の幅から先2年の下がり方の帯 */
+/* ===== この車について（2026-10-14 ゆうた「社員の車知識として、詳細のさらに下に Wiki 的なもの」）：車種知識の about → カードの about。
+   長い説明を嫌う画面なので最初は閉じる。中身＝[{title, sections:[{h, lines}], sources}]（車名・世代・特別グレードの順） */
+function ABOUT(M){const A=M&&M.about;if(!A||!A.length)return'';const E=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ return `<details class="about"><summary>この車について</summary>${A.map(a=>`<div class="ab"><h4>${E(a.title||'')}</h4>${(a.sections||[]).map(x=>`<h5>${E(x.h)}</h5><ul>${(x.lines||[]).map(l=>`<li>${E(l)}</li>`).join('')}</ul>`).join('')}${(a.sources||[]).length?`<p class="src">出典：${a.sources.map(u=>/^https?:/.test(u)?`<a href="${E(u)}" target="_blank" rel="noopener">${E(decodeURI(u).replace(/^https?:\/\//,'').slice(0,48))}</a>`:E(u)).join('　')}</p>`:''}</div>`).join('')}</details>`}
 function RARE(){const Rr=M.rare,TX=SobaCalc.CFG.TAX;
  if(S.ry==null||!Rr.ys.includes(+S.ry)){const c={};Rr.sales.forEach(x=>c[x[2]]=(c[x[2]]||0)+1);S.ry=Rr.ys.slice().sort((a,b)=>(c[b]-c[a])||(b-a))[0];S.rkm=null}
  const y=+S.ry,km=S.rkm!=null?S.rkm:Rr.std[String(y)],Q=SobaCalc.rareAll(M,y,km);
@@ -537,7 +542,8 @@ function RARE(){const Rr=M.rare,TX=SobaCalc.CFG.TAX;
   <div class="s" data-tip="新しい方の${H.n||0}台を伏せて、残りの実績で当てた外れの真ん中（目安 ±15〜25%）。幅に入った割合${H.inr!=null?' '+H.inr+'%':''}">当たり方 ${H.err!=null?'±'+H.err+'%（'+H.n+'台で試した）':'台数が少なく試せない'}</div>
  </div>
  ${chartS}
- <details class="box4"><summary>売れた実績（${Rr.sales.length}台・新しい順）</summary><table class="sc"><tr><th>いつ</th><th></th><th class="n">年式</th><th class="n">走行</th><th>グレード</th><th class="n">評価</th><th>会場</th><th class="n">値（税抜）</th></tr>${rows}</table></details>`;
+ <details class="box4"><summary>売れた実績（${Rr.sales.length}台・新しい順）</summary><table class="sc"><tr><th>いつ</th><th></th><th class="n">年式</th><th class="n">走行</th><th>グレード</th><th class="n">評価</th><th>会場</th><th class="n">値（税抜）</th></tr>${rows}</table></details>
+ ${ABOUT(M)}`;
 }
 function draw(){if(!M)return;if(M.study){STUDY();return}if(M.rare){RARE();return}initS();
  FC={};['g','m','kb','col','sb','e','i'].forEach(k=>FC[k]=facet(k));
@@ -657,6 +663,7 @@ ${(()=>{   // 詳細の1段目＝カタログ・純正色・主な諸元・装�
    <div class="row"><span>小売 月あたり</span><b>${pc(sr)}</b></div><div class="row"><span>AA 月あたり</span><b>${pc(sa)}</b></div><div class="row"><span>AAの台数（13か月・この年式）</span><b>約${tot.aa??'—'}台</b></div></div>
   </div>
  </div>
+ ${ABOUT(M)}
  <p class="note">${(R.warn||[]).length?R.warn[R.warn.length-1]:'社外パーツのカスタム・出品票の注意事項（警告灯・修理歴など）は相場DBに入っていない＝出品票で引く'}。<span data-tip="税抜をメインに出し、大きな金額には税込を横に添える（DataLineの小売・グーの新車価格は元が税込なので÷1.1、AA・ASNETは元が税抜）。4か月後の収益は税抜。お客様からの買取の「税込」は、お客様に払う額そのもの（個人からの買取は消費税が付かない支払い）。&lt;br&gt;金額はすべて、年式・グレード・走行・色・評価点・月をそろえて計算した値。DataLine の「成約」は掲載を下げた時の値で、値引きは入っていない。全車平均は、このDBに入っている車種の真ん中" style="border-bottom:1px dotted var(--sub)">税の表記・計算の前提</span></p>`;
  const m=document.getElementById('main');
  // 年式を変えた後、選んだ年式に無くなった条件ははずす（グレードは一番新しい年式の標準に）
