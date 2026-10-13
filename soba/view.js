@@ -1,5 +1,5 @@
 /* ========================================
-   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.14.0（2026-10-14）
+   soba/view.js ─ CarFlow 相場ビュー（画面）  v3.15.0（2026-10-14）
    ----------------------------------------
    🔴 計算はここに書かない。全部 soba-calc.js（相場DB が作る・Storage から読む）＝SobaCalc。
    中身と並びは 相場DB\相場ビューア.html（viewer_template.html）と同じ（2026-10-10 写し取り）。
@@ -10,6 +10,7 @@
      ・この車種の注意＝カードの notes。特殊車両枠（special）は車名の横に「参考」の札（CarFlow だけ）
      ・希少車（rare）・全期間のボタン（lt がある車だけ）はビューアの RARE()・chart() のまま（第11回〜）
      ・この車について（about）はビューアの ABOUT() のまま（第13回〜）
+     ・希少車のカタログ欄（rare.cat）はビューアの RCAT() のまま（第14回〜）
      ・色・ボタン・スクロールは CarFlow に合わせる（index.html の上書き）
    ======================================== */
 // サンプル・見かた（2026-10-10 ゆうた）：練習用の車（sample.js＝相場DB\sample_build.py が作る。本物のデータには混ぜない）を一覧の先頭に足す
@@ -504,6 +505,14 @@ function GUIDE(){if(!M||!M.lesson)return '';
    長い説明を嫌う画面なので最初は閉じる。中身＝[{title, sections:[{h, lines}], sources}]（車名・世代・特別グレードの順） */
 function ABOUT(M){const A=M&&M.about;if(!A||!A.length)return'';const E=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  return `<details class="about"><summary>この車について</summary>${A.map(a=>`<div class="ab"><h4>${E(a.title||'')}</h4>${(a.sections||[]).map(x=>`<h5>${E(x.h)}</h5><ul>${(x.lines||[]).map(l=>`<li>${E(l)}</li>`).join('')}</ul>`).join('')}${(a.sources||[]).length?`<p class="src">出典：${a.sources.map(u=>/^https?:/.test(u)?`<a href="${E(u)}" target="_blank" rel="noopener">${E(decodeURI(u).replace(/^https?:\/\//,'').slice(0,48))}</a>`:E(u)).join('　')}</p>`:''}</div>`).join('')}</details>`}
+/* 2026-10-14 希少車のカタログ欄：rare.cat[年式]（その年式で一番多い 型式×グレード をグーのカタログに当てた物。形は years[y].cat と同じ）。値には効かせない */
+function RCAT(c,y){if(!c)return '';const DT=window.SOBA&&SOBA.det,d=c.match&&DT&&c.did&&DT.pages[c.did],B=(t,h)=>`<div class="blk"><h4>${t}</h4>${h}</div>`,none='<p class="note">—</p>',TXc=SobaCalc.CFG.TAX,rg=(a,z,k)=>man(a/k)+(z&&z!==a?'〜'+man(z/k):'');
+ const cat=!c.match?`<p>${wy(y)}の型式${c.kata}では、カタログに「${c.g||''}」という名前のグレードが見つかりません。カタログのグレード：${(c.grades||[]).slice(0,12).join('／')}</p>`:`<p class="note" style="margin-top:0">${wy(y)}で一番多い「${c.g||''}」（${c.m||''}）</p><div class="row"><span>正式名</span><b>${c.name}${c.exact?'':'<small class="muted">（近い名前で突き合わせ）</small>'}</b></div><div class="row"><span>発売・型式</span><b>${c.ym}発売・${c.kata}</b></div>${c.pmin?`<div class="row"><span>新車価格</span><b>${rg(c.pmin,c.pmax,TXc)} <small class="muted">税抜</small></b></div><div class="row"><span></span><span class="muted">税込 ${rg(c.pmin,c.pmax,1)}</span></div>`:''}${c.id?`<div class="row"><span>カタログ</span><b><a href="https://www.goo-net.com${c.url}" target="_blank" rel="noopener">グーネットで見る</a></b></div>`:''}<p class="note">この年式のカタログのグレード：${(c.grades||[]).slice(0,20).join('／')}</p>`;
+ const cl=d?(DT.colors[d.col]||[]):[];
+ const col=cl.length?`<p class="note" style="margin-top:0">${cl.length}色・${c.ym}発売・型式${c.kata}（グーネット）</p><div class="cols">${cl.map(x=>`<span class="${x[1]?'op':''}" title="${x[2]}${x[1]?'・オプション':''}">${x[0].replace(/or/g,' または ')}${x[1]?'（OP）':''}</span>`).join('')}</div>`:none;
+ const sp=c.match?`<div class="row"><span>排気量・駆動・ミッション</span><b>${c.cc}・${c.drive}・${c.shift}</b></div><div class="row"><span>定員・燃費</span><b>${c.seat}・${c.fuel}</b></div><div class="row"><span>寸法</span><b>${c.size}</b></div>${d?Object.entries(d.sp).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join(''):''}`:none;
+ const eq=d?`${c.didg?`<p class="note" style="margin-top:0">「${c.didg}」のページ（同じ発売月・型式）</p>`:''}<h5>標準</h5><div class="eq">${d.std.map(i=>DT.eq[i]).join('・')||'—'}</div>${d.opt.length?`<h5>オプション</h5><div class="eq">${d.opt.map(i=>DT.eq[i]).join('・')}</div>`:''}`:none;
+ return `<div class="sech">詳細</div><div class="blocks"><div class="blk4">${B('カタログ<span class="note">（グーネット）</span>',cat)}${B('純正色',col)}${B('主な諸元',sp)}${B('装備',eq)}</div></div>`}
 function RARE(){const Rr=M.rare,TX=SobaCalc.CFG.TAX;
  if(S.ry==null||!Rr.ys.includes(+S.ry)){const c={};Rr.sales.forEach(x=>c[x[2]]=(c[x[2]]||0)+1);S.ry=Rr.ys.slice().sort((a,b)=>(c[b]-c[a])||(b-a))[0];S.rkm=null}
  const y=+S.ry,km=S.rkm!=null?S.rkm:Rr.std[String(y)],Q=SobaCalc.rareAll(M,y,km);
@@ -543,6 +552,7 @@ function RARE(){const Rr=M.rare,TX=SobaCalc.CFG.TAX;
  </div>
  ${chartS}
  <details class="box4"><summary>売れた実績（${Rr.sales.length}台・新しい順）</summary><table class="sc"><tr><th>いつ</th><th></th><th class="n">年式</th><th class="n">走行</th><th>グレード</th><th class="n">評価</th><th>会場</th><th class="n">値（税抜）</th></tr>${rows}</table></details>
+ ${RCAT((Rr.cat||{})[String(y)],y)}
  ${ABOUT(M)}`;
 }
 function draw(){if(!M)return;if(M.study){STUDY();return}if(M.rare){RARE();return}initS();
