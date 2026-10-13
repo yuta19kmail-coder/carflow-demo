@@ -151,7 +151,8 @@
     // 年式の入っているカードを読む（世代の境目で2つ以上なら、グレードが当たる方 → 台数の多い方）
     const cards = [];
     for (const e of inY.slice(0, 4)) { try { const c = await loadCard(e.key); if (c && c.years && c.years[y]) cards.push(c); } catch (err) {} }
-    if (!cards.length) { out.why = '相場カードを読めませんでした'; return out; }
+    // v3.13.0 希少車（rare＝式が無い・幅の目安だけ）は在庫車の自動の値付けに使わない
+    if (!cards.length) { out.why = inY.some(e => e.rare) ? '希少車（目安）のため自動では出しません。相場ビューで幅を見てください' : '相場カードを読めませんでした'; return out; }
     const scored = cards.map(c => {
       const Y = c.years[y], gr = gradeOf(Y.grades, C.hint);
       const n = (Y.grades || []).reduce((a, x) => a + (x[1] || 0), 0);
