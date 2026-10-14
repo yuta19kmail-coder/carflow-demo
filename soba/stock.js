@@ -97,8 +97,10 @@
       const code = miniCode(model) || miniCode(grade);
       if (code) {
         const jcw = /JCW|ジョンクーパー/i.test(model + ' ' + grade);
-        let L = pool.filter(e => new RegExp('[（(/]' + code + '[）)/]').test(String(e.car).normalize('NFKC')));
-        if (!L.length) L = all.filter(e => new RegExp('[（(/]' + code + '[）)/]').test(String(e.car).normalize('NFKC')));
+        // v3.15.1 「（J01・電気）」のように型式の後ろに「・」が付くカードもある（第16回〜 mini_j01）
+        const reC = new RegExp('[（(/]' + code + '[）)/・]');
+        let L = pool.filter(e => reC.test(String(e.car).normalize('NFKC')));
+        if (!L.length) L = all.filter(e => reC.test(String(e.car).normalize('NFKC')));
         const pickJ = L.filter(e => /JCW/.test(e.car) === jcw);
         L = pickJ.length ? pickJ : L;
         const rest = String(model + ' ' + grade).normalize('NFKC').replace(/MINI|ミニ/ig, '').replace(new RegExp(code.replace(/(\D)(\d+)/, '$1\\s?$2'), 'i'), '').replace(/JCW/i, '');
