@@ -131,7 +131,7 @@
   function coreMemoHtml(car) {
     var m = (car.memo || '').trim();
     return m
-      ? '<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)"><div class="core-memo-label">' + I('pin', '📌', 14) + ' メモ</div><div class="core-memo-text">' + esc(m).replace(/\n/g, '<br>') + '</div></div>'
+      ? '<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)"><div class="core-memo-label">' + I('pin', '📌', 14) + ' メモ</div><div class="core-memo-text" data-cf-noen>' + esc(m).replace(/\n/g, '<br>') + '</div></div>'
       : '<div class="core-memo core-memo-empty"><div class="core-memo-label">' + I('pin', '📌', 14) + ' メモ</div><div class="core-memo-text core-memo-placeholder">メモは未記入です（編集ボタンから記入）</div></div>';
   }
   function workMemoHtml(car) {
@@ -140,7 +140,7 @@
     var w = (car.workMemo || '').trim();
     return '<div class="work-memo" id="work-memo-wrap"><div class="work-memo-label">' + I('pencil', '📝', 16) + ' 作業メモ <span class="work-memo-hint">' + hint + '</span></div>'
       + '<div class="work-memo-view" onclick="startEditWorkMemo(\'' + esc(car.id) + '\')">'
-      + (w ? esc(w).replace(/\n/g, '<br>') : '<span class="work-memo-placeholder">タップしてメモを記入</span>') + '</div></div>';
+      + (w ? '<span data-cf-noen>' + esc(w).replace(/\n/g, '<br>') + '</span>' : '<span class="work-memo-placeholder">タップしてメモを記入</span>') + '</div></div>';
   }
   var KM_RE = /[KkＫｋ][MmＭｍ][-－ー−―‐]?[0-9０-９]{1,6}/g;
   /* この車に付いている付箋を全部（ボードに出ている物＋アーカイブ済）。

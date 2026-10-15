@@ -59,7 +59,7 @@ const HELP_CONTENTS = {
   <li>🔔 <strong>LINE通知連携</strong>：日報・赤付箋・大タスク完了を社内グループへ自動通知</li>
   <li>🗂 <strong>バックオフィス</strong>：売約後の事務処理を抜けなく追える専用画面</li>
   <li>📝 <strong>タスク個別メモ＋自動付箋</strong>：日付・時刻メモが緑付箋に自動連動</li>
-  <li>💾 <strong>データ管理UI</strong>：バックアップ／Excel一括編集／全消去</li>
+  <li>💾 <strong>データ管理UI</strong>：バックアップ（書き出し）／Excel一括編集</li>
 </ul>
 
 <div class="help-tip">💡 失敗してもカードは戻せるし、誰の操作かは「操作ログ」で追える。気軽に触ってみる方が早い。</div>
@@ -684,7 +684,7 @@ CarFlow はそれを<strong>読んでいるだけ</strong>で、ここでは何�
 
 <div class="help-faq">
   <div class="help-faq-q">操作ログが古いものまで残ってて見づらい</div>
-  <div class="help-faq-a">操作ログ画面（左サイドバー → 📋 操作ログ）の右上にある「🗑 操作ログを消去」ボタンで全消去できます（admin/manager のみ）。</div>
+  <div class="help-faq-a">操作ログは消せません（何があったかを後から確かめて戻すための記録です）。上の検索や絞り込みで探してください。</div>
 </div>
 
 <div class="help-faq">
@@ -868,21 +868,21 @@ CarFlow はそれを<strong>読んでいるだけ</strong>で、ここでは何�
 `,
 
 'adv-data': `
-<h2>💾 データ管理（バックアップ／一括編集／全消去）</h2>
+<h2>💾 データ管理（バックアップ／一括編集）</h2>
 
-<p>設定 → データ管理 にある3カードで、データ全般を扱える（管理者向け）。</p>
+<p>設定 → データ管理 にあるカードで、データ全般を扱える（管理者向け）。</p>
 
 <h3>📦 完全バックアップ（JSON）</h3>
-<p>会社の全データを 1ファイルにまとめて書き出し／取り込みする機能。</p>
+<p>会社の全データを 1ファイルにまとめて書き出す機能（控えのファイルを取るだけ・データは変わらない）。</p>
 <ul>
   <li><strong>含まれるもの</strong>：在庫車（cars）、販売実績（archivedCars）、付箋ボード、設定一式、チェックリストテンプレ、カスタム大タスク</li>
   <li><strong>含まれないもの</strong>：写真本体（Storage）、スタッフアカウント、LINE連携設定（セキュリティ・可用性のため）</li>
 </ul>
 <div class="help-step"><ol>
   <li>「📤 書き出し」を押すと <code>carflow_backup_YYYYMMDD_HHMM.json</code> がダウンロードされる</li>
-  <li>復元するには「📥 取り込み（全置換）」→ 該当JSONを選択 → 確認2回（最後は「復元」と入力）</li>
-  <li>取り込みは <strong>既存データを全置換</strong> する。LINE設定とスタッフは保持される</li>
+  <li>もしもの時に戻すのは管理者（チーフ）が行う。手順書＝<code>_ルール\メモ.md</code> の「🛟 戻す手順」</li>
 </ol></div>
+<div class="help-tip">💡 v3.16.7 から「取り込み（全置換）」「全データを消去」のボタンは外した（使っていない・押し間違えると戻せないため）。</div>
 <div class="help-tip">💡 月1回程度バックアップを取っておくと、何かあったときに復旧できる。クラウド（Google Drive 等）にコピーしておくとさらに安心。</div>
 
 <h3>📊 車両一括編集（Excel）</h3>
@@ -894,20 +894,6 @@ CarFlow はそれを<strong>読んでいるだけ</strong>で、ここでは何�
   <li><strong>ID列</strong>：触らないこと（突合キー。空欄行は新規登録扱いになる）</li>
 </ul>
 <div class="help-warn">⚠️ 取り込み時に状態列・日付列にバリデーションがかかる。形式が違うとその行はスキップ＋警告される。</div>
-
-<h3>🗑 全消去</h3>
-<p>在庫車・販売実績・付箋ボードを <strong>全部消す</strong>機能。納品時の初期化用。</p>
-<ul>
-  <li><strong>消えるもの</strong>：cars / archivedCars / boardNotes</li>
-  <li><strong>残るもの</strong>：設定一式・チェックリストテンプレ・スタッフ・LINE連携</li>
-</ul>
-<div class="help-step"><ol>
-  <li>「🗑 全データを消去」ボタン</li>
-  <li>1段階目の確認 → OK</li>
-  <li>2段階目で「<strong>全消去</strong>」と入力</li>
-  <li>処理が走り、リロード後にデータが空になっていることを確認</li>
-</ol></div>
-<div class="help-warn">⚠️ 元に戻せない。事前にバックアップを取ってから実行すること。</div>
 
 <h3>📦 写真の Storage 移行（メンテ用）</h3>
 <p>古い形式（data:URL 直埋め）の写真を Firebase Storage に一括移行するメンテツール。一度実施すれば再実行不要。</p>

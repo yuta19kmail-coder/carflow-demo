@@ -294,8 +294,7 @@
   // ----------------------------------------
   // v3.6.2 確認はアプリ内のダイアログ（UI.confirm・全アプリ共通）。ブラウザ標準の confirm() は使わない
   function _ask(title, detail, ok) {
-    if (window.UI && typeof UI.confirm === 'function') return UI.confirm(title, { detail: detail, ok: ok, cancel: 'やめる' });
-    return Promise.resolve(window.confirm(title + '\n' + detail));
+    return cfAsk(title, { detail: detail, ok: ok, cancel: 'やめる' });   /* v3.16.7（B-03）UI が無い時の戻し先も helpers.js の1か所に */
   }
   function markComplete(carId) {
     _ask('バックオフィス処理を完了しますか？', 'バックオフィス一覧から消えます（販売実績のデータは残ります）', '完了する')

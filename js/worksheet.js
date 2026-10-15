@@ -228,11 +228,7 @@ function openWorksheet(carId, taskId, phaseHint) {
       const sel = (typeof window.getCarTaskVariantId === 'function')
         ? window.getCarTaskVariantId(car, taskId) : null;
       if (!sel) {
-        if (typeof showToast === 'function') {
-          showToast('先にタスクパターンを選んでください', 'CF-3001');
-        } else {
-          alert('先にタスクパターンを選んでください');
-        }
+        showToast('先にタスクパターンを選んでください', 'CF-3001');   /* v3.16.7（B-03）ブラウザ標準の窓の予備は外した（showToast は helpers.js に必ずある） */
         return;
       }
     }
@@ -825,8 +821,9 @@ function onWsTextInput(itemId, value) {
     _refreshWsCompleteBtn(car, taskDef);
     // v1.8.49: kanban 側もデバウンス完了タイミングで更新
     if (typeof renderAll === 'function') renderAll();
-    // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
-    if (typeof checkTaskCompletionAndNotify === 'function') checkTaskCompletionAndNotify(car);
+    /* 🔴 v3.16.7（棚卸し A-72）大タスク完了の LINE は**サーバー1本**（_サーバー\functions\index.js の onCarUpdated の taskComplete）。
+       前はここ（画面）からも送っていたので、管理者がチェックすると文面の違う完了通知が2本届き、月200通を食っていた。
+       ⚠ ここに checkTaskCompletionAndNotify を戻さないこと（task-completion-notify.js は呼ばれないまま残してある） */
     delete _wsTextSaveTimers[itemId];
   }, 400);
 }
@@ -874,8 +871,7 @@ function _wsSetItemValue(itemId, updater) {
   }
   // v2.4.2: archivedCars対応
   _wsSaveCar(car, [bucket, taskDef.id, itemId], writeVal);
-  // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
-  if (typeof checkTaskCompletionAndNotify === 'function') checkTaskCompletionAndNotify(car);
+  /* 🔴 v3.16.7（A-72）大タスク完了の LINE はサーバー1本（画面からは送らない）＝上の onWsTextInput と同じ */
 
   // 該当行を再描画（入力タイプによってボタンの active 状態などが変わるので itemHtml 再生成）
   const row = document.querySelector(`.ws-item[data-id="${itemId}"]`);

@@ -3,8 +3,8 @@
    ----------------------------------------
    ◎なにをするもの
      ① サイドバー「🔧 整備依頼業務」＝ **PitFlow の「車販作業」ビューをそのまま**出す。
-        洗車／今週の洗車予定／車検ヘッドライト磨き／コーティング依頼／
-        直近1か月のコーティング予定／その他依頼事項 の6枠。
+        洗車／今週の洗車予定／車検ヘッドライト磨き／コーティング・その他依頼／
+        直近1か月のコーティング・その他予定 の5枠（v3.16.7＝PitFlow v2.51.0 に合わせて「その他依頼事項」を畳んだ）。
         「✓ 完了」「↩ 戻す」もそのまま動き、**結果は PitFlow にそのまま入る**。
      ② ダッシュボードの「要対応アクション」の上＝ **今日・明日にやる PitFlow の作業**を
         1行ずつのコンパクト表示で。ここでもその場で「済」にできる。
@@ -149,11 +149,24 @@
     return ymd(d);
   }
 
+  /* 1Y/3M（コーティング）または 車販依頼バッジ（carsale）が付いているか＝PitFlow car-sales.js `_csHasCoat` の写し */
   function hasCoat(c) {
     var ids = (Array.isArray(c.workTypes) && c.workTypes.length) ? c.workTypes
             : (Array.isArray(c.workAddons) ? c.workAddons.concat(c.workType ? [c.workType] : []) : (c.workType ? [c.workType] : []));
-    return ids.indexOf('coat1y') >= 0 || ids.indexOf('coat3m') >= 0;
+    return ids.indexOf('coat1y') >= 0 || ids.indexOf('coat3m') >= 0 || ids.indexOf('carsale') >= 0;
   }
+  /* 🔴 v3.16.7（棚卸し A-29）PitFlow v2.51.0（D-1）に追いつく。
+     ＝ 段は「受注が取れたか」1本で分ける・「その他依頼事項」の段は畳んだ・済の印は2本とも見る。
+     前は coatingDone だけを見ていたので、PitFlow で「その他依頼」側の印（salesReqDone）で済にした依頼が
+     CarFlow ではまだ未完に見えていた（PitFlow は済・CarFlow は未完の食い違い）。
+     ・salesish … PitFlow `_csSalesish`（1Y/3M・車販依頼バッジ・工程の「車販依頼」）
+     ・ordered  … PitFlow `_csOrdered`（物差しは pit-share.js の pitCarSalesOrdered＝coatingOK か salesReq）
+     ・coatDone … PitFlow `_csCoatDone`（coatingDone か salesReqDone）
+     🔴 PitFlow 側の3つを直したら、ここも直すこと（test_pit_embed.mjs が見比べる）。
+     ⏭ 根治は判定を _shared に出して両方が借りる形（棚卸し C-07） */
+  function salesish(c) { return hasCoat(c) || !!c.salesReq; }
+  function ordered(c) { return window.pitCarSalesOrdered ? pitCarSalesOrdered(c) : !!(c.coatingOK || c.salesReq); }
+  function coatDone(c) { return !!c.coatingDone || !!c.salesReqDone; }
 
   /* ---------------- カード1枚（PitFlow reserve.js cardHtml(compact) の写し） ----------------
      ⚠ 元は「かんばん用」の枝（opts.kanban / PitPip / 並び替え）も持っているが、
@@ -208,10 +221,10 @@
     var nm = custSurname(c) || '（未入力）';
     var stf = pitSurname(c.frontStaff || c.staff || '');
     var kn = c.tentative ? '<span class="kari-name" title="仮予約">仮</span>' : '';
-    h += '<div class="pcm-r"><span class="pcm-nm2"><span class="pcm-name">' + esc(nm) + '</span><span class="pcm-sama">様</span>' + kn
+    h += '<div class="pcm-r"><span class="pcm-nm2"><span class="pcm-name" data-cf-noen>' + esc(nm) + '</span><span class="pcm-sama">様</span>' + kn
        + '</span><span class="pcm-badges">' + top + '</span></div>';
     var washB = (c.returnStage && c.needWash) ? '<span class="pcm-wash' + (c.washSalesDone ? ' pcm-done' : '') + '" title="洗車対象">洗車</span>' : '';
-    h += '<div class="pcm-r"><span class="pcm-car">' + esc(c.car || '') + '</span>' + washB
+    h += '<div class="pcm-r"><span class="pcm-car" data-cf-noen>' + esc(c.car || '') + '</span>' + washB
        + (stf ? '<span class="pcm-front">' + esc(stf) + '</span>' : '') + '</div>';
     if (c.status === 'outsource') {
       var odN = c.phaseAt ? (Math.floor((Date.now() - c.phaseAt) / 86400000) + 1) : null;
@@ -414,20 +427,22 @@
        🔄 v2.45.0 別枠にはせず、下で「今週」と同じ並びに混ぜる（札で見分ける）。 */
     var washNoDate   = washAll.filter(function (c) { return c.returnStage && !planDate(c); });
     var headlight = cards.filter(function (c) { return c.headlight && active(c); });
-    var coatReq   = cards.filter(function (c) { return hasCoat(c) && c.coatingOK && active(c); });
+    /* ④ コーティング・その他依頼＝受注が取れたぶん（PitFlow v2.51.0） */
+    var coatReq   = cards.filter(function (c) { return salesish(c) && ordered(c) && active(c); });
     var monthAhead = (function () { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 31); return ymd(d); })();
+    /* ⑤ 直近1か月のコーティング・その他予定＝まだ受注前のぶん（受注が取れたら上の段へ） */
     var coatPlan = cards.filter(function (c) {
-      return hasCoat(c) && active(c) && !c.returnStage
+      return salesish(c) && !ordered(c) && active(c) && !c.returnStage
         && ((c.status === 'reserved' && c.reserveDate && c.reserveDate <= monthAhead) || CS_INTASK.indexOf(c.status) >= 0);
     });
-    var salesReq = cards.filter(function (c) { return c.salesReq && active(c); });
+    /* 🗑 v3.16.7「その他依頼事項」の段は畳んだ（PitFlow v2.51.0 D-1）。車販依頼は④に入る */
     /* 🚙 PitFlow v2.173.0 洗う代車（今日以前＝今日／翌営業日＝明日）
        🔴 PitFlow v2.180.0（ゆうた 2026-10-12）**今週の洗車予定には出さない**＝拾う範囲も翌営業日まで */
     var lo = loanerWash(todayStr, nextBiz).sort(loSort);
     var loToday = lo.filter(function (x) { return x.washDay <= todayStr; });
     var loTomorrow = lo.filter(function (x) { return x.washDay > todayStr && x.washDay <= nextBiz; });
     return { loToday: loToday, loTomorrow: loTomorrow, nextBiz: nextBiz, washToday: washToday, washTomorrow: washTomorrow, washWeek: washWeek,
-             washNoDate: washNoDate, headlight: headlight, coatReq: coatReq, coatPlan: coatPlan, salesReq: salesReq };
+             washNoDate: washNoDate, headlight: headlight, coatReq: coatReq, coatPlan: coatPlan };
   }
 
   function renderPitSales() {
@@ -484,22 +499,24 @@
                  s3.done.map(function (c) { return csDoneCard(c, 'headlight'); }).join(''));
     }
     {
-      var s4 = split(S.coatReq.sort(sortDate), 'coatingDone');
-      h += csSec(icon('sparkle', '✨', 16) + ' コーティング依頼', '受注OK・返車予定日つき',
-                 s4.open.map(function (c) { return csCard(c, 'coating', retLabel(c)); }).join(''),
+      /* 🔴 v3.16.7（A-29・PitFlow v2.51.0）受注が取れたぶん。畳んだ「その他依頼事項」の依頼メモもここに出す。
+         済んだ印は2本とも見る（coatDone）＝PitFlow で「その他依頼」側の印で済にした物も済に並ぶ */
+      var s4o = S.coatReq.sort(sortDate);
+      var s4 = { open: s4o.filter(function (c) { return !coatDone(c); }), done: s4o.filter(coatDone) };
+      var memo4 = function (c) {
+        var m = String(c.salesReqMemo || '').trim();
+        return retLabel(c) + (m ? '<div class="cs-memo" data-cf-noen>' + icon('pencil', '✏️', 16) + ' ' + esc(m) + '</div>' : '');
+      };
+      h += csSec(icon('sparkle', '✨', 16) + ' コーティング・その他依頼', '受注が取れたぶん／返車予定日つき',
+                 s4.open.map(function (c) { return csCard(c, 'coating', memo4(c)); }).join(''),
                  s4.done.map(function (c) { return csDoneCard(c, 'coating'); }).join(''));
     }
     {
-      h += csSec(icon('calendar', '📅', 16) + ' 直近1か月のコーティング予定', '予約・入庫中の1Y/3M',
+      h += csSec(icon('calendar', '📅', 16) + ' 直近1か月のコーティング・その他予定', 'まだ受注前のぶん（受注が取れたら上の段へ移ります）',
                  S.coatPlan.sort(function (a, b) { return String(a.reserveDate || '9999').localeCompare(String(b.reserveDate || '9999')); })
                    .map(function (c) { return csCard(c, null, inLabel(c)); }).join(''), '');
     }
-    {
-      var s6 = split(S.salesReq, 'salesReqDone');
-      h += csSec(icon('cart', '🛒', 16) + ' その他依頼事項', '車販依頼',
-                 s6.open.map(function (c) { return csCard(c, 'salesReq', c.salesReqMemo ? (icon('pencil', '✏️', 16) + ' ' + esc(c.salesReqMemo)) : ''); }).join(''),
-                 s6.done.map(function (c) { return csDoneCard(c, 'salesReq'); }).join(''));
-    }
+    /* 🗑 v3.16.7（A-29）「その他依頼事項」の段は畳んだ（PitFlow v2.51.0 D-1）。段は5つ */
     h += '</div>';
     body.innerHTML = h;
   }
@@ -514,7 +531,7 @@
     var todayStr = ymd(new Date());
     var out = [];
     var push = function (c, task, when, what) {
-      if (c[DONEFLAG[task]]) return;
+      if (task === 'coating' ? coatDone(c) : c[DONEFLAG[task]]) return;   /* v3.16.7 コーティング・その他は印2本 */
       out.push({ c: c, task: task, when: when, what: what });
     };
     S.washToday.forEach(function (c) { push(c, 'wash', 'today', '洗車'); });
@@ -522,8 +539,8 @@
     /* ヘッドライト磨き・コーティング依頼・その他依頼＝返車日が今日/明日のものだけ */
     var dueSoon = function (c) { return c.returnDate === todayStr || c.returnDate === S.nextBiz; };
     S.headlight.filter(dueSoon).forEach(function (c) { push(c, 'headlight', c.returnDate === todayStr ? 'today' : 'tomorrow', 'ヘッドライト磨き'); });
-    S.coatReq.filter(dueSoon).forEach(function (c) { push(c, 'coating', c.returnDate === todayStr ? 'today' : 'tomorrow', 'コーティング'); });
-    S.salesReq.filter(dueSoon).forEach(function (c) { push(c, 'salesReq', c.returnDate === todayStr ? 'today' : 'tomorrow', '車販依頼'); });
+    /* v3.16.7（A-29）車販依頼もコーティング・その他依頼の段に入った＝行の名前で見分ける */
+    S.coatReq.filter(dueSoon).forEach(function (c) { push(c, 'coating', c.returnDate === todayStr ? 'today' : 'tomorrow', hasCoat(c) ? 'コーティング' : '車販依頼'); });
     /* 🚙 代車の洗車（PitFlow v2.173.0）。戻っていない代車は「済」を押せないので、ここには出さない（数だけ・ページで見る） */
     var loRow = function (x, when) { if (loWashDone(x.a) || !x.back) return; out.push({ lo: x, c: x.card || {}, task: 'loWash', when: when, what: '代車洗車' }); };
     S.loToday.forEach(function (x) { loRow(x, 'today'); });
@@ -539,8 +556,7 @@
     rest += notDone(S.washWeek, 'washSalesDone') + notDone(S.washNoDate, 'washSalesDone');
     rest += S.loToday.concat(S.loTomorrow).filter(function (x) { return !loWashDone(x.a) && !x.back; }).length;
     rest += notDone(S.headlight.filter(function (c) { return !dueSoon(c); }), 'headlightDone');
-    rest += notDone(S.coatReq.filter(function (c) { return !dueSoon(c); }), 'coatingDone');
-    rest += notDone(S.salesReq.filter(function (c) { return !dueSoon(c); }), 'salesReqDone');
+    rest += S.coatReq.filter(function (c) { return !dueSoon(c) && !coatDone(c); }).length;
     return { items: out, rest: rest };
   }
 
@@ -580,8 +596,8 @@
         h += '<div class="pe-row" data-card-id="' + esc(c.id) + '" onclick="PitEmbed.open(\'' + esc(c.id) + '\')" title="マウスを乗せると詳細／クリックで PitFlow のカードを開きます">';
         h += '<span class="pe-when ' + it.when + '">' + (it.when === 'today' ? '今日' : '明日') + '</span>';
         h += '<span class="pe-what pe-t-' + it.task + '">' + esc(it.what) + '</span>';
-        h += '<span class="pe-nm">' + esc(custSurname(c) || '（未入力）') + ' 様</span>';
-        h += '<span class="pe-car">' + esc(c.car || '') + '</span>';
+        h += '<span class="pe-nm" data-cf-noen>' + esc(custSurname(c) || '（未入力）') + ' 様</span>';
+        h += '<span class="pe-car" data-cf-noen>' + esc(c.car || '') + '</span>';
         var t = c.returnTime || c.reserveTime || '';
         h += '<span class="pe-time">' + esc(t) + '</span>';
         h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.done(\'' + esc(c.id) + '\',\'' + it.task + '\')">'
@@ -640,15 +656,20 @@
     if (!col) { if (window.showToast) showToast('ログインが確認できません', 'CF-7001'); return; }
 
     var before = !!c[flag];
+    /* 🔴 v3.16.7（A-29）「コーティング・その他依頼」を戻す時は、畳んだ段の印（salesReqDone）も一緒に外す。
+       済の判定は2本（coatDone）なので、片方だけ外すと「戻す」を押しても済のまま動かない */
+    var alsoReq = (task === 'coating' && !val && !!c.salesReqDone);
     c[flag] = !!val;                       /* 先に画面へ（押した感じを止めない） */
+    if (alsoReq) c.salesReqDone = false;
     renderPitSales(); renderPitToday();
 
     var patch = {};
     patch[flag] = !!val;
+    if (alsoReq) patch.salesReqDone = false;
     /* 工程ログにも1行残す＝PitFlow で見た時に「誰かが CarFlow で済み／戻しにした」と分かる。
        ⚠ 配列は arrayUnion で足す（読み込み→書き戻しにすると、同時編集を巻き戻す）。
        📝 v3.16.0 戻す時も書く・担当（staff）も入れる（S-31） */
-    var what = '車販作業 ' + (val ? '完了' : '戻す') + '（' + (TASK_LABEL[task] || task) + '）';
+    var what = '車販作業 ' + (val ? '完了' : '戻す') + '（' + (TASK_LABEL[task] || task) + (alsoReq ? '・車販依頼の済も外す' : '') + '）';
     if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
       patch.log = firebase.firestore.FieldValue.arrayUnion(flowEntry(what));
     }
@@ -672,6 +693,7 @@
       if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
     }).catch(function (e) {
       c[flag] = before;                    /* 書けなかったら画面も戻す */
+      if (alsoReq) c.salesReqDone = true;
       renderPitSales(); renderPitToday();
       console.error('[pit-embed] 書き込みに失敗', e);
       if (window.showToast) showToast('PitFlow に反映できませんでした（通信または権限）', 'CF-7002');

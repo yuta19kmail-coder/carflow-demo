@@ -213,8 +213,8 @@ function onLineMsgRareRateChange(value) {
 }
 
 // デフォルトに戻す
-function resetLineMessagesToDefault() {
-  if (typeof window.confirm === 'function' && !window.confirm('文言テーブルをデフォルト（同梱の39パターン）に戻します。よろしいですか？')) return;
+async function resetLineMessagesToDefault() {
+  if (!(await cfAsk('文言テーブルをデフォルト（同梱の39パターン）に戻します。よろしいですか？', { ok: 'デフォルトに戻す' }))) return;   /* v3.16.7（B-03） */
   resetLineMessageTableToDefault();
   renderLineMessageSummary();
   if (typeof showToast === 'function') showToast('文言をデフォルトに戻しました');
@@ -260,7 +260,7 @@ function onLineMsgCSVFileSelected(input) {
   if (!input || !input.files || !input.files[0]) return;
   const file = input.files[0];
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const text = String(e.target.result || '');
       const parsed = _parseLineMessagesCSV(text);
@@ -279,7 +279,7 @@ function onLineMsgCSVFileSelected(input) {
         + `🟢 目標内：通常${parsed.within_target.normal.length}件／レア${parsed.within_target.rare.length}件\n`
         + `🟡 中間：通常${parsed.between.normal.length}件／レア${parsed.between.rare.length}件\n`
         + `🔴 限界超：通常${parsed.over_limit.normal.length}件／レア${parsed.over_limit.rare.length}件`;
-      if (typeof window.confirm === 'function' && !window.confirm(msg)) {
+      if (!(await cfAsk(msg, { ok: '上書きする' }))) {   /* v3.16.7（B-03） */
         input.value = '';
         return;
       }

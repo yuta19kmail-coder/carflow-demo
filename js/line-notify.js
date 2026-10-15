@@ -55,6 +55,9 @@
 
   let _lineConfig = _defaultConfig();
   let _tokenMasked = true;
+  /* 🔐 v3.16.7 チャネルシークレット（integrations/line.channelSecret）。LINE の受け口（サーバー）が署名を確かめるのに使う。
+     画面では値を持たない・出さない＝「入っているか」だけ。保存はこの欄だけ（変えた時だけ）。操作ログには「入れた／変えた」だけ（値は残さない） */
+  let _hasSecret = false;
 
   // ----------------------------------------
   // Firestore参照
@@ -102,6 +105,7 @@
           enabled: !!d.enabled,
           triggers: mergedTriggers,
         };
+        _hasSecret = typeof d.channelSecret === 'string' && d.channelSecret.length > 0;   /* 値はメモリにも置かない */
       }
       _tokenMasked = !!_lineConfig.channelAccessToken;
       _renderLineUI();
@@ -133,6 +137,10 @@
     }
     if (groupInp) groupInp.value = _lineConfig.groupId;
     if (toggleEnabled) toggleEnabled.classList.toggle('on', !!_lineConfig.enabled);
+    const secState = document.getElementById('line-secret-state');
+    if (secState) secState.textContent = _hasSecret ? '（入っています）' : '（まだ入っていません）';
+    const secInp = document.getElementById('line-secret-inp');
+    if (secInp) secInp.value = '';
 
     // トリガー個別
     const tDaily = document.getElementById('line-trig-daily-toggle');
@@ -322,6 +330,11 @@
       token = tokenInp.value.trim();
     }
     const groupId = (groupInp ? groupInp.value : '').trim();
+    const secInp = document.getElementById('line-secret-inp');
+    const secret = (secInp ? secInp.value : '').trim();
+    if (secret && !/^[0-9a-f]{32}$/i.test(secret)) {
+      _setStatus('チャネルシークレットの形式がおかしいです（英数字32文字）', 'err'); return;
+    }
 
     if (_lineConfig.enabled) {
       if (!token) { _setStatus('トークンが空です（有効化するなら必須）', 'err'); return; }
@@ -347,6 +360,18 @@
       _lineConfig.channelAccessToken = token;
       _lineConfig.groupId = groupId;
       _tokenMasked = true;
+      /* 🔐 v3.16.7 シークレットは入れた時だけ、この欄だけを書く（update＝ほかの欄に触らない） */
+      if (secret) {
+        const had = _hasSecret;
+        await ref.update({
+          channelSecret: secret,
+          updatedAt: window.fb.serverTimestamp(),
+          updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
+        });
+        _hasSecret = true;
+        if (secInp) secInp.value = '';
+        if (typeof addAuditLog === 'function') addAuditLog(had ? 'LINE のチャネルシークレットを変えた' : 'LINE のチャネルシークレットを入れた');
+      }
       _renderLineUI();
       _setStatus('✅ 保存しました', 'ok');
       if (typeof showToast === 'function') showToast('LINE連携設定を保存しました');

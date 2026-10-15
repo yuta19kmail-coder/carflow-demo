@@ -269,17 +269,19 @@
   }
 
   // 100%（緑）をもう一度押した時＝この大タスクの中タスクを全部0に戻す
-  function resetSteps(carId, taskId) {
-    const found = _findCar(carId);
+  async function resetSteps(carId, taskId) {
+    let found = _findCar(carId);
     if (!found) return;
-    const car = found.car, phase = _phaseOf(car);
+    let car = found.car, phase = _phaseOf(car);
     const steps = stepsOf(car, taskId, phase) || [];
     // 小タスクのチェックも一緒に消えるので、入っている時だけ念のため聞く
     const hasItemChecks = steps.some(s => s.total > 0);
     if (hasItemChecks) {
       const msg = 'この大タスクを 0% に戻しますか？\n\n'
         + '中タスクの進み具合と、中に入れた小タスクのチェックが全部外れます。';
-      if (typeof confirm === 'function' && !confirm(msg)) return;
+      if (!(await cfAsk(msg, { ok: '0% に戻す', danger: true }))) return;   /* v3.16.7（B-03） */
+      found = _findCar(carId); if (!found) return;   /* 窓を開いている間に届いた最新の車で続ける */
+      car = found.car; phase = _phaseOf(car);
     }
     const bucketName = _bucketName(phase);
     if (!car[bucketName] || !car[bucketName][taskId]) return;

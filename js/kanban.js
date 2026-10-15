@@ -185,14 +185,14 @@ function _makeTentativeCard(t) {
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker">${escapeHtml(t.maker || '')}</div>
-          <div class="cc-model">${escapeHtml(t.model || '（車種未入力）')}</div>
+          <div class="cc-maker" data-cf-noen>${escapeHtml(t.maker || '')}</div>
+          <div class="cc-model" data-cf-noen>${escapeHtml(t.model || '（車種未入力）')}</div>
         </div>
         ${reason ? `<span class="cc-reason-badge">${escapeHtml(reason)}</span>` : ''}
       </div>
       <div class="cc-tent-memo">
         <span class="cc-tent-memo-icon">${ic('pencil','📝',16)}</span>
-        <span class="cc-tent-memo-body${memo ? '' : ' empty'}">${memo ? escapeHtml(memo).replace(/\n/g, '<br>') : 'メモなし'}</span>
+        <span class="cc-tent-memo-body${memo ? '' : ' empty'}"${memo ? ' data-cf-noen' : ''}>${memo ? escapeHtml(memo).replace(/\n/g, '<br>') : 'メモなし'}</span>
       </div>
     </div>`;
   div.addEventListener('dragstart', () => { dragTentative = t; dragCard = null; div.classList.add('dragging'); });
@@ -302,6 +302,13 @@ async function promoteTentative(t, targetCol) {
   if (!t) return;
   let num = '';
   try { num = (window.numHelpers && window.numHelpers.nextNum) ? window.numHelpers.nextNum() : ''; } catch (e) {}
+  /* 🔴 v3.16.7（棚卸し A-34）番号は会社の書類1枚で取る（2台同時に昇格しても同じ番号にならない） */
+  try {
+    if (window.numHelpers && window.numHelpers.claimNum) {
+      const r = await window.numHelpers.claimNum(num, { auto: true });
+      if (r && r.num) num = r.num;
+    }
+  } catch (e) {}
   const car = {
     id: 'c' + Date.now() + Math.floor(Math.random() * 1000),
     num: num,
@@ -452,9 +459,8 @@ async function saveTentativeFromModal() {
     if (code === 201 && window.CoreSave && window.CoreSave.offlineDisabled && window.CoreSave.offlineDisabled()) {
       try { sessionStorage.setItem('cf_tent_draft', JSON.stringify({ maker: maker, model: model, reason: reason, memo: memo })); } catch (_) {}
       setTimeout(function () {
-        if (confirm('この端末はオフライン保存が使えないようです。\n設定を切り替えました（次回からネット直書き）。\n\n画面を再読み込みすると確実に保存できます。今すぐ再読み込みしますか？\n（入力内容は引き継がれます）')) {
-          location.reload();
-        }
+        cfAsk('この端末はオフライン保存が使えないようです。\n設定を切り替えました（次回からネット直書き）。\n\n画面を再読み込みすると確実に保存できます。今すぐ再読み込みしますか？\n（入力内容は引き継がれます）', { ok: '再読み込みする', code: 'CF-0029' })   /* v3.16.7（B-03） */
+          .then(function (ok) { if (ok) location.reload(); });
       }, 150);
     }
     return;
@@ -482,8 +488,8 @@ window.saveTentativeFromModal = saveTentativeFromModal;
 
 async function deleteTentativeFromModal() {
   if (!_editingTentId) return;
-  if (!confirm('この仮登録を削除しますか？')) return;
   const id = _editingTentId;
+  if (!(await cfAsk('この仮登録を削除しますか？', { ok: '削除する', danger: true }))) return;   /* v3.16.7（B-03） */
   if (!(window.dbTentative && window.dbTentative.deleteTentativeCar)) { closeTentativeModal(); return; }
   try {
     window.__appBusy = true;
@@ -518,11 +524,11 @@ function _makeOtherCard(car, isCompact) {
     <div class="cc-other-memos">
       <div class="cc-other-memo-row">
         <span class="cc-other-memo-icon">${ic('pin','📌',14)}</span>
-        <span class="cc-other-memo-body${coreMemo ? '' : ' empty'}">${coreMemo ? escapeHtml(coreMemo).replace(/\n/g,' ') : '未記入'}</span>
+        <span class="cc-other-memo-body${coreMemo ? '' : ' empty'}"${coreMemo ? ' data-cf-noen' : ''}>${coreMemo ? escapeHtml(coreMemo).replace(/\n/g,' ') : '未記入'}</span>
       </div>
       <div class="cc-other-memo-row">
         <span class="cc-other-memo-icon">${ic('pencil','📝',16)}</span>
-        <span class="cc-other-memo-body${workMemo ? '' : ' empty'}">${workMemo ? escapeHtml(workMemo).replace(/\n/g,' ') : '未記入'}</span>
+        <span class="cc-other-memo-body${workMemo ? '' : ' empty'}"${workMemo ? ' data-cf-noen' : ''}>${workMemo ? escapeHtml(workMemo).replace(/\n/g,' ') : '未記入'}</span>
       </div>
     </div>`;
 
@@ -536,8 +542,8 @@ function _makeOtherCard(car, isCompact) {
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker">${car.maker}</div>
-          <div class="cc-model">${car.model}${car.grade ? ' ' + car.grade : ''}</div>
+          <div class="cc-maker" data-cf-noen>${car.maker}</div>
+          <div class="cc-model" data-cf-noen>${car.model}${car.grade ? ' ' + car.grade : ''}</div>
         </div>
         <div class="cc-info-right">
           <div class="cc-bigday cc-other-day">仕入<span class="cc-bigday-num">${inv}</span>日</div>
@@ -638,8 +644,8 @@ function makeCarCard(car, isCompact) {
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker">${car.maker}</div>
-          <div class="cc-model">${car.model}${car.grade ? ' ' + car.grade : ''}</div>
+          <div class="cc-maker" data-cf-noen>${car.maker}</div>
+          <div class="cc-model" data-cf-noen>${car.model}${car.grade ? ' ' + car.grade : ''}</div>
           ${(() => {
             // v1.8.61: 両方ありの時は1行にまとめる（総額ラベル小・本体は括弧内）。
             //   片方のみ → そちらが緑として表示、税ラベルも緑。

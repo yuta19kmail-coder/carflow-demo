@@ -197,7 +197,17 @@
     return 'manual-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   }
 
-  window.numListAddManual = function () {
+  /* 🔴 v3.16.9 二度押し止め（保存と番号の書類を待つ間に、同じ番号が2件入らないように） */
+  let _addBusy = false;
+  window.numListAddManual = async function () {
+    if (_addBusy) return;
+    _addBusy = true;
+    const b = document.querySelector('.nl-add-btn');
+    if (b) b.disabled = true;
+    try { return await _numListAddManualBody(); }
+    finally { _addBusy = false; if (b) b.disabled = false; }
+  };
+  async function _numListAddManualBody() {
     const numInp   = document.getElementById('nl-add-num');
     const modelInp = document.getElementById('nl-add-model');
     const gradeInp = document.getElementById('nl-add-grade');
@@ -221,11 +231,11 @@
     if (dup) {
       const r = dup.record || {};
       const labelMap = { cars: '在庫中', archived: 'アーカイブ済', deleted: '削除済', manual: '手入力' };
-      const ok = confirm(
-        '⚠ 超確認：' + formattedNum + ' は既に存在します。\n\n' +
-        '  ' + (labelMap[dup.source] || dup.source) + '：' +
-        (r.maker || '') + ' ' + (r.model || '') + ' ' + (r.grade || '') + '\n\n' +
-        'それでも追加しますか？（重複として 🚨 表示されます）'
+      const ok = await cfAsk(
+        '⚠ 超確認：' + formattedNum + ' は既に存在します。',
+        { detail: (labelMap[dup.source] || dup.source) + '：' +
+          (r.maker || '') + ' ' + (r.model || '') + ' ' + (r.grade || '') + '\n\n' +
+          'それでも追加しますか？（重複として 🚨 表示されます）', ok: '追加する', danger: true }
       );
       if (!ok) return;
     }
@@ -238,30 +248,50 @@
       note: note,
     };
 
-    // ローカル即時反映
-    manualNumbers.push(rec);
-    // Firestore 保存
+    /* 🔴 v3.16.7（棚卸し B-13）保存の結果を待ってから「追加しました」。前は待たずに出していた（失敗しても成功に見えた） */
     if (window.dbManual && window.dbManual.saveManualNumber) {
-      window.dbManual.saveManualNumber(rec).catch(e => console.error('[num-list] manual save failed', e));
+      try {
+        await window.dbManual.saveManualNumber(rec);
+      } catch (e) {
+        console.error('[num-list] manual save failed', e);
+        if (typeof showToast === 'function') showToast(formattedNum + ' を追加できませんでした（通信または権限を確認してください）', 'CF-1027');
+        return;
+      }
     }
+    manualNumbers.push(rec);
+    /* v3.16.7（A-34）手で使った番号も会社の番号の書類に入れる（自動の番号があとでぶつからないように） */
+    if (window.numHelpers && window.numHelpers.claimNum) { try { await window.numHelpers.claimNum(formattedNum, { auto: false }); } catch (e) {} }
+    /* 📝 v3.16.7（⑧）手入力の番号も操作ログに1行 */
+    if (typeof addAuditLog === 'function') addAuditLog('管理番号を手入力で追加（' + model + (grade ? ' ' + grade : '') + (note ? '・' + note : '') + '）', formattedNum);
     // フォームクリア
     numInp.value = ''; modelInp.value = '';
     if (gradeInp) gradeInp.value = '';
     if (noteInp) noteInp.value = '';
     if (typeof showToast === 'function') showToast(formattedNum + ' を追加しました');
     renderNumList();
-  };
+  }
 
-  window.numListDeleteManual = function (id) {
+  window.numListDeleteManual = async function (id) {
     if (!id) return;
-    if (!confirm('この手入力レコードを削除します。元に戻せません。よろしいですか？')) return;
+    if (!(await cfAsk('この手入力レコードを削除します。元に戻せません。よろしいですか？', { ok: '削除する', danger: true }))) return;
     const idx = manualNumbers.findIndex(m => String(m.id) === String(id));
     if (idx < 0) return;
     const removed = manualNumbers[idx];
-    manualNumbers.splice(idx, 1);
+    /* 🔴 v3.16.7（棚卸し B-13）消せたのを確かめてから画面から外し「削除しました」。
+       前は結果を待たずに出していた＝消せていなくても消えたように見え、開き直すと戻っていた */
     if (window.dbManual && window.dbManual.deleteManualNumber) {
-      window.dbManual.deleteManualNumber(id).catch(e => console.error('[num-list] manual delete failed', e));
+      try {
+        await window.dbManual.deleteManualNumber(id);
+      } catch (e) {
+        console.error('[num-list] manual delete failed', e);
+        if (typeof showToast === 'function') showToast((removed.num || '手入力') + ' を削除できませんでした（通信または権限を確認してください）', 'CF-1028');
+        return;
+      }
     }
+    const i2 = manualNumbers.findIndex(m => String(m.id) === String(id));
+    if (i2 >= 0) manualNumbers.splice(i2, 1);
+    /* 📝 v3.16.7（⑧）消す前の中身を操作ログに残す（番号・車種・グレード・メモ） */
+    if (typeof addAuditLog === 'function') addAuditLog('手入力の管理番号を削除（' + (removed.model || '') + (removed.grade ? ' ' + removed.grade : '') + (removed.note ? '・' + removed.note : '') + '）', removed.num || '—');
     if (typeof showToast === 'function') showToast((removed.num || '手入力') + ' を削除しました');
     renderNumList();
   };
@@ -473,12 +503,17 @@
       const where = { cars: '在庫', archived: '販売実績', deleted: '削除済の台帳', manual: '手入力の番号' }[dup.source] || dup.source;
       const who = ((dup.record && dup.record.maker) || '') + ' ' + ((dup.record && dup.record.model) || '');
       const next = window.numHelpers.nextNum();
-      if (!confirm(num + ' は今、ほかの車（' + where + '：' + who.trim() + '）が使っています。\nこのまま戻すと同じ番号が2台になります。\n\nOK＝新しい番号 ' + next + ' を振って戻す\nキャンセル＝戻さない')) {
+      if (!(await cfAsk(num + ' は今、ほかの車（' + where + '：' + who.trim() + '）が使っています。',
+        { detail: 'このまま戻すと同じ番号が2台になります。\n新しい番号（いまなら ' + next + '）を振って戻しますか？', ok: '新しい番号で戻す', cancel: '戻さない' }))) {
         if (typeof showToast === 'function') showToast('戻すのをやめました（同じ番号が2台にならないよう止めました）', 'CF-1019');
         return;
       }
       newNum = next;
-    } else if (!confirm(num + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' を在庫に戻します。よろしいですか？')) return;
+      /* 🔴 v3.16.7（A-34）新しい番号も会社の番号の書類から取る（2台同時に戻しても同じ番号にならない） */
+      if (window.numHelpers.claimNum) {
+        try { const cr = await window.numHelpers.claimNum(next, { auto: true }); if (cr && cr.num) newNum = cr.num; } catch (e) {}
+      }
+    } else if (!(await cfAsk(num + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' を在庫に戻します。よろしいですか？', { ok: '戻す' }))) return;
     _trashBusy = true;
     try {
       const car = await window.dbDeleted.restoreFromTrash(id, newNum ? { num: newNum } : null);
@@ -499,7 +534,7 @@
     if (!((typeof _isCarflowMaster === 'function') && _isCarflowMaster())) return;
     const r = (typeof trashCars !== 'undefined' ? trashCars : []).find(x => String(x.id) === String(id));
     if (!r) return;
-    if (!confirm((r.num || '') + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' をゴミ箱から完全に消します。\n写真・見積PDF も消え、元に戻せません。よろしいですか？')) return;
+    if (!(await cfAsk((r.num || '') + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' をゴミ箱から完全に消します。\n写真・見積PDF も消え、元に戻せません。よろしいですか？', { ok: '完全に消す', danger: true }))) return;
     _trashBusy = true;
     try {
       await window.dbDeleted.purgeTrash(id);

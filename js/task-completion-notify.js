@@ -1,6 +1,11 @@
 // ========================================
 // task-completion-notify.js
-// v1.8.80: 大タスクの完了瞬間を検知して LINE 通知を送る
+// v1.8.80: 大タスクの完了瞬間を検知して LINE 通知
+//
+// 🔴 v3.16.7（棚卸し A-72）**いまは画面からは呼ばない。** 大タスク完了の LINE はサーバー1本
+//    （_サーバー\functions\index.js の onCarUpdated の taskComplete）。前は worksheet.js からここを呼び、
+//    サーバーと2本立て＝管理者がチェックすると文面の違う通知が2本届いていた。
+//    ⚠ 大タスクごとの「完了時LINE通知」スイッチ（isTaskNotifyEnabled）はサーバーがまだ見ていない＝サーバー側の宿題。を送る
 //
 // 仕組み：
 //   - 各車両に car.notifiedCompletedTasks = { regen: [taskId,...], delivery: [taskId,...] } を持つ

@@ -302,8 +302,22 @@
     }
   }
 
+  /* 🔴 v3.16.7（棚卸し A-35）締め直しの時に、実績のフローへ1行だけ足す（中身・☑・メモには触らない）。
+     update＝書類が無ければ失敗する（実績に無い車を作り直さない）。失敗は呼んだ側へ投げる */
+  async function appendArchivedLog(carId, entry) {
+    const col = _archivedCol();
+    if (!col || !carId || !entry) throw new Error('archived log: not ready');
+    const FieldPath = window.firebase.firestore.FieldPath;
+    const FieldValue = window.firebase.firestore.FieldValue;
+    const args = [new FieldPath('logs'), FieldValue.arrayUnion(entry), new FieldPath('updatedAt'), window.fb.serverTimestamp()];
+    const myUid = (window.fb.currentUser && window.fb.currentUser.uid) || null;
+    if (myUid) args.push(new FieldPath('updatedBy'), myUid);
+    await col.doc(String(carId)).update(...args);
+  }
+
   window.dbArchive = {
     flushLogs,
+    appendArchivedLog,
     loadArchivedCars,
     subscribeArchivedCars,
     saveArchivedCar,

@@ -109,10 +109,12 @@ function moveSizeOption(i, dir) {
   if (window.saveSettings) saveSettings(); // v1.5.2
 }
 
-function removeSizeOption(i) {
+async function removeSizeOption(i) {
   const name = SIZES[i];
   const used = cars.some(c => c.size === name);
-  if (used && !confirm(`「${name}」を使用中の車両があります。削除しますか？（該当車両は未分類になります）`)) return;
+  if (used && !(await cfAsk(`「${name}」を使用中の車両があります。削除しますか？`, { detail: '該当車両は未分類になります', ok: '削除する', danger: true }))) return;   /* v3.16.7（B-03） */
+  i = SIZES.indexOf(name);   /* 窓を開いている間に並びが変わっていても、名前で消す */
+  if (i < 0) return;
   SIZES.splice(i, 1);
   const hit = used ? cars.filter(c => c.size === name) : [];
   hit.forEach(c => { c.size = SIZES[0] || ''; });
@@ -125,8 +127,8 @@ function removeSizeOption(i) {
   _cfSaveSizeChange(hit.map(c => ({ car: c, from: name, to: c.size })), '区分の削除');
 }
 
-function resetSizeOptions() {
-  if (!confirm('ボディサイズ区分を初期値に戻しますか？')) return;
+async function resetSizeOptions() {
+  if (!(await cfAsk('ボディサイズ区分を初期値に戻しますか？', { ok: '初期値に戻す' }))) return;   /* v3.16.7（B-03） */
   SIZES.length = 0;
   SIZES_DEFAULT.forEach(s => SIZES.push(s));
   renderSizeEditor();
@@ -273,6 +275,7 @@ const _EDIT_KEYS = ['num', 'maker', 'model', 'grade', 'selectedTasks', 'col', 'i
   'price', 'totalPrice', 'purchaseDate', 'contract', 'contractDate', 'deliveryDate', 'customerName', 'memo', 'photo'];
 let _editBase = null;
 let _formPhotoCleared = false;
+let _autoNumShown = null;   /* v3.16.7（A-34）新規登録で画面が自動で入れた管理番号 */
 function _cloneVal(v) { return (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v; }
 function _stableJson(v) {
   if (Array.isArray(v)) return '[' + v.map(_stableJson).join(',') + ']';
@@ -313,7 +316,9 @@ function openCarModal(carId) {
   if (!carId) {
     numInp.value = (window.numHelpers && typeof window.numHelpers.nextNum === 'function')
       ? window.numHelpers.nextNum() : '';
+    _autoNumShown = numInp.value;   /* v3.16.7（A-34）保存の時に「自動の番号のままか」を見るための控え */
   } else {
+    _autoNumShown = null;
     numInp.value = car?.num || '';
   }
   _attachNumDupCheck();
@@ -488,8 +493,24 @@ function _getSelectedRegisterType() {
   return (checked && checked.value) || 'purchase';
 }
 
+/* 🔴 v3.16.9 保存ボタンの二度押し止め。管理番号の書類（transaction）や保存を待つ間に、もう一度押すと
+   車が2台できていた（新規）。保存中はボタンを押せなくし、終わったら（失敗しても）戻す */
+let _carSaveBusy = false;
 async function saveCarModal(initialCol) {
+  if (_carSaveBusy) return;
+  _carSaveBusy = true;
+  const btn = document.getElementById('car-save-btn');
+  if (btn) btn.disabled = true;
+  try {
+    return await _saveCarModalBody(initialCol);
+  } finally {
+    _carSaveBusy = false;
+    if (btn) btn.disabled = false;
+  }
+}
+async function _saveCarModalBody(initialCol) {
   let _saveFailed = false;
+  let _numMoved = '';   /* v3.16.7（A-34）番号が変わった時の知らせ */
   const _wasEdit = !!editingCarId;   /* v3.16.0 閉じると editingCarId が空になるので先に控える */   /* 🔴 2026-08-05：保存できたかどうか。最後のメッセージを正直に出すために使う */
   // v1.8.73: 引数省略時は登録区分カードから選択値を読む（新規登録）
   if (!initialCol) {
@@ -597,9 +618,7 @@ async function saveCarModal(initialCol) {
         return;
       }
       if (!cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return; }
-      const reason = (window.UI && UI.prompt)
-        ? await UI.prompt('売約取消の理由', '', { title: '売約取消', detail: '売約日・納車予定日を空にします。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' })
-        : prompt('売約取消の理由');
+      const reason = await cfAskText('売約取消の理由', '', { detail: '売約日・納車予定日を空にします。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' });   /* v3.16.7（B-03） */
       if (reason == null) return;
       if (!String(reason).trim()) { showToast('売約取消の理由を入れてください', 'CF-1020'); return; }
       const done = await cfUnsellCar(editId, null, reason, '車両情報の編集');
@@ -657,8 +676,20 @@ async function saveCarModal(initialCol) {
         console.warn('[car-modal] Storage アップロード失敗、data:URL で保存:', e);
       }
     }
+    /* 🔴 v3.16.7（棚卸し A-34）番号は会社の書類1枚で取る（2台同時に登録しても同じ番号にならない）。
+       画面が自動で入れた番号のままなら、ほかの端末が先に取っていた時は次の番号に変わる。人が打った番号はそのまま */
+    let numFinal = num, numChangedFrom = '';
+    if (window.numHelpers && typeof window.numHelpers.claimNum === 'function') {
+      const isAuto = !!num && _autoNumShown !== null && num === _autoNumShown;
+      const r = await window.numHelpers.claimNum(num, { auto: isAuto });
+      if (r && r.num !== undefined) {
+        if (r.changed) { numChangedFrom = num; _numMoved = `（${num} はほかの端末が先に使ったので ${r.num} にしました）`; }
+        numFinal = r.num;
+      }
+    }
+    _autoNumShown = null;
     const car = {
-      id: newId, num, maker, model, grade,
+      id: newId, num: numFinal, maker, model, grade,
       year : yearNorm || '—',
       color: document.getElementById('inp-color').value    || '—',
       size : document.getElementById('inp-size').value,
@@ -684,7 +715,8 @@ async function saveCarModal(initialCol) {
     cars.push(car);   /* v3.16.0 先に一覧へ入れてから記録（前は addLog が車を見つけられず、フローに「新規登録」が残っていなかった） */
     /* 📝 v3.16.4 金額は最初の値も残す（未設定→◯円）。売約して登録した時は売約日・納車日も */
     addLog(car.id, `新規登録（${regKind}として）：本体価格 ${_fmtYenLog(car.price)}・総額 ${_fmtYenLog(car.totalPrice)}`
-      + (car.contract ? `・売約日 ${_fmtDayLog(car.contractDate)}・納車日 ${_fmtDayLog(car.deliveryDate)}` : ''));
+      + (car.contract ? `・売約日 ${_fmtDayLog(car.contractDate)}・納車日 ${_fmtDayLog(car.deliveryDate)}` : '')
+      + (numChangedFrom ? `・管理番号 ${numChangedFrom} → ${car.num}（ほかの端末が先に ${numChangedFrom} を使ったため）` : ''));
     /* 🔴 2026-08-05 修正：新規登録も同じ。**保存できていないのに「登録しました」**が出ると、
        その端末にだけ車がある状態になり、リロードで消える＝入力し直しになる。
        ここでは画面からも取り消して「登録できませんでした」と伝える。 */
@@ -715,7 +747,7 @@ async function saveCarModal(initialCol) {
     : (initialCol === 'other' ? `${maker} ${model} を「その他」として登録しました`
        : initialCol === 'order' ? `${maker} ${model} を「オーダー車両」として登録しました`
        : `${maker} ${model} を仕入れ車として登録しました`);
-  showToast(okMsg);
+  showToast(okMsg + _numMoved);
 }
 
 /* ============================================================
@@ -803,9 +835,7 @@ async function startUnsellFromModal() {
   const car = editingCarId ? cars.find(c => c.id === editingCarId) : null;
   if (!car || !car.contract) return;
   if (!cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return; }
-  const reason = (window.UI && UI.prompt)
-    ? await UI.prompt('売約取消の理由', '', { title: '売約取消', detail: '売約日・納車予定日を空にして「展示中」に戻します。納車準備の進捗も戻ります。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' })
-    : prompt('売約取消の理由');
+  const reason = await cfAskText('売約取消の理由', '', { detail: '売約日・納車予定日を空にして「展示中」に戻します。納車準備の進捗も戻ります。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' });   /* v3.16.7（B-03） */
   if (reason == null) return;
   if (!String(reason).trim()) { showToast('売約取消の理由を入れてください', 'CF-1020'); return; }
   const done = await cfUnsellCar(car.id, 'exhibit', reason, '車両情報の編集の売約取消');
@@ -857,7 +887,7 @@ function _logEditChanges(carId, base, next, changed, moved) {
 //   その欄が税込設定なら → 税抜金額を入れて自動で税込に換算
 //   消費税率は 10%（固定）。後で変えたい場合は TAX_RATE を変更。
 // ====================================================================
-function promptAltPrice(which) {
+async function promptAltPrice(which) {
   // v1.8.67: 税率は設定 (appSettings.priceTax.rate %) から取得
   const TAX_RATE = (typeof getTaxRate === 'function') ? getTaxRate() : 0.10;
   const setting = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
@@ -867,7 +897,7 @@ function promptAltPrice(which) {
   const fieldName  = which === 'body' ? '本体価格' : '総額';
   const inputId    = which === 'body' ? 'inp-price' : 'inp-total-price';
 
-  const raw = prompt(`${fieldName} の ${altLabel} 金額を入力してください\n（消費税10%で自動換算して ${fieldLabel} の値を入れます）`, '');
+  const raw = await cfAskText(`${fieldName} の ${altLabel} 金額を入力してください`, '', { detail: `消費税${Math.round(TAX_RATE * 100)}%で自動換算して ${fieldLabel} の値を入れます`, placeholder: '例：1100000' });   /* v3.16.7（B-03） */
   if (raw == null) return;
   const cleaned = String(raw).replace(/[,\s]/g, '').replace(/円$/, '');
   const n = parseInt(cleaned, 10);

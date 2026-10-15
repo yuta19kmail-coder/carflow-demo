@@ -158,7 +158,7 @@
         return true;
       },
       onLog: msg => { if (typeof addLog === 'function') addLog(null, msg); },
-      ask: (msg, opt) => (window.UI && UI.confirm ? UI.confirm(msg, opt || {}) : Promise.resolve(confirm(msg))),
+      ask: (msg, opt) => cfAsk(msg, opt || {}),   /* v3.16.7（B-03）戻し先は helpers.js の1か所 */
       toast: _toast
     });
   }

@@ -430,7 +430,7 @@
     const msg = newOn
       ? '小タスク制を ON にしますか？\n\nカード詳細で小タスク（チェックリスト）が展開されるようになります。\n後からOFFに戻してもパターンの中身は保持されます。'
       : '小タスク制を OFF に戻しますか？\n\nカード詳細では「✅完了」トグルだけのシンプル表示に戻ります。\nパターン（variants）の中身は保持されるので、もう一度ONにすればそのまま使えます。';
-    if (!confirm(msg)) return;
+    if (!await cfAsk(msg)) return;
     await toggleTaskChecklist(taskId, phase, newOn);
     // タスク・進捗側は toggleTaskChecklist 内で renderTasksEditor が呼ばれる。
     // タスクパターン画面側はここで再描画する。
@@ -452,7 +452,7 @@
     if (!_can()) { _toast('管理者権限が必要です'); return; }
     if (typeof ChecklistTemplates === 'undefined') { _toast('テンプレートが読み込まれていません'); return; }
 
-    const v = prompt('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
+    const v = await cfAskText('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -674,7 +674,7 @@
 
   async function addTemplateVariant(tplId) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    const v = prompt('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
+    const v = await cfAskText('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -695,7 +695,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const cur = (tpl.variants || []).find(v => v.id === window._tplEditor.activeVariantId);
     if (!cur) return;
-    const v = prompt('複製したパターンの新しい名前', `${cur.name} のコピー`);
+    const v = await cfAskText('複製したパターンの新しい名前', `${cur.name} のコピー`);
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -720,7 +720,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const cur = (tpl.variants || []).find(v => v.id === window._tplEditor.activeVariantId);
     if (!cur) return;
-    const v = prompt('タスクパターン名', cur.name || '');
+    const v = await cfAskText('タスクパターン名', cur.name || '');
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -753,7 +753,7 @@
     const msg = itemCount > 0
       ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）${emptyNote}`
       : `パターン「${cur.name}」を削除しますか？${emptyNote}`;
-    if (!confirm(msg)) return;
+    if (!await cfAsk(msg)) return;
     tpl.variants = tpl.variants.filter(v => v.id !== cur.id);
     window._tplEditor.activeVariantId = tpl.variants[0] ? tpl.variants[0].id : null;
     window._tplEditor.expandedSectionId = null;
@@ -779,8 +779,8 @@
   // 全テンプレを built-in 初期状態に戻す
   async function resetAllTemplatesToDefault() {
     if (!_can()) { _toast('管理者権限が必要です'); return; }
-    if (!confirm('全タスクの中身を初期状態に戻します。\n各タスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？')) return;
-    if (!confirm('もう一度確認します。\nこの操作は元に戻せません。\n本当に全タスクをデフォルトに戻しますか？')) return;
+    if (!await cfAsk('全タスクの中身を初期状態に戻します。\n各タスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？')) return;
+    if (!await cfAsk('もう一度確認します。\nこの操作は元に戻せません。\n本当に全タスクをデフォルトに戻しますか？')) return;
     if (typeof window.rebuildAllBuiltinTemplates !== 'function') return;
     const list = window.rebuildAllBuiltinTemplates();
     let saved = 0;
@@ -816,7 +816,7 @@
       _toast('このタスクは初期データを持たないため戻せません（カスタムタスク）');
       return;
     }
-    if (!confirm(`「${tpl.name}」を初期状態に戻します。\nこのタスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？`)) return;
+    if (!await cfAsk(`「${tpl.name}」を初期状態に戻します。\nこのタスクで追加したパターン・カスタム編集はすべて消えます。\n本当に実行しますか？`)) return;
     // メモリ置換
     if (typeof ChecklistTemplates !== 'undefined') ChecklistTemplates[tplId] = fresh;
     try {
@@ -848,7 +848,7 @@
     }
     const freshDefault = (fresh.variants && fresh.variants[0]) ? fresh.variants[0] : null;
     if (!freshDefault) return;
-    if (!confirm(`パターン「${cur.name}」の中身を、初期状態のデフォルト内容で上書きします。\nこのパターンの今の中身は全部消えます。\n（パターン名「${cur.name}」は維持されます）\n本当に実行しますか？`)) return;
+    if (!await cfAsk(`パターン「${cur.name}」の中身を、初期状態のデフォルト内容で上書きします。\nこのパターンの今の中身は全部消えます。\n（パターン名「${cur.name}」は維持されます）\n本当に実行しますか？`)) return;
     // 中身（sections）だけ差し替え。name と id は維持。
     cur.sections = JSON.parse(JSON.stringify(freshDefault.sections || []));
     // active なら tpl.sections も同期
@@ -870,7 +870,7 @@
   // -----------------------------------------
   async function addTemplateVariantById(tplId) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    const v = prompt('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
+    const v = await cfAskText('新しいタスクパターン名（例：A: フル / 中程度 / 簡易 / ミニバン用 など）', '');
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -888,7 +888,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const cur = (tpl.variants || []).find(v => v.id === variantId);
     if (!cur) return;
-    const v = prompt('複製したパターンの新しい名前', `${cur.name} のコピー`);
+    const v = await cfAskText('複製したパターンの新しい名前', `${cur.name} のコピー`);
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -909,7 +909,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const cur = (tpl.variants || []).find(v => v.id === variantId);
     if (!cur) return;
-    const v = prompt('タスクパターン名', cur.name || '');
+    const v = await cfAskText('タスクパターン名', cur.name || '');
     if (v == null) return;
     const name = v.trim();
     if (!name) { _toast('名前は必須です'); return; }
@@ -942,7 +942,7 @@
     const msg = itemCount > 0
       ? `パターン「${cur.name}」を削除しますか？\n中の ${itemCount} 個の小タスク設定も全部消えます。\n（このパターンを使っている車のデータには影響しません）${emptyNote}`
       : `パターン「${cur.name}」を削除しますか？${emptyNote}`;
-    if (!confirm(msg)) return;
+    if (!await cfAsk(msg)) return;
     tpl.variants = tpl.variants.filter(v => v.id !== variantId);
     // active variant が消えた場合は先頭に再アサイン（残ってれば）
     if (window._tplEditor && window._tplEditor.activeVariantId === variantId) {
@@ -1205,7 +1205,7 @@
 
   async function renameTemplate(tplId) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    const v = prompt('テンプレート名', tpl.name || '');
+    const v = await cfAskText('テンプレート名', tpl.name || '');
     if (v == null) return;
     const trimmed = v.trim();
     if (!trimmed) { _toast('名前は必須です'); return; }
@@ -1220,7 +1220,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const sec = (tpl.sections || []).find(s => s.id === secId);
     if (!sec) return;
-    const v = prompt('大カテゴリ名（タブの見出しになります。空欄ならタブなし）', sec.tab || '');
+    const v = await cfAskText('大カテゴリ名（タブの見出しになります。空欄ならタブなし）', sec.tab || '');
     if (v == null) return;
     sec.tab = v.trim();
     if (await _saveTpl(tpl)) { _toast('大カテゴリ名を更新しました'); _renderDetail(); }
@@ -1232,7 +1232,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const existingTabs = Array.from(new Set((tpl.sections || [])
       .map(s => (s.tab || '').trim()).filter(t => t)));
-    const v = prompt('大カテゴリ名（タブの見出し）', '');
+    const v = await cfAskText('大カテゴリ名（タブの見出し）', '');
     if (v == null) return;
     const tabName = v.trim();
     if (!tabName) { _toast('大カテゴリ名は必須です'); return; }
@@ -1260,7 +1260,7 @@
   // v1.7.20: 指定された大カテゴリの中に新しい中カテゴリ枠を追加
   async function addTemplateSectionInTab(tplId, tabName) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    const v = prompt('中カテゴリ名（空欄ならフラット表示）', '');
+    const v = await cfAskText('中カテゴリ名（空欄ならフラット表示）', '');
     if (v == null) return;
     if (!Array.isArray(tpl.sections)) tpl.sections = [];
     // 同じ大カテゴリの最後のセクション位置を求めて、その直後に挿入する
@@ -1288,14 +1288,14 @@
   // v1.7.20: 大カテゴリ名を変更（同じ tab を持つ全セクションの tab を一括更新）
   async function renameTemplateTab(tplId, oldName) {
     const tpl = _getTpl(tplId); if (!tpl) return;
-    const v = prompt('大カテゴリ名', oldName || '');
+    const v = await cfAskText('大カテゴリ名', oldName || '');
     if (v == null) return;
     const newName = v.trim();
     if (!newName) { _toast('大カテゴリ名は必須です'); return; }
     if (newName === oldName) return;
     const existing = Array.from(new Set((tpl.sections || []).map(s => s.tab || '')));
     if (existing.includes(newName)) {
-      if (!confirm(`「${newName}」は既存の大カテゴリ名です。\n統合しますか？（このタブのセクションが既存タブの末尾に移動します）`)) return;
+      if (!await cfAsk(`「${newName}」は既存の大カテゴリ名です。\n統合しますか？（このタブのセクションが既存タブの末尾に移動します）`)) return;
     }
     (tpl.sections || []).forEach(s => {
       if ((s.tab || '') === oldName) s.tab = newName;
@@ -1311,7 +1311,7 @@
     if (targetSecs.length === 0) return;
     const totalItems = targetSecs.reduce((a, s) => a + (s.items || []).length, 0);
     const label = tabName || '(タブなし)';
-    if (!confirm(`大カテゴリ「${label}」を削除しますか？\n中の中カテゴリ ${targetSecs.length} 個・小タスク ${totalItems} 個も全部消えます。`)) return;
+    if (!await cfAsk(`大カテゴリ「${label}」を削除しますか？\n中の中カテゴリ ${targetSecs.length} 個・小タスク ${totalItems} 個も全部消えます。`)) return;
     // v1.7.37: variants[0] と tpl.sections を一緒に更新
     _setActiveSections(tpl, (tpl.sections || []).filter(s => (s.tab || '') !== tabName));
     if (await _saveTpl(tpl)) {
@@ -1446,9 +1446,9 @@
       .map(s => (s.tab || '').trim()).filter(t => t)));
     const tabHint = existingTabs.length
       ? `（既存タブ：${existingTabs.join(' / ')}）` : '（空欄ならタブなし）';
-    const tabIn = prompt('大カテゴリ名 ' + tabHint, existingTabs[0] || '');
+    const tabIn = await cfAskText('大カテゴリ名 ' + tabHint, existingTabs[0] || '');
     if (tabIn == null) return;
-    const titleIn = prompt('中カテゴリ名（アコーディオン見出し。空欄ならフラット表示）', '');
+    const titleIn = await cfAskText('中カテゴリ名（アコーディオン見出し。空欄ならフラット表示）', '');
     if (titleIn == null) return;
     if (!Array.isArray(tpl.sections)) tpl.sections = [];
     const newSec = {
@@ -1471,7 +1471,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const sec = (tpl.sections || []).find(s => s.id === secId);
     if (!sec) return;
-    const v = prompt('中カテゴリ名（アコーディオン見出し。空欄ならフラット表示）', sec.title || '');
+    const v = await cfAskText('中カテゴリ名（アコーディオン見出し。空欄ならフラット表示）', sec.title || '');
     if (v == null) return;
     sec.title = v.trim();
     if (await _saveTpl(tpl)) { _toast('中カテゴリ名を更新しました'); _renderDetail(); }
@@ -1484,9 +1484,9 @@
     if (!sec) return;
     const itemCount = (sec.items || []).length;
     if (itemCount > 0) {
-      if (!confirm(`セクション「${sec.title}」には ${itemCount} 件の項目があります。\n本当に削除しますか？\n（過去の車両データに影響する可能性があります）`)) return;
+      if (!await cfAsk(`セクション「${sec.title}」には ${itemCount} 件の項目があります。\n本当に削除しますか？\n（過去の車両データに影響する可能性があります）`)) return;
     } else {
-      if (!confirm(`セクション「${sec.title}」を削除しますか？`)) return;
+      if (!await cfAsk(`セクション「${sec.title}」を削除しますか？`)) return;
     }
     // v1.7.37: variants[0] と tpl.sections を一緒に更新
     _setActiveSections(tpl, (tpl.sections || []).filter(s => s.id !== secId));
@@ -1511,7 +1511,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     const sec = (tpl.sections || []).find(s => s.id === secId);
     if (!sec) return;
-    const name = prompt('項目名', '');
+    const name = await cfAskText('項目名', '');
     if (name == null) return;
     const trimmed = name.trim();
     if (!trimmed) { _toast('名前は必須です'); return; }
@@ -1554,7 +1554,7 @@
       tpl.sections.push(flatSec);
       createdNewSec = true;
     }
-    const name = prompt('項目名', '');
+    const name = await cfAskText('項目名', '');
     if (name == null) {
       if (createdNewSec) tpl.sections.pop(); // キャンセル時は作りかけのセクションを撤回
       return;
@@ -2142,7 +2142,7 @@
     const tpl = _getTpl(tplId); if (!tpl) return;
     if (!_can()) { _toast('管理者権限が必要です'); return; }
 
-    if (!confirm(`「${tpl.name}」の項目を Excel から取り込みます。\n現在の項目はすべて上書きされます。続行しますか？`)) return;
+    if (!await cfAsk(`「${tpl.name}」の項目を Excel から取り込みます。\n現在の項目はすべて上書きされます。続行しますか？`)) return;
 
     try {
       const data = await file.arrayBuffer();

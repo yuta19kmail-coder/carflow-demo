@@ -103,7 +103,9 @@
 .cs-item{ width:224px; flex:0 0 224px; display:flex; flex-direction:column; gap:4px; }
 .cs-cardwrap{ position:relative; }
 .cs-extra{ font-size:11px; color:var(--text2); margin-top:3px; line-height:1.5;
-  display:flex; align-items:center; gap:4px; }
+  display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+/* v3.16.7（A-29）依頼メモ＝PitFlow polish.css の .cs-memo の写し（返車予定の下に1行） */
+.cs-memo{ flex-basis:100%; margin-top:3px; font-size:11px; color:var(--text2); }
 .cs-done,.cs-undo{ align-self:stretch; font-size:12px; font-weight:700; padding:5px 0; border-radius:7px;
   cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
 .cs-done{ background:var(--green); color:#fff; border:1px solid var(--green); }

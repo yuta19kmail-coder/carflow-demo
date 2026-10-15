@@ -105,30 +105,8 @@
     }
   }
 
-  // -----------------------------------------
-  // 全消去（v1.8.24〜・admin/manager のみ）
-  // 操作ログを全削除。Firestoreルール側で _isAdminish() ガード済み
-  // -----------------------------------------
-  async function clearAllAuditLogs() {
-    const col = _auditCol();
-    if (!col) {
-      console.warn('[db-audit] clearAllAuditLogs: companyId 未確定');
-      return false;
-    }
-    const BATCH = 400;
-    let total = 0;
-    while (true) {
-      const snap = await col.limit(BATCH).get();
-      if (snap.empty) break;
-      const batch = window.fb.db.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      total += snap.size;
-      if (snap.size < BATCH) break;
-    }
-    console.log('[db-audit] cleared', total, 'logs');
-    return total;
-  }
+  /* 🗑 v3.16.8（決まり⑧＝操作ログは誰も消せない）「操作ログを消去」clearAllAuditLogs と画面のボタンは外した。
+     記録は足すだけ。壊れた時に人の手で戻すための土台なので、画面から消す道は作らない */
 
   // -----------------------------------------
   // v2.27.0: DB全体からログを検索（手元の1000件の窓を超えて探す）
@@ -199,34 +177,9 @@
     appendAuditLog,
     loadRecentAuditLogs,
     searchAuditLogs,
-    clearAllAuditLogs,
   };
 
   console.log('[db-audit] ready');
 })();
 
-// ========================================
-// グローバル：UIから呼ぶ操作ログ消去（v1.8.24〜）
-// ========================================
-window.clearAuditLogsFromUI = async function () {
-  if (!window.dbAudit || !window.dbAudit.clearAllAuditLogs) return;
-  if (!confirm('操作ログを全て消去します。\n（過去の操作履歴は復旧できません）\n\n続けますか？')) return;
-  const ans = prompt('最終確認です。「消去」と入力してください：');
-  if (!ans || (ans.trim() !== '消去' && ans.trim().toUpperCase() !== 'CLEAR')) {
-    if (typeof showToast === 'function') showToast('操作ログ消去をキャンセルしました');
-    return;
-  }
-  try {
-    if (typeof showToast === 'function') showToast('操作ログを消去中…');
-    const n = await window.dbAudit.clearAllAuditLogs();
-    // メモリ上のログも空に
-    if (typeof globalLogs !== 'undefined' && Array.isArray(globalLogs)) {
-      globalLogs.length = 0;
-    }
-    if (typeof renderLogPanel === 'function') renderLogPanel();
-    if (typeof showToast === 'function') showToast(`操作ログを${n}件消去しました`);
-  } catch (err) {
-    console.error('[clearAuditLogsFromUI] error:', err);
-    if (typeof showToast === 'function') showToast('操作ログの消去に失敗しました', 'CF-0014');
-  }
-};
+/* 🗑 v3.16.8 画面から呼ぶ「操作ログを消去」（clearAuditLogsFromUI）も外した（上の説明） */

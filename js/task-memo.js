@@ -233,8 +233,8 @@
     if (typeof renderDetailBody === 'function') renderDetailBody(car);
   }
 
-  function del() {
-    if (!confirm('このメモを削除しますか？')) return;
+  async function del() {
+    if (!(await cfAsk('このメモを削除しますか？', { ok: '削除する', danger: true }))) return;   /* v3.16.7（B-03） */
     const found = _findCar(_ctx.carId);
     if (!found) return;
     const car = found.car;

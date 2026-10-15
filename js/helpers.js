@@ -39,7 +39,7 @@ function customerChipHTML(name, variant) {
   const sz = big ? 15 : 14;
   return `<span class="${cls}" title="${esc(disp)}">`
     + `<svg class="cc-customer-ic" viewBox="0 0 24 24" width="${sz}" height="${sz}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path></svg>`
-    + `<span class="cc-customer-name">${esc(disp)}</span>`
+    + `<span class="cc-customer-name" data-cf-noen>${esc(disp)}</span>`
     + `</span>`;
 }
 
@@ -413,6 +413,47 @@ window._cfReturnLogs = _cfReturnLogs;
 window._cfSortLogs = _cfSortLogs;
 window._cfFlushLogs = _cfFlushLogs;
 window.addAuditLog = addAuditLog;
+
+// ========================================
+// 🔴 v3.16.7（棚卸し B-03）確認・入力の窓は共通の UI.confirm／UI.prompt（ui-dialog.js）で出す
+//   ブラウザ標準の confirm()／prompt()／alert() は、出ている間ページが止まり、PC によって数秒固まる
+//   （共通の窓を作った理由・ui-dialog.js の頭）。見た目もシリーズと違い、エラー番号も出せない。
+//   ・cfAsk(文, {detail, ok, danger, code}) → Promise<true/false>
+//   ・cfAskText(文, 初めの値, {detail, placeholder, multiline}) → Promise<文字 or null（やめた）>
+//   ・cfTell(文, {detail, code}) → Promise
+//   文に改行があり detail が無い時は、1行目を見出し・残りを説明に分ける（見出しは改行を出さないため）。
+//   ⚠ UI が読めていない時（試験の小さいページなど）だけ、ブラウザ標準の窓に戻す。
+//   見張り＝test_no_native_dialog.mjs（confirm( prompt( alert( が増えたら赤）
+// ========================================
+function _cfSplitMsg(msg, opt) {
+  const o = Object.assign({}, opt || {});
+  let t = String(msg == null ? '' : msg);
+  if (!o.detail && t.indexOf('\n') >= 0) {
+    const i = t.indexOf('\n');
+    o.detail = t.slice(i + 1).replace(/^\n+/, '');
+    t = t.slice(0, i);
+  }
+  return { t, o };
+}
+function cfAsk(msg, opt) {
+  const s = _cfSplitMsg(msg, opt);
+  if (window.UI && typeof window.UI.confirm === 'function') return window.UI.confirm(s.t, s.o);
+  return Promise.resolve(window.confirm(s.t + (s.o.detail ? '\n\n' + s.o.detail : '')));
+}
+function cfAskText(msg, def, opt) {
+  const s = _cfSplitMsg(msg, opt);
+  if (window.UI && typeof window.UI.prompt === 'function') return window.UI.prompt(s.t, def == null ? '' : def, s.o);
+  return Promise.resolve(window.prompt(s.t + (s.o.detail ? '\n\n' + s.o.detail : ''), def == null ? '' : def));
+}
+function cfTell(msg, opt) {
+  const s = _cfSplitMsg(msg, opt);
+  if (window.UI && typeof window.UI.alert === 'function') return window.UI.alert(s.t, s.o);
+  window.alert(s.t + (s.o.detail ? '\n\n' + s.o.detail : ''));
+  return Promise.resolve();
+}
+window.cfAsk = cfAsk;
+window.cfAskText = cfAskText;
+window.cfTell = cfTell;
 
 // ========================================
 // 管理番号の表記ゆれ吸収＆文中リンク化（付箋・操作ログで共用）
