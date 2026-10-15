@@ -80,7 +80,7 @@ function _renderRegistrationBar(car) {
 // v1.7.38: タスクパターン変更ハンドラ
 //   ・初回選択（旧データ無し）：そのまま反映
 //   ・既存選択あり＆作業データあり：データリセットの確認ポップアップ
-window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
+window.onCarTaskVariantChange = async function (carId, taskId, selectEl) {
   const car = (typeof cars !== 'undefined') ? cars.find(c => c.id === carId) : null;
   if (!car) return;
   const newId = selectEl ? selectEl.value : '';
@@ -96,7 +96,7 @@ window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
   // 空欄に戻したケース
   if (!newId) {
     if (hasData) {
-      if (!confirm('タスクパターンを「未選択」に戻すと、このタスクの現在の作業データはすべて消えます。\n本当に戻しますか？')) {
+      if (!(await cfAsk('タスクパターンを「未選択」に戻すと、このタスクの現在の作業データはすべて消えます。\n本当に戻しますか？', { ok: '戻す', danger: true }))) {
         if (selectEl) selectEl.value = oldId;
         return;
       }
@@ -106,7 +106,7 @@ window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
   } else {
     // 別パターンに切替（旧データありなら確認、無ければ即時）
     if (oldId && hasData) {
-      if (!confirm('タスクパターンを変更すると、このタスクの現在の作業データはすべて消えます。\n本当に切り替えますか？')) {
+      if (!(await cfAsk('タスクパターンを変更すると、このタスクの現在の作業データはすべて消えます。\n本当に切り替えますか？', { ok: '切り替える', danger: true }))) {
         if (selectEl) selectEl.value = oldId;
         return;
       }
@@ -227,7 +227,7 @@ function _renderDetailBodyOther(car) {
   const coreMemoHtml = coreMemo
     ? `<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)">
          <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
-         <div class="core-memo-text">${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
+         <div class="core-memo-text" data-cf-noen>${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
        </div>`
     : `<div class="core-memo core-memo-empty">
          <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
@@ -266,7 +266,7 @@ function _renderDetailBodyOther(car) {
       <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ <span class="work-memo-hint">（保留中のメモ）</span></div>
       <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
         workMemo
-          ? escapeHtml(workMemo).replace(/\n/g,'<br>')
+          ? '<span data-cf-noen>' + escapeHtml(workMemo).replace(/\n/g,'<br>') + '</span>'
           : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
       }</div>
     </div>`;
@@ -367,7 +367,7 @@ function renderDetailBody(car) {
   const coreMemoHtml = coreMemo
     ? `<div class="core-memo" data-expanded="0" onclick="toggleCoreMemo(this)">
          <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
-         <div class="core-memo-text">${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
+         <div class="core-memo-text" data-cf-noen>${escapeHtml(coreMemo).replace(/\n/g,'<br>')}</div>
        </div>`
     : `<div class="core-memo core-memo-empty">
          <div class="core-memo-label">${ic('pin','📌',14)} メモ</div>
@@ -427,7 +427,7 @@ function renderDetailBody(car) {
         <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
         <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
           workMemo
-            ? escapeHtml(workMemo).replace(/\n/g,'<br>')
+            ? '<span data-cf-noen>' + escapeHtml(workMemo).replace(/\n/g,'<br>') + '</span>'
             : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
         }</div>
       </div>`;
@@ -944,28 +944,47 @@ async function onDetailPhoto(inp) {
     return;
   }
   // v1.5.10: Storage アップロード（フォールバック：data:URL）
+  let newPhoto;
   try {
     if (window.dbStorage && window.dbStorage.uploadCarPhoto) {
       showToast('写真をアップロード中...');
-      car.photo = await window.dbStorage.uploadCarPhoto(car.id, file);
+      newPhoto = await window.dbStorage.uploadCarPhoto(car.id, file);
     } else {
-      car.photo = await new Promise((resolve, reject) => {
+      newPhoto = await new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onload = e => resolve(e.target.result);
         r.onerror = reject;
         r.readAsDataURL(file);
       });
     }
-    // v3.0.0 下ごしらえ：写真の欄だけを送る（📝 v3.16.4 記録も同じ1回で＝前は何も残らなかった）
-    addLog(car.id, '写真を変更（カード詳細）');
-    if (window.saveCarPaths) window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
-    renderDetailBody(car);
-    renderAll();
-    showToast('写真を更新しました');
   } catch (err) {
     console.error('[car-detail] photo upload failed:', err);
-    showToast('写真のアップロードに失敗しました');
+    showToast('写真のアップロードに失敗しました', 'CF-1026');   /* v3.16.7（棚卸し B-13）番号を付けた */
+    return;
   }
+  /* 🔴 v3.16.8 車への保存の結果を待ってから「写真を更新しました」。前は待たずに出していた（保存できなくても成功に見えた）。
+     保存できなかったら画面の写真も元に戻して、番号つきで知らせる */
+  const before = car.photo;
+  car.photo = newPhoto;
+  // v3.0.0 下ごしらえ：写真の欄だけを送る（📝 v3.16.4 記録も同じ1回で＝前は何も残らなかった）
+  addLog(car.id, '写真を変更（カード詳細）');
+  try {
+    if (window.dbCars && window.dbCars.saveCarPaths) {
+      await window.dbCars.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
+    } else if (window.saveCarPaths) {
+      await window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
+    }
+  } catch (err) {
+    console.error('[car-detail] photo save failed:', err);
+    car.photo = before;
+    renderDetailBody(car);
+    renderAll();
+    showToast('写真を保存できませんでした（通信または権限を確認してください）', 'CF-1029');
+    return;
+  }
+  renderDetailBody(car);
+  renderAll();
+  showToast('写真を更新しました');
 }
 
 function toggleTaskToggle(carId, taskId, isD) {

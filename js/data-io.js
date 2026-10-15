@@ -4,10 +4,10 @@
 // ----------------------------------------
 // 対応機能：
 //   ・exportFullBackup()   → 全データをJSON書き出し（バックアップ用）
-//   ・importFullBackup()   → JSONを取り込み（既存データを全置換、ただしLINE設定とstaffは維持）
+//   ・（v3.16.7 で外した）importFullBackup＝JSONで全置換
 //   ・exportCarsExcel()    → 在庫車両をxlsx書き出し（一括編集用・状態は日本語ラベル）
 //   ・importCarsExcel()    → xlsx取り込み（IDで突合、ID空欄なら新規登録、状態は日英両対応）
-//   ・clearAllData()       → cars/archivedCars/boardNotes を全削除（二段階確認）
+//   ・（v3.16.7 で外した）clearAllData＝全削除
 //
 // v1.8.22 修正点：
 //   ・カラムID修正：'sale'（誤）→ 'exhibit'（正）
@@ -61,7 +61,7 @@
     const ref = _companyRef();
     if (!ref) { _toast('会社情報が取れません'); return; }
 
-    if (!confirm('完全バックアップをJSONで書き出します。\n（写真本体は含みません。URL/参照のみ）\nよろしいですか？')) return;
+    if (!(await cfAsk('完全バックアップをJSONで書き出します。\n（写真本体は含みません。URL/参照のみ）\nよろしいですか？', { ok: '書き出す' }))) return;   /* v3.16.7（B-03） */
 
     _setStatus('バックアップ取得中…', 'info');
     try {
@@ -109,82 +109,9 @@
     }
   }
 
-  // ============================================================
-  // 完全バックアップ（JSON）インポート
-  // ============================================================
-  async function importFullBackup() {
-    const ref = _companyRef();
-    if (!ref) { _toast('会社情報が取れません'); return; }
-
-    const file = await _pickFile('.json,application/json');
-    if (!file) return;
-
-    let data;
-    try {
-      const text = await file.text();
-      data = JSON.parse(text);
-    } catch (err) {
-      _setStatus('JSONの読み込み失敗：' + err.message, 'err');
-      return;
-    }
-
-    if (!data || data._meta == null || data._meta.format !== 'carflow-backup') {
-      _setStatus('CarFlowのバックアップファイルではありません', 'err');
-      return;
-    }
-
-    const meta = data._meta || {};
-    const counts = meta.counts || {};
-    const summary = [
-      `バックアップ日時：${meta.exportedAt || '不明'}`,
-      `会社ID：${meta.companyId || '不明'}`,
-      `件数：cars=${counts.cars || 0} / archived=${counts.archivedCars || 0} / boardNotes=${counts.boardNotes || 0}`,
-    ].join('\n');
-    if (!confirm(`このバックアップから復元します：\n\n${summary}\n\n既存の cars / archivedCars / boardNotes / settings / templates / customTasks は全て上書きされます。\n（LINE設定とスタッフは保持されます）\n\n本当によろしいですか？`)) {
-      _toast('復元をキャンセルしました');
-      return;
-    }
-
-    const ans = prompt('最終確認です。\n「復元」と入力してください：');
-    if (!ans || (ans.trim() !== '復元' && ans.trim().toUpperCase() !== 'RESTORE')) {
-      _toast('復元をキャンセルしました');
-      return;
-    }
-
-    /* 📝 v3.16.0（S-30）始める前に操作ログへ（途中で止まっても「誰がいつ」が残る） */
-    if (typeof addAuditLog === 'function') addAuditLog(`バックアップから全置換で復元（${meta.exportedAt || '日時不明'} の控え・車${counts.cars || 0}台）`);
-    _setStatus('復元中…（既存データ削除）', 'info');
-    try {
-      await _deleteCollection(ref.collection('cars'));
-      await _deleteCollection(ref.collection('archivedCars'));
-      await _deleteCollection(ref.collection('boardNotes'));
-      await _deleteCollection(ref.collection('checklistTemplates'));
-      await _deleteCollection(ref.collection('customTasks'));
-
-      _setStatus('復元中…（データ書き込み）', 'info');
-
-      await _writeDocs(ref.collection('cars'), data.cars || []);
-      await _writeDocs(ref.collection('archivedCars'), data.archivedCars || []);
-      await _writeDocs(ref.collection('boardNotes'), data.boardNotes || []);
-      await _writeDocs(ref.collection('checklistTemplates'), data.checklistTemplates || []);
-      await _writeDocs(ref.collection('customTasks'), data.customTasks || []);
-
-      if (data.settingsMain) {
-        // v1.8.23: バックアップに無くてもサンプル再投入を抑止
-        const merged = Object.assign({}, data.settingsMain, { _seedSampleDone: true });
-        await ref.collection('settings').doc('main').set(merged);
-      } else {
-        // settings/main が無いバックアップの場合もフラグだけは立てておく
-        await ref.collection('settings').doc('main').set({ _seedSampleDone: true }, { merge: true });
-      }
-
-      _setStatus('復元完了。ページをリロードします…', 'ok');
-      setTimeout(() => location.reload(), 1500);
-    } catch (err) {
-      console.error('[data-io] importFullBackup error', err);
-      _setStatus('復元失敗：' + (err.message || err), 'err');
-    }
-  }
+  /* 🗑 v3.16.7（棚卸し A-36・ゆうた 2026-10-15「B＝無くす」）「取り込み（全置換）」importFullBackup は外した。
+     既存の車・実績・付箋・テンプレを全部消して控えで置き換える道だった（使っていない・間違えると戻せない）。
+     もしもの時に戻す手順＝_ルール\メモ.md の「🛟 戻す手順」（管理者が行う） */
 
   // ============================================================
   // 車両一括編集Excel エクスポート
@@ -365,7 +292,7 @@
     let summary = `Excelの内容で以下を反映します：\n\n・更新：${updates}件\n・新規登録：${creates}件\n`;
     if (errors.length) summary += `\n⚠️ 警告 ${errors.length}件あり：\n` + errors.slice(0, 5).join('\n');
     summary += `\n\n更新行のチェック状況・装備品・写真は保持されます。\n本当に反映しますか？`;
-    if (!confirm(summary)) { _toast('反映をキャンセルしました'); return; }
+    if (!(await cfAsk(summary, { ok: '反映する' }))) { _toast('反映をキャンセルしました'); return; }   /* v3.16.7（B-03） */
 
     _setStatus('Excel取り込み中…', 'info');
     try {
@@ -425,73 +352,12 @@
     }
   }
 
-  // ============================================================
-  // 全消去（cars / archivedCars / boardNotes）
-  // ============================================================
-  async function clearAllData() {
-    const ref = _companyRef();
-    if (!ref) { _toast('会社情報が取れません'); return; }
-
-    if (!confirm('全消去します。\n\n対象：\n・全車両（cars）\n・販売実績（archivedCars）\n・付箋ボード（boardNotes）\n\n設定・テンプレ・スタッフ・LINE連携は残ります。\nこの操作は元に戻せません。続行しますか？')) {
-      _toast('全消去をキャンセルしました');
-      return;
-    }
-
-    const ans = prompt('最終確認。\n「全消去」と入力してください：');
-    const norm = (ans || '').trim();
-    if (norm !== '全消去' && norm.toUpperCase() !== 'DELETE ALL') {
-      _toast('全消去をキャンセルしました');
-      return;
-    }
-
-    if (typeof addAuditLog === 'function') addAuditLog('全データを消去（車・実績・付箋）');   /* 📝 v3.16.0（S-30） */
-    _setStatus('全消去中…（cars 削除）', 'info');
-    try {
-      await _deleteCollection(ref.collection('cars'));
-      _setStatus('全消去中…（archivedCars 削除）', 'info');
-      await _deleteCollection(ref.collection('archivedCars'));
-      _setStatus('全消去中…（boardNotes 削除）', 'info');
-      await _deleteCollection(ref.collection('boardNotes'));
-      // v1.8.23: 次回ログイン時にサンプルが自動投入されないようフラグを立てる
-      await ref.collection('settings').doc('main').set({ _seedSampleDone: true }, { merge: true });
-      _setStatus('全消去完了。リロードします…', 'ok');
-      setTimeout(() => location.reload(), 1500);
-    } catch (err) {
-      console.error('[data-io] clearAllData error', err);
-      _setStatus('全消去失敗：' + (err.message || err), 'err');
-    }
-  }
+  /* 🗑 v3.16.7（棚卸し A-36）「全データを消去」clearAllData と、それと全置換だけが使っていた
+     _deleteCollection・_writeDocs は外した */
 
   // ============================================================
   // 補助
   // ============================================================
-  async function _deleteCollection(colRef) {
-    while (true) {
-      const snap = await colRef.limit(BATCH_SIZE).get();
-      if (snap.empty) break;
-      const batch = window.fb.db.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      if (snap.size < BATCH_SIZE) break;
-    }
-  }
-
-  async function _writeDocs(colRef, docs) {
-    if (!Array.isArray(docs) || !docs.length) return;
-    let pending = docs.slice();
-    while (pending.length) {
-      const chunk = pending.splice(0, BATCH_SIZE);
-      const batch = window.fb.db.batch();
-      chunk.forEach(d => {
-        const id = d._id || d.id || colRef.doc().id;
-        const out = Object.assign({}, d);
-        delete out._id;
-        batch.set(colRef.doc(id), out);
-      });
-      await batch.commit();
-    }
-  }
-
   function _pickFile(accept) {
     return new Promise((resolve) => {
       const input = document.createElement('input');
@@ -580,10 +446,8 @@
 
   // 公開
   window.exportFullBackup = exportFullBackup;
-  window.importFullBackup = importFullBackup;
   window.exportCarsExcel = exportCarsExcel;
   window.importCarsExcel = importCarsExcel;
-  window.clearAllData = clearAllData;
 
   console.log('[data-io] v1.8.22 ready');
 })();

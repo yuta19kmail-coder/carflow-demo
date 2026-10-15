@@ -499,22 +499,10 @@ function renderLanding() {
   }
 }
 
-// LINE通知用スナップショット：ダッシュボードの確定数値（recogDateAny＋_dashAmount＝画面と同じ計算）を
-// Firestoreに残し、LINEのスケジュール通知（月次サマリー）はこれを読んで送る＝LINE＝画面の数字が必ず一致する。
-let _lineSnapSig = null;
-function _writeLineSnapshot(y, m, prevDate, thisCount, thisSales, lastCount, lastSales){
-  if (!(window.fb && window.fb.db && window.fb.currentCompanyId)) return;
-  const thisYM = `${y}-${String(m).padStart(2,'0')}`;
-  const lastYM = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-  const sig = `${thisYM}:${thisCount}:${thisSales}|${lastYM}:${lastCount}:${lastSales}`;
-  if (sig === _lineSnapSig) return;   // 同じ値なら再書き込みしない（書込み回数の節約）
-  _lineSnapSig = sig;
-  window.fb.db.collection('companies').doc(window.fb.currentCompanyId)
-    .collection('integrations').doc('dashboardSnapshot')
-    .set({ monthly: { [thisYM]: { count: thisCount, sales: thisSales }, [lastYM]: { count: lastCount, sales: lastSales } },
-           updatedAt: window.fb.serverTimestamp() }, { merge: true })
-    .catch(e => console.warn('[lineSnapshot] write failed', e));
-}
+/* 🗑 v3.16.9 LINE の月次まとめの数字（integrations/dashboardSnapshot）は、画面からは書かない。
+   サーバー（_サーバー\functions\car-month.js）が送る前に自分で数えて書く（2026-10-15〜）。
+   前は管理者・マネージャーがダッシュボードを開いた時の数字が LINE に出ていた（開かない月は古いまま）。
+   ⚠ ここに書き込みを戻さないこと（サーバーの数字を画面の古い数字で上書きする） */
 
 // ========================================
 // 販売・在庫KPI
@@ -580,8 +568,7 @@ function renderKPIs() {
   const yoySales = yearSales ? Math.round((thisSales - yearSales)/yearSales*100) : null;
   const momSales = lastSales ? Math.round((thisSales - lastSales)/lastSales*100) : null;
 
-  // LINE通知用：今月・先月の確定数値をスナップショット保存（LINEの月次サマリーがこれを送る）
-  try { _writeLineSnapshot(y, m, prev, thisMonth.length, Math.round(thisSales), lastMonth.length, Math.round(lastSales)); } catch (e) { /* noop */ }
+  /* v3.16.9 LINE の月次まとめの数字はサーバーが数える（上の説明）＝ここからは書かない */
 
   // v1.8.59: ダッシュボード金額の税扱いラベル
   const dashTax = (typeof getTaxLabel === 'function') ? getTaxLabel('dashboard') : '税込';
@@ -1026,7 +1013,7 @@ function _fallbackCopyLogs(text, cb) {
     document.body.appendChild(ta); ta.focus(); ta.select();
     document.execCommand('copy'); ta.remove();
     cb && cb();
-  } catch (e) { alert('コピーに失敗しました'); }
+  } catch (e) { cfTell('コピーに失敗しました', { code: 'CF-0028' }); }   /* v3.16.7（B-03） */
 }
 window.copyAllLogs = copyAllLogs;
 

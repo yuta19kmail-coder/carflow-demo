@@ -179,14 +179,17 @@
       if (typeof addLog === 'function') addLog(carId, '見積もりの理由を変更（' + reasonText(e) + '）');
     });
   }
-  function removeIds(carId, ids) {
+  async function removeIds(carId, ids) {
     var car = findCar(carId); if (!car || !ids.length) return;
     var hit = list(car).filter(function (x) { return ids.indexOf(x.id) >= 0; });
     if (!hit.length) return;
     var msg = hit.length === 1
       ? '見積もり（' + ymdhm(hit[0].at) + '・' + reasonText(hit[0]) + '）を消します。\n下の「消した見積もり」から元に戻せます。よろしいですか？'
       : '選んだ見積もり ' + hit.length + ' 件を消します。\n下の「消した見積もり」から元に戻せます。よろしいですか？';
-    if (!confirm(msg)) return;
+    if (!(await cfAsk(msg, { ok: '消す', danger: true }))) return;   /* v3.16.7（B-03） */
+    car = findCar(carId); if (!car) return;   /* 窓を開いている間に届いた最新の車で続ける */
+    hit = list(car).filter(function (x) { return ids.indexOf(x.id) >= 0; });
+    if (!hit.length) return;
     var now = Date.now(), uid = (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || '', nm = myName();
     hit.forEach(function (x) { x.deletedAt = now; x.deletedBy = uid; x.deletedByName = nm; });
     /* 1枚目は必ず初稿（1枚目を消して繰り上がった時も揃える） */
@@ -211,11 +214,11 @@
     });
   }
   /* 完全に消す（マスターだけ）＝一覧から外して PDF も消す */
-  function purgeEst(carId, estId) {
+  async function purgeEst(carId, estId) {
     if (!(typeof _isCarflowMaster === 'function' && _isCarflowMaster())) return;
     var car = findCar(carId); if (!car) return;
     var e = all(car).find(function (x) { return x && x.id === estId; }); if (!e || !e.deletedAt) return;
-    if (!confirm('この見積もりを完全に消します。PDF も消えて、元に戻せません。よろしいですか？')) return;
+    if (!(await cfAsk('この見積もりを完全に消します。PDF も消えて、元に戻せません。よろしいですか？', { ok: '完全に消す', danger: true }))) return;   /* v3.16.7（B-03） */
     car.estimates = all(car).filter(function (x) { return x && x.id !== estId; });
     redraw();
     saveAll(car).then(function () {

@@ -101,8 +101,8 @@
       if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
       if (sample) await addScript(null, sample + '\n//# sourceURL=sample.js');
       if (!EMBED) document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
-      await addScript('view.js?v=3.16.6');
-      if (EMBED) { await addScript('stock.js?v=3.16.6'); await addScript('embed.js?v=3.16.6'); }
+      await addScript('view.js?v=3.16.9');
+      if (EMBED) { await addScript('stock.js?v=3.16.9'); await addScript('embed.js?v=3.16.9'); }
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す
     get('det.json').then(d => { window.SOBA.det = d; if (typeof window.sobaRedraw === 'function') try { window.sobaRedraw(); } catch (e) {} })

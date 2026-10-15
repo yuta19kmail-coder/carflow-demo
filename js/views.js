@@ -57,7 +57,7 @@ function _makeExhibitCard(car) {
   card.innerHTML = `
     <div class="ex-card-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
     <div class="ex-card-body">
-      <div class="ex-card-title">${car.maker} ${car.model}</div>
+      <div class="ex-card-title" data-cf-noen>${car.maker} ${car.model}</div>
       <div class="ex-card-meta">
         <span class="ex-card-meta-item ex-card-color" title="${(car.color || '').replace(/"/g,'&quot;')}">${car.color || '—'}</span>
         <span class="ex-card-meta-item">${yr}</span>
@@ -207,7 +207,7 @@ function _makeDealCard(car) {
   card.innerHTML = `
     <div class="deal-card-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
     <div class="deal-card-body">
-      <div class="deal-card-title">${car.maker} ${car.model}</div>
+      <div class="deal-card-title" data-cf-noen>${car.maker} ${car.model}</div>
       <div class="deal-card-stats">
         <div class="deal-stat">
           <div class="deal-stat-num">${yr}</div>
@@ -308,7 +308,7 @@ function openDealPopup(car) {
     <div class="deal-main">
       <div class="deal-popup-photo">${car.photo ? `<img src="${car.photo}">` : `<div class="deal-popup-emoji">${carEmoji(car.size)}</div>`}</div>
       <div class="deal-popup-info">
-        <div class="deal-popup-title">${car.maker} ${car.model}</div>
+        <div class="deal-popup-title" data-cf-noen>${car.maker} ${car.model}</div>
         <div class="deal-popup-stats">
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">年式</div><div class="deal-popup-stat-val">${yr}</div></div>
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">走行距離</div><div class="deal-popup-stat-val">${km}<span class="deal-popup-stat-unit">km</span></div></div>
@@ -374,7 +374,7 @@ function _makeProgressCardOther(car, compact) {
       </div>
       <div class="pv-other-memo">
         <div class="pv-other-memo-label">${ic('pencil','📝',16)} 作業メモ</div>
-        <div class="pv-other-memo-text">${workMemo ? escapeHtml(workMemo).replace(/\n/g,'<br>') : '<span class="cc-other-empty">未記入</span>'}</div>
+        <div class="pv-other-memo-text"${workMemo ? ' data-cf-noen' : ''}>${workMemo ? escapeHtml(workMemo).replace(/\n/g,'<br>') : '<span class="cc-other-empty">未記入</span>'}</div>
       </div>
       <div style="margin-top:9px;font-size:11px;color:var(--text3)">仕入れから ${inv} 日経過</div>
     </div>`;
@@ -705,7 +705,7 @@ function _invCardHtml(car) {
     <div class="inv-body">
       <div class="inv-row">
         <div class="inv-info">
-          <div class="inv-name">${car.maker} ${car.model}</div>
+          <div class="inv-name" data-cf-noen>${car.maker} ${car.model}</div>
           <div class="inv-num">${car.num}</div>
           <span class="pill ${pillMap[car.col]||'pill-gray'}" style="margin-top:5px;display:inline-block">${COLS.find(c=>c.id===car.col)?.label||car.col}</span>
         </div>

@@ -85,11 +85,74 @@
         || scan(typeof manualNumbers !== 'undefined' ? manualNumbers : null, 'manual');
   }
 
+  /* ============================================================
+     🔴 v3.16.7（棚卸し A-34）番号は「会社の書類1枚」を transaction で +1 して取る
+     ------------------------------------------------------------
+     前は nextNum()＝「その端末が知っている一番大きい番号＋1」だけだったので、
+     2台がほぼ同時に新規登録すると、同じ KM-番号 が2台に付いていた（番号は PitFlow・掲載・書類で使う＝後で直すのが重い）。
+     ◎置き場＝ companies/<会社>/counters/carNum の { last: 最後に振った番号(数), at, by }
+     ◎claimNum(preferred, { auto })
+       ・auto=true（画面が自動で入れた番号のまま保存する時）
+         → max(書類の last, この端末が知っている最大) ＋1 を取り、書類の last をそれにする。
+           ほかの端末が先に同じ番号を取っていたら、次の空いた番号に変わる（戻り値の changed=true）
+       ・auto=false（人が番号を打った・手入力の記録）
+         → その番号をそのまま使う。書類の last は「その番号より小さければ上げる」だけ（自動の番号が後でぶつからないように）
+     ◎書類に書けない時（ルールがまだ許していない・通信が無い・体験版）＝今までどおり端末の最大＋1（preferred のまま）。
+        登録自体は止めない（番号の取り合いの穴は残るが、今より悪くはならない）。
+     ⚠ ルール（_ルール\firestore.rules）に counters/{id} の許しが要る（車を作れる人＝canCreateCar が read・create・update）
+     ============================================================ */
+  function _counterRef() {
+    var fb = window.fb;
+    if (!fb || !fb.db || !fb.currentCompanyId || typeof fb.db.runTransaction !== 'function') return null;
+    return fb.db.collection('companies').doc(fb.currentCompanyId).collection('counters').doc('carNum');
+  }
+  function _localMax() {
+    var all = collectAllNums();
+    return all.length ? Math.max.apply(null, all) : 0;
+  }
+  function claimNum(preferred, opts) {
+    var auto = !!(opts && opts.auto);
+    var pref = String(preferred == null ? '' : preferred).trim();
+    var p = parseNum(pref);
+    var keep = { num: pref, changed: false, viaCounter: false };
+    if (!pref && !auto) return Promise.resolve(keep);
+    var ref = _counterRef();
+    if (!ref) return Promise.resolve(auto && !pref ? { num: nextNum(), changed: false, viaCounter: false } : keep);
+    var fb = window.fb;
+    var uid = (fb.currentUser && fb.currentUser.uid) || null;
+    var ts = (typeof fb.serverTimestamp === 'function') ? fb.serverTimestamp() : Date.now();
+    return fb.db.runTransaction(function (tx) {
+      return tx.get(ref).then(function (snap) {
+        var last = (snap && snap.exists && snap.data && Number((snap.data() || {}).last)) || 0;
+        var lm = _localMax();
+        var n;
+        if (auto) {
+          n = Math.max(last, lm) + 1;
+          /* 画面に出していた番号がまだ空いていれば、それを使う（端末の最大がまだ届いていないだけの時） */
+          if (p !== null && p > Math.max(last, lm)) n = p;
+        } else {
+          n = p;
+        }
+        var newLast = Math.max(last, n || 0);
+        if (newLast !== last || !(snap && snap.exists)) tx.set(ref, { last: newLast, at: ts, by: uid }, { merge: true });
+        return n;
+      });
+    }).then(function (n) {
+      if (!auto) return { num: pref, changed: false, viaCounter: true };
+      var s = formatNum(n);
+      return { num: s, changed: !!pref && parseNum(pref) !== n, viaCounter: true };
+    }).catch(function (e) {
+      try { console.warn('[num-helpers] 番号の書類に書けませんでした（端末の最大＋1で続けます）', e && (e.code || e.message || e)); } catch (x) {}
+      return auto && !pref ? { num: nextNum(), changed: false, viaCounter: false } : keep;
+    });
+  }
+
   window.numHelpers = {
     parseNum: parseNum,
     formatNum: formatNum,
     collectAllNums: collectAllNums,
     nextNum: nextNum,
+    claimNum: claimNum,
     findDuplicate: findDuplicate,
   };
 })();

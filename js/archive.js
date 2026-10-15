@@ -36,6 +36,26 @@ function getCloseMonthTargets(y, m) {
     return d.getFullYear() === y && (d.getMonth()+1) === m;
   });
 }
+/* 🔴 v3.16.7（棚卸し A-35）売上の数え方は販売実績の画面と同じ1本（税の扱い・本体か総額か・その車の税率）。
+   前は締めの下見だけ本体価格をそのまま足していた＝設定が「税抜で表示」や「総額で数える」の時に、
+   下見の売上と締めた後の販売実績の売上が合わなかった */
+function _archAmountMode() {
+  const ps = (typeof appSettings !== 'undefined' && appSettings.priceTax) || {};
+  const mode   = (ps.dashboard === 'excl') ? 'excl' : 'incl';
+  const source = (ps.dashboardSource === 'total') ? 'total' : 'body';
+  return { mode, source, taxLbl: mode === 'excl' ? '税抜' : '税込', srcLbl: source === 'total' ? '総額' : '本体価格' };
+}
+function _archSumCar(c) {
+  const am = _archAmountMode();
+  return (typeof _amountFromCarWithSnapshot === 'function')
+    ? _amountFromCarWithSnapshot(c, am.source, am.mode)
+    : (Number(c.price) || 0);
+}
+/* 🔴 v3.16.7（A-35）もう実績に入っている車（締め直し＝前の締めで在庫から消せなかった車） */
+function _archAlreadyIn(c) {
+  return (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars))
+    && archivedCars.some(a => a && String(a.id) === String(c.id));
+}
 function updateClosePreview() {
   const y = parseInt(document.getElementById('close-month-year').value, 10);
   const m = parseInt(document.getElementById('close-month-month').value, 10);
@@ -45,9 +65,12 @@ function updateClosePreview() {
     el.innerHTML = `<div style="color:var(--text3)">${y}年${m}月に納車完了した車両はありません</div>`;
     return;
   }
-  const totalSales = targets.reduce((s, c) => s + (Number(c.price) || 0), 0);
-  el.innerHTML = `<div style="font-weight:600;color:var(--text);margin-bottom:6px">対象 ${targets.length}台 / 売上 ${(totalSales/10000).toFixed(0)}万円</div>` +
-    targets.map(c => `<div style="padding:3px 0;font-size:11px">・${c.maker} ${c.model} <span style="color:var(--text3)">(${c.num}) ${fmtPrice(c.price)}</span></div>`).join('');
+  const am = _archAmountMode();
+  const totalSales = targets.reduce((s, c) => s + _archSumCar(c), 0);
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+  el.innerHTML = `<div style="font-weight:600;color:var(--text);margin-bottom:6px">対象 ${targets.length}台 / 売上 ${(totalSales/10000).toFixed(0)}万円 <span style="font-size:10px;color:var(--text3);font-weight:400">（${am.taxLbl}・${am.srcLbl}）</span></div>` +
+    targets.map(c => `<div style="padding:3px 0;font-size:11px">・<span data-cf-noen>${esc(c.maker)} ${esc(c.model)}</span> <span style="color:var(--text3)">(${esc(c.num)}) ${fmtPrice(Math.round(_archSumCar(c)))}</span>`
+      + (_archAlreadyIn(c) ? ` <span style="color:var(--orange)">実績に入っています（在庫から外すだけ）</span>` : '') + `</div>`).join('');
 }
 /* 🔴 2026-08-05 修正：月次集計締めは「実績へコピー」と「在庫から削除」を
    **成功したか確かめずに同時に**走らせていた。実績への保存が失敗して削除だけ通ると、
@@ -66,6 +89,7 @@ async function executeCloseMonth() {
   const closedAt = (typeof todayStr === 'function') ? todayStr()
     : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;   /* v3.16.0（S-40）締めた日も日本時間 */
   targets.forEach(c => {
+    if (_archAlreadyIn(c)) return;   /* v3.16.7（A-35）締め直しの車は、締めた日・月を書き換えない */
     c._archivedAt = closedAt;
     c._archivedYM = ymKeyFromYM(y, m);
     // v2.1.0: 月締め時の写真即削除を撤廃。
@@ -77,7 +101,40 @@ async function executeCloseMonth() {
 
   /* ① 実績へコピー（1台ずつ結果を見る）。成功した台だけ次に進む。 */
   const moved = [], failed = [];
+  let reclosed = 0;
   for (const c of targets) {
+    /* 🔴🔴 v3.16.7（棚卸し A-35）**もう実績に入っている車（締め直し）は、実績を書き直さない。**
+       前は締め直しでも initial:true＝在庫に残っていた古い写しで実績を丸ごと書いていたので、
+       締めた後にバックオフィスで付けた☑・メモ（実績の側にある）が、在庫の古い中身で上書きされて消えていた。
+       ＝ 実績にまだ無い車だけ initial で書く。ある車は「締め直しで在庫から外した」の1行だけ実績のフローと操作ログに足して、在庫から消す。 */
+    if (_archAlreadyIn(c)) {
+      const now3 = new Date();
+      const e3 = {
+        time: `${now3.getMonth() + 1}/${now3.getDate()} ${String(now3.getHours()).padStart(2, '0')}:${String(now3.getMinutes()).padStart(2, '0')}`,
+        at: now3.getTime(),
+        userUid: (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null,
+        user: (typeof currentUser !== 'undefined' && currentUser) || '—',
+        carNum: c.num || '—',
+        action: `月次集計締め（${y}年${m}月）のやり直し：実績にはもう入っていたので、在庫に残っていた写しを外した（実績の中身・バックオフィスの☑とメモはそのまま）`,
+        carId: c.id,
+      };
+      if (window.dbArchive && window.dbArchive.appendArchivedLog) {
+        try {
+          await window.dbArchive.appendArchivedLog(c.id, e3);   /* 実績のフローに足すだけ（arrayUnion） */
+        } catch (e) {
+          console.error('[archive] 締め直しの記録を実績に書けませんでした', c.num, e);
+          failed.push(c);
+          continue;                     /* 記録が書けなければ在庫からも消さない（⑧：記録と一緒に動かす） */
+        }
+      }
+      const a = archivedCars.find(x => x && String(x.id) === String(c.id));
+      if (a) { if (!Array.isArray(a.logs)) a.logs = []; a.logs.unshift(e3); }
+      if (typeof globalLogs !== 'undefined' && Array.isArray(globalLogs)) { globalLogs.unshift(e3); if (globalLogs.length > 1000) globalLogs.length = 1000; }
+      if (window.dbAudit) window.dbAudit.appendAuditLog(e3);
+      moved.push(c);
+      reclosed++;
+      continue;
+    }
     /* 📝 v3.16.2（S-30 の取りこぼし）「締めでアーカイブ」の行は、実績を作る書き込みと**同じ1回**でフローに入れる。
        前は保存の後に addLog していたので、行は在庫の文書へ後から送られ、在庫から消えた後は捨てられていた
        （締めた車のフローにほぼ残らなかった）。失敗した台からは行を外す（締めていないのに「締めた」と残さない） */
@@ -136,10 +193,11 @@ async function executeCloseMonth() {
   }
   renderAll();
   renderDashboard();
-  const cleanedMsg = cleanedCount > 0 ? `（同時に古い写真${cleanedCount}枚をクリーンアップ）` : '';
+  const cleanedMsg = (cleanedCount > 0 ? `（同時に古い写真${cleanedCount}枚をクリーンアップ）` : '')
+    + (reclosed ? `（うち${reclosed}台は締め直し＝実績はそのまま・在庫から外しただけ）` : '');
   /* 🔴 「できた数」を正直に出す。全部できた時だけ今までどおりの文言。 */
   if (failed.length || notDeleted.length) {
-    let msg = `${y}年${m}月：${moved.length}台をアーカイブしました`;
+    let msg = `${y}年${m}月：${moved.length}台をアーカイブしました` + (reclosed ? `（うち${reclosed}台は締め直し）` : '');
     if (failed.length)     msg += `／${failed.length}台は実績に移せませんでした（在庫に残しています・もう一度お試しください）`;
     if (notDeleted.length) msg += `／${notDeleted.length}台は在庫から消せませんでした（実績には入っています）`;
     showToast(msg);
@@ -156,7 +214,8 @@ async function executeCloseMonth() {
 /* 🔴 2026-09-08（v2.55.0）実績と在庫の両方に残っている車を、販売実績の一番上に出す。
    ＝ 月次締めで「実績には入ったが、在庫から消せなかった」台。
    放っておくと**ダッシュボードの数字が二重に見える元**になる（数字自体は soldPool で1回に直してある）。
-   直し方＝**その月の月次締めをもう一度実行する**。実績は同じ内容で上書きされ、在庫から消える。 */
+   直し方＝**その月の月次締めをもう一度実行する**。在庫から消える。
+   🔴 v3.16.7（A-35）実績は書き直さない（前は在庫の古い写しで丸ごと上書きし、締めた後の☑・メモが消えていた） */
 function _archDupBarHtml() {
   const dup = (typeof soldDupCars === 'function') ? soldDupCars() : [];
   if (!dup.length) return '';
@@ -168,7 +227,7 @@ function _archDupBarHtml() {
         月次締めで<b>実績には入りましたが、在庫から消せませんでした</b>。<br>
         ${names}<br>
         <b>直し方＝その月の「月次集計締め」をもう一度実行してください。</b>
-        （実績は同じ内容で上書きされ、在庫から消えます）<br>
+        （実績はそのまま＝バックオフィスの☑・メモも消えません。在庫に残った方だけが消えます）<br>
         <span style="color:var(--text3)">※ 表示している売上・台数は、同じ車を1回だけ数えています。</span>
       </div></div>`;
 }

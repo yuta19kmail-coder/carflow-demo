@@ -209,7 +209,7 @@ window.copyAppUrl = async function (btn) {
       setTimeout(() => { btn.textContent = orig; }, 2000);
     }
   } catch (e) {
-    alert('コピーに失敗しました：\n' + url);
+    cfTell('コピーに失敗しました', { detail: '下の URL を選んでコピーしてください：\n' + url, code: 'CF-0028' });   /* v3.16.7（B-03） */
   }
 };
 

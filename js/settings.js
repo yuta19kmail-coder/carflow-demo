@@ -56,8 +56,8 @@ function toggleInvWarn(i) {
 }
 
 // v1.7.25: 在庫警告をデフォルトに戻す
-function resetInvWarnDefaults() {
-  if (!confirm('在庫日数の警告を初期値に戻します。\n（注意=15日 / 要対応=30日 / 危険=45日、すべてON）\nよろしいですか？')) return;
+async function resetInvWarnDefaults() {
+  if (!(await cfAsk('在庫日数の警告を初期値に戻します。\n（注意=15日 / 要対応=30日 / 危険=45日、すべてON）\nよろしいですか？', { ok: '初期値に戻す' }))) return;   /* v3.16.7（B-03） */
   appSettings.invWarn = DEFAULT_INV_WARN.map(t => ({ ...t }));
   renderInvWarnEditor();
   renderAll();
@@ -98,8 +98,8 @@ function toggleDelWarn(i) {
 }
 
 // v1.7.25: 納車残日数の警告をデフォルトに戻す
-function resetDelWarnDefaults() {
-  if (!confirm('納車残日数の警告を初期値に戻します。\n（準備=7日 / 直前=3日 / 当日=0日、すべてON）\nよろしいですか？')) return;
+async function resetDelWarnDefaults() {
+  if (!(await cfAsk('納車残日数の警告を初期値に戻します。\n（準備=7日 / 直前=3日 / 当日=0日、すべてON）\nよろしいですか？', { ok: '初期値に戻す' }))) return;   /* v3.16.7（B-03） */
   appSettings.delWarn = DEFAULT_DEL_WARN.map(t => ({ ...t }));
   renderDelWarnEditor();
   renderAll();
@@ -835,7 +835,7 @@ window._setTaskSettingsField = function (key, value) {
 };
 
 // v3.0.0：このタスクの作り（大 / 中 / 小 / 中→小）を選ぶ
-window._setTaskLevel = function (v) {
+window._setTaskLevel = async function (v) {
   const s = window._taskSettingsModal;
   if (!s) return;
   const before = s.level;
@@ -853,30 +853,31 @@ window._setTaskLevel = function (v) {
     const msg = (v === 'step')
       ? `「中タスク」にしますか？\n\n・中タスク ${n} 個を、上から順に押していく形になります\n・小タスクは使いません（中タスクを直接「完了にする」で押します）\n・前の中タスクが終わるまで、次は押せません\n\n※ 入れてあるチェックは1つも消えません。戻せば元どおりです。`
       : `「中→小タスク」にしますか？\n\n・中タスク ${n} 個が、上から順に並びます\n・それぞれの中タスクの下に、小タスクがぶら下がります\n・前の中タスクが終わるまで、次は押せません\n・進み具合は「済んだ中タスクの数 ÷ ${n}」で出ます\n\n※ 入れてあるチェックは1つも消えません。戻せば元どおりです。`;
-    if (!confirm(msg)) { _renderTaskSettingsForm(); return; }
+    if (!(await cfAsk(msg, { ok: 'この形にする' }))) { _renderTaskSettingsForm(); return; }   /* v3.16.7（B-03） */
   }
   if (v === 'task' && before !== 'task') {
-    if (!confirm('「大タスク（スイッチだけ）」に戻しますか？\n\nカード詳細では「完了」を押すだけになります。\n中タスク・小タスクの中身は消えないので、戻せばそのまま使えます。')) {
+    if (!(await cfAsk('「大タスク（スイッチだけ）」に戻しますか？\n\nカード詳細では「完了」を押すだけになります。\n中タスク・小タスクの中身は消えないので、戻せばそのまま使えます。', { ok: '戻す' }))) {
       _renderTaskSettingsForm(); return;
     }
   }
+  if (window._taskSettingsModal !== s) return;   /* 窓を開いている間に設定の窓が閉じられた */
   s.level = v;
   s.hasChecklist = (v !== 'task');
   _renderTaskSettingsForm();
 };
 
-window._toggleTaskSettingsField = function (key, forceValue) {
+window._toggleTaskSettingsField = async function (key, forceValue) {
   const s = window._taskSettingsModal;
   if (!s) return;
   if (forceValue === true) {
     if (key === 'hasChecklist') {
-      if (!confirm('小タスク制を ON にしますか？\n\nカード詳細で小タスク（チェックリスト）が展開されるようになります。\n後からOFFに戻してもパターンの中身は保持されます。')) return;
+      if (!(await cfAsk('小タスク制を ON にしますか？\n\nカード詳細で小タスク（チェックリスト）が展開されるようになります。\n後からOFFに戻してもパターンの中身は保持されます。', { ok: 'ON にする' }))) return;   /* v3.16.7（B-03） */
     }
     s[key] = true;
   } else if (forceValue === false) {
     // v2.5.9: ON→OFF を許可（パターンは Firestore 上に保持されたまま）
     if (key === 'hasChecklist') {
-      if (!confirm('小タスク制を OFF に戻しますか？\n\nカード詳細では「完了」トグルだけのシンプル表示に戻ります。\nパターン（variants）の中身は保持されるので、もう一度ONにすればそのまま使えます。')) return;
+      if (!(await cfAsk('小タスク制を OFF に戻しますか？\n\nカード詳細では「完了」トグルだけのシンプル表示に戻ります。\nパターン（variants）の中身は保持されるので、もう一度ONにすればそのまま使えます。', { ok: 'OFF にする' }))) return;
     }
     s[key] = false;
   } else {
@@ -1337,7 +1338,7 @@ window._closeRenameTaskModal = _closeRenameTaskModal;
 // v2.0.0: ビルトイン/カスタム両対応のタスク削除
 //   ビルトインは「削除フラグ」を立てて非表示化（不可逆扱い・元データは温存）
 //   保護対象は t_complete / d_complete（自動判定）と t_equip（装備品ビュー連動）のみ
-function deleteCustomTask(taskId, phase) {
+async function deleteCustomTask(taskId, phase) {
   if (taskId === 't_complete' || taskId === 'd_complete') {
     if (typeof showToast === 'function') showToast('自動判定タスクは削除できません', 'CF-9008');
     return;
@@ -1365,7 +1366,7 @@ function deleteCustomTask(taskId, phase) {
     if (!b) return;
     displayName = (ov && ov.name) ? ov.name : (b.name || taskId);
   }
-  if (!confirm(`「${displayName}」を削除しますか？\n（既に進捗が入っていても消えます。\n　ビルトインタスクは設定画面から非表示になります）`)) return;
+  if (!(await cfAsk(`「${displayName}」を削除しますか？`, { detail: '既に進捗が入っていても消えます。\nビルトインタスクは設定画面から非表示になります', ok: '削除する', danger: true }))) return;   /* v3.16.7（B-03） */
 
   if (cust) {
     const __idx = appCustomTasks.findIndex(x => x.id === taskId);
@@ -1668,7 +1669,7 @@ async function runMigratePhotos() {
     _setMigrateStatus('対象なし');
     return;
   }
-  if (!confirm(`車両写真 ${carCount}件 を Firebase Storage に移行します。\n通信に時間がかかる場合があります。実行しますか？`)) {
+  if (!(await cfAsk(`車両写真 ${carCount}件 を Firebase Storage に移行します。\n通信に時間がかかる場合があります。実行しますか？`, { ok: '移行する' }))) {   /* v3.16.7（B-03） */
     return;
   }
   _setMigrateStatus('移行中…0/' + carCount);
