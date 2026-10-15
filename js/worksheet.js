@@ -55,18 +55,14 @@ function _wsIsArchived(car) {
 function _wsSaveCar(car, fieldPath, value) {
   if (!car) return;
   const archived = _wsIsArchived(car);
-  if (fieldPath) {
-    if (window.saveCarAnyPaths) {
-      window.saveCarAnyPaths(car.id, archived, [{ path: fieldPath, value: value }]);
-      return;
-    }
-    if (!archived && window.saveCarField) { window.saveCarField(car.id, fieldPath, value); return; }
-  }
-  if (archived) {
-    if (window.saveArchivedCarById) window.saveArchivedCarById(car.id);
+  /* 🔴 v3.16.1（棚卸し S-08 と同じ根）押した・書いた欄だけを送る。車の中身を丸ごと送る道（saveCarById／
+     saveArchivedCarById）は外した＝古い画面の作業管理票が、ほかの人の変更を巻き戻さない。フローも足すだけで一緒に */
+  if (!fieldPath) return;
+  if (window.saveCarAnyPaths) {
+    window.saveCarAnyPaths(car.id, archived, [{ path: fieldPath, value: value }, { path: ['logs'], value: car.logs }]);
     return;
   }
-  if (window.saveCarById) saveCarById(car.id);
+  if (!archived && window.saveCarField) window.saveCarField(car.id, fieldPath, value);
 }
 // v1.7.14: accordion モードでセクションごとの開閉状態
 //   key: section.id, value: true=開 / false or undefined=閉
@@ -868,6 +864,14 @@ function _wsSetItemValue(itemId, updater) {
     writeVal = next;
   }
   const bucket = _wsGetBucket(car);
+  /* 📝 v3.16.0（棚卸し S-30）作業管理票の☑・選択も、誰がいつ押したかをフローに1行（steps.js と同じ書き方）。
+     前はどこにも残らなかった。記録はフローの「この間の記録」（小さい行）に入る */
+  if (typeof addLog === 'function') {
+    const _it = _wsFindItem(taskDef, itemId);
+    const _nm = (_it && _it.name) || itemId;
+    const _v = (writeVal === true) ? '完了' : (writeVal == null ? '未完了に戻す' : '「' + String(writeVal).slice(0, 20) + '」に');
+    addLog(car.id, `[${taskDef.name}]「${_nm}」を${_v}`);
+  }
   // v2.4.2: archivedCars対応
   _wsSaveCar(car, [bucket, taskDef.id, itemId], writeVal);
   // v1.8.80: 大タスクの完了瞬間を検知して LINE 通知

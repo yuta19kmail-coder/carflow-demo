@@ -25,6 +25,9 @@ let wfState = {carId:null, taskId:null, isDelivery:false}; // ワークフロー
 let archivedCars = [];             // 月次集計締めでアーカイブされた車両
 // v2.16.0: 「正式に削除（AA出品・売約不成立・廃車など）」された車両の最小限の番号台帳
 let deletedCars = [];              // { id, num, maker, model, grade, deletedAt, deletedBy }
+// v3.16.0: deletedCars の行を全部（ゴミ箱・取り消し・戻した行も）。deletedCars はこの中の「番号台帳に数える行」だけ
+let deletedCarsAll = [];
+let trashCars = [];                // ゴミ箱（戻せる車）＝ deletedCarsAll のうち trash を持ち、まだ戻していない行
 // v2.17.0: 管理番号リストでの手入力記録（番号穴埋め・微調整用、業務には影響なし）
 let manualNumbers = [];            // { id, num, model, grade, note, createdAt, createdBy }
 // v2.19.0: 仮登録車両（話が出た段階・管理番号なし・業務カウント対象外）。実到着で cars に昇格

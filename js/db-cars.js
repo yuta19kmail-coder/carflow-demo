@@ -35,6 +35,18 @@
   ];
   function isCheckKey(k) { return CHECK_KEYS.indexOf(String(k)) >= 0; }
 
+  /* 🔴 v3.16.0 フロー（logs）は「足すだけ」（helpers.js の _cfQueueLog の頭を読む）。
+     ['logs'] を送ろうとしている所を、控えの行の arrayUnion に置き換える。控えが無ければ送らない。
+     戻り値 { value, taken }＝taken は失敗した時に控えへ戻す行 */
+  function _logsUnion(carId) {
+    const taken = (typeof window._cfTakeLogs === 'function') ? window._cfTakeLogs(carId) : [];
+    if (!taken.length) return { value: undefined, taken: taken };
+    const FieldValue = window.firebase.firestore.FieldValue;
+    /* 送る形は addLog の行そのまま（同じ行なら arrayUnion は2回入れない） */
+    return { value: FieldValue.arrayUnion.apply(FieldValue, taken.slice().reverse()), taken: taken };
+  }
+  function _isLogsPath(path) { return Array.isArray(path) && path.length === 1 && String(path[0]) === 'logs'; }
+
   function _normalizeForSave(car, opts) {
     const initial = !!(opts && opts.initial);
     const out = {};
@@ -42,7 +54,20 @@
       const v = car[k];
       if (v === undefined) continue;
       if (!initial && isCheckKey(k)) continue;   // v3.0.0 チェックは まるごと保存では送らない
+      if (!initial && k === 'logs') continue;    // v3.16.0 フローも まるごとでは送らない（足すだけ＝下）
       out[k] = v;
+    }
+    if (initial) {
+      /* 作る時＝控えの行も配列に入れて1回で書く（addLog が車を見つける前に書いた行も拾う） */
+      const q = (typeof window._cfTakeLogs === 'function') ? window._cfTakeLogs(car.id) : [];
+      if (q.length) {
+        const have = Array.isArray(out.logs) ? out.logs.slice() : [];
+        q.forEach(e => { if (have.indexOf(e) < 0) have.push(e); });
+        out.logs = (typeof window._cfSortLogs === 'function') ? window._cfSortLogs(have) : have;
+      }
+    } else {
+      const u = _logsUnion(car.id);
+      if (u.value !== undefined) { out.logs = u.value; Object.defineProperty(out, '__takenLogs', { value: u.taken, enumerable: false }); }
     }
     if (!out.updatedAt) out.updatedAt = window.fb.serverTimestamp();
     // v1.8.58: LINE通知で「誰が更新したか」を出すため updatedBy を必ず付ける
@@ -55,6 +80,7 @@
   function _normalizeForLoad(docSnap) {
     const data = docSnap.data() || {};
     data.id = data.id || docSnap.id;
+    if (Array.isArray(data.logs) && typeof window._cfSortLogs === 'function') data.logs = window._cfSortLogs(data.logs);   // v3.16.0
     return data;
   }
 
@@ -96,9 +122,11 @@
     }
     // v2.5.11: ローカル書込み時刻を記録（onSnapshot 経由の上書きフリッカ防止）
     _markLocalWrite(car.id);
+    const payload = _normalizeForSave(car, opts);
     try {
-      await col.doc(String(car.id)).set(_normalizeForSave(car, opts), { merge: true });
+      await col.doc(String(car.id)).set(payload, { merge: true });
     } catch (err) {
+      if (payload.__takenLogs && window._cfReturnLogs) window._cfReturnLogs(car.id, payload.__takenLogs);
       console.error('[db-cars] saveCar error:', err, car);
       if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
       throw err;
@@ -164,12 +192,21 @@
       return;
     }
     _markLocalWrite(carId);
+    let taken = [];
     try {
       const FieldPath = window.firebase.firestore.FieldPath;
       const FieldValue = window.firebase.firestore.FieldValue;
       const args = [];
       entries.forEach(e => {
         if (!e || !Array.isArray(e.path) || e.path.length === 0) return;
+        if (_isLogsPath(e.path)) {
+          /* 🔴 v3.16.0 フローは配列まるごとではなく、控えの行だけ arrayUnion で足す */
+          const u = _logsUnion(carId);
+          taken = taken.concat(u.taken);
+          if (u.value === undefined) return;
+          args.push(new FieldPath('logs'), u.value);
+          return;
+        }
         args.push(new FieldPath(...e.path.map(String)));
         args.push((e.value === null || e.value === undefined) ? FieldValue.delete() : e.value);
       });
@@ -179,9 +216,30 @@
       if (myUid) args.push(new FieldPath('updatedBy'), myUid);
       await col.doc(String(carId)).update(...args);
     } catch (err) {
+      if (taken.length && window._cfReturnLogs) window._cfReturnLogs(carId, taken);
       console.error('[db-cars] saveCarPaths error:', err, carId, entries);
       if (typeof showToast === 'function') showToast('保存に失敗しました', 'CF-0018');
       throw err;
+    }
+  }
+
+  /* v3.16.0 控えに残ったフローの行だけを送る（保存の後に addLog した所の分）。
+     失敗しても画面には出さない（操作そのものは済んでいる・操作ログには残っている）。次の保存でもう一度送る */
+  async function flushLogs(carId) {
+    const col = _carsCol();
+    if (!col || !carId) return;
+    const u = _logsUnion(carId);
+    if (u.value === undefined) return;
+    _markLocalWrite(carId);
+    try {
+      const FieldPath = window.firebase.firestore.FieldPath;
+      await col.doc(String(carId)).update(new FieldPath('logs'), u.value, new FieldPath('updatedAt'), window.fb.serverTimestamp());
+    } catch (err) {
+      /* 車がもう無い（消した・締めた）なら捨てる。それ以外は控えに戻す */
+      if (!(err && (err.code === 'not-found' || /No document to update/i.test(String(err.message || ''))))) {
+        if (window._cfReturnLogs) window._cfReturnLogs(carId, u.taken);
+      }
+      console.warn('[db-cars] フローの追記を送れませんでした', carId, err);
     }
   }
 
@@ -458,6 +516,7 @@
     saveCar: saveCar,
     saveCarField: saveCarField,
     saveCarPaths: saveCarPaths,
+    flushLogs: flushLogs,
     deleteCar: deleteCar,
     seedSampleCarsIfEmpty: seedSampleCarsIfEmpty,
     refreshCars: refreshCars,

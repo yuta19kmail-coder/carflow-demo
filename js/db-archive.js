@@ -44,6 +44,14 @@
   ];
   function isCheckKey(k) { return CHECK_KEYS.indexOf(String(k)) >= 0; }
 
+  /* 🔴 v3.16.0 フロー（logs）は「足すだけ」＝在庫の車（db-cars.js）と同じ。helpers.js の _cfQueueLog の頭を読む */
+  function _logsUnion(carId) {
+    const taken = (typeof window._cfTakeLogs === 'function') ? window._cfTakeLogs(carId) : [];
+    if (!taken.length) return { value: undefined, taken: taken };
+    const FieldValue = window.firebase.firestore.FieldValue;
+    return { value: FieldValue.arrayUnion.apply(FieldValue, taken.slice()), taken: taken };
+  }
+
   // Firestore 保存形式に整形
   function _normalizeForSave(car, opts) {
     const initial = !!(opts && opts.initial);
@@ -53,7 +61,12 @@
       if (v === undefined) continue;
       if (!initial && isLockedKey(k)) continue;   // v3.0.0 実績は守る
       if (!initial && isCheckKey(k)) continue;    // v3.0.0 チェックは1点ずつの道でしか書かない
+      if (!initial && k === 'logs') continue;     // v3.16.0 フローは「足すだけ」（下）
       out[k] = v;
+    }
+    if (!initial) {
+      const u = _logsUnion(car.id);
+      if (u.value !== undefined) { out.logs = u.value; Object.defineProperty(out, '__takenLogs', { value: u.taken, enumerable: false }); }
     }
     if (!out.archivedAt) out.archivedAt = window.fb.serverTimestamp();
     if (!out.updatedAt) out.updatedAt = window.fb.serverTimestamp();
@@ -63,6 +76,7 @@
   function _normalizeForLoad(docSnap) {
     const data = docSnap.data() || {};
     data.id = data.id || docSnap.id;
+    if (Array.isArray(data.logs) && typeof window._cfSortLogs === 'function') data.logs = window._cfSortLogs(data.logs);   // v3.16.0
     return data;
   }
 
@@ -95,9 +109,11 @@
       console.warn('[db-archive] saveArchivedCar: companyId 未確定');
       return;
     }
+    const payload = _normalizeForSave(car, opts);
     try {
-      await col.doc(String(car.id)).set(_normalizeForSave(car, opts), { merge: true });
+      await col.doc(String(car.id)).set(payload, { merge: true });
     } catch (err) {
+      if (payload.__takenLogs && window._cfReturnLogs) window._cfReturnLogs(car.id, payload.__takenLogs);
       console.error('[db-archive] saveArchivedCar error:', err, car);
       if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました', 'CF-0012');
       throw err;
@@ -119,6 +135,7 @@
       console.warn('[db-archive] saveArchivedCarPaths: companyId 未確定');
       return;
     }
+    let taken = [];
     try {
       const FieldPath = window.firebase.firestore.FieldPath;
       const FieldValue = window.firebase.firestore.FieldValue;
@@ -127,6 +144,13 @@
         if (!e || !Array.isArray(e.path) || e.path.length === 0) return;
         if (isLockedKey(e.path[0])) {
           console.warn('[db-archive] 締めた車の実績は書き換えません:', e.path.join('.'));
+          return;
+        }
+        if (e.path.length === 1 && String(e.path[0]) === 'logs') {
+          /* 🔴 v3.16.0 フローは控えの行だけ arrayUnion で足す */
+          const u = _logsUnion(carId);
+          taken = taken.concat(u.taken);
+          if (u.value !== undefined) args.push(new FieldPath('logs'), u.value);
           return;
         }
         args.push(new FieldPath(...e.path.map(String)));
@@ -138,6 +162,7 @@
       if (myUid) args.push(new FieldPath('updatedBy'), myUid);
       await col.doc(String(carId)).update(...args);
     } catch (err) {
+      if (taken.length && window._cfReturnLogs) window._cfReturnLogs(carId, taken);
       console.error('[db-archive] saveArchivedCarPaths error:', err, carId, entries);
       if (typeof showToast === 'function') showToast('アーカイブ保存に失敗しました', 'CF-0012');
       throw err;
@@ -260,7 +285,25 @@
     };
   }
 
+  /* v3.16.0 控えに残ったフローの行だけを送る（db-cars.js の flushLogs と同じ） */
+  async function flushLogs(carId) {
+    const col = _archivedCol();
+    if (!col || !carId) return;
+    const u = _logsUnion(carId);
+    if (u.value === undefined) return;
+    try {
+      const FieldPath = window.firebase.firestore.FieldPath;
+      await col.doc(String(carId)).update(new FieldPath('logs'), u.value, new FieldPath('updatedAt'), window.fb.serverTimestamp());
+    } catch (err) {
+      if (!(err && (err.code === 'not-found' || /No document to update/i.test(String(err.message || ''))))) {
+        if (window._cfReturnLogs) window._cfReturnLogs(carId, u.taken);
+      }
+      console.warn('[db-archive] フローの追記を送れませんでした', carId, err);
+    }
+  }
+
   window.dbArchive = {
+    flushLogs,
     loadArchivedCars,
     subscribeArchivedCars,
     saveArchivedCar,

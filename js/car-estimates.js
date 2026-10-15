@@ -33,7 +33,12 @@
   function esc(s) { return (typeof escapeHtml === 'function') ? escapeHtml(s == null ? '' : s) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function I(name, fb, px) { return (typeof ic === 'function') ? ic(name, fb, px || 15) : fb; }
   function toast(m, code) { if (typeof showToast === 'function') showToast(m, code); }
-  function list(car) { return (car && Array.isArray(car.estimates)) ? car.estimates : []; }
+  /* 🗑 v3.16.0（棚卸し S-19）見積もりの「消す」は印だけ（deletedAt）。PDF も残す＝［元に戻す］で戻せる。
+     本当に消す（PDF ごと）のはマスターだけ（消した見積もりの一覧の［完全に消す］）。
+     all＝印の付いた物も含む全部（保存はこれ）／list＝画面に出す物（印の無い物） */
+  function all(car) { return (car && Array.isArray(car.estimates)) ? car.estimates : []; }
+  function list(car) { return all(car).filter(function (x) { return x && !x.deletedAt; }); }
+  function gone(car) { return all(car).filter(function (x) { return x && x.deletedAt; }); }
   function latest(car) { var l = list(car); return l.length ? l[l.length - 1] : null; }
   function findCar(id) {
     var c = null;
@@ -136,7 +141,7 @@
       + '<div class="est-drop-t">' + (up ? '登録しています…' : '見積もりの PDF をここへドラッグ') + '</div>'
       + '<div class="est-drop-s">または <label class="est-pick">ファイルを選ぶ<input type="file" accept="application/pdf,.pdf" onchange="CarEstimates.pick(this,\'' + esc(car.id) + '\')"></label>（PDF・10MBまで）</div>'
       + '</div>';
-    if (!e) { editing[car.id] = false; return h + '<div class="est-empty">まだ見積もりが登録されていません</div>'; }
+    if (!e) { editing[car.id] = false; return h + '<div class="est-empty">まだ見積もりが登録されていません</div>' + goneHtml(car); }
     var ed = editing[car.id] ? ' edit' : '';
     h += bar(car);
     h += '<div class="cd3-lab">最新の見積もり</div><div class="est-tbl' + ed + '">' + head(car, [e.id]) + row(car, e, L.length - 1, true) + '</div>';
@@ -146,14 +151,14 @@
       for (var i = 0; i < old.length; i++) h += row(car, old[i], i, false);
       h += '</div>';
     }
-    return h;
+    return h + goneHtml(car);
   }
 
   /* ---------- 直す・消す ----------
      ⚠ ここは「配列まるごと」を書く（並び＝登録順を崩さないため）。
        同時に別の端末で登録された分を消さないよう、書く直前に今の車の一覧から作り直す。 */
   function saveAll(car) {
-    var p = (window.dbCars && window.dbCars.saveCarField) ? window.dbCars.saveCarField(car.id, ['estimates'], list(car).slice()) : Promise.resolve();
+    var p = (window.dbCars && window.dbCars.saveCarField) ? window.dbCars.saveCarField(car.id, ['estimates'], all(car).slice()) : Promise.resolve();
     return Promise.resolve(p).catch(function (err) {
       console.error('[car-estimates] 保存に失敗', err);
       toast('見積もりの変更を保存できませんでした', 'CF-1014');
@@ -175,28 +180,68 @@
   }
   function removeIds(carId, ids) {
     var car = findCar(carId); if (!car || !ids.length) return;
-    var gone = list(car).filter(function (x) { return ids.indexOf(x.id) >= 0; });
-    if (!gone.length) return;
-    var msg = gone.length === 1
-      ? '見積もり（' + ymdhm(gone[0].at) + '・' + reasonText(gone[0]) + '）を消します。\nPDF も消えて、元に戻せません。よろしいですか？'
-      : '選んだ見積もり ' + gone.length + ' 件を消します。\nPDF も消えて、元に戻せません。よろしいですか？';
+    var hit = list(car).filter(function (x) { return ids.indexOf(x.id) >= 0; });
+    if (!hit.length) return;
+    var msg = hit.length === 1
+      ? '見積もり（' + ymdhm(hit[0].at) + '・' + reasonText(hit[0]) + '）を消します。\n下の「消した見積もり」から元に戻せます。よろしいですか？'
+      : '選んだ見積もり ' + hit.length + ' 件を消します。\n下の「消した見積もり」から元に戻せます。よろしいですか？';
     if (!confirm(msg)) return;
-    car.estimates = list(car).filter(function (x) { return ids.indexOf(x.id) < 0; });
+    var now = Date.now(), uid = (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || '', nm = myName();
+    hit.forEach(function (x) { x.deletedAt = now; x.deletedBy = uid; x.deletedByName = nm; });
     /* 1枚目は必ず初稿（1枚目を消して繰り上がった時も揃える） */
-    if (car.estimates.length && car.estimates[0].reason !== '初稿') { car.estimates[0].reason = '初稿'; delete car.estimates[0].reasonNote; }
+    var L = list(car);
+    if (L.length && L[0].reason !== '初稿') { L[0].reason = '初稿'; delete L[0].reasonNote; }
     ids.forEach(function (id) { if (sel[carId]) delete sel[carId][id]; });
     redraw();
     saveAll(car).then(function () {
-      var st = window.fb && window.fb.storage;
-      gone.forEach(function (x) {
-        if (!st || !x.path) return;
-        st.ref(x.path).delete().catch(function (err) {
-          if (!err || err.code !== 'storage/object-not-found') console.warn('[car-estimates] PDF を消せませんでした', x.path, err);
-        });
-      });
-      if (typeof addLog === 'function') addLog(carId, '見積もりを' + gone.length + '件削除');
-      toast('見積もりを' + gone.length + '件消しました');
+      if (typeof addLog === 'function') addLog(carId, '見積もりを' + hit.length + '件削除（' + hit.map(reasonText).join('・') + '）');
+      toast('見積もりを' + hit.length + '件消しました（元に戻せます）');
     });
+  }
+  /* 消した見積もりを元に戻す（印を外すだけ。PDF は残っている） */
+  function restoreEst(carId, estId) {
+    var car = findCar(carId); if (!car) return;
+    var e = all(car).find(function (x) { return x && x.id === estId; }); if (!e || !e.deletedAt) return;
+    delete e.deletedAt; delete e.deletedBy; delete e.deletedByName;
+    redraw();
+    saveAll(car).then(function () {
+      if (typeof addLog === 'function') addLog(carId, '見積もりを元に戻した（' + ymdhm(e.at) + '・' + reasonText(e) + '）');
+      toast('見積もりを元に戻しました');
+    });
+  }
+  /* 完全に消す（マスターだけ）＝一覧から外して PDF も消す */
+  function purgeEst(carId, estId) {
+    if (!(typeof _isCarflowMaster === 'function' && _isCarflowMaster())) return;
+    var car = findCar(carId); if (!car) return;
+    var e = all(car).find(function (x) { return x && x.id === estId; }); if (!e || !e.deletedAt) return;
+    if (!confirm('この見積もりを完全に消します。PDF も消えて、元に戻せません。よろしいですか？')) return;
+    car.estimates = all(car).filter(function (x) { return x && x.id !== estId; });
+    redraw();
+    saveAll(car).then(function () {
+      var st = window.fb && window.fb.storage;
+      if (st && e.path) st.ref(e.path).delete().catch(function (err) {
+        if (!err || err.code !== 'storage/object-not-found') console.warn('[car-estimates] PDF を消せませんでした', e.path, err);
+      });
+      if (typeof addLog === 'function') addLog(carId, '消した見積もりを完全に消した（' + ymdhm(e.at) + '・' + reasonText(e) + '）');
+    });
+  }
+  function goneHtml(car) {
+    var G = gone(car);
+    if (!G.length) return '';
+    var cid = esc(car.id), master = (typeof _isCarflowMaster === 'function' && _isCarflowMaster());
+    return '<div class="cd3-lab" style="margin-top:14px">消した見積もり（' + G.length + '件）</div><div class="est-tbl">'
+      + '<div class="est-tr est-th"><span>No.</span><span>日付</span><span>理由</span><span>消した人</span><span>ファイル</span><span class="r"></span></div>'
+      + G.map(function (e, i) {
+          return '<div class="est-tr" style="opacity:.6">'
+            + '<span class="est-no">' + (i + 1) + '</span>'
+            + '<span class="est-dt">' + ymdhm(e.at) + '</span>'
+            + '<span class="est-rs" title="' + esc(reasonText(e)) + '">' + esc(reasonText(e)) + '</span>'
+            + '<span class="est-by">' + esc(e.deletedByName || '—') + '</span>'
+            + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
+            + '<span class="r">' + (canEdit() ? '<button type="button" class="est-btn" onclick="CarEstimates._restore(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('undo', '↩', 14) + ' 元に戻す</button>' : '')
+            + (master ? ' <button type="button" class="est-btn danger" onclick="CarEstimates._purge(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('trash', '🗑', 14) + ' 完全に消す</button>' : '') + '</span>'
+            + '</div>';
+        }).join('') + '</div>';
   }
 
   /* ---------- 登録 ---------- */
@@ -281,7 +326,7 @@
   /* ---------- 見る（アプリの上に重ねる） ---------- */
   function open(carId, estId) {
     var car = findCar(carId); if (!car) return;
-    var e = estId ? list(car).find(function (x) { return x.id === estId; }) : latest(car);
+    var e = estId ? all(car).find(function (x) { return x && x.id === estId; }) : latest(car);
     if (!e || !e.url) return;
     close();
     var ov = document.createElement('div');
@@ -315,6 +360,8 @@
     _selAll: function (carId, ids, on) { var m = sel[carId] = sel[carId] || {}; String(ids).split(',').forEach(function (id) { if (!id) return; if (on) m[id] = true; else delete m[id]; }); redraw(); },
     _delSel: function (carId) { removeIds(carId, Object.keys(sel[carId] || {})); },
     _del: function (carId, id) { removeIds(carId, [id]); },
+    _restore: function (carId, id) { restoreEst(carId, id); },
+    _purge: function (carId, id) { purgeEst(carId, id); },
     _reason: function (carId, id, v) { setReason(carId, id, v); },
     _note: function (carId, id, v) { setReason(carId, id, undefined, v); },
     _rs: function (v) { if (!ASK) return; if (v) ASK.reason = v; askSync(); },

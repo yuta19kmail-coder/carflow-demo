@@ -245,7 +245,7 @@ function exportLineMessagesCSV() {
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const ymd = new Date().toISOString().slice(0, 10);
+  const ymd = todayStr();   /* v3.16.1（S-40）ファイル名の日付も日本時間 */
   a.href = url;
   a.download = `carflow_line_messages_${ymd}.csv`;
   document.body.appendChild(a);

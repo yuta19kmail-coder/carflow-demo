@@ -603,6 +603,35 @@
     if (!(window.fb && window.fb.db && window.fb.currentCompanyId)) return null;
     return window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitCards');
   }
+  /* 📝 v3.16.0（棚卸し S-31）CarFlow から PitFlow に書いた事は、3か所に残す（MHS の pitPatch／pitLog と同じ形）
+       ① PitFlow のカードのフロー（log に {label, at, staff} を arrayUnion）＝完了も戻すも。後ろに「／CarFlow」
+       ② PitFlow の操作ログ（pitAuditLogs）＝ action の後ろに「（CarFlow）」
+       ③ CarFlow の操作ログ（auditLogs）
+     ⚠ 前は「完了」の時だけ①を書き、担当（staff）も空。戻す・代車の洗車はどこにも残らなかった */
+  function meName() {
+    try {
+      if (window.CFUser && window.fb) { var n = window.CFUser.fullName(window.fb.currentMember, window.fb.currentUser); if (n) return n; }
+    } catch (e) {}
+    return (typeof currentUser !== 'undefined' && currentUser) || '';
+  }
+  function hm() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+  function cardLabel(c) { var n = custName(c); return (n ? n + ' 様' : '') + (c && c.car ? ' / ' + c.car : ''); }
+  function flowEntry(label) { return { label: String(label) + '／CarFlow', at: Date.now(), staff: meName() }; }
+  function pitAudit(action, opt) {
+    opt = opt || {};
+    try {
+      window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitAuditLogs').add({
+        time: window.fb.serverTimestamp(),
+        timeStr: hm(),
+        uid: (window.fb.currentUser && window.fb.currentUser.uid) || '',
+        userName: meName() || '—',
+        action: String(action) + '（CarFlow）',
+        label: opt.label || '', cardId: opt.cardId || '', kind: opt.kind || ''
+      }).catch(function (e) { console.warn('[pit-embed] PitFlow の操作ログを書けませんでした（操作は続きます）', e); });
+    } catch (e) {}
+    try { if (typeof window.addAuditLog === 'function') window.addAuditLog('PitFlow：' + action + (opt.label ? '（' + opt.label + '）' : '')); } catch (e) {}
+  }
+
   function setDone(id, task, val) {
     var flag = DONEFLAG[task];
     var c = (PS.cards || []).find(function (x) { return x.id === id; });
@@ -616,13 +645,12 @@
 
     var patch = {};
     patch[flag] = !!val;
-    /* 工程ログにも1行残す＝PitFlow で見た時に「誰かが CarFlow で済みにした」と分かる。
-       ⚠ 配列は arrayUnion で足す（読み込み→書き戻しにすると、同時編集を巻き戻す）。 */
-    if (val && window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
-      patch.log = firebase.firestore.FieldValue.arrayUnion({
-        label: '車販作業 完了（' + (TASK_LABEL[task] || task) + '）／CarFlow',
-        at: Date.now()
-      });
+    /* 工程ログにも1行残す＝PitFlow で見た時に「誰かが CarFlow で済み／戻しにした」と分かる。
+       ⚠ 配列は arrayUnion で足す（読み込み→書き戻しにすると、同時編集を巻き戻す）。
+       📝 v3.16.0 戻す時も書く・担当（staff）も入れる（S-31） */
+    var what = '車販作業 ' + (val ? '完了' : '戻す') + '（' + (TASK_LABEL[task] || task) + '）';
+    if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
+      patch.log = firebase.firestore.FieldValue.arrayUnion(flowEntry(what));
     }
     /* 🔴🔴 2026-08-29 **PitFlow のカードは版番号（rev）で守られている。**
        ---------------------------------------------------------
@@ -640,6 +668,7 @@
       patch.rev = firebase.firestore.FieldValue.increment(1);
     }
     col.doc(id).update(patch).then(function () {
+      pitAudit(what, { cardId: id, label: cardLabel(c), kind: 'sales' });
       if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
     }).catch(function (e) {
       c[flag] = before;                    /* 書けなかったら画面も戻す */
@@ -661,8 +690,27 @@
     renderPitSales(); renderPitToday();
     var FV = window.firebase && firebase.firestore && firebase.firestore.FieldValue;
     var patch = { washDone: val ? a.loanerId : (FV && FV.delete ? FV.delete() : null) };
+    /* 🔴 v3.16.1（PitFlow v2.185.0 に合わせる）札にも版（rev）を1つ進めて送る。ルールが pitCards と同じ
+       「rev が無い／前の rev+1 なら通す」関門になるため、送らないと弾かれる。
+       increment(1)＝サーバーで「いまの版＋1」（rev が無い古い札は 1＝PitFlow が送る「0＋1」と同じ）。
+       CarFlow は washDone の1欄だけを update するので、手元の版を数えて送る必要は無い（pitCards と同じ考え） */
+    if (FV && FV.increment) patch.rev = FV.increment(1);
     window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitLoanerAssigns').doc(aid).update(patch)
-      .then(function () { if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）'); })
+      .then(function () {
+        /* 📝 v3.16.0（S-31）代車の洗車も記録に残す。札にはフローが無いので、出す相手の予約カードのフローに1行
+           （カードは版で守られている＝rev を1つ進める）＋操作ログ */
+        var lo = loanerOf(a.loanerId), loName = (lo && lo.name) || '代車';
+        var what = '代車の洗車 ' + (val ? '完了' : '戻す') + '（' + loName + '）';
+        var card = a.cardId ? (PS.cards || []).find(function (x) { return x.id === a.cardId; }) : null;
+        if (a.cardId && FV) {
+          var cp = { log: FV.arrayUnion(flowEntry(what)) };
+          if (FV.increment) cp.rev = FV.increment(1);
+          var cc = cardsCol();
+          if (cc) cc.doc(a.cardId).update(cp).catch(function (e) { console.warn('[pit-embed] 代車の洗車をカードのフローに書けませんでした', e); });
+        }
+        pitAudit(what, { cardId: a.cardId || '', label: card ? cardLabel(card) : loName, kind: 'loaner' });
+        if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
+      })
       .catch(function (e) {
         if (before === undefined) delete a.washDone; else a.washDone = before;
         renderPitSales(); renderPitToday();

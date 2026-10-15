@@ -63,7 +63,8 @@ async function executeCloseMonth() {
     return;
   }
   const now = new Date();
-  const closedAt = now.toISOString().split('T')[0];
+  const closedAt = (typeof todayStr === 'function') ? todayStr()
+    : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;   /* v3.16.0（S-40）締めた日も日本時間 */
   targets.forEach(c => {
     c._archivedAt = closedAt;
     c._archivedYM = ymKeyFromYM(y, m);
@@ -77,17 +78,35 @@ async function executeCloseMonth() {
   /* ① 実績へコピー（1台ずつ結果を見る）。成功した台だけ次に進む。 */
   const moved = [], failed = [];
   for (const c of targets) {
+    /* 📝 v3.16.2（S-30 の取りこぼし）「締めでアーカイブ」の行は、実績を作る書き込みと**同じ1回**でフローに入れる。
+       前は保存の後に addLog していたので、行は在庫の文書へ後から送られ、在庫から消えた後は捨てられていた
+       （締めた車のフローにほぼ残らなかった）。失敗した台からは行を外す（締めていないのに「締めた」と残さない） */
+    const now2 = new Date();
+    const entry = {
+      time: `${now2.getMonth() + 1}/${now2.getDate()} ${String(now2.getHours()).padStart(2, '0')}:${String(now2.getMinutes()).padStart(2, '0')}`,
+      at: now2.getTime(),
+      userUid: (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null,
+      user: (typeof currentUser !== 'undefined' && currentUser) || '—',
+      carNum: c.num || '—',
+      action: `月次集計締め（${y}年${m}月）でアーカイブ`,
+      carId: c.id,
+    };
+    if (!Array.isArray(c.logs)) c.logs = [];
+    c.logs.unshift(entry);
     if (window.dbArchive && window.dbArchive.saveArchivedCar) {
       try {
-        await window.dbArchive.saveArchivedCar(c, { initial: true });   // v3.0.0 締める時だけ実績を書き込む
+        await window.dbArchive.saveArchivedCar(c, { initial: true });   // v3.0.0 締める時だけ実績を書き込む（フローの行も一緒）
       } catch (e) {
         console.error('[archive] 実績への保存に失敗', c.num, e);
+        const k = c.logs.indexOf(entry); if (k >= 0) c.logs.splice(k, 1);
         failed.push(c);
         continue;                       /* ⚠ この台は在庫に残す＝消さない */
       }
     }
     archivedCars.push(c);
-    addLog(c.id, `月次集計締め（${y}年${m}月）でアーカイブ`);
+    /* 操作ログ（auditLogs）と画面の操作ログにも同じ行 */
+    if (typeof globalLogs !== 'undefined' && Array.isArray(globalLogs)) { globalLogs.unshift(entry); if (globalLogs.length > 1000) globalLogs.length = 1000; }
+    if (window.dbAudit) window.dbAudit.appendAuditLog(entry);
     moved.push(c);
   }
 
