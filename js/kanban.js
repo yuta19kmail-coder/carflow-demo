@@ -267,19 +267,30 @@ async function closeRevert2(ok) {
       return;                                        /* ⚠ 本登録は消さない */
     }
   }
-  const idx = cars.findIndex(c => c.id === car.id);
-  if (idx >= 0) cars.splice(idx, 1);
-  let _carLeft = false;
-  if (window.dbCars && window.dbCars.deleteCar) {
-    try {
-      await window.dbCars.deleteCar(car.id);
-    } catch (e) {
-      console.error('[kanban] 元の車両の削除に失敗', e);
-      cars.push(car);
-      _carLeft = true;
+  /* 📝 v3.16.0（棚卸し S-30）記録は車の番号で残す（前は仮登録の id・番号「—」で残り、番号で探しても出なかった） */
+  if (typeof addLog === 'function') addLog(car.id, `登録済み（${car.num || '番号なし'}）を仮登録に戻した`);
+  /* 🗑 v3.16.0（棚卸し S-19）消す前に車の中身をゴミ箱へ写す（価格・見積・フロー・チェックを失わない）。
+     写せなかったら本登録は消さない（仮登録の方は残る＝両方に出る） */
+  let _trashed = true;
+  if (window.dbDeleted && window.dbDeleted.trashCar) {
+    try { await window.dbDeleted.trashCar(car, 'revert', { tentId: rec.id }); }
+    catch (e) { console.error('[kanban] ゴミ箱に入れられませんでした', e); _trashed = false; }
+  }
+  let _carLeft = !_trashed;
+  if (_trashed) {
+    const idx = cars.findIndex(c => c.id === car.id);
+    if (idx >= 0) cars.splice(idx, 1);
+    if (window.dbCars && window.dbCars.deleteCar) {
+      try {
+        await window.dbCars.deleteCar(car.id);
+      } catch (e) {
+        console.error('[kanban] 元の車両の削除に失敗', e);
+        if (window.dbDeleted && window.dbDeleted.untrashOnFail) window.dbDeleted.untrashOnFail(car.id);
+        cars.push(car);
+        _carLeft = true;
+      }
     }
   }
-  if (typeof addLog === 'function') addLog(rec.id, `登録済み（${car.num || '番号なし'}）を仮登録に戻した`);
   if (typeof renderAll === 'function') renderAll();
   showToast(_carLeft ? '仮登録に戻しましたが、元の車が消せませんでした（両方に出ています）' : '仮登録に戻しました');
 }
@@ -451,6 +462,17 @@ async function saveTentativeFromModal() {
     window.__appBusy = false;
   }
   // 成功（サーバー保存を確認済み）
+  /* 📝 v3.16.0（棚卸し S-30）仮登録の追加・変更も操作ログに残す（前は残らなかった） */
+  if (typeof addAuditLog === 'function') {
+    if (isNew) addAuditLog(`仮登録を追加（${maker} ${model}）`);
+    else if (_bak) {
+      const ch = [];
+      if (_bak.maker !== maker || _bak.model !== model) ch.push(`車名 ${_bak.maker} ${_bak.model} → ${maker} ${model}`);
+      if (_bak.reason !== reason) ch.push('理由');
+      if (_bak.memo !== memo) ch.push('メモ');
+      addAuditLog(`仮登録を変更（${maker} ${model}${ch.length ? '：' + ch.join('・') : ''}）`);
+    }
+  }
   if (isNew) tentativeCars.push(rec);
   closeTentativeModal();
   if (typeof renderKanban === 'function') renderKanban();
@@ -475,6 +497,10 @@ async function deleteTentativeFromModal() {
   }
   // 成功（サーバーで削除を確認済み）
   const idx = (tentativeCars || []).findIndex(x => x.id === id);
+  if (typeof addAuditLog === 'function') {   /* 📝 v3.16.0（S-30） */
+    const t = idx >= 0 ? tentativeCars[idx] : null;
+    addAuditLog(`仮登録を削除（${t ? (t.maker || '') + ' ' + (t.model || '') : id}）`);
+  }
   if (idx >= 0) tentativeCars.splice(idx, 1);
   closeTentativeModal();
   if (typeof renderKanban === 'function') renderKanban();

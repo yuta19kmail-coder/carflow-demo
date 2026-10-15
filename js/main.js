@@ -62,9 +62,10 @@ function applyRealtimeCars(list, meta) {
   //     （以前の v1.8.50 では activeDetailCarId 全面保護にしていたが、
   //      他端末からの大タスク変更などが反映されない不具合があったので時間ベースに変更）
   const strongProtect = new Set();
-  if (typeof editingCarId !== 'undefined' && editingCarId) {
-    strongProtect.add(String(editingCarId));
-  }
+  /* 🔴 v3.16.0（棚卸し S-08）「車両情報の編集」を開いている車も、他の人の変更を受け取る。
+     前は編集中の車の受信を止めていたうえ、閉じても editingCarId が残ったので、
+     一度でも編集を開いた車は再読み込みまで他人の変更が届かず、次の保存で古い中身を書き戻していた。
+     いまは編集の保存が「開いた時から変えた欄だけ」（car-modal.js）なので、受け取っても入力は消えない。 */
   const wsId = (typeof window.getWsActiveCarId === 'function')
     ? window.getWsActiveCarId() : null;
   if (wsId) strongProtect.add(String(wsId));

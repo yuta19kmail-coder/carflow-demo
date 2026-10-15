@@ -177,7 +177,7 @@
     ['ID', '車の番号（Firestore の文書ID）。在庫・実績・削除台帳で同じ車は同じID'],
     ['書き出した日', 'この表を作った日'],
     ['管理番号', 'カードの管理番号（例 KM-0521）。空＝番号なし（その他の車など）'],
-    ['置き場', '在庫（cars）／実績（月次締め済み・archivedCars）／正式削除（AA出品・売約不成立・廃車など・deletedCars）'],
+    ['置き場', '在庫（cars）／実績（月次締め済み・archivedCars）／正式削除（AA出品・売約不成立・廃車など・deletedCars の「正式に削除」で、ゴミ箱から戻していない車。取り消し・仮登録に戻した車は入れない）'],
     ['状態', 'カンバンの列（その他・仕入れ・展示準備中・展示中・納車準備・納車完了）。正式削除は空（台帳に列が残っていない）'],
     ['売約', '売約済みなら 1、まだなら 0。正式削除は空（分からない）'],
     ['オーダー', 'オーダー車両（在庫として数えない）なら 1、ちがえば 0'],
@@ -211,7 +211,7 @@
     ['事務進捗', 'バックオフィス（書類・原価処理など）の進み具合 %（calcBackofficeProg）。正式削除は空'],
     ['事務完了', 'バックオフィス完了なら 1、ちがえば 0'],
     ['事務完了日', 'バックオフィスを完了にした日'],
-    ['見積の数', '価格履歴に登録した見積PDFの数（0＝本当に0）'],
+    ['見積の数', '価格履歴に登録した見積PDFの数（0＝本当に0）。消した見積もり（ゴミ箱の印）は数えない'],
     ['値下げ回数', '見積PDFの理由が「値下げ」の数'],
     ['最後の見積日', 'いちばん新しい見積PDFを登録した日'],
     ['登録した人', 'その車を新規登録（または仮登録から上げた）人。操作ログの名前（名簿の表示名）。空＝ログが無い'],
@@ -266,7 +266,9 @@
     var seen = {};
     var list = [];
     pool.forEach(function (c) { if (c && c.id && !seen[c.id]){ seen[c.id] = 1; list.push({ c: c, where: arcIds[c.id] ? '実績' : '在庫' }); } });
-    (fnOf('deletedCars') || []).forEach(function (c) { if (c && c.id && !seen[c.id]){ seen[c.id] = 1; list.push({ c: c, where: '正式削除' }); } });
+    /* v3.16.0 deletedCars にはゴミ箱の行（取り消し・仮登録に戻した・戻した）も入る。数えるのは「正式に削除」で戻していない行だけ */
+    var isLedger = function (c) { return !c.restoredAt && (!c.mode || c.mode === 'formal'); };
+    (fnOf('deletedCars') || []).forEach(function (c) { if (c && c.id && isLedger(c) && !seen[c.id]){ seen[c.id] = 1; list.push({ c: c, where: '正式削除' }); } });
     list.sort(function (a, b) { return t(a.c.num).localeCompare(t(b.c.num)) || t(a.c.id).localeCompare(t(b.c.id)); });
 
     var ps = safe(function () { return fnOf('appSettings').priceTax; }, {}) || {};
@@ -289,7 +291,7 @@
       var tax = del ? null : safe(function () { return fnOf('getCarPriceTax')(c); }, null);
       var prog = del ? '' : safe(function () { return fnOf('calcProg')(c).pct; }, '');
       var bo = del ? '' : safe(function () { return fnOf('calcBackofficeProg')(c).pct; }, '');
-      var est = Array.isArray(c.estimates) ? c.estimates.filter(Boolean) : [];
+      var est = Array.isArray(c.estimates) ? c.estimates.filter(function (x) { return x && !x.deletedAt; }) : [];   /* v3.16.0 消した印の物は数えない */
       var yr = safe(function () { return fnOf('parseYearInput')(c.year); }, null);
       var km = t(c.km).replace(/[,\s]/g, '').replace(/km$/i, '');
       var col = t(c.color);

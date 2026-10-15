@@ -150,6 +150,8 @@
       return;
     }
 
+    /* 📝 v3.16.0（S-30）始める前に操作ログへ（途中で止まっても「誰がいつ」が残る） */
+    if (typeof addAuditLog === 'function') addAuditLog(`バックアップから全置換で復元（${meta.exportedAt || '日時不明'} の控え・車${counts.cars || 0}台）`);
     _setStatus('復元中…（既存データ削除）', 'info');
     try {
       await _deleteCollection(ref.collection('cars'));
@@ -285,6 +287,10 @@
 
     const carsSnap = await ref.collection('cars').get();
     const existingIds = new Set(carsSnap.docs.map(d => d.id));
+    const existingById = {};
+    carsSnap.docs.forEach(d => { existingById[d.id] = d.data() || {}; });
+    const XL_LABEL = { num: '管理番号', maker: 'メーカー', model: '車種', year: '年式', color: '色', size: 'サイズ', km: '走行距離',
+      price: '本体価格', purchaseDate: '仕入日', deliveryDate: '納車日', col: '状態', customerName: 'お客様', memo: 'メモ', workMemo: '作業メモ' };
 
     const ops = [];
     const errors = [];
@@ -332,7 +338,18 @@
       };
 
       if (cleanId && existingIds.has(cleanId)) {
-        ops.push({ type: 'update', id: cleanId, data: editable });
+        /* 📝 v3.16.0（棚卸し S-30・決まり⑥）更新は「Excel で変わった欄だけ」書き、その車のフローに「前 → 後」を1行。
+           前は全部の欄を書き直し、記録も残らなかった */
+        const cur = existingById[cleanId] || {};
+        const changed = {};
+        const notes = [];
+        Object.keys(editable).forEach(k => {
+          const a = String(cur[k] == null ? '' : cur[k]).trim(), b = editable[k];
+          if (a === b) return;
+          changed[k] = b;
+          notes.push((XL_LABEL[k] || k) + ' ' + (a || '未設定') + '→' + (b || '未設定'));
+        });
+        if (notes.length) ops.push({ type: 'update', id: cleanId, data: changed, note: notes.join('・'), num: editable.num || cur.num || '' });
       } else if (cleanId && !existingIds.has(cleanId)) {
         errors.push(`${lineNo}行目：ID "${cleanId}" の車両が存在しません → 新規登録扱い`);
         ops.push({ type: 'create', id: cleanId, data: editable });
@@ -358,10 +375,21 @@
         chunk.forEach(op => {
           const docRef = ref.collection('cars').doc(op.id);
           if (op.type === 'update') {
-            batch.set(docRef, Object.assign({}, op.data, {
+            const now = new Date();
+            const entry = {
+              time: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+              at: now.getTime(),
+              userUid: (window.fb.currentUser && window.fb.currentUser.uid) || null,
+              user: (typeof currentUser !== 'undefined' && currentUser) || '—',
+              carNum: op.num || '—',
+              action: '車両情報を編集：Excel取り込み（' + op.note + '）',
+              carId: op.id,
+            };
+            batch.update(docRef, Object.assign({}, op.data, {
+              logs: window.firebase.firestore.FieldValue.arrayUnion(entry),
               updatedAt: window.fb.serverTimestamp(),
               updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
-            }), { merge: true });
+            }));
           } else {
             const baseDoc = Object.assign({}, op.data, {
               id: op.id,
@@ -381,6 +409,8 @@
         await batch.commit();
       }
 
+      /* 📝 v3.16.0（S-30）取り込みを操作ログに1行 */
+      if (typeof addAuditLog === 'function') addAuditLog(`Excel取り込み（更新${updates}件・新規${creates}件・警告${errors.length}件）`);
       _setStatus(`取り込み完了（更新${updates}件 / 新規${creates}件 / 警告${errors.length}件）。リロードします…`, 'ok');
       setTimeout(() => location.reload(), 1800);
     } catch (err) {
@@ -408,6 +438,7 @@
       return;
     }
 
+    if (typeof addAuditLog === 'function') addAuditLog('全データを消去（車・実績・付箋）');   /* 📝 v3.16.0（S-30） */
     _setStatus('全消去中…（cars 削除）', 'info');
     try {
       await _deleteCollection(ref.collection('cars'));

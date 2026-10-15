@@ -253,7 +253,7 @@ function calcLanding() {
     let possibleCountC = 0, possibleSalesC = 0;
     if (addSlotsC > 0) {
       const since = new Date(now); since.setDate(since.getDate() - 365);
-      const sinceStr = since.toISOString().split('T')[0];
+      const sinceStr = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-${String(since.getDate()).padStart(2, '0')}`;   /* v3.16.0（S-40）暦の日付 */
       const recent = soldPool().filter(c => c.contractDate && c.contractDate >= sinceStr);
       const dailyPace = recent.length / 365;
       if (dailyPace > 0) {
@@ -299,7 +299,7 @@ function calcLanding() {
   if (addSlots > 0) {
     // v1.8.97: 直近365日（1年）のペース・平均価格（月間バラつき吸収）
     const since = new Date(now); since.setDate(since.getDate() - 365);
-    const sinceStr = since.toISOString().split('T')[0];
+    const sinceStr = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-${String(since.getDate()).padStart(2, '0')}`;   /* v3.16.0（S-40）暦の日付 */
     const recent = soldPool().filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= sinceStr);
     const dailyPace = recent.length / 365;
     if (dailyPace > 0) {

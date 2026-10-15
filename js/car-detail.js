@@ -115,12 +115,18 @@ window.onCarTaskVariantChange = function (carId, taskId, selectEl) {
     if (!car.taskVariants) car.taskVariants = {};
     car.taskVariants[taskId] = newId;
   }
+  /* 📝 v3.16.0（棚卸し S-30）パターンの切り替え・作業データが消えたことをフローに残す（前は残らなかった） */
+  if (typeof addLog === 'function') {
+    const tplName = id => (id && typeof ChecklistTemplates !== 'undefined' && ChecklistTemplates[id] && ChecklistTemplates[id].name) || id || '未選択';
+    addLog(car.id, `タスクパターンを変更：${tplName(oldId)} → ${tplName(newId)}${(hasData && (!newId || oldId)) ? '（作業データを消去）' : ''}`);
+  }
   // 保存＆再描画
   // v3.0.0 下ごしらえ：触った所だけを送る（車の中身をまるごと送らない）
   if (window.saveCarPaths) {
     window.saveCarPaths(car.id, [
       { path: [bucket, taskId], value: (car[bucket] && car[bucket][taskId] !== undefined) ? car[bucket][taskId] : null },
       { path: ['taskVariants', taskId], value: (car.taskVariants && car.taskVariants[taskId]) ? car.taskVariants[taskId] : null },
+      { path: ['logs'], value: car.logs },
     ]);
   }
   if (typeof renderDetailBody === 'function') renderDetailBody(car);
@@ -1022,7 +1028,7 @@ function confirmDeleteCar(carId) {
     } else if (car.col === 'delivery') {
       warn = `<div style="background:#fff7ed;border:2px solid #ea580c;color:#c2410c;border-radius:8px;padding:10px 12px;margin:8px 0;font-weight:700;line-height:1.6">${ic('warn','⚠',14)} この車は「納車準備」＝<u>売約済み</u>です。<br>削除すると売れた1台が記録から消えます。よく確認してください。</div>`;
     }
-    sub.innerHTML = `${warn}<strong>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</strong>（${escapeHtml(car.num)}）<br>このデータは復元できません。本当に削除しますか？`;
+    sub.innerHTML = `${warn}<strong>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</strong>（${escapeHtml(car.num)}）<br>消した車は「管理番号リスト」の下のゴミ箱から元に戻せます。`;
   }
   document.getElementById('confirm-delete-car').classList.add('open');
 }
@@ -1052,40 +1058,34 @@ async function closeDeleteCarConfirm(mode) {
     try { addLog(removed.id, actLabel); } catch (e) { console.error('[car-detail] 削除ログ記録に失敗', e); }
   }
 
-  // v2.16.0: 「正式に削除」なら deletedCars コレクションに最小情報を記録（番号台帳）
-  let _delRec = null;
-  if (mode === 'formal' && window.dbDeleted) {
-    const rec = {
-      id: removed.id,
-      num: removed.num || '',
-      maker: removed.maker || '',
-      model: removed.model || '',
-      grade: removed.grade || '',
-    };
-    _delRec = rec;   /* ★台帳への記録は「本体の削除が通ってから」書く（下） */
+  /* 🗑 v3.16.0（棚卸し S-19）消す前に、車の中身をまるごとゴミ箱（deletedCars の trash）へ写す。
+     ・正式に削除＝番号台帳に「削除済」で残る（今まで通り）／取り消し＝番号は再利用できる（台帳には数えない）
+     ・どちらも管理番号リストの下の「ゴミ箱」から戻せる。本当に消すのはマスターだけ
+     🔴 写せなかったら車は消さない。写真・見積PDF も消さない（戻す時に要る） */
+  if (window.dbDeleted && window.dbDeleted.trashCar) {
+    try {
+      await window.dbDeleted.trashCar(removed, mode === 'formal' ? 'formal' : 'cancel');
+    } catch (e) {
+      console.error('[car-detail] ゴミ箱に入れられませんでした', e);
+      _deletingCarId = null;
+      showToast('ゴミ箱に入れられませんでした。車はそのまま残しています（通信または権限を確認してください）', 'CF-1016');
+      return;
+    }
   }
-  // 'cancel'（取り消し）の場合は何も記録に残さない＝番号は再利用可
 
-  // 🔴 まず本体を消す。ここが通らなければ、台帳にも書かないし画面からも消さない。
+  // 🔴 まず本体を消す。ここが通らなければ、画面からも消さない（ゴミ箱の行は取り消す）。
   if (window.dbCars) {
     try {
       await window.dbCars.deleteCar(removed.id);
     } catch (e) {
       console.error('[car-detail] delete failed', e);
+      if (window.dbDeleted && window.dbDeleted.untrashOnFail) window.dbDeleted.untrashOnFail(removed.id);
       _deletingCarId = null;
       showToast('削除できませんでした。そのまま残しています（通信または権限を確認してください）', 'CF-1001');
       return;
     }
   }
   cars.splice(idx, 1);
-  // 台帳（管理番号リスト）への記録＝本体が消えたあとに書く
-  if (_delRec && window.dbDeleted) {
-    window.dbDeleted.saveDeletedCar(_delRec).catch(e => console.error('[car-detail] saveDeletedCar failed', e));
-  }
-  // v1.5.10: Storage の写真も削除（fire-and-forget）
-  if (window.dbStorage && window.dbStorage.deleteCarPhoto) {
-    window.dbStorage.deleteCarPhoto(removed.id);
-  }
   // v1.8.40: 編集中／詳細表示中の車両IDが削除済みの ID を指したままだと、
   //          以降の realtime 同期で「保護対象」と誤判定されて再生成される恐れがある。
   //          念のため両方クリアしておく（納車準備→削除でダッシュボード見込みが残る不具合の対策）。
@@ -1100,7 +1100,7 @@ async function closeDeleteCarConfirm(mode) {
   closeModal('modal-detail');
   if (typeof renderDashboard === 'function') renderDashboard();
   renderAll();
-  const label = (mode === 'formal') ? '正式に削除しました（管理番号リストに残ります）' : '取り消しました（番号は再利用できます）';
+  const label = (mode === 'formal') ? '正式に削除しました（ゴミ箱から戻せます）' : '取り消しました（番号は再利用できます・ゴミ箱から戻せます）';
   showToast(`${removed.maker} ${removed.model} を${label}`);
   _deletingCarId = null;
 }

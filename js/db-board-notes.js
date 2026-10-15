@@ -91,6 +91,51 @@
     }
   }
 
+  /* 🔴 v3.16.0（棚卸し S-18・共通部品の直しに合わせる）返信・回覧の確認は「1件足す／抜く」で書く。
+     body は共通部品の CFNoteBoard.rules.atomicPatch が作った形（arrayUnion / arrayRemove ＋ふつうの欄だけ）。
+     ⚠ 配列（replies・doneByUids）を丸ごと書かない＝2人がほぼ同時に返信・確認しても消し合わない */
+  async function saveBoardNotePatch(noteId, body) {
+    if (!noteId || !body) return;
+    const col = _col();
+    if (!col) return;
+    const out = Object.assign({}, body);
+    out.updatedAt = window.fb.serverTimestamp();
+    if (window.fb.currentUser && window.fb.currentUser.uid) out.updatedBy = window.fb.currentUser.uid;
+    try {
+      await col.doc(String(noteId)).set(out, { merge: true });
+    } catch (err) {
+      console.error('[db-board-notes] saveBoardNotePatch error:', err, noteId);
+      if (typeof showToast === 'function') showToast('付箋の保存に失敗しました', 'CF-0015');
+      throw err;
+    }
+  }
+
+  /* v3.16.2 返信・確認を「1件足す／抜く」で書く入口。共通部品の applyOps を使う
+     （抜く時は transaction で id から外す＝形が少し違う返信も消える／足すだけなら arrayUnion）。
+     applyOps が無い古い写しの時は atomicPatch、それも無ければ丸ごと（saveBoardNote）の順で落ちる */
+  async function saveBoardNoteOps(note, info) {
+    if (!note || !note.id) return;
+    const col = _col();
+    if (!col) return;
+    const R = window.CFNoteBoard && window.CFNoteBoard.rules;
+    const FV = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
+    const extra = { updatedAt: window.fb.serverTimestamp() };
+    if (window.fb.currentUser && window.fb.currentUser.uid) extra.updatedBy = window.fb.currentUser.uid;
+    try {
+      if (info && info.ops && R && R.applyOps && FV) {
+        await R.applyOps(col.doc(String(note.id)), note, info, FV, window.fb.db, extra);
+        return;
+      }
+    } catch (err) {
+      console.error('[db-board-notes] saveBoardNoteOps error:', err, note.id);
+      if (typeof showToast === 'function') showToast('付箋の保存に失敗しました', 'CF-0015');
+      throw err;
+    }
+    if (info && info.ops && R && R.atomicPatch && FV) return saveBoardNotePatch(note.id, R.atomicPatch(note, info, FV));
+    const clean = (R && R.cleanForSave) ? R.cleanForSave(note) : note;
+    return saveBoardNote(clean);
+  }
+
   /* 🔴 2026-09-26（ゆうた確定）**付箋に「消去」は無い。**全部アーカイブ（共通部品の patchArchive を save で書く）。
      済から3か月で添付・1年で本文を消すのはサーバー（_サーバー\functions\note-retention.js）だけ。
      ⚠ 呼び口だけ残す＝古いキャッシュの画面や、どこかに残った呼び出しから呼ばれても何も消さない。
@@ -153,6 +198,8 @@
   window.dbBoardNotes = {
     loadBoardNotes: loadBoardNotes,
     saveBoardNote: saveBoardNote,
+    saveBoardNotePatch: saveBoardNotePatch,
+    saveBoardNoteOps: saveBoardNoteOps,
     deleteBoardNote: deleteBoardNote,
     reorderBoardNotes: reorderBoardNotes,
     archiveOldDoneNotes: archiveOldDoneNotes,

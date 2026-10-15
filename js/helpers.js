@@ -57,15 +57,39 @@ function mkTaskState(tasks) {
   return s;
 }
 
-// 日付文字列に日数を加算
-function dateAddDays(str, n) {
-  const d = new Date(str);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+/* 🔴 v3.16.0（2026-10-15 棚卸し S-40）「今日」は**日本時間**で作る。
+   前は `new Date().toISOString().split('T')[0]`＝世界標準時の日付だったので、
+   日本時間の朝 0〜9時は**前の日**になっていた（11/1 の 8:30 に売約 → 売約日 10/31＝前月の売上）。
+   ・今日＝Asia/Tokyo の暦（端末の時計の場所に左右されない。夜のサーバーの書き出しでも同じ）
+   ・日付の足し算＝'YYYY-MM-DD' を暦のまま数える（`new Date('YYYY-MM-DD')` は世界標準時と読まれるので使わない）
+   ⚠ 過去に入った日付は直していない（直すかはゆうたが決める＝棚卸しの③）。 */
+function _cfYmd(y, m, d) {
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function _cfJstParts(dt) {
+  try {
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'numeric', day: 'numeric' });
+    const o = {};
+    f.formatToParts(dt).forEach(p => { o[p.type] = p.value; });
+    if (o.year && o.month && o.day) return { y: +o.year, m: +o.month, d: +o.day };
+  } catch (e) {}
+  return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };   /* Intl が無い端末は端末の暦 */
 }
 
-// 今日の日付文字列 (YYYY-MM-DD)
-const todayStr = () => new Date().toISOString().split('T')[0];
+// 日付文字列に日数を加算
+function dateAddDays(str, n) {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(str || ''));
+  if (m) {
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (Number(n) || 0)));
+    return _cfYmd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+  }
+  const p = _cfJstParts(str ? new Date(str) : new Date());
+  const d = new Date(Date.UTC(p.y, p.m - 1, p.d + (Number(n) || 0)));
+  return _cfYmd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
+// 今日の日付文字列 (YYYY-MM-DD)＝日本時間
+const todayStr = () => { const p = _cfJstParts(new Date()); return _cfYmd(p.y, p.m, p.d); };
 
 // ========================================
 // v1.8.83: 期間集計用の到達日（裏方データ・UI非表示）
@@ -185,7 +209,7 @@ function snapshotPriceTax() {
     body: (ps.body === 'excl') ? 'excl' : 'incl',
     total: (ps.total === 'excl') ? 'excl' : 'incl',
     rate: (typeof ps.rate === 'number' && ps.rate >= 0 && ps.rate <= 100) ? ps.rate : 10,
-    capturedAt: (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0,10),
+    capturedAt: todayStr(),   // v3.16.1 日本時間の今日
   };
 }
 
@@ -245,6 +269,9 @@ const showToast = (msg, code) => {
 const closeModal = id => {
   const el = document.getElementById(id);
   if (el) el.classList.remove('open');
+  /* 🔴 v3.16.0（棚卸し S-08）「車両情報の編集」を閉じたら（保存・キャンセル・✕）編集中の印を外す。
+     前は残り続け、その車だけ他の人の変更を受け取らなくなっていた */
+  if (id === 'modal-car' && typeof editingCarId !== 'undefined') editingCarId = null;
 };
 
 // 操作ログ追加
@@ -258,6 +285,7 @@ function addLog(carId, action) {
   const myUid = (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null;
   const entry = {
     time,
+    at: now.getTime(),   /* v3.16.0 並べ順と「何年の出来事か」用（time は M/D だけ） */
     userUid: myUid,
     user: currentUser || '—',
     carNum: car ? car.num : '—',
@@ -267,6 +295,7 @@ function addLog(carId, action) {
   if (car) {
     if (!car.logs) car.logs = [];
     car.logs.unshift(entry);
+    _cfQueueLog(car.id, entry);
   }
   globalLogs.unshift(entry);
   if (globalLogs.length > 1000) globalLogs.length = 1000; // v2.27.0: 200→1000（読込上限と揃える）
@@ -276,6 +305,91 @@ function addLog(carId, action) {
     window.dbAudit.appendAuditLog(entry);
   }
 }
+
+/* ============================================================
+   🔴 v3.16.0（2026-10-15 棚卸し S-09）車のフロー（logs）は「足すだけ」で送る
+   ------------------------------------------------------------
+   ◎前まで … addLog は手元の配列の頭に足し、保存の所が `{path:['logs'], value: car.logs}`＝**配列まるごと**を送っていた。
+     A が☑した直後に B が同じ車で☑し、続けて A がもう1つ☑すると、A の送る配列には B の行が無い＝**B の行が消える**。
+     電波の悪い端末が後でまとめて送った時も、古い配列で上書きしていた。
+   ◎いま … addLog が「まだ送っていない行」を車ごとに控える（下の _cfQueueLog）。
+     保存の所が ['logs'] を送ろうとしたら、db-cars / db-archive が**控えの行だけ arrayUnion で足す**形に置き換える。
+     ＝呼ぶ側（15か所）は今までの書き方のままで、配列まるごとは送られない。
+   ・保存の後に addLog している所（昇格・締め・作業管理票の完了など）も、少し後に控えを自分で送る（_cfFlushLogs）
+   ・並び＝サーバーの配列は「古い行（新しい順）＋足した行（古い順）」になるので、読み込む時に _cfSortLogs で新しい順にそろえる
+   ⚠ 失敗したら控えに戻す（次の保存か次の送り出しでもう一度。arrayUnion は同じ行を2回は入れない）
+   ============================================================ */
+const _cfLogQueue = {};      /* carId → [まだ送っていない行] */
+const _cfLogFlushT = {};     /* carId → 送り出しの予約 */
+function _cfQueueLog(carId, entry) {
+  if (!carId || !entry) return;
+  const k = String(carId);
+  (_cfLogQueue[k] = _cfLogQueue[k] || []).push(entry);
+  /* 呼んだ所が同じ流れで ['logs'] を保存すれば、そこで持っていかれる。持っていかれなかった時だけ自分で送る */
+  if (!_cfLogFlushT[k]) {
+    _cfLogFlushT[k] = setTimeout(function () { delete _cfLogFlushT[k]; _cfFlushLogs(k); }, 1200);
+  }
+}
+/* 控えを全部受け取る（呼んだ側が送る）。返した行は控えから外れる */
+function _cfTakeLogs(carId) {
+  const k = String(carId || '');
+  const q = _cfLogQueue[k];
+  if (!q || !q.length) return [];
+  delete _cfLogQueue[k];
+  return q.slice();
+}
+/* 送れなかった行を控えに戻す */
+function _cfReturnLogs(carId, entries) {
+  if (!carId || !entries || !entries.length) return;
+  const k = String(carId);
+  _cfLogQueue[k] = entries.concat(_cfLogQueue[k] || []);
+}
+function _cfHasQueuedLogs(carId) {
+  const q = _cfLogQueue[String(carId || '')];
+  return !!(q && q.length);
+}
+/* 控えが残っていたら、その車へ「足すだけ」で送る（在庫の車でも締めた車でも）。車が無ければ捨てる */
+function _cfFlushLogs(carId) {
+  const k = String(carId || '');
+  if (!_cfHasQueuedLogs(k)) return;
+  const inCars = (typeof cars !== 'undefined' && Array.isArray(cars)) && cars.some(c => c && String(c.id) === k);
+  const inArch = !inCars && (typeof archivedCars !== 'undefined' && Array.isArray(archivedCars)) && archivedCars.some(c => c && String(c.id) === k);
+  if (!inCars && !inArch) { delete _cfLogQueue[k]; return; }   /* 消えた車＝送り先が無い（操作ログには残っている） */
+  if (inCars && window.dbCars && window.dbCars.flushLogs) window.dbCars.flushLogs(k);
+  else if (inArch && window.dbArchive && window.dbArchive.flushLogs) window.dbArchive.flushLogs(k);
+}
+/* 読み込んだ車のフローを新しい順にそろえる（at のある行＝新しい順／at の無い昔の行＝そのまま下に） */
+function _cfSortLogs(logs) {
+  if (!Array.isArray(logs) || logs.length < 2) return logs;
+  const withAt = [], old = [];
+  logs.forEach(e => { if (e && typeof e.at === 'number') withAt.push(e); else old.push(e); });
+  if (!withAt.length) return logs;
+  withAt.sort((a, b) => b.at - a.at);
+  return withAt.concat(old);
+}
+/* 車に結びつかない操作（仮登録・設定・取り込みなど）を操作ログ（auditLogs）だけに残す */
+function addAuditLog(action, carNum) {
+  const now = new Date();
+  const entry = {
+    time: `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    at: now.getTime(),
+    userUid: (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null,
+    user: (typeof currentUser !== 'undefined' && currentUser) || '—',
+    carNum: carNum || '—',
+    action: String(action || ''),
+    carId: null,
+  };
+  if (typeof globalLogs !== 'undefined' && Array.isArray(globalLogs)) {
+    globalLogs.unshift(entry);
+    if (globalLogs.length > 1000) globalLogs.length = 1000;
+  }
+  if (window.dbAudit) window.dbAudit.appendAuditLog(entry);
+}
+window._cfTakeLogs = _cfTakeLogs;
+window._cfReturnLogs = _cfReturnLogs;
+window._cfSortLogs = _cfSortLogs;
+window._cfFlushLogs = _cfFlushLogs;
+window.addAuditLog = addAuditLog;
 
 // ========================================
 // 管理番号の表記ゆれ吸収＆文中リンク化（付箋・操作ログで共用）

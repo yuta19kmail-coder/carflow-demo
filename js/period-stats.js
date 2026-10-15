@@ -187,10 +187,12 @@
     if (est < car.purchaseDate) est = car.purchaseDate;
     return est;
   }
+  /* v3.16.1（棚卸し S-40）日付の足し算は helpers.js の dateAddDays（日本時間の暦）。前は toISOString で世界標準時の日付になり得た */
   function _addDaysFallback(str, n){
-    const d = new Date(str);
-    d.setDate(d.getDate() + n);
-    return d.toISOString().split('T')[0];
+    if (typeof dateAddDays === 'function') return dateAddDays(str, n);
+    const p = String(str || '').split('-').map(Number);
+    const d = new Date(Date.UTC(p[0], (p[1] || 1) - 1, (p[2] || 1) + n));
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
   }
 
   // ===== 期間内判定 =====

@@ -406,8 +406,108 @@
           '</tr></thead>' +
           '<tbody>' + rows.join('') + '</tbody>' +
         '</table>' +
-      '</div>';
+      '</div>' +
+      _trashHtml();
   }
+
+  /* ============================================================
+     🗑 v3.16.0（棚卸し S-19）ゴミ箱＝消した車・仮登録に戻した車（db-deleted.js の頭を読む）
+     ・［元に戻す］車を消せる人（canDeleteCars）。中身（価格・見積・フロー・チェック）ごと在庫に戻る
+     ・［完全に消す］マスターだけ。中身・写真・見積PDF を消す（番号台帳の行は残る）
+     ⚠ 見た目は管理番号リストの表をそのまま借りる（新しく作らない）
+     ============================================================ */
+  const TRASH_MODE = { formal: '正式に削除', cancel: '取り消し', revert: '仮登録に戻した' };
+  function _trashHtml() {
+    const list = (typeof trashCars !== 'undefined' && Array.isArray(trashCars)) ? trashCars.slice() : [];
+    const ts = r => { const v = r && r.deletedAt; return (v && typeof v.toMillis === 'function') ? v.toMillis() : 0; };
+    list.sort((a, b) => ts(b) - ts(a));
+    const canRestore = (typeof hasPermission === 'function') ? (hasPermission('canDeleteCars') && hasPermission('canCreateCar')) : false;   /* v3.16.2 戻す＝車を作り直す＝両方の権限がある人だけ */
+    const isMaster = (typeof _isCarflowMaster === 'function') ? _isCarflowMaster() : false;
+    let body;
+    if (!list.length) {
+      body = '<tr class="nl-row"><td colspan="6" class="nl-date">ゴミ箱は空です</td></tr>';
+    } else {
+      body = list.map(r => {
+        const t = r.trash || {};
+        let act = '';
+        if (canRestore) act += '<button class="nl-mark-btn nl-mark-undo" onclick="window.numListRestoreTrash(\'' + _escHtml(r.id) + '\')">元に戻す</button>';
+        if (isMaster) act += ' <button class="nl-mark-btn" onclick="window.numListPurgeTrash(\'' + _escHtml(r.id) + '\')">完全に消す</button>';
+        return '<tr class="nl-row">' +
+          '<td class="nl-num">' + _escHtml(r.num || t.num || '―') + '</td>' +
+          '<td data-cf-noen>' + _escHtml(r.maker || t.maker || '') + ' ' + _escHtml(r.model || t.model || '') + '</td>' +
+          '<td>' + _escHtml(TRASH_MODE[r.mode] || '削除') + '</td>' +
+          '<td data-cf-noen>' + _escHtml(r.deletedByName || '') + '</td>' +
+          '<td class="nl-date">' + _escHtml(_fmtDateStr(r.deletedAt)) + '</td>' +
+          '<td class="nl-action">' + act + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+    return '<div class="panel-title" style="margin-top:18px">ゴミ箱</div>' +
+      '<div class="panel-sub">消した車・仮登録に戻した車。中身ごと元に戻せます。</div>' +
+      '<div class="panel-card nl-card"><table class="nl-table">' +
+        '<thead><tr><th class="nl-num">管理番号</th><th>車種</th><th>消し方</th><th>消した人</th><th class="nl-date">消した日</th><th class="nl-action"></th></tr></thead>' +
+        '<tbody>' + body + '</tbody></table></div>';
+  }
+
+  let _trashBusy = false;
+  window.numListRestoreTrash = async function (id) {
+    if (!id || _trashBusy || !window.dbDeleted || !window.dbDeleted.restoreFromTrash) return;
+    if (typeof hasPermission === 'function' && !(hasPermission('canDeleteCars') && hasPermission('canCreateCar'))) return;
+    const r = (typeof trashCars !== 'undefined' ? trashCars : []).find(x => String(x.id) === String(id));
+    if (!r) return;
+    if ((typeof cars !== 'undefined') && cars.some(c => c && String(c.id) === String(id))) {
+      if (typeof showToast === 'function') showToast('この車はもう在庫にあります');
+      return;
+    }
+    /* 🔴 v3.16.1 番号を使い直した後で戻すと、同じ番号が2台になる。戻す前に今の番号を確かめ、
+       ぶつかる時は止めて理由を出し、新しい番号を振って戻すかを選んでもらう（黙って2台にしない） */
+    const num = r.num || (r.trash && r.trash.num) || '';
+    let newNum = null;
+    const dup = (num && window.numHelpers && window.numHelpers.findDuplicate) ? window.numHelpers.findDuplicate(num, id) : null;
+    if (dup) {
+      const where = { cars: '在庫', archived: '販売実績', deleted: '削除済の台帳', manual: '手入力の番号' }[dup.source] || dup.source;
+      const who = ((dup.record && dup.record.maker) || '') + ' ' + ((dup.record && dup.record.model) || '');
+      const next = window.numHelpers.nextNum();
+      if (!confirm(num + ' は今、ほかの車（' + where + '：' + who.trim() + '）が使っています。\nこのまま戻すと同じ番号が2台になります。\n\nOK＝新しい番号 ' + next + ' を振って戻す\nキャンセル＝戻さない')) {
+        if (typeof showToast === 'function') showToast('戻すのをやめました（同じ番号が2台にならないよう止めました）', 'CF-1019');
+        return;
+      }
+      newNum = next;
+    } else if (!confirm(num + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' を在庫に戻します。よろしいですか？')) return;
+    _trashBusy = true;
+    try {
+      const car = await window.dbDeleted.restoreFromTrash(id, newNum ? { num: newNum } : null);
+      if (car && typeof cars !== 'undefined' && !cars.some(c => c && String(c.id) === String(id))) cars.push(car);
+      if (typeof showToast === 'function') showToast(newNum ? (num + ' を ' + newNum + ' に振り直して在庫に戻しました') : (num + ' を在庫に戻しました'));
+      if (typeof renderAll === 'function') renderAll();
+      if (typeof renderDashboard === 'function') renderDashboard();
+    } catch (e) {
+      console.error('[num-list] ゴミ箱から戻せませんでした', e);
+      if (typeof showToast === 'function') showToast('ゴミ箱から戻せませんでした（通信または権限を確認してください）', 'CF-1017');
+    } finally {
+      _trashBusy = false;
+      renderNumList();
+    }
+  };
+  window.numListPurgeTrash = async function (id) {
+    if (!id || _trashBusy || !window.dbDeleted || !window.dbDeleted.purgeTrash) return;
+    if (!((typeof _isCarflowMaster === 'function') && _isCarflowMaster())) return;
+    const r = (typeof trashCars !== 'undefined' ? trashCars : []).find(x => String(x.id) === String(id));
+    if (!r) return;
+    if (!confirm((r.num || '') + ' ' + (r.maker || '') + ' ' + (r.model || '') + ' をゴミ箱から完全に消します。\n写真・見積PDF も消え、元に戻せません。よろしいですか？')) return;
+    _trashBusy = true;
+    try {
+      await window.dbDeleted.purgeTrash(id);
+      if (typeof addAuditLog === 'function') addAuditLog('ゴミ箱から完全に消した（' + (r.maker || '') + ' ' + (r.model || '') + '）', r.num || '—');
+      if (typeof showToast === 'function') showToast('完全に消しました');
+    } catch (e) {
+      console.error('[num-list] ゴミ箱から消せませんでした', e);
+      if (typeof showToast === 'function') showToast('ゴミ箱から消せませんでした', 'CF-1018');
+    } finally {
+      _trashBusy = false;
+      renderNumList();
+    }
+  };
 
   window.renderNumList = renderNumList;
 })();

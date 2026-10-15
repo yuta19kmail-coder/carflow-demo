@@ -101,17 +101,27 @@
 
   /* ---- 3つを1つに合成する ---- */
   function rebuild() {
+    /* 🔴 v3.16.3（2026-10-15）名前で引く時は**在籍中の書類を先に**。
+       玄関の「外す」が在籍なしの印（active:false・removed）になった＝同じ名前の古い書類が名簿に残る。
+       前は「後から来た方で上書き」だったので、古い書類が後ろにあると、在籍中の人が
+       古い番号・「CarFlow を使えない」で並んでいた。社員名簿の portalMemberId が古い（在籍なしの）書類を指していても、
+       同じ名前の在籍中の書類があればそちらにつなぐ。在籍中が無ければ今までどおり古い書類（＝下で退職扱い） */
     var portalById = {}, portalByKey = {};
     _portal.forEach(function (p) {
       portalById[p.id] = p;
-      var k = keyOf(p.name); if (k) portalByKey[k] = p;
+      var k = keyOf(p.name);
+      if (k && (!portalByKey[k] || (portalByKey[k].active === false && p.active !== false))) portalByKey[k] = p;
     });
 
     var rows = [], usedPortal = {};
 
     _core.forEach(function (cm) {
-      var pm = (cm.portalMemberId && portalById[cm.portalMemberId])
-            || portalByKey[keyOf(cm.dispName)] || portalByKey[keyOf(cm.name)] || null;
+      var byId = (cm.portalMemberId && portalById[cm.portalMemberId]) || null;
+      var byName = portalByKey[keyOf(cm.dispName)] || portalByKey[keyOf(cm.name)] || null;
+      var pm = (byId && byId.active !== false) ? byId
+            : (byName && byName.active !== false) ? byName
+            : (byId || byName || null);
+      if (byId) usedPortal[byId.id] = 1;
       /* 🔴 先に「この名簿レコードは使った」印を付けてから、退職者を落とす。
          順番を逆にすると、**退職者が CoreFlow の名簿に残っている場合に
          「名簿だけの人」として下のループで復活してしまう**（1回ハマった）。 */

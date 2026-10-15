@@ -89,9 +89,14 @@
 
   /* 保存先は付箋の出どころで変わる。**よその付箋を CarFlow の boardNotes に書かない。**
      🔴 v2.60.0 保存する形は部品の cleanForSave を通す（壊れた時刻の印を数字に直す） */
-  function _saveNote(note) {
-    if (_foreign(note) && window.CFNoteAll) return new Promise(res => CFNoteAll.save(note, res));
+  function _saveNote(note, info) {
+    /* 🔴 v3.16.0（S-18）返信・回覧の確認は info.ops（1件足す／抜く）で来る。よその付箋も同じ info を渡す */
+    if (_foreign(note) && window.CFNoteAll) return new Promise(res => CFNoteAll.save(note, res, info || null));
     if (!window.dbBoardNotes) return Promise.resolve();
+    /* v3.16.2 共通部品の applyOps（無い古い写しなら atomicPatch → 丸ごと）＝ db-board-notes.js の saveBoardNoteOps */
+    if (info && info.ops && window.dbBoardNotes.saveBoardNoteOps) {
+      return Promise.resolve(window.dbBoardNotes.saveBoardNoteOps(note, info));
+    }
     const clean = window.CFNoteBoard ? CFNoteBoard.rules.cleanForSave(note) : note;
     return Promise.resolve(window.dbBoardNotes.saveBoardNote(clean));
   }
@@ -123,7 +128,7 @@
       labels: () => _labels(),
       save: (note, info) => {
         if (info && info.isNew && !_foreign(note)) boardNotes.push(note);
-        return _saveNote(note);
+        return _saveNote(note, info);
       },
       reorder: list => {
         boardNotes.length = 0;

@@ -219,11 +219,44 @@ function closeEarlySellConfirm(ok) {
   }
 }
 
+/* 🔴 v3.16.0（棚卸し S-08）編集を開いた時の値の控え。保存は「ここから変えた欄だけ」を送る。
+   ＝開いている間にほかの人が変えた納車日・状態・フロー・見積などを、古い中身で書き戻さない。 */
+const _EDIT_KEYS = ['num', 'maker', 'model', 'grade', 'selectedTasks', 'col', 'isOrder', 'year', 'color', 'size', 'km',
+  'price', 'totalPrice', 'purchaseDate', 'contract', 'contractDate', 'deliveryDate', 'customerName', 'memo', 'photo'];
+let _editBase = null;
+let _formPhotoCleared = false;
+function _cloneVal(v) { return (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v; }
+function _stableJson(v) {
+  if (Array.isArray(v)) return '[' + v.map(_stableJson).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + _stableJson(v[k])).join(',') + '}';
+  return JSON.stringify(v);
+}
+function _sameVal(a, b) {
+  /* 空・未設定・false・0・空の箱は同じ扱い（古い車に欄が無いだけで「変えた」にしない） */
+  const n = v => {
+    if (v === undefined || v === null || v === false || v === 0 || v === '') return '';
+    if (v === true) return 1;   /* v3.16.2 古い車の contract:true と画面の 1 を同じに（「売約 あり → あり」を出さない） */
+    if (typeof v === 'object' && !Array.isArray(v)) {   /* 中の空の欄は落として比べる（{ regen:{}, delivery:{} } も空） */
+      const o = {};
+      Object.keys(v).forEach(k => { const x = n(v[k]); if (x !== '') o[k] = x; });
+      return Object.keys(o).length ? o : '';
+    }
+    if (Array.isArray(v) && !v.length) return '';
+    return v;
+  };
+  a = n(a); b = n(b);
+  if (typeof a === 'object' || typeof b === 'object') return _stableJson(a) === _stableJson(b);
+  return String(a) === String(b);
+}
+
 function openCarModal(carId) {
   editingCarId = carId || null;
   formPhotoData = null;
+  _formPhotoCleared = false;
   _sellMoveToDelivery = false;
   const car = carId ? cars.find(c => c.id === carId) : null;
+  _editBase = null;
+  if (car) { _editBase = {}; _EDIT_KEYS.forEach(k => { _editBase[k] = _cloneVal(car[k]); }); }
   refreshSizeOptions(car?.size || 'コンパクト');
   refreshYearDatalist();
   refreshKmDatalist();
@@ -357,11 +390,8 @@ function clearFormPhoto() {
   formPhotoData = null;
   const inp = document.getElementById('inp-photo-file');
   if (inp) inp.value = '';
-  // 編集時：すでに保存済みの photo もクリアの意思表示として null マーク
-  if (editingCarId) {
-    const car = cars.find(c => c.id === editingCarId);
-    if (car) car.photo = '';
-  }
+  // 編集時：すでに保存済みの photo もクリアの意思表示（v3.16.0 車には直接書かず印だけ＝保存の時に変えた欄として送る）
+  if (editingCarId) _formPhotoCleared = true;
   _updateFormPhotoPreview(null);
 }
 
@@ -394,7 +424,8 @@ function _getSelectedRegisterType() {
 }
 
 async function saveCarModal(initialCol) {
-  let _saveFailed = false;   /* 🔴 2026-08-05：保存できたかどうか。最後のメッセージを正直に出すために使う */
+  let _saveFailed = false;
+  const _wasEdit = !!editingCarId;   /* v3.16.0 閉じると editingCarId が空になるので先に控える */   /* 🔴 2026-08-05：保存できたかどうか。最後のメッセージを正直に出すために使う */
   // v1.8.73: 引数省略時は登録区分カードから選択値を読む（新規登録）
   if (!initialCol) {
     initialCol = editingCarId ? '__edit__' : _getSelectedRegisterType();
@@ -421,65 +452,98 @@ async function saveCarModal(initialCol) {
 
   if (editingCarId) {
     const car = cars.find(c => c.id === editingCarId);
-    if (!car) return;
-    car.num = num; car.maker = maker; car.model = model;
-    car.grade = grade;
-    // v1.8.51: 選択制タスクのopt-in状態を保存
-    car.selectedTasks = _readOptionalTaskSelection();
-    // v1.8.74: 編集時の区分変更（カード）を反映
-    const newType = _getSelectedRegisterType();
-    if (newType === 'other') {
-      car.col = 'other';
-      car.isOrder = false;
-    } else if (newType === 'order') {
-      if (car.col === 'other') car.col = 'purchase';
-      car.isOrder = true;
-    } else {
-      // 'purchase' = 通常仕入
-      if (car.col === 'other') car.col = 'purchase';
-      car.isOrder = false;
+    if (!car) {
+      /* v3.16.0 開いている間に、ほかの端末で締められた・消された車＝作り直さない */
+      closeModal('modal-car');
+      showToast('この車は、ほかの端末で締められたか削除されたため保存できませんでした', 'CF-1015');
+      return;
     }
-    car.year         = yearNorm || car.year;
-    car.color        = document.getElementById('inp-color').value    || car.color;
-    car.size         = document.getElementById('inp-size').value;
-    car.km           = kmInp || car.km;
-    car.price        = document.getElementById('inp-price').value    || '';
-    car.totalPrice   = totalPrice;
-    car.purchaseDate = document.getElementById('inp-purchase').value || car.purchaseDate;
-    car.contract     = sellOn ? 1 : 0;
-    car.contractDate = contractDate;
-    car.deliveryDate = deliveryDate;
-    car.customerName = customerName; // v2.26.0: 売約のお客様（名前のみ保存・表示時に「様」付与）
+    const base = _editBase || {};
+    const editId = editingCarId;
+    /* 🔴🔴 v3.16.0（棚卸し S-08）**開いた時から変えた欄だけ**を送る（saveCarPaths＝update）。
+       前は車の中身を手元の写しで丸ごと set(merge) していたので、開いている間にほかの人が変えた
+       納車日・状態・フロー・見積・展示開始日などを古い値に戻していた（消えた車も作り直していた）。
+       ・新しい値は「開いた時の値（base）＋フォーム」から作る。手元の car に届いた他人の変更は触らない
+       ・update なので、サーバーに無い車は作らない */
+    const next = {};
+    next.num = num; next.maker = maker; next.model = model; next.grade = grade;
+    next.selectedTasks = _readOptionalTaskSelection();   // v1.8.51: 選択制タスクのopt-in
+    // v1.8.74: 編集時の区分変更（カード）。今の列は「開いた時の列」から決める
+    const newType = _getSelectedRegisterType();
+    let col = base.col, isOrder = base.isOrder;
+    if (newType === 'other') {
+      col = 'other'; isOrder = false;
+    } else if (newType === 'order') {
+      if (col === 'other') col = 'purchase';
+      isOrder = true;
+    } else {
+      if (col === 'other') col = 'purchase';
+      isOrder = false;
+    }
+    next.year         = yearNorm || base.year;
+    /* 開いた時の年式を整えただけ（書き方の違いだけ）なら「変えた」にしない */
+    if (yearNorm && base.year && normalizeYear(base.year) === yearNorm) next.year = base.year;
+    next.color        = document.getElementById('inp-color').value || base.color;
+    next.size         = document.getElementById('inp-size').value;
+    next.km           = kmInp || base.km;
+    next.price        = document.getElementById('inp-price').value || '';
+    next.totalPrice   = totalPrice;
+    next.purchaseDate = document.getElementById('inp-purchase').value || base.purchaseDate;
+    next.contract     = sellOn ? 1 : 0;
+    next.contractDate = contractDate;
+    next.deliveryDate = deliveryDate;
+    next.customerName = customerName; // v2.26.0: 売約のお客様（名前のみ保存・表示時に「様」付与）
+    next.memo         = document.getElementById('inp-memo').value;
+    let moved = false;
     // v2.10.8: 売約と同時に「納車準備」へ移動を選んだ場合だけフェーズを動かす（手動ドラッグと同じ状態）
     if (sellOn && _sellMoveToDelivery && car.col !== 'delivery' && car.col !== 'done') {
-      car.col = 'delivery';
-      addLog(editingCarId, '売約に伴い納車準備へ移動');
+      col = 'delivery';
+      moved = true;
     }
     _sellMoveToDelivery = false;
-    car.memo         = document.getElementById('inp-memo').value;
+    next.col = col;
+    next.isOrder = isOrder;
     if (formPhotoData) {
       // v1.5.10: 新規 data:URL なら Storage にアップロード
       if (window.dbStorage && formPhotoData.startsWith && formPhotoData.startsWith('data:')) {
         try {
           const blob = window.dbStorage._dataUrlToBlob(formPhotoData);
-          if (blob) car.photo = await window.dbStorage.uploadCarPhoto(car.id, blob);
-          else car.photo = formPhotoData;
+          if (blob) next.photo = await window.dbStorage.uploadCarPhoto(car.id, blob);
+          else next.photo = formPhotoData;
         } catch (e) {
           console.warn('[car-modal] Storage アップロード失敗、data:URL で保存:', e);
-          car.photo = formPhotoData;
+          next.photo = formPhotoData;
         }
       } else {
-        car.photo = formPhotoData;
+        next.photo = formPhotoData;
       }
+    } else if (_formPhotoCleared) {
+      next.photo = '';
+    } else {
+      next.photo = base.photo;
     }
-    addLog(editingCarId, '車両情報を編集');
+    _formPhotoCleared = false;
+
+    const changed = _EDIT_KEYS.filter(k => !_sameVal(next[k], base[k]));
+    if (!changed.length) {
+      closeModal('modal-car');
+      showToast('変更はありませんでした');
+      return;
+    }
+    /* 画面にもすぐ出す（変えた欄だけ手元の車へ） */
+    changed.forEach(k => { car[k] = _cloneVal(next[k]); });
+
+    /* 📝 v3.16.0（棚卸し S-29 の記録の部分）変えた欄ごとに「前 → 後」を1行。
+       ⚠ 売約スイッチを切った時に日付を消すか残すかは今の動きのまま（ゆうたの判断待ち）。記録だけ残す */
+    _logEditChanges(editId, base, next, changed, moved);
+
+    const entries = changed.map(k => ({ path: [k], value: (next[k] === undefined) ? null : _cloneVal(next[k]) }));
+    entries.push({ path: ['logs'], value: car.logs });   /* フローは足すだけ（db-cars.js が控えの行だけ送る） */
     /* 🔴 2026-08-05 修正：保存の結果を待たずに「更新しました」と出していた。
-       オフライン・権限不足・端末の保存領域の不調でも同じ緑のメッセージが出るので、
-       次に開いたら直したはずの内容が戻っている、が起こりうる。
        → **サーバーに届いたか確かめてから**メッセージを出す。 */
-    if (window.dbCars) {
+    if (window.dbCars && window.dbCars.saveCarPaths) {
       try {
-        await window.dbCars.saveCar(car);
+        await window.dbCars.saveCarPaths(car.id, entries);
       } catch (e) {
         console.error('[car-modal] save failed', e);
         _saveFailed = true;
@@ -529,8 +593,8 @@ async function saveCarModal(initialCol) {
       logs: []
     };
     const regKind = isOrder ? 'オーダー車両' : (startCol === 'other' ? 'その他' : '仕入れ');
+    cars.push(car);   /* v3.16.0 先に一覧へ入れてから記録（前は addLog が車を見つけられず、フローに「新規登録」が残っていなかった） */
     addLog(car.id, `新規登録（${regKind}として）`);
-    cars.push(car);
     /* 🔴 2026-08-05 修正：新規登録も同じ。**保存できていないのに「登録しました」**が出ると、
        その端末にだけ車がある状態になり、リロードで消える＝入力し直しになる。
        ここでは画面からも取り消して「登録できませんでした」と伝える。 */
@@ -556,12 +620,46 @@ async function saveCarModal(initialCol) {
     showToast('保存できませんでした。画面の内容は端末に残っていますが、まだ全員には反映されていません（通信または権限を確認してください）', 'CF-1004');
     return;
   }
-  const okMsg = editingCarId
+  const okMsg = _wasEdit
     ? '情報を更新しました'
     : (initialCol === 'other' ? `${maker} ${model} を「その他」として登録しました`
        : initialCol === 'order' ? `${maker} ${model} を「オーダー車両」として登録しました`
        : `${maker} ${model} を仕入れ車として登録しました`);
   showToast(okMsg);
+}
+
+/* 📝 v3.16.0（棚卸し S-29 の記録の部分）編集で変えた欄を、フローに「前 → 後」で残す。
+   ・本体価格・総額・仕入日・売約・売約日・納車日・お客様・状態（列）は1行ずつ
+   ・それ以外（番号・車名・走行距離・色・メモ・写真など）はまとめて「車両情報を編集（走行距離・色）」の1行
+   ⚠ 条件付きで書かない（決まり⑧の考え方）。変わった欄は必ずどこかの行に出る */
+const _EDIT_LABEL = {
+  num: '管理番号', maker: 'メーカー', model: '車種', grade: 'グレード', selectedTasks: '選択タスク', isOrder: 'オーダー',
+  year: '年式', color: '色', size: 'サイズ', km: '走行距離', memo: 'メモ', photo: '写真',
+};
+function _fmtYenLog(v) {
+  const n = Number(String(v == null ? '' : v).replace(/[,\s]/g, ''));
+  return (v === '' || v == null || !isFinite(n)) ? '未設定' : n.toLocaleString('ja-JP') + '円';
+}
+function _fmtDayLog(v) { return v ? String(v) : '未定'; }
+function _logEditChanges(carId, base, next, changed, moved) {
+  if (typeof addLog !== 'function') return;
+  const colLabel = id => { const c = (typeof COLS !== 'undefined') ? COLS.find(x => x.id === id) : null; return c ? c.label : (id || '—'); };
+  const has = k => changed.indexOf(k) >= 0;
+  const lines = [];
+  if (has('price'))        lines.push(`車両情報を編集：本体価格 ${_fmtYenLog(base.price)} → ${_fmtYenLog(next.price)}`);
+  if (has('totalPrice'))   lines.push(`車両情報を編集：総額 ${_fmtYenLog(base.totalPrice)} → ${_fmtYenLog(next.totalPrice)}`);
+  if (has('purchaseDate')) lines.push(`車両情報を編集：仕入日 ${_fmtDayLog(base.purchaseDate)} → ${_fmtDayLog(next.purchaseDate)}`);
+  if (has('contract'))     lines.push(`車両情報を編集：売約 ${base.contract ? 'あり' : 'なし'} → ${next.contract ? 'あり' : 'なし'}`);
+  if (has('contractDate')) lines.push(`車両情報を編集：売約日 ${_fmtDayLog(base.contractDate)} → ${_fmtDayLog(next.contractDate)}`);
+  if (has('deliveryDate')) lines.push(`納車日変更: ${_fmtDayLog(base.deliveryDate)}→${_fmtDayLog(next.deliveryDate)}（車両情報の編集）`);
+  if (has('customerName')) lines.push(`車両情報を編集：お客様 ${base.customerName || '未設定'} → ${next.customerName || '未設定'}`);
+  if (has('col')) {
+    lines.push(moved ? `売約に伴い納車準備へ移動（${colLabel(base.col)}→${colLabel(next.col)}）`
+                     : `ステータス変更: ${colLabel(base.col)}→${colLabel(next.col)}（車両情報の編集）`);
+  }
+  const rest = changed.filter(k => _EDIT_LABEL[k]).map(k => _EDIT_LABEL[k]);
+  if (rest.length) lines.push(`車両情報を編集（${rest.join('・')}）`);
+  lines.forEach(t => addLog(carId, t));
 }
 
 // ====================================================================

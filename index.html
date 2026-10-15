@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.15.1"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.16.3"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -123,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.15.1</div>
+    <div class="login-ver">v3.16.3</div>
   </div>
 </div>
 
@@ -134,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.15.1</span>
+    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.16.3</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -1687,7 +1687,7 @@
       </div>
       <div class="del-reason-opt">
         <div class="del-reason-head"><i data-ic="undo" data-s="15">↩️</i> 取り消し</div>
-        <div class="del-reason-desc">間違い入力・テスト入力。<br>番号も丸ごと取り消し、次の新規でその番号を再利用できます。記録は残りません。</div>
+        <div class="del-reason-desc">間違い入力・テスト入力。<br>番号も丸ごと取り消し、次の新規でその番号を再利用できます。</div>
       </div>
     </div>
     <div class="confirm-btns" style="flex-wrap:wrap;gap:8px;justify-content:flex-end">
@@ -1919,8 +1919,8 @@
 <meta name="app-key" content="carflow">
 <script src="js/coreflow-icons.js?v=9ae48aea"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
 <script src="js/coreflow-errcode.js?v=8d7c4b2d"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
-<script src="js/errcode-cf.js?v=3"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
-<script src="js/ui-dialog.js?v=19128a9d"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
+<script src="js/errcode-cf.js?v=6"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
+<script src="js/ui-dialog.js?v=6c36e00e"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
 <script>
 /* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
 if(typeof window.ic!=='function'){ window.ic=function(n,fb,s){ return (fb==null?'':fb); }; }
@@ -1930,13 +1930,13 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 🟠 デモ版では読まない（window.fb はモック）：firebase-init.js -->
 <!-- 🟠 デモ版では読まない（本番の利用状況の記録を汚さない）：usage-log.js --><!-- 利用状況の記録（CoreFlow集約・自己完結・マスターだけ閲覧） -->
 <!-- 0b. cars DB wrapper（v1.5.1〜） -->
-<script src="js/db-cars.js?v=373"></script>
+<script src="js/db-cars.js?v=375"></script>
 <!-- 0b. settings DB wrapper（v1.5.2〜） -->
-<script src="js/db-settings.js?v=354"></script>
+<script src="js/db-settings.js?v=356"></script>
 <!-- 0c. archivedCars DB wrapper（v1.5.3〜） -->
-<script src="js/db-archive.js?v=285"></script>
+<script src="js/db-archive.js?v=287"></script>
 <!-- 0c'. deletedCars DB wrapper（v2.16.0〜 管理番号台帳） -->
-<script src="js/db-deleted.js?v=1"></script>
+<script src="js/db-deleted.js?v=5"></script>
 <!-- 0c''. manualNumbers DB wrapper（v2.17.0〜 管理番号リスト手入力） -->
 <script src="js/db-manual.js?v=1"></script>
 <!-- 共通：保存はサーバー確認できた時だけ成功＋3桁エラーコード（CoreFlow共通部品・v2.24.0〜） -->
@@ -1946,7 +1946,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/db-audit.js?v=286"></script>
 <!-- 0e. staff DB wrapper（v2.18.0〜：portalMembers経由に） -->
 <!-- v2.35.0: 会社の名簿を CoreMembers（社員名簿＋組織図）から作る。db-staff.js より【前】に置くこと -->
-<script src="js/members-core.js?v=375"></script>
+<script src="js/members-core.js?v=376"></script>
 <script src="js/db-staff.js?v=375"></script>
 <!-- 0e2. userPrefs DB wrapper（v2.18.0〜：お知らせ既読など個人設定） -->
 <script src="js/db-user-prefs.js?v=2"></script>
@@ -1957,15 +1957,15 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
 <script src="js/migrate-data-urls.js?v=284"></script>
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
-<script src="js/db-board-notes.js?v=286"></script>
+<script src="js/db-board-notes.js?v=289"></script>
 <!-- 0j. LINE通知連携（v1.8.19〜）DB読み書き＋Cloud Functions呼び出し -->
 <!-- 🟠 デモ版では読まない（LINEは demo-line-toast.js がトーストに置き換える）：line-notify.js -->
 <!-- v1.8.80: タスク完了通知の文言テーブル＋カスタム/CSV -->
-<script src="js/line-messages.js?v=321"></script>
+<script src="js/line-messages.js?v=322"></script>
 <!-- v1.8.80: タスク完了瞬間の検知＋LINE通知ディスパッチ -->
 <script src="js/task-completion-notify.js?v=321"></script>
 <!-- 0k. データ管理（v1.8.21〜）：JSONバックアップ / Excel一括編集 / 全消去 -->
-<script src="js/data-io.js?v=284"></script>
+<script src="js/data-io.js?v=286"></script>
 
 <!-- 1. 設定・定数 -->
 <script src="js/config.js?v=285"></script>
@@ -1974,13 +1974,13 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/checklist-templates.js?v=287"></script>
 <script src="js/steps.js?v=4"></script><!-- v3.0.0 中タスク。checklist-templates.js より後ろ／progress.js より前 -->
 <!-- v1.5.11: ChecklistTemplates をDB化 -->
-<script src="js/db-templates.js?v=285"></script>
+<script src="js/db-templates.js?v=287"></script>
 
 <!-- 2. 状態 -->
-<script src="js/state.js?v=314"></script>
+<script src="js/state.js?v=316"></script>
 
 <!-- 3. ユーティリティ -->
-<script src="js/helpers.js?v=329"></script>
+<script src="js/helpers.js?v=332"></script>
 <script src="js/progress.js?v=290"></script>
 
 <!-- 4. サンプル -->
@@ -1988,36 +1988,36 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=1c79064f"></script>
-<script src="js/auth.js?v=377"></script>
-<script src="js/navigation.js?v=3151"></script>
-<script src="js/archive.js?v=373"></script>
+<script src="js/auth.js?v=380"></script>
+<script src="js/navigation.js?v=3163"></script>
+<script src="js/archive.js?v=377"></script>
 <script src="js/settings.js?v=366"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
-<script src="js/dashboard.js?v=371"></script>
-<script src="js/announcements.js?v=3150"></script>
+<script src="js/dashboard.js?v=373"></script>
+<script src="js/announcements.js?v=3151"></script>
 <script src="js/members.js?v=376"></script>
-<script src="js/kanban.js?v=376"></script>
-<script src="js/car-detail.js?v=376"></script>
-<script src="js/car-estimates.js?v=3"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
+<script src="js/kanban.js?v=379"></script>
+<script src="js/car-detail.js?v=378"></script>
+<script src="js/car-estimates.js?v=5"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
 <script src="js/car-soba.js?v=2"></script><!-- 📶 v3.10.0 車両詳細の［相場］タブ（相場ビューをこの車の条件で）。car-detail-v3.js より前 -->
 <script src="js/soba-quick.js?v=1"></script><!-- 📶 v3.11.0 全体一覧の「相場との差」。car-soba.js より後・views.js より前 -->
 <script src="js/car-detail-v3.js?v=6"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
-<script src="js/car-modal.js?v=373"></script>
+<script src="js/car-modal.js?v=376"></script>
 <script src="js/workflow.js?v=284"></script>
-<script src="js/worksheet.js?v=326"></script>
+<script src="js/worksheet.js?v=329"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
 <script src="js/equipment-view.js?v=320"></script>
 <!-- v1.8.83: 着地予測 期間集計＋印刷／集計対象 -->
-<script src="js/period-stats.js?v=343"></script>
+<script src="js/period-stats.js?v=344"></script>
 <script src="js/forecast-print.js?v=346"></script>
 <script src="js/forecast-targets.js?v=327"></script>
 <script src="js/calendar.js?v=355"></script>
 <script src="js/views.js?v=3110"></script>
 <!-- v2.1.0: バックオフィスビュー本体 -->
-<script src="js/backoffice.js?v=11"></script>
+<script src="js/backoffice.js?v=12"></script>
 <!-- v2.2.0/v2.2.1: タスク個別メモ -->
-<script src="js/task-memo.js?v=5"></script>
+<script src="js/task-memo.js?v=6"></script>
 <!-- v2.2.1: タスク個別メモ「種別設定」モーダル -->
 <script src="js/task-memo-config.js?v=1"></script>
 <!-- v2.2.7: date型タスクメモから自動緑付箋を作成/同期 -->
@@ -2031,10 +2031,10 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/template-editor.js?v=320"></script>
 
 <!-- v1.7.0: 全体タスク（付箋ボード） -->
-<script src="js/coreflow-note-reply.js?v=a224b9c0"></script><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
-<script src="js/coreflow-note-all.js?v=830ce1ff"></script><!-- 📎 付箋のまとめて表示（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
-<script src="js/coreflow-note-board.js?v=1f8fcc8e"></script><!-- 📌 付箋ボード本体（全アプリ共通・_shared から配布）。board-notes.js より **前** に読む -->
-<script src="js/board-notes.js?v=380"></script>
+<script src="js/coreflow-note-reply.js?v=70700abc"></script><!-- 📝 付箋の返信（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
+<script src="js/coreflow-note-all.js?v=d326fe4b"></script><!-- 📎 付箋のまとめて表示（全アプリ共通・_shared から配布）。board-notes.js より **前** に読むこと -->
+<script src="js/coreflow-note-board.js?v=339ad13e"></script><!-- 📌 付箋ボード本体（全アプリ共通・_shared から配布）。board-notes.js より **前** に読む -->
+<script src="js/board-notes.js?v=383"></script>
 
 <!-- v1.7.42: 作業実績（モチベUP用・終礼で見る） -->
 <script src="js/worklog.js?v=284"></script>
@@ -2044,24 +2044,24 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 
 <!-- 7. ディスパッチャ -->
-<script src="js/main.js?v=288"></script>
+<script src="js/main.js?v=290"></script>
 
 <!-- CoreFlow アプリランチャー（共通） -->
 <!-- 🟠 デモ版では読まない（CoreFlowダッシュボードへ配信しない）：app-summary.js --><!-- 📡 CoreFlowダッシュボードへ概況配信（v2.30.0）。🔴 v2.64.0 売上ボード（calcLanding を借りる＝dashboard.js より【後ろ】に置く） -->
-<script src="js/analytics-car.js?v=1"></script><!-- 📊 v3.7.0 分析用の書き出し（毎晩サーバーがこのファイルを読み込む・画面は何もしない）。state / helpers / progress / db-settings / db-templates より【後ろ】 -->
+<script src="js/analytics-car.js?v=3"></script><!-- 📊 v3.7.0 分析用の書き出し（毎晩サーバーがこのファイルを読み込む・画面は何もしない）。state / helpers / progress / db-settings / db-templates より【後ろ】 -->
 <script src="js/launcher.js?v=34b8456a"></script>
 <script src="js/auto-update.js?v=ffed3e38"></script>
   <script src="js/coreflow-user.js?v=4e5e1ce2"></script><!-- 👤 ヘッダー右の自分（写真＋フルネーム・全アプリ共通・_shared が本体） -->
   <script src="js/coreflow-power.js?v=a757812a"></script><!-- ⏻ 電源ボタン（全アプリ共通・_shared が本体） -->
-  <script src="js/coreflow-a11y.js?v=a0f286c7"></script><!-- 👓 見やすさ（全アプリ共通・_shared から配布）。電源の後 -->
-  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=be19f0f4"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
+  <script src="js/coreflow-a11y.js?v=b89ccbcb"></script><!-- 👓 見やすさ（全アプリ共通・_shared から配布）。電源の後 -->
+  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=e301b95c"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
 
 <!-- 過去データ補完（メーカー/車種/グレード/車体色） -->
 <script src="js/autocomplete.js?v=2"></script>
 
 <!-- v2.16.0: 管理番号ヘルパ＆管理番号リスト -->
 <script src="js/num-helpers.js?v=3"></script>
-<script src="js/num-list.js?v=7"></script>
+<script src="js/num-list.js?v=11"></script>
 
 <!-- v2.33.0: 整備依頼業務（PitFlow の pitCards を直接読む）。
      cal-pit.js は MHS の定休日カレンダー＝PitFlow と同じ「翌営業日」を出すために必要（pit-embed.js より前） -->
@@ -2074,13 +2074,13 @@ window.PIT_CAL_REDRAW = function(){
 <script src="js/cal-pit.js?v=7cb1d078"></script>
 <script src="js/coreflow-return-plan.js?v=08a1675a"></script><!-- 📅 返車予定の確からしさ（未完／暫定／未定・全アプリ共通・_shared から配布）。pit-embed.js より **前** に読むこと -->
 <script src="js/coreflow-loaner-remain.js?v=608d586a"></script><!-- 🚙 代車の残り日数と色（全アプリ共通・_shared から配布）。pit-embed.js より **前** に読むこと -->
-<script src="js/pit-embed.js?v=378"></script>
+<script src="js/pit-embed.js?v=381"></script>
 <!-- v2.34.0: カードにマウスを乗せると詳細を出す（PitFlow card-hover.js の写し・🔴 CarFlow は見るだけ）。
      pit-embed.js より【後ろ】に置くこと＝PitEmbed._api から読むため -->
 <script src="js/pit-hover.js?v=373"></script>
 
 <script>icHydrate();   /* 静的HTMLの <i data-ic> を線画SVGに差し替える（2026-08-01） */</script>
-<script src="js/coreflow-sync.js?v=6af2a532"></script><!-- 同期ランプ（全アプリ共通・_shared から配布）。アプリ本体JSより後ろに置くこと -->
+<script src="js/coreflow-sync.js?v=b6848c03"></script><!-- 同期ランプ（全アプリ共通・_shared から配布）。アプリ本体JSより後ろに置くこと -->
 
 <!-- ↩ 戻る（通ってきた画面順に戻る）。共通部品＝_shared/coreflow-nav.js。アプリ側のコードは書き換えず、画面切替の関数を包むだけ -->
 <script src="js/coreflow-nav.js?v=73ae9af1"></script>

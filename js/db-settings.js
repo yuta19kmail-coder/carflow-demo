@@ -206,6 +206,48 @@
     }
   }
 
+  /* ============================================================
+     🔴 v3.16.0（棚卸し S-10）会社設定は「変えた欄だけ」保存し、ほかの端末の変更を受け取る
+     ------------------------------------------------------------
+     ◎前まで … 起動時に1回読むだけ（購読なし）。保存は _captureFromMemory の**全部**を set(merge)。
+       朝から開いている A が何か1つ変えると、昼に B が変えた月の目標・税込/税抜・タスクの締め日が
+       **A の朝の値に戻っていた**。記録も残らなかった。
+     ◎いま
+       ・_base＝最後にサーバーと揃えた形（読んだ時・受け取った時・保存した時）
+       ・保存＝今の形と _base を比べて、**違う葉っぱだけ** update（FieldPath・消えた所は FieldValue.delete()）
+         配列（タスクの並び・サイズ・メンバーグループ・警告日数など）は配列ごと1つの欄として比べる
+       ・settings/main を購読（subscribeSettings）。届いたらメモリに入れて描き直す
+       ・何を何から何へ変えたかを操作ログ（auditLogs）に1行（S-30）
+     ⚠ 書類がまだ無い時（初期投入）だけ丸ごと set
+     ============================================================ */
+  let _base = null;
+  function _isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+  function _diff(base, cur, path, out) {
+    const keys = {};
+    Object.keys(base || {}).forEach(k => { keys[k] = 1; });
+    Object.keys(cur || {}).forEach(k => { keys[k] = 1; });
+    Object.keys(keys).forEach(k => {
+      const b = base ? base[k] : undefined, c = cur ? cur[k] : undefined, p = path.concat([k]);
+      if (_isObj(b) && _isObj(c)) { _diff(b, c, p, out); return; }
+      if (JSON.stringify(b) === JSON.stringify(c)) return;
+      if (_isObj(c) && b === undefined) { out.push({ path: p, value: c, before: undefined }); return; }
+      out.push({ path: p, value: c, before: b });
+    });
+    return out;
+  }
+  function _short(v) {
+    if (v === undefined || v === null) return '（なし）';
+    let s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+    if (s.length > 40) s = s.slice(0, 40) + '…';
+    return s;
+  }
+  function _logSettingsChange(changes) {
+    if (!changes.length || typeof window.addAuditLog !== 'function') return;
+    const parts = changes.slice(0, 6).map(c => c.path.join('.') + ' ' + _short(c.before) + ' → ' + _short(c.value));
+    const more = changes.length > 6 ? ' ほか' + (changes.length - 6) + '件' : '';
+    window.addAuditLog('設定を変更：' + parts.join('／') + more);
+  }
+
   // -----------------------------------------
   // 読み込み
   // -----------------------------------------
@@ -223,6 +265,7 @@
       }
       const data = snap.data();
       _applyToMemory(data);
+      _base = _clone(_captureFromMemory());   /* v3.16.0 ここから変えた欄だけ送る */
       console.log('[db-settings] loaded');
       return data;
     } catch (err) {
@@ -234,24 +277,80 @@
   // -----------------------------------------
   // 保存（merge:true）
   // -----------------------------------------
-  async function saveSettings() {
+  async function saveSettings(opts) {
     const ref = _settingsDoc();
     if (!ref) {
       console.warn('[db-settings] saveSettings: companyId 未確定');
       return;
     }
-    try {
-      const out = _captureFromMemory();
-      out.updatedAt = window.fb.serverTimestamp();
-      if (window.fb.currentUser && window.fb.currentUser.uid) {
-        out.updatedBy = window.fb.currentUser.uid;
+    const cur = _captureFromMemory();
+    /* 初期投入（書類がまだ無い）・一度も読めていない時だけ丸ごと。ふだんは変えた欄だけ */
+    if ((opts && opts.initial) || !_base) {
+      try {
+        const out = _clone(cur);
+        out.updatedAt = window.fb.serverTimestamp();
+        if (window.fb.currentUser && window.fb.currentUser.uid) out.updatedBy = window.fb.currentUser.uid;
+        await ref.set(out, { merge: true });
+        _base = _clone(cur);
+      } catch (err) {
+        console.error('[db-settings] saveSettings error:', err);
+        if (typeof showToast === 'function') showToast('設定の保存に失敗しました', 'CF-9001');
+        throw err;
       }
-      await ref.set(out, { merge: true });
+      return;
+    }
+    const changes = _diff(_base, cur, [], []);
+    if (!changes.length) return;
+    /* 送る前に控えを進める（続けて保存された時に同じ所を二重に送らない）。失敗したら戻す */
+    const prevBase = _base;
+    _base = _clone(cur);
+    try {
+      const FieldPath = window.firebase.firestore.FieldPath;
+      const FieldValue = window.firebase.firestore.FieldValue;
+      const args = [];
+      changes.forEach(c => {
+        args.push(new FieldPath(...c.path.map(String)));
+        args.push(c.value === undefined ? FieldValue.delete() : _clone(c.value));
+      });
+      args.push(new FieldPath('updatedAt'), window.fb.serverTimestamp());
+      if (window.fb.currentUser && window.fb.currentUser.uid) args.push(new FieldPath('updatedBy'), window.fb.currentUser.uid);
+      await ref.update(...args);
+      _logSettingsChange(changes);
     } catch (err) {
+      _base = prevBase;
       console.error('[db-settings] saveSettings error:', err);
       if (typeof showToast === 'function') showToast('設定の保存に失敗しました', 'CF-9001');
       throw err;
     }
+  }
+
+  /* v3.16.0 settings/main を購読。ほかの端末の変更をメモリへ入れて描き直す。
+     ⚠ 自分の保存が届いた時（hasPendingWrites）は読み直さない（保存の途中の形で控えを戻さない） */
+  function subscribeSettings(onChange) {
+    const ref = _settingsDoc();
+    if (!ref) return function () {};
+    let un = null, relinkT = null, waitMs = 3000;
+    function link() {
+      un = ref.onSnapshot(function (snap) {
+        waitMs = 3000;
+        if (!snap || !snap.exists) return;
+        if (snap.metadata && snap.metadata.hasPendingWrites) return;
+        const data = snap.data() || {};
+        const before = JSON.stringify(_captureFromMemory());
+        _applyToMemory(data);
+        _base = _clone(_captureFromMemory());
+        if (JSON.stringify(_base) !== before) {
+          try { if (typeof onChange === 'function') onChange(data); } catch (e) { console.error('[db-settings] onChange', e); }
+        }
+      }, function (err) {
+        console.error('[db-settings] 購読が落ちました', err);
+        if (relinkT) return;
+        relinkT = setTimeout(function () { relinkT = null; try { if (un) un(); } catch (e) {} un = null; link(); }, waitMs);
+        waitMs = Math.min(waitMs * 2, 60000);
+      });
+    }
+    link();
+    return function () { if (relinkT) clearTimeout(relinkT); try { if (un) un(); } catch (e) {} un = null; };
   }
 
   // -----------------------------------------
@@ -264,7 +363,7 @@
       const probe = await ref.get();
       if (probe.exists) return false;
       console.log('[db-settings] settings/main を初期投入...');
-      await saveSettings();
+      await saveSettings({ initial: true });
       console.log('[db-settings] 初期投入完了');
       return true;
     } catch (err) {
@@ -279,6 +378,7 @@
   window.dbSettings = {
     loadSettings,
     saveSettings,
+    subscribeSettings,
     seedSettingsIfEmpty,
     // v3.7.0 📊 分析用の書き出し（analytics-car.js）が借りる。毎晩サーバーが settings/main の中身を
     //   「アプリが読み込んだ時と同じ形」で入れるため（画面からは呼ばない・動きは変わらない）

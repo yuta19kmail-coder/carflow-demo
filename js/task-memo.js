@@ -49,19 +49,17 @@
     return null;
   }
 
-  // v3.0.0 下ごしらえ：メモの欄だけを送る（車の中身をまるごと送らない）
-  function _saveCar(car, fromArchive) {
-    if (!car) return;
+  /* 🔴 v3.16.1（棚卸し S-08 と同じ根）メモは「そのタスクの1件」だけを送る。
+     前は taskMemos を丸ごと送っていた＝2人が別のタスクのメモを同時に書くと、後の人が先の人のメモを消した。
+     車の中身を丸ごと送る道（saveCarById）も外した。フローの行も足すだけで一緒に送る */
+  function _saveCar(car, fromArchive, taskId) {
+    if (!car || !taskId) return;
+    const v = (car.taskMemos && car.taskMemos[taskId]) || null;
     if (window.saveCarAnyPaths) {
-      window.saveCarAnyPaths(car.id, fromArchive, [{ path: ['taskMemos'], value: car.taskMemos || {} }]);
-      return;
-    }
-    if (fromArchive) {
-      if (window.dbArchive && window.dbArchive.saveArchivedCar) {
-        window.dbArchive.saveArchivedCar(car).catch(e => console.error('[task-memo] save archived failed', e));
-      }
-    } else {
-      if (window.saveCarById) saveCarById(car.id);
+      window.saveCarAnyPaths(car.id, fromArchive, [
+        { path: ['taskMemos', taskId], value: v },
+        { path: ['logs'], value: car.logs },
+      ]);
     }
   }
 
@@ -222,10 +220,10 @@
       updatedAt: nowIso,
       createdBy: (prev && prev.createdBy) || ((window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null),
     };
-    _saveCar(car, found.fromArchive);
     if (typeof addLog === 'function') {
       addLog(car.id, `タスク「${_ctx.taskId}」のメモを${prev ? '更新' : '作成'}`);
     }
+    _saveCar(car, found.fromArchive, _ctx.taskId);
     if (typeof showToast === 'function') showToast('メモを保存しました');
     // v2.2.7: 自動付箋を同期（date型なら作成/更新、それ以外なら削除）
     if (window.taskMemoAutoNote && window.taskMemoAutoNote.sync) {
@@ -242,10 +240,10 @@
     const car = found.car;
     if (car.taskMemos && car.taskMemos[_ctx.taskId]) {
       delete car.taskMemos[_ctx.taskId];
-      _saveCar(car, found.fromArchive);
       if (typeof addLog === 'function') {
         addLog(car.id, `タスク「${_ctx.taskId}」のメモを削除`);
       }
+      _saveCar(car, found.fromArchive, _ctx.taskId);
       if (typeof showToast === 'function') showToast('メモを削除しました');
     }
     // v2.2.7: メモ削除に伴い自動付箋も削除

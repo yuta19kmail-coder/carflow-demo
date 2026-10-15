@@ -251,24 +251,40 @@ function _portalMemberToStaff(m, user) {
   };
 }
 // portalMembers から自分のレコードを探す（uid → email → 大文字小文字違い救済）
+// 🔴 v3.16.3（2026-10-15）同じメールの書類が何件あっても、**在籍中（active が false でない）の書類を先に拾う。**
+//   玄関のメンバー管理の「外す」が完全削除から「在籍なし（active:false・removed の印）」に変わった＝
+//   同じメールで在籍なしの古い書類が名簿に残る。前は「uid の書類があればそれ」「メールの1件目」で止まっていた＝
+//   古い方が先に当たると、在籍中の本人まで CF-0005（無効化）で入れなかった。
+//   在籍中が1件も無い時だけ、在籍なしの書類を返す（下の _onSignedIn が CF-0005 で止める）。
+//   橋（userPrefs.memberId）はここで返した書類を指す＝在籍中の書類を指す。
 async function _findMyPortalMember(user, companyId) {
   const coll = window.fb.db.collection('companies').doc(companyId).collection('portalMembers');
+  let off = null;   // 在籍なしの書類（在籍中が見つからなかった時だけ返す）
+  const take = d => { const m = d.data() || {}; m.id = d.id; return m; };
+  const pick = (docs, match) => {
+    for (const d of docs) {
+      if (match && !match(d)) continue;
+      if ((d.data() || {}).active === false) { if (!off) off = d; continue; }
+      return take(d);
+    }
+    return null;
+  };
   // ①uid 一致
   try {
     const doc = await coll.doc(user.uid).get();
-    if (doc.exists) { const m = doc.data() || {}; m.id = doc.id; return m; }
+    if (doc.exists) { if ((doc.data() || {}).active !== false) return take(doc); off = doc; }
   } catch (e) { console.warn('[auth] portalMembers uid lookup failed:', e); }
   // ②email 一致
   if (user.email) {
     const norm = _normEmailForLookup(user.email);
     try {
       // ②-a 完全一致
-      let snap = await coll.where('email','==',user.email).limit(1).get();
+      let hit = pick((await coll.where('email','==',user.email).limit(10).get()).docs);
       // ②-b 小文字一致
-      if (snap.empty && norm !== user.email) {
-        snap = await coll.where('email','==',norm).limit(1).get();
+      if (!hit && norm !== user.email) {
+        hit = pick((await coll.where('email','==',norm).limit(10).get()).docs);
       }
-      if (!snap.empty) { const m = snap.docs[0].data() || {}; m.id = snap.docs[0].id; return m; }
+      if (hit) return hit;
       // ②-c 全件スキャンで大文字小文字／全角＠違い救済
       // 🔴 v2.35.0：名簿の一覧取得を「会社メンバーだけ」に締めたので、
       //    **まだ入室していない人（初回ログイン）ではここは通らなくなった**。
@@ -276,16 +292,14 @@ async function _findMyPortalMember(user, companyId) {
       //    ここが必要になるのは「CoreFlow の名簿のメールが Google のメールと表記違い」の時だけ。
       //    その場合は下の _onSignedIn がその旨を伝えるので、CoreFlow 側で直してもらう。
       const all = await coll.limit(200).get();
-      let matched = null;
-      all.forEach(d => {
-        if (matched) return;
+      const matched = pick(all.docs, d => {
         const e = _normEmailForLookup(String((d.data()||{}).email||''));
-        if (e && e === norm) matched = d;
+        return !!e && e === norm;
       });
-      if (matched) { const m = matched.data() || {}; m.id = matched.id; return m; }
+      if (matched) return matched;
     } catch (e) { console.warn('[auth] portalMembers email lookup failed:', e); }
   }
-  return null;
+  return off ? take(off) : null;
 }
 
 async function _onSignedIn(user) {
@@ -383,6 +397,14 @@ async function _onSignedIn(user) {
         const seededS = await window.dbSettings.seedSettingsIfEmpty();
         if (seededS) console.log('[auth] settings/main をデフォルト値で初期投入しました');
         await window.dbSettings.loadSettings();
+        /* v3.16.0（棚卸し S-10）ほかの端末で変えた設定（目標・税・タスクの設定など）を受け取る */
+        if (typeof window.dbSettings.subscribeSettings === 'function') {
+          if (typeof window._settingsUnsub === 'function') { try { window._settingsUnsub(); } catch (e2) {} }
+          window._settingsUnsub = window.dbSettings.subscribeSettings(function () {
+            if (typeof renderAll === 'function') renderAll();
+            if (typeof renderDashboard === 'function') renderDashboard();
+          });
+        }
       } catch (e) {
         console.error('[auth] settings 読み込み失敗:', e);
         if (typeof showToast === 'function') showToast('設定の読み込みに失敗しました', 'CF-0008');
@@ -480,17 +502,21 @@ async function _onSignedIn(user) {
     // v2.16.0: deletedCars（管理番号台帳：「正式に削除」された車両の最小情報）
     if (window.dbDeleted) {
       try {
+        /* v3.16.0 ゴミ箱：台帳の行を「番号台帳に数える行（deletedCars）」と「ゴミ箱（trashCars）」に分ける */
+        const _applyDeleted = function (list) {
+          if (typeof deletedCars === 'undefined' || !Array.isArray(deletedCars)) return;
+          const D = window.dbDeleted;
+          deletedCarsAll.length = 0; list.forEach(d => deletedCarsAll.push(d));
+          deletedCars.length = 0; list.forEach(d => { if (!D.isLedger || D.isLedger(d)) deletedCars.push(d); });
+          trashCars.length = 0; list.forEach(d => { if (D.isInTrash && D.isInTrash(d)) trashCars.push(d); });
+        };
         const dList = await window.dbDeleted.loadDeletedCars();
-        if (typeof deletedCars !== 'undefined' && Array.isArray(deletedCars)) {
-          deletedCars.length = 0;
-          dList.forEach(d => deletedCars.push(d));
-        }
+        _applyDeleted(dList);
         // 以降の他端末からの追加もリアルタイムで反映（軽量データなので常時購読でOK）
         try {
           window.dbDeleted.subscribeDeletedCars(function (list) {
             if (typeof deletedCars === 'undefined' || !Array.isArray(deletedCars)) return;
-            deletedCars.length = 0;
-            list.forEach(d => deletedCars.push(d));
+            _applyDeleted(list);
             if (typeof renderNumList === 'function' && document.getElementById('panel-numlist') &&
                 document.getElementById('panel-numlist').classList.contains('open')) {
               renderNumList();
@@ -521,6 +547,14 @@ async function _onSignedIn(user) {
         const seededT = await window.dbTemplates.seedTemplatesIfEmpty();
         if (seededT) console.log('[auth] チェックリストテンプレートを Firestore に投入しました');
         await window.dbTemplates.refreshTemplates();
+        /* v3.16.0（棚卸し S-10）タスクパターンもほかの端末の変更を受け取る */
+        if (typeof window.dbTemplates.subscribeTemplates === 'function') {
+          if (typeof window._tplUnsub === 'function') { try { window._tplUnsub(); } catch (e2) {} }
+          window._tplUnsub = window.dbTemplates.subscribeTemplates(function () {
+            if (typeof renderAll === 'function') renderAll();
+            if (typeof window.refreshWorksheetView === 'function') { try { window.refreshWorksheetView(); } catch (e3) {} }
+          });
+        }
       } catch (e) {
         console.error('[auth] checklistTemplates 読み込み失敗:', e);
         if (typeof showToast === 'function') showToast('チェックリストテンプレートの読み込みに失敗しました', 'CF-0010');
@@ -646,6 +680,7 @@ async function _autoSeedAppSortOrder(appKey) {
     snap.forEach(d => {
       const m = d.data() || {};
       const app = m[appKey] || {};
+      if (m.active === false || m.removed) return;          // v3.16.3 在籍なし・外した人には書かない（並びに出ない人）
       if (app.on !== true) return;                           // そのアプリを使わない人はスキップ
       if (typeof app.sortOrder === 'number') return;         // 既に独自並びがあればスキップ
       const src = (typeof m.sortOrder === 'number') ? m.sortOrder : 999999;
@@ -675,6 +710,10 @@ function _onSignedOut() {
     try { window._boardNotesUnsub(); } catch (e) {}
     window._boardNotesUnsub = null;
   }
+  /* v3.16.0：設定・タスクパターンの購読も解除する */
+  ['_settingsUnsub', '_tplUnsub'].forEach(function (k) {
+    if (typeof window[k] === 'function') { try { window[k](); } catch (e) {} window[k] = null; }
+  });
   /* v2.35.0：名簿（CoreMembers）の購読も解除する */
   if (window.CFMembers) { try { window.CFMembers.stop(); } catch (e) {} }
   document.body.classList.remove('app-active');
