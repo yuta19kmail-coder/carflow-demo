@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.16.3"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="3.16.5"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -123,7 +123,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.16.3</div>
+    <div class="login-ver">v3.16.5</div>
   </div>
 </div>
 
@@ -134,7 +134,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.16.3</span>
+    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.16.5</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -533,7 +533,8 @@
                 <div class="settings-card" style="border:1px solid rgba(55,138,221,.4);background:rgba(55,138,221,.06)">
                   <h3 class="settings-card-title"><i data-ic="fileText" data-s="16">📄</i> 管理者マニュアル（PDF）</h3>
                   <p class="settings-card-desc">タスク・進捗・小タスク・タブ／アコーディオン・パターン・Excel一括編集に加え、⋮メニュー一本化・選択制タスク・タスク個別メモ＋自動付箋・バックオフィスタスクまで網羅した管理者・Web担当者向けマニュアル。約16ページ。</p>
-                  <a href="manuals/task-manual-v6.pdf" download="CarFlow_タスク管理マニュアル.pdf" class="btn-sm btn-primary" style="display:inline-block;text-decoration:none"><i data-ic="download" data-s="16">📥</i> PDFをダウンロード</a>
+                  <!-- 🔐 v3.16.4（S-46）PDF は公開の住所から外し、Storage（manuals/）に置いた。ログインした CarFlow の人だけ取れる -->
+                  <button type="button" class="btn-sm btn-primary" id="btn-task-manual" onclick="openTaskManualPdf()"><i data-ic="download" data-s="16">📥</i> PDFをダウンロード</button>
                 </div>
 
                 <div class="settings-card">
@@ -1423,6 +1424,9 @@
           </div>
           <div id="sell-switch" class="sell-switch" onclick="onSellSwitchClick()"><div class="sell-switch-knob"></div></div>
         </div>
+        <!-- 🔐 v3.16.4（S-29）売約を外せる人の説明と［売約取消］（納車済みの車・管理者だけ） -->
+        <div id="sell-lock-note" class="edit-danger-hint" style="display:none;margin-top:6px"></div>
+        <button type="button" class="btn-sm" id="btn-unsell" style="display:none;margin-top:8px" onclick="startUnsellFromModal()"><i data-ic="undo" data-s="14">↩️</i> 売約取消</button>
         <div class="frow" style="margin-top:12px">
           <div class="fg"><label>売約日</label><input type="date" id="inp-contract-date" disabled></div>
           <div class="fg"><label>納車予定日</label><input type="date" id="inp-delivery" disabled></div>
@@ -1587,6 +1591,8 @@
     <div class="confirm-icon"><i data-ic="undo" data-s="15">↩️</i></div>
     <div class="confirm-title">この車両の売約をキャンセルしますか？</div>
     <div class="confirm-sub" id="uncontract-sub">売約日・納車予定日・納車準備の進捗もすべてリセットされます。</div>
+    <!-- 🔐 v3.16.4（S-29）売約取消は理由が必須（記録に残る・管理者だけ） -->
+    <textarea id="uncontract-reason" rows="2" maxlength="200" placeholder="売約取消の理由（必須）例：お客様都合でキャンセル" style="width:100%;margin-top:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:13px;font-family:inherit;resize:vertical"></textarea>
     <div class="confirm-btns">
       <button class="btn-sm" onclick="closeUncontractConfirm(false)">いいえ</button>
       <button class="btn-primary" style="background:#dc2626" onclick="closeUncontractConfirm(true)">売約をキャンセル</button>
@@ -1919,7 +1925,7 @@
 <meta name="app-key" content="carflow">
 <script src="js/coreflow-icons.js?v=9ae48aea"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
 <script src="js/coreflow-errcode.js?v=8d7c4b2d"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
-<script src="js/errcode-cf.js?v=6"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
+<script src="js/errcode-cf.js?v=8"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
 <script src="js/ui-dialog.js?v=6c36e00e"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
 <script>
 /* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
@@ -1943,7 +1949,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/core-save.js?v=2"></script>
 <script src="js/db-tentative.js?v=2"></script>
 <!-- 0d. auditLogs DB wrapper（v1.5.4〜） -->
-<script src="js/db-audit.js?v=286"></script>
+<script src="js/db-audit.js?v=287"></script>
 <!-- 0e. staff DB wrapper（v2.18.0〜：portalMembers経由に） -->
 <!-- v2.35.0: 会社の名簿を CoreMembers（社員名簿＋組織図）から作る。db-staff.js より【前】に置くこと -->
 <script src="js/members-core.js?v=376"></script>
@@ -1965,7 +1971,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- v1.8.80: タスク完了瞬間の検知＋LINE通知ディスパッチ -->
 <script src="js/task-completion-notify.js?v=321"></script>
 <!-- 0k. データ管理（v1.8.21〜）：JSONバックアップ / Excel一括編集 / 全消去 -->
-<script src="js/data-io.js?v=286"></script>
+<script src="js/data-io.js?v=287"></script>
 
 <!-- 1. 設定・定数 -->
 <script src="js/config.js?v=285"></script>
@@ -1980,7 +1986,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/state.js?v=316"></script>
 
 <!-- 3. ユーティリティ -->
-<script src="js/helpers.js?v=332"></script>
+<script src="js/helpers.js?v=333"></script>
 <script src="js/progress.js?v=290"></script>
 
 <!-- 4. サンプル -->
@@ -1989,22 +1995,22 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=1c79064f"></script>
 <script src="js/auth.js?v=380"></script>
-<script src="js/navigation.js?v=3163"></script>
+<script src="js/navigation.js?v=3165"></script>
 <script src="js/archive.js?v=377"></script>
-<script src="js/settings.js?v=366"></script>
+<script src="js/settings.js?v=368"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
-<script src="js/dashboard.js?v=373"></script>
+<script src="js/dashboard.js?v=374"></script>
 <script src="js/announcements.js?v=3151"></script>
 <script src="js/members.js?v=376"></script>
-<script src="js/kanban.js?v=379"></script>
-<script src="js/car-detail.js?v=378"></script>
-<script src="js/car-estimates.js?v=5"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
+<script src="js/kanban.js?v=380"></script>
+<script src="js/car-detail.js?v=379"></script>
+<script src="js/car-estimates.js?v=6"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
 <script src="js/car-soba.js?v=2"></script><!-- 📶 v3.10.0 車両詳細の［相場］タブ（相場ビューをこの車の条件で）。car-detail-v3.js より前 -->
 <script src="js/soba-quick.js?v=1"></script><!-- 📶 v3.11.0 全体一覧の「相場との差」。car-soba.js より後・views.js より前 -->
 <script src="js/car-detail-v3.js?v=6"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
-<script src="js/car-modal.js?v=376"></script>
-<script src="js/workflow.js?v=284"></script>
+<script src="js/car-modal.js?v=378"></script>
+<script src="js/workflow.js?v=285"></script>
 <script src="js/worksheet.js?v=329"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
 <script src="js/equipment-view.js?v=320"></script>
@@ -2012,7 +2018,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/period-stats.js?v=344"></script>
 <script src="js/forecast-print.js?v=346"></script>
 <script src="js/forecast-targets.js?v=327"></script>
-<script src="js/calendar.js?v=355"></script>
+<script src="js/calendar.js?v=356"></script>
 <script src="js/views.js?v=3110"></script>
 <!-- v2.1.0: バックオフィスビュー本体 -->
 <script src="js/backoffice.js?v=12"></script>
@@ -2061,7 +2067,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- v2.16.0: 管理番号ヘルパ＆管理番号リスト -->
 <script src="js/num-helpers.js?v=3"></script>
-<script src="js/num-list.js?v=11"></script>
+<script src="js/num-list.js?v=12"></script>
 
 <!-- v2.33.0: 整備依頼業務（PitFlow の pitCards を直接読む）。
      cal-pit.js は MHS の定休日カレンダー＝PitFlow と同じ「翌営業日」を出すために必要（pit-embed.js より前） -->

@@ -306,6 +306,29 @@ function addLog(carId, action) {
   }
 }
 
+/* 📝 v3.16.4（S-29・S-48）記録の1行だけを作る（控え・操作ログへはまだ送らない）。
+   車の保存と操作ログを**同じ1回のまとめ書き（batch）**で送る所が使う。送れたら _cfLogCommitted で画面にも足す */
+function _cfMakeLogEntry(carId, action) {
+  const car = cars.find(c => c.id === carId) || (typeof archivedCars !== 'undefined' ? archivedCars.find(c => c.id === carId) : null);
+  const now = new Date();
+  return {
+    time: `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    at: now.getTime(),
+    userUid: (window.fb && window.fb.currentUser && window.fb.currentUser.uid) || null,
+    user: currentUser || '—',
+    carNum: car ? car.num : '—',
+    action: String(action || ''),
+    carId: carId || null,
+  };
+}
+function _cfLogCommitted(car, entry) {
+  if (car) { if (!Array.isArray(car.logs)) car.logs = []; car.logs.unshift(entry); }
+  globalLogs.unshift(entry);
+  if (globalLogs.length > 1000) globalLogs.length = 1000;
+}
+window._cfMakeLogEntry = _cfMakeLogEntry;
+window._cfLogCommitted = _cfLogCommitted;
+
 /* ============================================================
    🔴 v3.16.0（2026-10-15 棚卸し S-09）車のフロー（logs）は「足すだけ」で送る
    ------------------------------------------------------------

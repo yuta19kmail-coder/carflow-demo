@@ -81,11 +81,16 @@ function toggleWfStep(itemId) {
   const state = isDelivery ? car.deliveryTasks : car.regenTasks;
   if (!state[taskId]) state[taskId] = {};
   state[taskId][itemId] = !state[taskId][itemId];
-  if (window.saveCarById) saveCarById(car.id); // v1.5.1.2
   const tasks = (isDelivery ? getActiveDeliveryTasks(car) : getActiveRegenTasks(car));
   const task = tasks.find(t => t.id === taskId);
   const itemName = task.sections.flatMap(s => s.items).find(i => i.id === itemId)?.name || itemId;
   addLog(carId, `[${task.name}]「${itemName}」を${state[taskId][itemId]?'完了':'未完了に戻す'}`);
+  /* 🔴 v3.16.4 押した1点とフローだけを送る（前は車の中身を丸ごと送る saveCarById＝しかもチェックは送られていなかった）。
+     ⚠ いまこの画面を開く所は無い（openWorkflow を呼ぶ所が無い）＝念のための直し */
+  if (window.saveCarPaths) window.saveCarPaths(car.id, [
+    { path: [isDelivery ? 'deliveryTasks' : 'regenTasks', taskId, itemId], value: state[taskId][itemId] },
+    { path: ['logs'], value: car.logs },
+  ]);
   const isDone = state[taskId][itemId];
   const chk = document.getElementById('wfc-' + itemId);
   const nm  = document.getElementById('wfn-' + itemId);

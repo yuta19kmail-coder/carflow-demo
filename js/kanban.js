@@ -751,8 +751,14 @@ function handleKanbanMove(car, targetCol) {
 
   if ((car.col === 'delivery' || car.col === 'done') &&
       (targetCol === 'purchase' || targetCol === 'regen' || targetCol === 'exhibit')) {
+    /* 🔐 v3.16.4（S-29）納車準備・納車完了から戻す＝売約取消は管理者だけ（マスターも可）・理由が必要 */
+    if (typeof cfCanUnsell === 'function' && !cfCanUnsell(car)) {
+      showToast(cfUnsellDenyText(car), 'CF-0027');
+      return;
+    }
     pendingDragCar = car;
     pendingTargetCol = targetCol;
+    { const _r = document.getElementById('uncontract-reason'); if (_r) _r.value = ''; }
     const sub = document.getElementById('uncontract-sub');
     if (sub) sub.innerHTML = icoE(`${fromLabel} → ${toLabel} に戻します。売約日・納車予定日・納車準備の進捗もすべてリセットされます。`);
     document.getElementById('confirm-uncontract').classList.add('open');
@@ -803,6 +809,8 @@ function closeSellConfirm(sell) {
     showToast('キャンセルしました');
     return;
   }
+  /* 📝 v3.16.4 売約で動いた欄の「前 → 後」を記録に残す（前は「売約設定：A→B」だけだった） */
+  const _bf = { contract: car.contract, contractDate: car.contractDate || '', deliveryDate: car.deliveryDate || '', customerName: car.customerName || '' };
   car.contract = 1;
   if (!car.contractDate) car.contractDate = todayStr();
   car.deliveryDate = document.getElementById('sell-date').value || '';
@@ -821,10 +829,13 @@ function closeSellConfirm(sell) {
   if (target === 'done' && typeof snapshotPriceTax === 'function' && !car.priceTaxSnapshot) {
     car.priceTaxSnapshot = snapshotPriceTax();
   }
+  const _d = v => v ? String(v) : '未定';
+  const _detail = `（売約 ${_bf.contract ? 'あり' : 'なし'}→あり・売約日 ${_d(_bf.contractDate)}→${_d(car.contractDate)}・納車日 ${_d(_bf.deliveryDate)}→${_d(car.deliveryDate)}`
+    + `・お客様 ${_bf.customerName || '未設定'}→${car.customerName || '未設定'}・カンバン）`;
   if (target === 'done') {
-    addLog(car.id, `売約＆納車完了：${fromLabel}→${toLabel}（特例）`);
+    addLog(car.id, `売約＆納車完了：${fromLabel}→${toLabel}（特例）${_detail}`);
   } else {
-    addLog(car.id, `売約設定：${fromLabel}→${toLabel}`);
+    addLog(car.id, `売約設定：${fromLabel}→${toLabel}${_detail}`);
   }
   // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
   if (window.saveCarPaths) {
@@ -878,46 +889,28 @@ function closeDeliverConfirm(deliver) {
   celebrateDelivery(car);
 }
 
-function closeUncontractConfirm(uncontract) {
-  document.getElementById('confirm-uncontract').classList.remove('open');
-  if (!pendingDragCar) return;
+/* 🔐 v3.16.4（S-29）売約キャンセル＝売約取消。管理者だけ・理由が必須。
+   保存と記録（フロー・操作ログ）は car-modal.js の cfUnsellCar が1回のまとめ書きで行う（前は前の売約日・納車日が記録に残らなかった） */
+async function closeUncontractConfirm(uncontract) {
+  if (!pendingDragCar) { document.getElementById('confirm-uncontract').classList.remove('open'); return; }
   const car = pendingDragCar;
   const target = pendingTargetCol;
-  pendingDragCar = null;
-  pendingTargetCol = null;
   if (!uncontract) {
+    document.getElementById('confirm-uncontract').classList.remove('open');
+    pendingDragCar = null;
+    pendingTargetCol = null;
     showToast('キャンセルしました');
     return;
   }
-  car.contract = 0;
-  car.contractDate = '';
-  car.deliveryDate = '';
-  car.workMemo = '';
-  if (typeof DELIVERY_TASKS !== 'undefined' && typeof mkTaskState === 'function') {
-    car.deliveryTasks = mkTaskState(DELIVERY_TASKS);
-  }
-  const fromLabel = COLS.find(c => c.id === car.col)?.label || car.col;
-  const toLabel = COLS.find(c => c.id === target)?.label || target;
-  // v1.8.83: 展示開始日の自動セット/クリア（裏方データ）
-  const _fromColUC = car.col;
-  if (typeof _applyColTransitionDates === 'function') _applyColTransitionDates(car, _fromColUC, target);
-  car.col = target;
-  addLog(car.id, `売約キャンセル：${fromLabel}→${toLabel}（売約・納車準備データをリセット）`);
-  // v3.0.0 下ごしらえ：変えた欄だけを送る（車の中身をまるごと送らない）
-  if (window.saveCarPaths) {
-    window.saveCarPaths(car.id, [
-      { path: ['contract'], value: car.contract },
-      { path: ['contractDate'], value: '' },
-      { path: ['deliveryDate'], value: '' },
-      { path: ['workMemo'], value: '' },
-      { path: ['deliveryTasks'], value: car.deliveryTasks },
-      { path: ['exhibitedAt'], value: car.exhibitedAt },
-      { path: ['col'], value: car.col },
-      { path: ['logs'], value: car.logs },
-    ]);
-  }
+  const _r = document.getElementById('uncontract-reason');
+  const reason = _r ? String(_r.value || '').trim() : '';
+  if (!reason) { showToast('売約取消の理由を入れてください', 'CF-1020'); return; }   /* 窓は開いたまま */
+  document.getElementById('confirm-uncontract').classList.remove('open');
+  pendingDragCar = null;
+  pendingTargetCol = null;
+  const done = (typeof cfUnsellCar === 'function') ? await cfUnsellCar(car.id, target, reason, 'カンバン') : false;
   renderAll();
-  showToast('売約をキャンセルしました');
+  if (done) showToast('売約をキャンセルしました');
 }
 
 function closeUndeliverConfirm(undeliver) {

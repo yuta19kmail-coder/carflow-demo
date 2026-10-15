@@ -10,6 +10,33 @@
 //   - ラベル/色はタスクの icon と name を使う
 //   - 期日(offset)が同日のタスクは1本にまとめる
 
+/* 📝 v3.16.4 カレンダーへ車を落として納車日を変える。売約でなかった車は同時に売約になるので、それも「前 → 後」で残す
+   （前は「納車日変更: 旧→新」だけで、売約が立ったこと・売約日が入ったことが記録に無かった） */
+function calSetDeliveryDate(car, ds) {
+  if (!car) return;
+  const _d = v => v ? String(v) : '未定';
+  const old = car.deliveryDate;
+  const bfContract = car.contract, bfContractDate = car.contractDate || '';
+  car.deliveryDate = ds;
+  if (!car.contract) {
+    car.contract = 1;
+    if (!car.contractDate) car.contractDate = todayStr();
+  }
+  let line = `納車日変更: ${_d(old)}→${ds}（カレンダー）`;
+  if (!bfContract) line += `・売約 なし→あり・売約日 ${_d(bfContractDate)}→${_d(car.contractDate)}`;
+  addLog(car.id, line);
+  // v3.0.0 下ごしらえ：変えた欄だけを送る（フローの行も同じ1回で）
+  if (window.saveCarPaths) {
+    window.saveCarPaths(car.id, [
+      { path: ['deliveryDate'], value: car.deliveryDate },
+      { path: ['contract'], value: car.contract },
+      { path: ['contractDate'], value: car.contractDate || '' },
+      { path: ['logs'], value: car.logs },
+    ]);
+  }
+}
+window.calSetDeliveryDate = calSetDeliveryDate;
+
 // 各タスクの完了判定（汎用）
 // task: { id, type, sections? }, state: car.deliveryTasks
 // 🔴 v3.0.0 下ごしらえ：数え方は progress.js の1本だけ。
@@ -316,22 +343,7 @@ function renderOneMonth(year, month, hostEl) {
         if (!dragDeliveryCarId) return;
         const car = cars.find(c => c.id === dragDeliveryCarId);
         if (!car) return;
-        const old = car.deliveryDate;
-        car.deliveryDate = ds;
-        if (!car.contract) {
-          car.contract = 1;
-          if (!car.contractDate) car.contractDate = todayStr();
-        }
-        addLog(car.id, `納車日変更: ${old}→${ds}`);
-        // v3.0.0 下ごしらえ：変えた欄だけを送る
-        if (window.saveCarPaths) {
-          window.saveCarPaths(car.id, [
-            { path: ['deliveryDate'], value: car.deliveryDate },
-            { path: ['contract'], value: car.contract },
-            { path: ['contractDate'], value: car.contractDate || '' },
-            { path: ['logs'], value: car.logs },
-          ]);
-        }
+        calSetDeliveryDate(car, ds);
         dragDeliveryCarId = null;
         renderCalendar();
         renderAll();
