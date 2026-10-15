@@ -35,6 +35,7 @@
   const VALID_COL_IDS = Object.keys(COL_LABELS);
 
   function _toLabel(colId) { return COL_LABELS[colId] || colId || ''; }
+  function _yen(v) { const n = Number(String(v == null ? '' : v).replace(/[,\s]/g, '')); return (v === '' || v == null || !isFinite(n)) ? '未設定' : n.toLocaleString('ja-JP') + '円'; }
   function _toColId(value) {
     if (!value) return '';
     const v = String(value).trim();
@@ -370,21 +371,26 @@
     try {
       let pending = ops.slice();
       while (pending.length) {
-        const chunk = pending.splice(0, BATCH_SIZE);
+        /* 📝 v3.16.4 1台につき「車」と「操作ログ1件」の2つを書く＝まとめ書きの上限（500）に収まるよう半分ずつ */
+        const chunk = pending.splice(0, Math.floor(BATCH_SIZE / 2));
         const batch = window.fb.db.batch();
         chunk.forEach(op => {
           const docRef = ref.collection('cars').doc(op.id);
+          const now = new Date();
+          const entry = {
+            time: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+            at: now.getTime(),
+            userUid: (window.fb.currentUser && window.fb.currentUser.uid) || null,
+            user: (typeof currentUser !== 'undefined' && currentUser) || '—',
+            carNum: (op.type === 'update' ? op.num : op.data.num) || '—',
+            action: op.type === 'update'
+              ? '車両情報を編集：Excel取り込み（' + op.note + '）'
+              : '新規登録（Excel取り込み）：本体価格 ' + _yen(op.data.price) + '・納車日 ' + (op.data.deliveryDate || '未定') + '・状態 ' + _toLabel(op.data.col),
+            carId: op.id,
+          };
+          /* 📝 v3.16.4 操作ログ（auditLogs）にも1台ずつ「前 → 後」を、車と同じ1回のまとめ書きで（前は「更新◯件」の1行だけ） */
+          if (window.dbAudit && window.dbAudit.docOf) batch.set(ref.collection('auditLogs').doc(), window.dbAudit.docOf(entry));
           if (op.type === 'update') {
-            const now = new Date();
-            const entry = {
-              time: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-              at: now.getTime(),
-              userUid: (window.fb.currentUser && window.fb.currentUser.uid) || null,
-              user: (typeof currentUser !== 'undefined' && currentUser) || '—',
-              carNum: op.num || '—',
-              action: '車両情報を編集：Excel取り込み（' + op.note + '）',
-              carId: op.id,
-            };
             batch.update(docRef, Object.assign({}, op.data, {
               logs: window.firebase.firestore.FieldValue.arrayUnion(entry),
               updatedAt: window.fb.serverTimestamp(),
@@ -397,7 +403,7 @@
               regenTasks: {},
               deliveryTasks: {},
               equipment: {},
-              logs: [],
+              logs: [entry],
               photo: '',
               createdAt: window.fb.serverTimestamp(),
               updatedAt: window.fb.serverTimestamp(),

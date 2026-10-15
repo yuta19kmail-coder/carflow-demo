@@ -937,6 +937,12 @@ async function onDetailPhoto(inp) {
   if (!car) return;
   const file = inp.files[0];
   if (!file) return;
+  /* 🔐 v3.16.4（S-48）写真は車両情報＝作業者・閲覧は変えられない（サーバーのルールと同じ線） */
+  if (typeof hasPermission === 'function' && !hasPermission('canEditCarInfo')) {
+    inp.value = '';
+    showToast('この操作はあなたの権限ではできません', 'CF-0027');
+    return;
+  }
   // v1.5.10: Storage アップロード（フォールバック：data:URL）
   try {
     if (window.dbStorage && window.dbStorage.uploadCarPhoto) {
@@ -950,8 +956,9 @@ async function onDetailPhoto(inp) {
         r.readAsDataURL(file);
       });
     }
-    // v3.0.0 下ごしらえ：写真の欄だけを送る
-    if (window.saveCarPaths) window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }]);
+    // v3.0.0 下ごしらえ：写真の欄だけを送る（📝 v3.16.4 記録も同じ1回で＝前は何も残らなかった）
+    addLog(car.id, '写真を変更（カード詳細）');
+    if (window.saveCarPaths) window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
     renderDetailBody(car);
     renderAll();
     showToast('写真を更新しました');

@@ -39,12 +39,9 @@
   // entry: { time, user, carNum, action, carId? }
   //   既存の addLog が作るオブジェクトをそのまま受け取れる形にする。
   // -----------------------------------------
-  async function appendAuditLog(entry) {
-    if (!entry) return;
-    const col = _auditCol();
-    if (!col) return;
-
-    const doc = {
+  /* 📝 v3.16.4（S-29・S-48）操作ログ1件の形。車の保存と同じまとめ書き（batch）に入れる所でも使う */
+  function _docOf(entry) {
+    return {
       time: window.fb.serverTimestamp(),
       timeStr: entry.time || '',          // 'M/D HH:MM' 既存表示用
       uid: (window.fb.currentUser && window.fb.currentUser.uid) || null,
@@ -53,6 +50,14 @@
       carNum: entry.carNum || '—',
       action: String(entry.action || ''),
     };
+  }
+
+  async function appendAuditLog(entry) {
+    if (!entry) return;
+    const col = _auditCol();
+    if (!col) return;
+
+    const doc = _docOf(entry);
     try {
       await col.add(doc);
     } catch (err) {
@@ -189,6 +194,8 @@
   // 公開
   // -----------------------------------------
   window.dbAudit = {
+    docOf: _docOf,
+    col: _auditCol,
     appendAuditLog,
     loadRecentAuditLogs,
     searchAuditLogs,

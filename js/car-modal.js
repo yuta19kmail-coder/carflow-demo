@@ -53,13 +53,51 @@ function renameSizeOption(i, newName) {
   const old = SIZES[i];
   if (old === v) return;
   SIZES[i] = v;
-  cars.forEach(c => { if (c.size === old) c.size = v; });
+  const hit = cars.filter(c => c.size === old);
+  hit.forEach(c => { c.size = v; });
   renderSizeEditor();
   _refreshSizesDependentViews();
   // v1.5.2: settings + 影響を受けた cars を保存
   if (window.saveSettings) saveSettings();
-  // v3.0.0 下ごしらえ：区分の欄だけを送る
-  cars.forEach(c => { if (c.size === v && window.saveCarPaths) window.saveCarPaths(c.id, [{ path: ['size'], value: c.size }]); });
+  // v3.0.0 区分の欄だけを送る／📝 v3.16.5 車ごとに記録（フロー＋操作ログ）も同じまとめ書きで
+  _cfSaveSizeChange(hit.map(c => ({ car: c, from: old, to: v })), '区分の名前変更');
+}
+
+/* 📝 v3.16.5 ボディサイズ区分の名前変更・削除で書き換えた車ごとに、size と「区分 ◯→◯（理由）」の1行を
+   車のフロー（logs）と操作ログ（auditLogs）へ、1回のまとめ書きで送る（前は欄だけ書いて記録が無かった）。
+   ⚠ 1台につき2件書く＝まとめ書きの上限（500）に収まるよう 200台ずつ */
+async function _cfSaveSizeChange(list, why) {
+  if (!list || !list.length) return;
+  const db = window.fb && window.fb.db;
+  const FV = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
+  const auditCol = window.dbAudit && window.dbAudit.col ? window.dbAudit.col() : null;
+  if (!db || !FV || typeof window._cfMakeLogEntry !== 'function') {
+    list.forEach(x => { if (window.saveCarPaths) window.saveCarPaths(x.car.id, [{ path: ['size'], value: x.car.size }]); });
+    return;
+  }
+  const carsCol = db.collection('companies').doc(window.fb.currentCompanyId).collection('cars');
+  for (let k = 0; k < list.length; k += 200) {
+    const part = list.slice(k, k + 200);
+    const batch = db.batch();
+    const done = [];
+    part.forEach(x => {
+      const entry = window._cfMakeLogEntry(x.car.id, `区分 ${x.from || '未分類'}→${x.to || '未分類'}（${why}）`);
+      batch.update(carsCol.doc(String(x.car.id)), {
+        size: x.to || '', logs: FV.arrayUnion(entry),
+        updatedAt: window.fb.serverTimestamp(), updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
+      });
+      if (auditCol) batch.set(auditCol.doc(), window.dbAudit.docOf(entry));
+      done.push([x.car, entry]);
+    });
+    try {
+      await batch.commit();
+      done.forEach(([c, e]) => window._cfLogCommitted(c, e));
+    } catch (e) {
+      console.error('[car-modal] 区分の書き換えを保存できませんでした', e);
+      showToast('区分の書き換えを保存できませんでした（通信または権限を確認してください）', 'CF-1025');
+      return;
+    }
+  }
 }
 
 function moveSizeOption(i, dir) {
@@ -76,14 +114,15 @@ function removeSizeOption(i) {
   const used = cars.some(c => c.size === name);
   if (used && !confirm(`「${name}」を使用中の車両があります。削除しますか？（該当車両は未分類になります）`)) return;
   SIZES.splice(i, 1);
-  if (used) cars.forEach(c => { if (c.size === name) c.size = SIZES[0] || ''; });
+  const hit = used ? cars.filter(c => c.size === name) : [];
+  hit.forEach(c => { c.size = SIZES[0] || ''; });
   renderSizeEditor();
   _refreshSizesDependentViews();
   showToast('区分を削除しました');
   // v1.5.2: settings + 影響を受けた cars を保存
   if (window.saveSettings) saveSettings();
-  // v3.0.0 下ごしらえ：区分の欄だけを送る
-  if (used) cars.forEach(c => { if (window.saveCarPaths) window.saveCarPaths(c.id, [{ path: ['size'], value: c.size }]); });
+  // v3.0.0 区分の欄だけを送る（前は区分を使っていない車まで全部送っていた）／📝 v3.16.5 記録も同じまとめ書きで
+  _cfSaveSizeChange(hit.map(c => ({ car: c, from: name, to: c.size })), '区分の削除');
 }
 
 function resetSizeOptions() {
@@ -159,6 +198,15 @@ function updateSellUI() {
 function onSellSwitchClick() {
   const sw = document.getElementById('sell-switch');
   const goingOn = !sw.classList.contains('on');
+  /* 🔐 v3.16.4（S-29）保存済みの売約を外す時だけ止める（この画面で入れたばかりの ON を戻すのは自由） */
+  if (!goingOn && editingCarId && _editBase && _editBase.contract) {
+    const car = cars.find(c => c.id === editingCarId);
+    if (car && _cfIsDeliveredCol(car.col)) {
+      showToast('納車準備・納車完了の車は、スイッチでは売約を外せません。下の［売約取消］を使います（管理者だけ）', 'CF-0027');
+      return;
+    }
+    if (car && !cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return; }
+  }
   if (goingOn) {
     const car = editingCarId ? cars.find(c => c.id === editingCarId) : null;
     const col = car ? car.col : 'purchase';
@@ -303,6 +351,23 @@ function openCarModal(carId) {
   const sw = document.getElementById('sell-switch');
   if (car?.contract) sw.classList.add('on'); else sw.classList.remove('on');
   updateSellUI();
+  /* 🔐 v3.16.4（S-29）売約を外せる人・外し方の説明と［売約取消］（納車済みの車・管理者だけ） */
+  {
+    const note = document.getElementById('sell-lock-note');
+    const ub = document.getElementById('btn-unsell');
+    let txt = '', showBtn = false;
+    if (car && car.contract) {
+      if (_cfIsDeliveredCol(car.col)) {
+        showBtn = cfCanUnsell(car);
+        txt = showBtn ? '納車準備・納車完了の車の売約は、スイッチではなく［売約取消］で外します（理由が必要）'
+                      : '納車準備・納車完了の車の売約取消は、管理者だけができます';
+      } else if (!cfCanUnsell(car)) {
+        txt = '売約を外せるのはマネージャー以上です';
+      }
+    }
+    if (note) { note.textContent = txt; note.style.display = txt ? '' : 'none'; }
+    if (ub) ub.style.display = showBtn ? '' : 'none';
+  }
   // v1.0.43: ヘッダー風プレビュー（モーダル最上部）。新規・編集 両方で表示
   _updateFormPhotoPreview(car?.photo || null);
   // ファイル input をリセット（同じファイルを連続で選んでも change が発火するように）
@@ -524,7 +589,30 @@ async function saveCarModal(initialCol) {
     }
     _formPhotoCleared = false;
 
-    const changed = _EDIT_KEYS.filter(k => !_sameVal(next[k], base[k]));
+    let changed = _EDIT_KEYS.filter(k => !_sameVal(next[k], base[k]));
+    /* 🔐 v3.16.4（S-29）保存済みの売約を外す＝売約取消。権限と理由を確かめ、売約の3欄だけは記録と同じ1回で先に送る */
+    if (base.contract && !next.contract) {
+      if (_cfIsDeliveredCol(car.col)) {
+        showToast('納車準備・納車完了の車は、スイッチでは売約を外せません。［売約取消］を使います（管理者だけ）', 'CF-0027');
+        return;
+      }
+      if (!cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return; }
+      const reason = (window.UI && UI.prompt)
+        ? await UI.prompt('売約取消の理由', '', { title: '売約取消', detail: '売約日・納車予定日を空にします。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' })
+        : prompt('売約取消の理由');
+      if (reason == null) return;
+      if (!String(reason).trim()) { showToast('売約取消の理由を入れてください', 'CF-1020'); return; }
+      const done = await cfUnsellCar(editId, null, reason, '車両情報の編集');
+      if (!done) return;
+      changed = changed.filter(k => ['contract', 'contractDate', 'deliveryDate'].indexOf(k) < 0);
+      if (!changed.length) {
+        closeModal('modal-car');
+        if (document.getElementById('modal-detail').classList.contains('open')) renderDetailBody(car);
+        renderAll();
+        showToast('売約を取り消しました');
+        return;
+      }
+    }
     if (!changed.length) {
       closeModal('modal-car');
       showToast('変更はありませんでした');
@@ -594,7 +682,9 @@ async function saveCarModal(initialCol) {
     };
     const regKind = isOrder ? 'オーダー車両' : (startCol === 'other' ? 'その他' : '仕入れ');
     cars.push(car);   /* v3.16.0 先に一覧へ入れてから記録（前は addLog が車を見つけられず、フローに「新規登録」が残っていなかった） */
-    addLog(car.id, `新規登録（${regKind}として）`);
+    /* 📝 v3.16.4 金額は最初の値も残す（未設定→◯円）。売約して登録した時は売約日・納車日も */
+    addLog(car.id, `新規登録（${regKind}として）：本体価格 ${_fmtYenLog(car.price)}・総額 ${_fmtYenLog(car.totalPrice)}`
+      + (car.contract ? `・売約日 ${_fmtDayLog(car.contractDate)}・納車日 ${_fmtDayLog(car.deliveryDate)}` : ''));
     /* 🔴 2026-08-05 修正：新規登録も同じ。**保存できていないのに「登録しました」**が出ると、
        その端末にだけ車がある状態になり、リロードで消える＝入力し直しになる。
        ここでは画面からも取り消して「登録できませんでした」と伝える。 */
@@ -627,6 +717,105 @@ async function saveCarModal(initialCol) {
        : `${maker} ${model} を仕入れ車として登録しました`);
   showToast(okMsg);
 }
+
+/* ============================================================
+   🔐 v3.16.4（S-29 の B＋権限・ゆうたの判断 2026-10-15）売約を外す（売約取消）
+   ------------------------------------------------------------
+   ・売約後・納車前（状態が納車準備／納車完了でない）… 外せるのはマネージャー以上（CarFlow の役割＝マネージャー・管理者）
+   ・納車済み（状態＝納車準備／納車完了）… 「車両情報の編集」のスイッチでは外せない。専用の［売約取消］＝管理者だけ（マスターも可）
+   ・どちらも理由が必須。売約日・納車日は空にする（今までの「切った時」と同じ）。前の値は記録に必ず残す
+   ・記録は車のフロー（logs）と操作ログ（auditLogs）の両方へ、**車の保存と同じ1回のまとめ書き**で
+   🔴 サーバー（_ルール\firestore.rules の _cfUnsells）でも同じ線で弾く。片方だけ変えないこと
+   ============================================================ */
+function _cfIsDeliveredCol(col) { return col === 'delivery' || col === 'done'; }
+function _cfMyCarRole() { return (window.fb && window.fb.currentStaff && window.fb.currentStaff.role) || ''; }
+function _cfIsMasterUser() { return (typeof _isCarflowMaster === 'function') && _isCarflowMaster(); }
+/* この車の売約を、いまの人が外せるか */
+function cfCanUnsell(car) {
+  if (!car) return false;
+  const r = _cfMyCarRole();
+  if (_cfIsDeliveredCol(car.col)) return r === 'admin' || _cfIsMasterUser();
+  return r === 'admin' || r === 'manager' || _cfIsMasterUser();
+}
+function cfUnsellDenyText(car) {
+  return (car && _cfIsDeliveredCol(car.col))
+    ? '納車準備・納車完了の車の売約取消は、管理者だけができます'
+    : '売約を外せるのはマネージャー以上です';
+}
+window.cfCanUnsell = cfCanUnsell;
+window.cfUnsellDenyText = cfUnsellDenyText;
+
+/* 売約取消の本体。targetCol＝戻す状態（null＝今の状態のまま。納車前の車はこちら）。from＝どこから（記録に出す）
+   戻り値 true＝保存できた */
+async function cfUnsellCar(carId, targetCol, reason, from) {
+  const car = cars.find(c => c.id === carId);
+  if (!car) return false;
+  reason = String(reason || '').trim();
+  if (!reason) { showToast('売約取消の理由を入れてください', 'CF-1020'); return false; }
+  if (!cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return false; }
+  const colLabel = id => { const c = (typeof COLS !== 'undefined') ? COLS.find(x => x.id === id) : null; return c ? c.label : (id || '—'); };
+  const fromCol = car.col;
+  const toCol = targetCol || car.col;
+  /* 新しい値（まだ手元の車には入れない＝保存できてから入れる） */
+  const tmp = { col: fromCol, exhibitedAt: car.exhibitedAt };
+  if (toCol !== fromCol && typeof _applyColTransitionDates === 'function') _applyColTransitionDates(tmp, fromCol, toCol);
+  const upd = { contract: 0, contractDate: '', deliveryDate: '', col: toCol };
+  if (toCol !== fromCol) upd.exhibitedAt = (tmp.exhibitedAt === undefined) ? null : tmp.exhibitedAt;
+  if (_cfIsDeliveredCol(fromCol)) {
+    /* 納車準備から外す時は、今までのカンバンの「売約キャンセル」と同じく納車準備の進捗と作業メモも戻す */
+    upd.workMemo = '';
+    if (typeof DELIVERY_TASKS !== 'undefined' && typeof mkTaskState === 'function') upd.deliveryTasks = mkTaskState(DELIVERY_TASKS);
+  }
+  const action = `売約取消（${reason}）：売約日 ${_fmtDayLog(car.contractDate)}→空・納車日 ${_fmtDayLog(car.deliveryDate)}→空・状態 ${colLabel(fromCol)}→${colLabel(toCol)}（${from || '—'}）`;
+  const entry = window._cfMakeLogEntry(car.id, action);
+  /* 車の保存＋フローの1行＋操作ログ1件＝1回のまとめ書き */
+  try {
+    const FV = window.firebase.firestore.FieldValue;
+    const db = window.fb.db;
+    const carRef = db.collection('companies').doc(window.fb.currentCompanyId).collection('cars').doc(String(car.id));
+    const auditCol = window.dbAudit && window.dbAudit.col ? window.dbAudit.col() : null;
+    const batch = db.batch();
+    const payload = Object.assign({}, upd, {
+      logs: FV.arrayUnion(entry),
+      updatedAt: window.fb.serverTimestamp(),
+      updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
+    });
+    if (payload.exhibitedAt === null) payload.exhibitedAt = FV.delete();
+    batch.update(carRef, payload);
+    if (auditCol) batch.set(auditCol.doc(), window.dbAudit.docOf(entry));
+    await batch.commit();
+  } catch (e) {
+    console.error('[car-modal] 売約取消の保存に失敗', e);
+    showToast('売約取消を保存できませんでした（通信または権限を確認してください）', 'CF-1021');
+    return false;
+  }
+  /* 保存できた＝画面にも入れる */
+  Object.keys(upd).forEach(k => {
+    if (upd[k] === null) delete car[k]; else car[k] = (typeof upd[k] === 'object') ? _cloneVal(upd[k]) : upd[k];
+  });
+  window._cfLogCommitted(car, entry);
+  return true;
+}
+window.cfUnsellCar = cfUnsellCar;
+
+/* 車両情報の編集の［売約取消］（納車済みの車・管理者だけ）。理由を聞いて展示中へ戻す */
+async function startUnsellFromModal() {
+  const car = editingCarId ? cars.find(c => c.id === editingCarId) : null;
+  if (!car || !car.contract) return;
+  if (!cfCanUnsell(car)) { showToast(cfUnsellDenyText(car), 'CF-0027'); return; }
+  const reason = (window.UI && UI.prompt)
+    ? await UI.prompt('売約取消の理由', '', { title: '売約取消', detail: '売約日・納車予定日を空にして「展示中」に戻します。納車準備の進捗も戻ります。前の値は記録に残ります。', placeholder: '例：お客様都合でキャンセル', danger: true, ok: '売約取消' })
+    : prompt('売約取消の理由');
+  if (reason == null) return;
+  if (!String(reason).trim()) { showToast('売約取消の理由を入れてください', 'CF-1020'); return; }
+  const done = await cfUnsellCar(car.id, 'exhibit', reason, '車両情報の編集の売約取消');
+  if (!done) return;
+  closeModal('modal-car');
+  if (document.getElementById('modal-detail').classList.contains('open') && typeof renderDetailBody === 'function') renderDetailBody(car);
+  renderAll();
+  showToast('売約を取り消しました');
+}
+window.startUnsellFromModal = startUnsellFromModal;
 
 /* 📝 v3.16.0（棚卸し S-29 の記録の部分）編集で変えた欄を、フローに「前 → 後」で残す。
    ・本体価格・総額・仕入日・売約・売約日・納車日・お客様・状態（列）は1行ずつ

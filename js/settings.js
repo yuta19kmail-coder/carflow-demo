@@ -1777,3 +1777,54 @@ if (document.readyState === 'loading') {
 } else {
   _setupDemoSiteCard();
 }
+
+/* ============================================================
+   🔐 v3.16.4（2026-10-15 棚卸し S-46・ゆうたの判断 C）管理者マニュアル（PDF）
+   ------------------------------------------------------------
+   前は Hosting の manuals/task-manual-v6.pdf を直接開いていた＝住所を知っていればログインしなくても誰でも開けた。
+   いまは Storage の manuals/carflow-task-manual-v6.pdf にだけ置き、ログインした CarFlow の人が
+   中身を取って開く（v3.16.5〜 住所は出さない・下の _fetchTaskManualBlob。読める人＝storage.rules の /manuals/：CarFlow を使える在籍中の人）。
+   取れない時は理由を出す（CF-1022 権限／CF-1023 まだ置いていない／CF-1024 通信）。体験版では開かない
+   ============================================================ */
+const CF_TASK_MANUAL_PATH = 'manuals/carflow-task-manual-v6.pdf';
+/* 🔐 v3.16.5 住所（getDownloadURL の鍵つき URL）を外に出さない。相場ビュー（soba/soba-data.js）と同じく、
+   ログインの合札（ID トークン）を付けて Storage から中身だけ取り、この画面の中で開く／保存する（blob: はこのブラウザの中だけで有効）。
+   置き場の許可（CORS）は相場ビューと同じ `_tools\storage-cors.json`（carflow.kobayashi-motors.com の GET）で足りる */
+async function _fetchTaskManualBlob() {
+  const u = window.fb && window.fb.currentUser;
+  if (!u) { const e = new Error('no user'); e.status = 401; throw e; }
+  const bucket = (window.firebase && firebase.app && firebase.app().options && firebase.app().options.storageBucket) || 'carflow-9d500.firebasestorage.app';
+  const url = 'https://firebasestorage.googleapis.com/v0/b/' + bucket + '/o/' + encodeURIComponent(CF_TASK_MANUAL_PATH) + '?alt=media';
+  const r = await fetch(url, { headers: { Authorization: 'Firebase ' + await u.getIdToken() }, cache: 'no-store' });
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  return await r.blob();
+}
+async function openTaskManualPdf() {
+  if (window.__DEMO_MODE) {
+    showToast('体験版ではマニュアルは開けません（本番の CarFlow にログインした人だけが開けます）');
+    return;
+  }
+  if (!(window.fb && window.fb.currentUser)) { showToast('ログインしてから開いてください', 'CF-1022'); return; }
+  /* 先に窓を開いておく（取ってくる間に開くと、ブラウザに止められることがある） */
+  let w = null;
+  try { w = window.open('', '_blank'); } catch (e) {}
+  try {
+    const blob = await _fetchTaskManualBlob();
+    const obj = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    if (w && !w.closed) w.location.href = obj;
+    else {   /* 窓が開けなかった時は保存（ダウンロード）にする */
+      const a = document.createElement('a');
+      a.href = obj; a.download = 'CarFlow_タスク管理マニュアル.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => { try { URL.revokeObjectURL(obj); } catch (_) {} }, 120000);
+  } catch (e) {
+    try { if (w && !w.closed) w.close(); } catch (_) {}
+    const st = e && e.status;
+    console.error('[settings] マニュアルを取れませんでした', e);
+    if (st === 401 || st === 403) showToast('マニュアルを開く権限がありません（CarFlow を使える人だけ）', 'CF-1022');
+    else if (st === 404) showToast('マニュアルがまだ置かれていません', 'CF-1023');
+    else showToast('マニュアルを取ってこられませんでした（通信）', 'CF-1024');
+  }
+}
+window.openTaskManualPdf = openTaskManualPdf;

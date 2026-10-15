@@ -806,25 +806,38 @@ function _dsDateLabel(d) {
   const cls = (dow === 0 || isHol || isOff) ? ' ds-dow-red' : (dow === 6 ? ' ds-dow-blue' : '');
   return (dt.getMonth() + 1) + '/' + dt.getDate() + '<span class="ds-date-w' + cls + '">(' + w + ')</span>';
 }
+/* 📝 v3.16.4 納車時間も「前 → 後」で残し、欄とフローを同じ1回で送る。
+   🔐 作業者・閲覧は書けない（サーバーのルール S-48 と同じ線＝canEditCarInfo） */
+function _dsTimeLabel(v) { return (v === 'before') ? '営業時間前' : (v === 'after') ? '営業時間後' : (v || '未定'); }
 function setCarDeliveryTime(carId, val) {
   const car = cars.find(c => c.id === carId);
   if (!car) return;
+  if (typeof hasPermission === 'function' && !hasPermission('canEditCarInfo')) {
+    showToast('この操作はあなたの権限ではできません', 'CF-0027'); renderDeliverySchedule(); return;
+  }
+  const before = car.deliveryTime || '';
   car.deliveryTime = val || '';
-  if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTime'], car.deliveryTime);
+  const entries = [{ path: ['deliveryTime'], value: car.deliveryTime }];
+  let line = '納車時間を更新（' + _dsTimeLabel(before) + '→' + _dsTimeLabel(val) + '・納車予定）';
   if (!val && car.deliveryTimeConfirmed) {  // 時間を消したら確定も外す
     car.deliveryTimeConfirmed = false;
-    if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTimeConfirmed'], false);
+    entries.push({ path: ['deliveryTimeConfirmed'], value: false });
+    line += '・確定を解除';
   }
-  const _lbl = (val === 'before') ? '営業時間前' : (val === 'after') ? '営業時間後' : (val || '未定');
-  if (typeof addLog === 'function') addLog(carId, '納車時間を更新（' + _lbl + '）');
+  if (typeof addLog === 'function') addLog(carId, line);
+  entries.push({ path: ['logs'], value: car.logs });
+  if (typeof saveCarPaths === 'function') saveCarPaths(carId, entries);
   renderDeliverySchedule();
 }
 function toggleCarDeliveryConfirm(carId) {
   const car = cars.find(c => c.id === carId);
   if (!car || !car.deliveryTime) return;
+  if (typeof hasPermission === 'function' && !hasPermission('canEditCarInfo')) {
+    showToast('この操作はあなたの権限ではできません', 'CF-0027'); return;
+  }
   car.deliveryTimeConfirmed = !car.deliveryTimeConfirmed;
-  if (typeof saveCarField === 'function') saveCarField(carId, ['deliveryTimeConfirmed'], !!car.deliveryTimeConfirmed);
-  if (typeof addLog === 'function') addLog(carId, car.deliveryTimeConfirmed ? '納車時間を確定' : '納車時間の確定を解除');
+  if (typeof addLog === 'function') addLog(carId, (car.deliveryTimeConfirmed ? '納車時間を確定' : '納車時間の確定を解除') + '（' + _dsTimeLabel(car.deliveryTime) + '）');
+  if (typeof saveCarPaths === 'function') saveCarPaths(carId, [{ path: ['deliveryTimeConfirmed'], value: !!car.deliveryTimeConfirmed }, { path: ['logs'], value: car.logs }]);
   renderDeliverySchedule();
 }
 

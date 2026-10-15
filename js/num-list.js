@@ -143,6 +143,11 @@
   // source: 'cars'|'archived'|'deleted', isDup: true/false
   window.numListMarkDup = function (id, source, isDup) {
     if (!id || !source) return;
+    /* 🔐 v3.16.4（S-48）番号の重複扱いは車両情報＝作業者・閲覧は変えられない（サーバーのルールと同じ線） */
+    if (typeof hasPermission === 'function' && !hasPermission('canEditCarInfo')) {
+      if (typeof showToast === 'function') showToast('この操作はあなたの権限ではできません', 'CF-0027');
+      return;
+    }
     isDup = !!isDup;
     let arr = null;
     if (source === 'cars')     arr = cars;

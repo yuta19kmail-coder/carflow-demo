@@ -90,7 +90,8 @@
         ＝［編集］を押している間だけ、行頭のチェック・理由の選び直し・行ごとの🗑 が出る。 */
   var editing = {};   /* 車id → 編集中 */
   var sel = {};       /* 車id → { 見積id: true } */
-  function canEdit() { return !(typeof canMutateWork === 'function' && !canMutateWork()); }
+  /* 🔐 v3.16.4（S-48）見積もりは販売の書類＝車両情報を直せる人（スタッフ以上）だけ。前は作業者も直せた（サーバーのルールと同じ線） */
+  function canEdit() { return !(typeof hasPermission === 'function' && !hasPermission('canEditCarInfo')); }
   function head(car, ids) {
     var ed = !!editing[car.id];
     var all = ed && ids.length && ids.every(function (id) { return (sel[car.id] || {})[id]; });
@@ -248,6 +249,7 @@
   function add(carId, file) {
     var car = findCar(carId);
     if (!car || !file) return;
+    if (!canEdit()) return toast('この操作はあなたの権限ではできません', 'CF-0027');
     if (busy[carId]) return toast('いま登録しています。終わってからもう一度');
     var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
     if (!isPdf) return toast('PDF だけ登録できます', 'CF-1010');
