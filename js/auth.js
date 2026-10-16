@@ -317,7 +317,8 @@ async function _onSignedIn(user) {
       await window.fb.auth.signOut();
       return;
     }
-    if (!member.carflow || member.carflow.on !== true) {
+    /* 👤 2026-10-16（棚卸し C-03・ゆうた決定「メンバー管理の画面の通りに」）入れるか・役は CFMember 1本（通知・FlowDesk・FlowGo・ダッシュボードと同じ） */
+    if (window.CFMember ? !CFMember.canUse(member, 'carflow') : (!member.carflow || member.carflow.on !== true)) {
       if (typeof showToast === 'function') showToast('CarFlowの利用権限がありません。CoreFlowの名簿で「CarFlow＝使える」をオンにしてもらってください', 'CF-0006');
       await window.fb.auth.signOut();
       return;
