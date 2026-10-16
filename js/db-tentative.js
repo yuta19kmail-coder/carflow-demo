@@ -79,6 +79,15 @@
       throw (window.CoreSave ? window.CoreSave.error(102, 'アプリの準備中です') : new Error('E102'));
     }
     const ref = col.doc(String(tId));
+    /* 🗑 v3.16.16（棚卸し C-05）消去＝ゴミ箱へ（中身の写し＋誰・いつ・元を消すを1回で。90日・戻すのはゆうただけ）。
+       操作ログは呼ぶ側（kanban.js）が今までどおり書く＝ここでは書かない（log:false） */
+    if (window.CFTrash && window.fb && window.fb.db && window.fb.currentCompanyId) {
+      const s = await ref.get({ source: 'server' });
+      const d = s.exists ? (s.data() || {}) : {};
+      await window.CFTrash.remove({ db: window.fb.db, co: window.fb.db.collection('companies').doc(window.fb.currentCompanyId), ref, data: d,
+        app: 'carflow', name: '仮登録　' + [d.maker, d.model, d.grade].filter(Boolean).join(' '), from: 'CarFlow', reason: '仮登録の削除', log: false });
+      return true;
+    }
     if (window.CoreSave) {
       return window.CoreSave.confirmDelete(ref);
     }

@@ -273,7 +273,7 @@
 
   window.numListDeleteManual = async function (id) {
     if (!id) return;
-    if (!(await cfAsk('この手入力レコードを削除します。元に戻せません。よろしいですか？', { ok: '削除する', danger: true }))) return;
+    if (!(await cfAsk('この手入力レコードを削除します（ゴミ箱に入ります・90日たつと消えます）。よろしいですか？', { ok: '削除する', danger: true }))) return;
     const idx = manualNumbers.findIndex(m => String(m.id) === String(id));
     if (idx < 0) return;
     const removed = manualNumbers[idx];
