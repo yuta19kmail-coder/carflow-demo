@@ -242,7 +242,7 @@ function more(v,a){if(v==null||!a)return '';const r=v/a;return r>=1.5?'かなり
 const CH={y1:false,rng:12,zoom:'fit',mk:true,ev:true,mavg:false,gen:false,mc:false,nag:true,cnt:true,ln:true,cdl:true};
 try{const o=JSON.parse(localStorage.getItem('chshow')||'{}');if(o.ln===false)CH.ln=false;if(o.cdl===false)CH.cdl=false}catch(e){}   // 折れ線・ローソク足の表示（2026-10-09 ゆうた。覚える）
 function setCh(k,v){CH[k]=v;if(k==='ln'||k==='cdl')try{localStorage.setItem('chshow',JSON.stringify({ln:CH.ln,cdl:CH.cdl}))}catch(e){}draw()}
-const mon=t=>{const d=new Date();d.setMonth(d.getMonth()+t);return (d.getMonth()+1)+'月'};
+const mon=t=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()+t);return (d.getMonth()+1)+'月'};
 // モデル平均の動き：選んだ型式を含む年式（全年式が対象の車種は全部の年式）の月ごとの値を、年式ごとに「いま」を基準にした比にして、台数の重みで平均（対数）
 let LONGF=false;   // 2026-10-13 全期間の時は比べる線（モデル平均・前のモデル）も古い月をつなぐ
 function MIDX(card,ys,kind){const A={};ys.forEach(y=>{const s=[...(LONGF?((card.years[y]||{})['ser_'+kind+'_l']||[]):[]),...(((card.years[y]||{})['ser_'+kind])||[])];if(s.length<4)return;const b=s.reduce((a,x)=>x[0]>a[0]?x:a);s.forEach(x=>{const w=Math.min(x[2],60);(A[x[0]]=A[x[0]]||[0,0,0,0])[0]+=Math.log(x[1]/b[1])*w;A[x[0]][1]+=w;A[x[0]][2]+=x[2];A[x[0]][3]++})});
@@ -316,7 +316,7 @@ function chart(R){const PH0=PHSEL(),LT=M.lt&&!PH0?M.lt:null,RNG=CH.rng==='all'?(
  if(RNG<=6){const WK=4.345;for(let t=Math.ceil(r0);t<=XM;t++)g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="1"/>`;
   for(let w=Math.ceil(r0*WK);w<=XM*WK;w++){const t=w/WK;if(Math.abs(t-Math.round(t))<0.06)continue;g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4" opacity=".8"/>`;
    if(RNG<=3&&Math.abs(t-Math.round(t))>0.25){const d=new Date();d.setDate(d.getDate()+Math.round(w*7));g+=`<text x="${X(t)}" y="${H-B+16}" font-size="9" text-anchor="middle" fill="var(--sub)" opacity=".8">${d.getMonth()+1}/${d.getDate()}</text>`}}}
- const tk=RNG<=6?1:RNG<=12?2:RNG<=24?3:RNG<=48?6:12;for(let t=Math.ceil(r0);t<=XM;t++){if((t%tk)!==0&&t!==4&&t!==XM)continue;const d=new Date();d.setMonth(d.getMonth()+t);g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${H-B}" y2="${H-B+4}" stroke="var(--sub)"/><text x="${X(t)}" y="${H-B+16}" font-size="11" text-anchor="middle" fill="var(--sub)">${t===0?'いま':RNG>12&&t<=0?String(d.getFullYear()).slice(2)+'/'+(d.getMonth()+1):(d.getMonth()+1)+'月'}</text>`}
+ const tk=RNG<=6?1:RNG<=12?2:RNG<=24?3:RNG<=48?6:12;for(let t=Math.ceil(r0);t<=XM;t++){if((t%tk)!==0&&t!==4&&t!==XM)continue;const d=new Date();d.setDate(1);d.setMonth(d.getMonth()+t);g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${H-B}" y2="${H-B+4}" stroke="var(--sub)"/><text x="${X(t)}" y="${H-B+16}" font-size="11" text-anchor="middle" fill="var(--sub)">${t===0?'いま':RNG>12&&t<=0?String(d.getFullYear()).slice(2)+'/'+(d.getMonth()+1):(d.getMonth()+1)+'月'}</text>`}
  // 市場全体の相場が一番高かった月・一番安かった月（全車種の水準の真ん中）と、新型・マイナーチェンジ。
  // 線は細く、名前は月ラベルの下に小さな札で出す。札にマウスを乗せると詳しく（ゆうた 2026-10-03）
  const MK=LONG&&AV.mkt_l?{rt:[...(AV.mkt_l.rt||[]),...((AV.mkt||{}).rt||[])],aa:[...(AV.mkt_l.aa||[]),...((AV.mkt||{}).aa||[])]}:(AV.mkt||{}),mkl=[],tags=[];
