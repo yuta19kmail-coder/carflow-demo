@@ -28,6 +28,14 @@
       .collection('companies').doc(window.fb.currentCompanyId)
       .collection('deletedCars');
   }
+  /* 🔒 v3.16.14（2026-10-16・棚卸し C-05 で見つけた穴）**ゴミ箱の中身（車まるごと＝お客様名・値段）は別の入れ物 deletedCarBodies/{車id} に置く。**
+     前は台帳と同じ deletedCars/~t_{車id} に置いていて、台帳を読める社員全員が中身も読めた（画面は外していたが、ルールでは開いていた）。
+     deletedCarBodies はルールで「車を消せる人（canDeleteCars＝管理者・マネージャー）」だけが読める。
+     ⚠ 読む時は新しい置き場→無ければ前の置き場（~t_）の順（10/16 時点で前の置き場に中身は無かった＝念のため） */
+  function _bodyRef(carId) {
+    if (!window.fb || !window.fb.db || !window.fb.currentCompanyId) return null;
+    return window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('deletedCarBodies').doc(String(carId));
+  }
 
   function _normalizeForSave(rec) {
     const out = {};
@@ -229,8 +237,8 @@
     const stamp = window.fb.serverTimestamp();
     const me = (window.fb.currentUser && window.fb.currentUser.uid) || null;
     /* ① 中身を先に（これが入らなければ台帳も書かない＝車も消さない） */
-    await col.doc(BODY_PREFIX + String(car.id)).set({
-      id: BODY_PREFIX + String(car.id), carId: String(car.id), kind: 'trashBody', mode: 'body',
+    await _bodyRef(car.id).set({
+      id: String(car.id), carId: String(car.id), kind: 'trashBody', mode: 'body',
       car: slim.car, dropped: slim.dropped, deletedAt: stamp, deletedBy: me,
     });
     /* ② 台帳の行（小さい）。前に戻した・消した行が同じ id で残っていても置き換える（restoredAt も消える） */
@@ -261,13 +269,16 @@
     try {
       await col.doc(String(carId)).update({ restoredAt: window.fb.serverTimestamp(), inTrash: false, trash: FV.delete(), note: '削除できなかったので取り消し' });
     } catch (e) { console.error('[db-deleted] 取り消しの印を書けませんでした', carId, e); }
-    try { await col.doc(BODY_PREFIX + String(carId)).update({ car: FV.delete(), cancelledAt: window.fb.serverTimestamp() }); } catch (e) {}
+    try { await _bodyRef(carId).update({ car: FV.delete(), cancelledAt: window.fb.serverTimestamp() }); } catch (e) {}
   }
 
   async function _readBody(col, carId) {
     const rec = (typeof deletedCarsAll !== 'undefined' ? deletedCarsAll : []).find(r => r && String(r.id) === String(carId));
     if (rec && rec.trash && typeof rec.trash === 'object') return { car: rec.trash, dropped: [], rec: rec };   /* v3.16.0 の形 */
-    const snap = await col.doc(BODY_PREFIX + String(carId)).get();
+    let snap = await _bodyRef(carId).get();
+    if (!snap || !snap.exists || !(snap.data() || {}).car) {   /* 前の置き場（~t_）。無ければ読めない／無いだけ */
+      try { const old = await col.doc(BODY_PREFIX + String(carId)).get(); if (old && old.exists) snap = old; } catch (e) {}
+    }
     const b = snap && snap.exists ? (snap.data() || {}) : {};
     return { car: b.car || null, dropped: b.dropped || [], rec: rec };
   }
@@ -305,7 +316,7 @@
       inTrash: false,
       trash: FV.delete(),
     });
-    try { await col.doc(BODY_PREFIX + String(carId)).update({ car: FV.delete(), restoredAt: window.fb.serverTimestamp() }); } catch (e) {}
+    try { await _bodyRef(carId).update({ car: FV.delete(), restoredAt: window.fb.serverTimestamp() }); } catch (e) {}
     if (window.dbAudit) window.dbAudit.appendAuditLog(entry);
     /* 📝 v3.16.2「仮登録に戻した」車を戻したら、その時に作った仮登録を片づける（両方に出さない）。記録を残す */
     const rec = body.rec;
@@ -335,7 +346,7 @@
       purgedAt: window.fb.serverTimestamp(),
       purgedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
     });
-    try { await col.doc(BODY_PREFIX + String(carId)).update({ car: FV.delete(), purgedAt: window.fb.serverTimestamp() }); } catch (e) {}
+    try { await _bodyRef(carId).update({ car: FV.delete(), purgedAt: window.fb.serverTimestamp() }); } catch (e) {}
     /* ファイルは台帳を書けてから消す（失敗しても中身は残らないだけ＝黙って続ける） */
     try { if (window.dbStorage && window.dbStorage.deleteCarPhoto) window.dbStorage.deleteCarPhoto(String(carId)); } catch (e) {}
     const st = window.fb && window.fb.storage;
