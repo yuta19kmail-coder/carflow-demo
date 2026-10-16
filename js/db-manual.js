@@ -76,7 +76,16 @@
     const col = _col();
     if (!col) return;
     try {
-      await col.doc(String(recId)).delete();
+      /* 🗑 v3.16.16（棚卸し C-05）消去＝ゴミ箱へ（90日・戻すのはゆうただけ）。操作ログは呼ぶ側（num-list.js）が書く */
+      if (window.CFTrash && window.fb && window.fb.db && window.fb.currentCompanyId) {
+        const ref = col.doc(String(recId));
+        const s = await ref.get({ source: 'server' });
+        const d = s.exists ? (s.data() || {}) : {};
+        await window.CFTrash.remove({ db: window.fb.db, co: window.fb.db.collection('companies').doc(window.fb.currentCompanyId), ref, data: d,
+          app: 'carflow', name: '手入力の番号　' + [d.num, d.model, d.grade].filter(Boolean).join(' '), from: 'CarFlow', reason: '手入力の番号の削除', log: false });
+      } else {
+        await col.doc(String(recId)).delete();
+      }
     } catch (err) {
       console.error('[db-manual] deleteManualNumber error:', err);
       if (typeof showToast === 'function') showToast('手入力の削除に失敗しました', 'CF-0024');
