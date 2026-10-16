@@ -635,6 +635,16 @@
   function flowEntry(label) { return { label: String(label) + '／CarFlow', at: Date.now(), staff: meName() }; }
   function pitAudit(action, opt) {
     opt = opt || {};
+    /* 📝 v3.16.13（棚卸し C-04）共通の形（CFLog）で書く＝どこから・前 → 後（opt.changes）・端末・版が残る。今までの欄も一緒に */
+    if (window.CFLog) {
+      try {
+        window.CFLog.add(window.fb.db.collection('companies').doc(window.fb.currentCompanyId), { app: 'pitflow', col: opt.col || 'pitCards', docId: opt.docId || opt.cardId || '',
+          docName: opt.label || '', act: String(action), from: 'CarFlow', kind: opt.kind || '', label: opt.label || '', changes: opt.changes || [],
+          legacy: { cardId: opt.cardId || '' }, user: { uid: (window.fb.currentUser && window.fb.currentUser.uid) || '', name: meName() || '—' } });
+      } catch (e) {}
+      try { if (typeof window.addAuditLog === 'function') window.addAuditLog('PitFlow：' + action + (opt.label ? '（' + opt.label + '）' : '')); } catch (e) {}
+      return;
+    }
     try {
       window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitAuditLogs').add({
         time: window.fb.serverTimestamp(),
@@ -689,7 +699,7 @@
       patch.rev = firebase.firestore.FieldValue.increment(1);
     }
     col.doc(id).update(patch).then(function () {
-      pitAudit(what, { cardId: id, label: cardLabel(c), kind: 'sales' });
+      pitAudit(what, { cardId: id, label: cardLabel(c), kind: 'sales', changes: [{ f: flag, label: TASK_LABEL[task] || task, b: before, a: !!val }] });
       if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
     }).catch(function (e) {
       c[flag] = before;                    /* 書けなかったら画面も戻す */
@@ -730,7 +740,7 @@
           var cc = cardsCol();
           if (cc) cc.doc(a.cardId).update(cp).catch(function (e) { console.warn('[pit-embed] 代車の洗車をカードのフローに書けませんでした', e); });
         }
-        pitAudit(what, { cardId: a.cardId || '', label: card ? cardLabel(card) : loName, kind: 'loaner' });
+        pitAudit(what, { cardId: a.cardId || '', col: 'pitLoanerAssigns', docId: aid, label: card ? cardLabel(card) : loName, kind: 'loaner', changes: [{ f: 'washDone', label: '代車の洗車', b: before || null, a: val ? a.loanerId : null }] });
         if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
       })
       .catch(function (e) {
