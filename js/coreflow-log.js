@@ -39,6 +39,7 @@
   var VERSION = '1.0.0';
   var COL = { pitflow: 'pitAuditLogs', carflow: 'auditLogs', mhs: 'mhsAuditLogs', stockflow: 'stockAuditLogs' };
   var MAX_CHANGES = 30, MAX_VAL = 300;
+  var G = root || (typeof globalThis !== 'undefined' ? globalThis : {});   /* 画面＝window・Node（見張り）＝globalThis */
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function meta(n) { try { var m = document.querySelector('meta[name="' + n + '"]'); return m ? String(m.getAttribute('content') || '') : ''; } catch (e) { return ''; } }
@@ -55,7 +56,7 @@
     if (!/^d[\w-]+$/.test(v)) { try { v = localStorage.getItem('cf_dev') || ''; } catch (e) { v = ''; } }
     return /^d[\w-]+$/.test(v) ? v.slice(0, 60) : '';
   }
-  function FV() { try { return root.firebase.firestore.FieldValue; } catch (e) { return null; } }
+  function FV() { try { return G.firebase.firestore.FieldValue; } catch (e) { return null; } }
   function serverTime() { var F = FV(); try { return F ? F.serverTimestamp() : Date.now(); } catch (e) { return Date.now(); } }
   /* 前・後の値は短い文字か数・真偽・null に（大きな物を記録に積まない） */
   function small(v) {
@@ -69,7 +70,7 @@
     return s.length > MAX_VAL ? s.slice(0, MAX_VAL) + '…' : s;
   }
   function userOf(o) {
-    var u = o.user || {}, f = root.fb || {};
+    var u = o.user || {}, f = G.fb || {};
     var cu = (f.auth && f.auth.currentUser) || f.currentUser || null;
     var cm = f.currentMember || {};
     return { uid: u.uid || (cu && cu.uid) || '', name: u.name || cm.name || (cu && cu.displayName) || '—', memberId: u.memberId || cm.id || null };
