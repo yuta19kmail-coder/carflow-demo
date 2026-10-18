@@ -170,6 +170,9 @@
   function _carExhibitedAt(car){
     if (!car) return null;
     if (car.exhibitedAt) return car.exhibitedAt;
+    /* v3.17.1（ゆうた 2026-10-18）オーダー車は店頭に並ばないので推定しない（展示日を手で入れた時だけ数える）。
+       前は 5〜7月のオーダー車3台・10月の KM-0558 が推定で店頭展示に入っていた */
+    if (car.isOrder) return null;
     // 推定：exhibit/delivery/done のいずれかに到達した車のみ
     if (car.col !== 'exhibit' && car.col !== 'delivery' && car.col !== 'done') return null;
     if (!car.purchaseDate) return null;
@@ -185,6 +188,9 @@
     }
     // 仕入日より前にならない
     if (est < car.purchaseDate) est = car.purchaseDate;
+    // v3.17.1 推定した日が今日より先なら、まだ数えない（その日が来たら数える）
+    const t = new Date();
+    if (est > _ymd(t.getFullYear(), t.getMonth() + 1, t.getDate())) return null;
     return est;
   }
   /* v3.16.1（棚卸し S-40）日付の足し算は helpers.js の dateAddDays（日本時間の暦）。前は toISOString で世界標準時の日付になり得た */
