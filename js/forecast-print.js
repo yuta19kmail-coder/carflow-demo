@@ -632,6 +632,24 @@
     const _origSheetStyle = sheet.getAttribute('style') || '';
     // v1.8.101: 高さ制限を撤廃。複数ページに自然に渡る（3枠リストが2ページ目に継続）
     sheet.setAttribute('style', 'box-shadow:none; margin:0; max-height:none; overflow:visible;');
+    /* 📄 v3.17.2（ゆうた 2026-10-18「PDFをDLした時に空白ページがついてくる」）
+       シートはちょうど 297mm＝A4 の高さで、html2pdf の割り算の端数で2枚目（空白）が出ていた。
+       html2pdf は撮った幅を紙の幅（210mm）に合わせて縮めるので、
+       ・高さは紙より1mm短くする（端数で2枚目に行かない）
+       ・中身が少し多い時は、シートを横に広げて（210mm÷z）撮る＝紙では z 倍に縮んで1枚に収まる（画面・印刷と同じ最大15%）
+       ・それ以上多い時は今までどおり2枚目へ流す（切らない） */
+    sheet.style.setProperty('min-height', '0', 'important');
+    const _kids = sheet.children;
+    const _natMm = _kids.length
+      ? (_kids[_kids.length - 1].getBoundingClientRect().bottom - _kids[0].getBoundingClientRect().top) / _MM / (parseFloat(getComputedStyle(document.body).zoom) || 1) + _SCREEN_PAD
+      : 0;
+    let _pz = 1;
+    if (_natMm > _SHEET_MM - 1){
+      _pz = Math.floor((_SHEET_MM - 1) / _natMm * 1000) / 1000;
+      if (_pz < _MIN_FIT) _pz = 1;
+    }
+    sheet.style.setProperty('width', (210 / _pz) + 'mm', 'important');
+    sheet.style.setProperty('min-height', ((_SHEET_MM - 1) / _pz) + 'mm', 'important');
 
     const opt = {
       margin: 0,
