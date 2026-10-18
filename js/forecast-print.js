@@ -2,10 +2,8 @@
 // forecast-print.js (v1.8.83→v1.8.86)
 // 着地予測の印刷オーバーレイ
 // ----------------------------------------
-// 3デザイン切替トグル（A/B/C）付き
-// A：クラシック（現行PDF踏襲・罫線テーブル）
-// B：CarFlow風モダン（角丸ボックス・緑アクセント）
-// C：ミニマル（罫線最小・大きな数字）
+// デザインは A：クラシック（罫線テーブル）だけ。v3.17.0 で B・C を外した
+// 画面でも紙と同じ A4 1枚の高さで見せる（_fitScreen）
 // ----------------------------------------
 // 装備品印刷シート（equipment-view.js）と同じ方式
 // 印刷時は @media print で他要素を隠す
@@ -17,7 +15,7 @@
 
   let overlayEl = null;
   let currentData = null;
-  let currentDesign = 'A';
+  const currentDesign = 'A';   // v3.17.0 B・C は外した（ゆうた 2026-10-18「A だけを詰めて」）。CSS が data-design="A" を見ている
 
   function _ensureOverlay(){
     if (overlayEl) return;
@@ -25,12 +23,6 @@
     overlayEl.id = 'forecast-print-overlay';
     overlayEl.innerHTML = `
       <div class="fp-controls" data-no-print="1">
-        <div class="fp-design-toggle">
-          <span style="font-size:11px;color:#888">${ic('ruler','📐',15)} デザイン:</span>
-          <button type="button" data-design="A" onclick="window.forecastPrint.setDesign('A')">A クラシック</button>
-          <button type="button" data-design="B" onclick="window.forecastPrint.setDesign('B')">B モダン</button>
-          <button type="button" data-design="C" onclick="window.forecastPrint.setDesign('C')">C ミニマル</button>
-        </div>
         <div style="flex:1"></div>
         <button type="button" class="fp-pdf-btn" onclick="window.forecastPrint.doPdf()">${ic('download','📥',16)} PDF</button>
         <button type="button" class="fp-print-btn" onclick="window.forecastPrint.doPrint()">${ic('printer','🖨',16)} 印刷</button>
@@ -90,7 +82,7 @@
 
   // ===== 着地予想ブロック生成 =====
   // v1.8.105: 確定（fixed）が目標到達 → 緑バーが金に変わる
-  function _buildLandingBlock(L, monthLabel){
+  function _buildLandingBlock(L, monthLabel, st){
     // 台数バー
     const goalCount = Math.max(1, L.goalCount || 1);
     // v1.8.106: ピッタリ目標達成でも金（>=）
@@ -129,12 +121,12 @@
     }
     const salesRemainToGoal = Math.max(0, goalSalesYen - predictHighSales);
 
-    function _segCount(pct, val){ return pct > 12 ? `${val}台` : ''; }
+    function _segCount(pct, val){ return pct > 8 ? `${val}台` : ''; }
     function _segSales(pct, yen){ return pct > 14 ? `${Math.round(yen/10000)}万` : ''; }
 
     return `
       <div class="fp-landing-block">
-        <div class="fp-landing-title">${monthLabel ? monthLabel + '月 ' : ''}着地予想</div>
+        <div class="fp-landing-title">${monthLabel ? monthLabel + '月の' : ''}着地${st ? `<span class="fp-landing-range">（${monthLabel}/1〜${parseInt(st.monthEnd.slice(8,10),10)}日）</span>` : ''}</div>
 
         <div class="fp-bar-row">
           <div class="fp-bar-label">台数</div>
@@ -152,7 +144,8 @@
             </div>
             ${fixedOverCount && overCnt > 0 ? `<div class="fp-land-overshoot" style="flex:${overCntRatio};min-width:28px">+${overCnt}</div>` : ''}
           </div>
-          <div class="fp-bar-value">${L.predictLow}〜${L.predictHigh}台 / ${goalCount}台${fixedOverCount?' '+ic('sparkle','✨',15)+'':''}</div>
+          <div class="fp-bar-value"><b>${L.predictLow}</b><span class="fp-bv-goal"> / ${goalCount}台</span>${fixedOverCount?' '+ic('sparkle','✨',15)+'':''}
+            <div class="fp-bv-sub">${Math.round(L.predictLow / goalCount * 100)}%・${L.predictLow >= goalCount ? '+' + (L.predictLow - goalCount) + '台' : 'あと' + (goalCount - L.predictLow) + '台'}${L.predictHigh > L.predictLow ? '・予測込み' + L.predictHigh + '台' : ''}</div></div>
         </div>
 
         <div class="fp-bar-row">
@@ -171,14 +164,86 @@
             </div>
             ${fixedOverSales && overSales > 0 ? `<div class="fp-land-overshoot" style="flex:${overSalesRatio};min-width:36px">+${Math.round(overSales/10000)}万</div>` : ''}
           </div>
-          <div class="fp-bar-value">${Math.round(predictLowSales/10000).toLocaleString()}〜${Math.round(predictHighSales/10000).toLocaleString()}万 / ${Math.round(goalSalesYen/10000).toLocaleString()}万${fixedOverSales?' '+ic('sparkle','✨',15)+'':''}</div>
+          <div class="fp-bar-value"><b>${Math.round(predictLowSales/10000).toLocaleString()}万</b><span class="fp-bv-goal"> / ${Math.round(goalSalesYen/10000).toLocaleString()}万</span>${fixedOverSales?' '+ic('sparkle','✨',15)+'':''}
+            <div class="fp-bv-sub">${Math.round(predictLowSales / goalSalesYen * 100)}%・${predictLowSales >= goalSalesYen ? '+' + Math.round((predictLowSales - goalSalesYen)/10000).toLocaleString() + '万' : 'あと' + Math.round((goalSalesYen - predictLowSales)/10000).toLocaleString() + '万'}${predictHighSales > predictLowSales ? '・予測込み' + Math.round(predictHighSales/10000).toLocaleString() + '万' : ''}</div></div>
         </div>
 
         <div class="fp-landing-legend">
-          <span><i class="dot dot-fixed"></i>確定 ${L.fixed.count}台</span>
-          <span><i class="dot dot-likely"></i>見込み ${L.likely.count}台</span>
+          <span><i class="dot dot-fixed"></i>実績 ${L.fixed.count}台</span>
+          <span><i class="dot dot-likely"></i>月末までの納車予定 ${L.likely.count}台</span>
           <span><i class="dot dot-possible"></i>実績予測 ${L.possible.count}台</span>
         </div>
+      </div>
+    `;
+  }
+
+  // ===== 🪜 v3.17.0 月の着地（階段）＋スライド分（別枠） =====
+  // 数え方は period-stats.js の stairs だけ（ここでは数え直さない）
+  function _buildStairsBlock(data){
+    const st = data.stairs;
+    if (!st) return '';
+    const amt = c => (typeof _dashAmount === 'function') ? _dashAmount(c) : (Number(c.price)||0);
+    const k = yen => Math.round((Number(yen)||0) / 1000).toLocaleString();
+    const md = s => s ? `${parseInt(s.slice(5,7),10)}/${parseInt(s.slice(8,10),10)}` : '—';
+    const m = data.month;
+    const goal = st.monthGoal;
+    const goalYen = goal.salesYen || 0;
+    const pct = v => goalYen > 0 ? Math.round(v / goalYen * 100) : 0;
+    const selName = data.mode === 'month' ? `${m}月の実績`
+                  : data.mode === 'half' ? `${data.periodId === '1' ? '前期' : '後期'}の実績`
+                  : `${data.periodId}週目の実績`;
+    const contractMode = !!(typeof appSettings !== 'undefined' && appSettings.goals && appSettings.goals.revRecog === 'contract');
+    const rows = [];
+    if (st.prevList.length || data.range.start > st.monthStart){
+      rows.push({ label: data.mode === 'half' ? '前期の実績' : '前の週までの実績', yen: st.prevSales, n: st.prevList.length });
+    }
+    rows.push({ label: selName, yen: st.selSales, n: st.selList.length });
+    // 選んだ期より後の実績は、もう計上がある時だけ（前期を前期中に見れば 0 が当たり前なので行ごと出さない）
+    if (data.range.end < st.monthEnd && st.afterList.length){
+      rows.push({ label: data.mode === 'half' ? '後期の実績' : 'その後の週の実績', yen: st.afterSales, n: st.afterList.length });
+    }
+    if (!contractMode && st.monthOpen){   // 月が終わっていたら納車予定は無いので行ごと出さない
+      rows.push({ label: '月末までの納車予定', yen: st.likelySales, n: st.likelyList.length });
+    }
+    let cum = 0;
+    const rowHtml = rows.map((r, i) => {
+      cum += r.yen;
+      return `<tr class="fp-kpi-row fp-stair-row${r.yen ? '' : ' is-zero'}">
+        <td class="fp-kpi-label">${i ? '<span class="fp-stair-plus">＋</span>' : ''}${r.label}</td>
+        <td class="fp-kpi-actual">${k(r.yen)}</td>
+        <td class="fp-stair-n">${r.n}<span class="fp-kpi-unit"> 台</span></td>
+        <td class="fp-kpi-pct">${pct(cum)}%</td>
+      </tr>`;
+    }).join('');
+    const sr = st.slideRange;
+    const li = (arr) => arr.length
+      ? arr.slice().sort((a,b) => (a.deliveryDate||'').localeCompare(b.deliveryDate||'')).map(c =>
+          `<li><span class="fp-car-name">${_carName(c)}</span><span class="fp-col-date">${md(c.deliveryDate)}</span><span class="fp-car-price">${_fmtYen(amt(c))}</span></li>`).join('')
+      : `<li class="fp-col-empty">対象なし</li>`;
+
+    return `
+      <div class="fp-tentative-block fp-stairs">
+        <div class="fp-section-title">${m}月の着地の内訳</div>
+        <table class="fp-kpi-table fp-stair-table">
+          <colgroup><col style="width:40%"><col><col style="width:16%"><col style="width:14%"></colgroup>
+          <thead><tr class="fp-stair-head"><td></td><td>金額（千円）</td><td>台数</td><td>月目標比</td></tr></thead>
+          <tbody>
+            ${rowHtml}
+          </tbody>
+        </table>
+        ${contractMode ? '' : `
+        <div class="fp-cars-block fp-stair-lists">
+          <div class="fp-cars-col">
+            <div class="fp-cars-head">${ic('clipboard','📋',16)} 月末までの納車予定</div>
+            <ul class="fp-car-list fp-car-list-flow">${li(st.likelyList)}</ul>
+            <div class="fp-cars-sum">合計 ${_fmtYen(st.likelySales)}<span class="fp-cars-count">（${st.likelyList.length}台）</span></div>
+          </div>
+          <div class="fp-cars-col fp-slide-col">
+            <div class="fp-cars-head">↪ スライド分（翌月前期 ${md(sr.start)}〜${md(sr.end)}）</div>
+            <ul class="fp-car-list fp-car-list-flow">${li(st.slideList)}</ul>
+            <div class="fp-cars-sum">合計 ${_fmtYen(st.slideSales)}<span class="fp-cars-count">（${st.slideList.length}台）</span></div>
+          </div>
+        </div>`}
       </div>
     `;
   }
@@ -232,31 +297,22 @@
     const _twoColCls = () => '';
     const sumLeft = leftCars.reduce((s,c) => s + ((typeof _dashAmount === 'function') ? _dashAmount(c) : (Number(c.price)||0)), 0);
 
-    const nextPid = window.periodStats.nextPeriod(data.mode, data.periodId, data.year, data.month);
-    const nextCount = (data.nextPeriodCars||[]).length;
-    const nextSalesThousand = Math.round(data.nextPeriodSales / 1000);
-    const tentativeSalesThousand = Math.round(data.tentativeSales / 1000);
-    // v1.8.87: tentGoal は「円」単位なので、千円表示に変換
-    const tentGoalYen = (data.goal.salesYen || 0) + (data.nextGoal.salesYen || 0);
-    const tentGoalThousand = Math.round(tentGoalYen / 1000);
-    const tentGoalCount = (data.goal.count || 0) + (data.nextGoal.count || 0);
+    const stairsBlock = _buildStairsBlock(data, carListHtml, sumLeft);
 
     // 着地予想（CarFlow特有）— v1.8.88: 期間プルダウンに関わらず月次固定で算出
     // 半期・週次の細かい区切りでは「見込み」「実績予測」がリードタイム14日と噛み合わず実用上意味が薄いため
     const L = (window.periodStats && window.periodStats.calcLandingForPeriod)
       ? window.periodStats.calcLandingForPeriod('month', '0', data.year, data.month)
       : null;
-    const landingBlock = L ? _buildLandingBlock(L, data.month) : '';
-
-    // v1.8.99: 来期 or スライド車両（後期/月次/週次4週目はスライド）
-    // v1.8.100: ラベルは説明なしの1行表記
-    const isSlide = !!data.isLastInUnit;
-    const slideCount = (data.slideList || []).length;
-    const slideThousand = Math.round((data.slideSales || 0) / 1000);
-    const nextLabel = isSlide ? 'スライド車両' : '来期予定';
-    const nextDisplayCount = isSlide ? slideCount : nextCount;
-    const nextDisplaySales = isSlide ? slideThousand : nextSalesThousand;
-    const nextDisplayList = isSlide ? (data.slideList || []) : (data.nextPeriodCars || []);
+    /* 🪜 v3.17.0 上の着地バー＝紙の「月の着地」の一本化。確定・見込みは stairs と同じ車（実績予測だけ L のまま） */
+    const st = data.stairs;
+    const L2 = (L && st) ? Object.assign({}, L, {
+      fixed:  Object.assign({}, L.fixed,  { count: st.actCount, sales: st.actSales }),
+      likely: Object.assign({}, L.likely, { count: st.likelyList.length, sales: st.likelySales }),
+      predictLow:  st.landingCount,
+      predictHigh: st.landingCount + L.possible.count,
+    }) : L;
+    const landingBlock = L2 ? _buildLandingBlock(L2, data.month, st) : '';
 
     return `
       <div class="fp-header">
@@ -282,32 +338,10 @@
         </tbody>
       </table>
 
-      <div class="fp-tentative-block">
-        <div class="fp-section-title">当期実績＋${nextLabel}</div>
-        <table class="fp-kpi-table">
-          <tbody>
-            <tr class="fp-kpi-row">
-              <td class="fp-kpi-label">当期実績額（千円）／台数</td>
-              <td class="fp-kpi-actual" colspan="3">${actualThousand.toLocaleString()} <span class="fp-kpi-unit">千円 / ${data.counts.delivery} 台</span></td>
-            </tr>
-            <tr class="fp-kpi-row">
-              <td class="fp-kpi-label">${nextLabel}</td>
-              <td class="fp-kpi-actual" colspan="3">${nextDisplaySales.toLocaleString()} <span class="fp-kpi-unit">千円 / ${nextDisplayCount} 台</span></td>
-            </tr>
-            <tr class="fp-kpi-row fp-kpi-row-emph">
-              <td class="fp-kpi-label">暫定売上額（千円）／目標</td>
-              <td class="fp-kpi-actual" colspan="3">${tentativeSalesThousand.toLocaleString()} <span class="fp-kpi-unit">千円 / ${tentGoalThousand.toLocaleString()} 千円</span></td>
-            </tr>
-            <tr class="fp-kpi-row fp-kpi-row-emph">
-              <td class="fp-kpi-label">暫定販売台数／目標</td>
-              <td class="fp-kpi-actual" colspan="3">${(data.tentativeCount).toLocaleString()} <span class="fp-kpi-unit">台 / ${tentGoalCount} 台</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      ${stairsBlock}
 
       <!-- v1.8.99: 車両一覧3枠は一番下、紙の下まで伸ばす＆12行超で自動2列 -->
-      <div class="fp-cars-block fp-cars-block-3 fp-cars-block-bottom">
+      <div class="fp-cars-block fp-cars-block-bottom">
         <div class="fp-cars-col">
           <div class="fp-cars-head">🎉 納車完了</div>
           <ul class="fp-car-list fp-car-list-flow${_twoColCls(leftCars)}">${carListHtml(leftCars)}</ul>
@@ -317,11 +351,6 @@
           <div class="fp-cars-head">${ic('box','📦',16)} 仕入</div>
           <ul class="fp-car-list fp-car-list-flow${_twoColCls(rightLists.purchase)}">${_dateListItems(rightLists.purchase, c => c.purchaseDate)}</ul>
           <div class="fp-cars-sum">合計 ${rightLists.purchase.length}台</div>
-        </div>
-        <div class="fp-cars-col">
-          <div class="fp-cars-head">${ic('shop','🏪',16)} 店頭展示</div>
-          <ul class="fp-car-list fp-car-list-flow${_twoColCls(rightLists.exhibit)}">${_dateListItems(rightLists.exhibit, c => window.periodStats.carExhibitedAt(c))}</ul>
-          <div class="fp-cars-sum">合計 ${rightLists.exhibit.length}台</div>
         </div>
       </div>
 
@@ -460,9 +489,9 @@
       currentData = window.periodStats.calcPeriodReport(mode, periodId, year, month);
       currentData._isWeek = false;
     }
-    _render();
     overlayEl.classList.add('open');
     document.body.classList.add('fp-open');
+    _render();
   }
 
   function close(){
@@ -472,10 +501,6 @@
     }
   }
 
-  function setDesign(d){
-    currentDesign = d;
-    _render();
-  }
 
   // ============================================================
   // v2.36.0 (A-3) 「あと数ミリ入りきらないせいで、ほぼ真っ白な2枚目が出る」対策。
@@ -538,14 +563,51 @@
     const sheet = overlayEl && overlayEl.querySelector('#fp-sheet');
     const wrap  = overlayEl && overlayEl.querySelector('.fp-sheet-wrap');
     if (sheet) ['width','min-height','transform','transform-origin'].forEach(k => sheet.style.removeProperty(k));
-    if (wrap)  ['height','overflow'].forEach(k => wrap.style.removeProperty(k));
+    if (wrap)  ['width','height','overflow','flex'].forEach(k => wrap.style.removeProperty(k));
     _fitOn = false;
   }
-  window.addEventListener('afterprint', _fitUndo);
+  /* 📄 v3.17.0（ゆうた 2026-10-18「A4印刷前提だから高さを固定して」）
+     画面のシートも**いつも A4 1枚の高さ（297mm）**で見せる。中身が少し多い時は、紙と同じく最大15%まで縮めて収める。
+     🔴 それ以上はみ出す時は縮めずに伸ばす（＝紙も2枚目へ流れる。中身は切らない＝上の決めごとと同じ）。
+     印刷の直前は _fitOnePage（紙の寸法）に入れ替え、終わったらこちらに戻す。 */
+  const _SHEET_MM = 297;
+  function _fitScreen(){
+    const sheet = overlayEl && overlayEl.querySelector('#fp-sheet');
+    const wrap  = overlayEl && overlayEl.querySelector('.fp-sheet-wrap');
+    if (!sheet || !sheet.children.length || !overlayEl.classList.contains('open')) return 1;
+    _fitUndo();
+    sheet.style.setProperty('min-height', '0', 'important');
+    const kids = sheet.children;
+    const top = kids[0].getBoundingClientRect().top;
+    const bottom = kids[kids.length - 1].getBoundingClientRect().bottom;
+    const bodyZoom = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const naturalMm = (bottom - top) / _MM / bodyZoom + _SCREEN_PAD;
+    sheet.style.removeProperty('min-height');
+    let z = 1;
+    if (naturalMm > _SHEET_MM){
+      z = Math.floor(_SHEET_MM / naturalMm * 1000) / 1000;
+      if (z < _MIN_FIT) z = 1;
+    }
+    if (z < 1){
+      sheet.style.setProperty('width', (210 / z) + 'mm', 'important');
+      sheet.style.setProperty('min-height', (_SHEET_MM / z) + 'mm', 'important');
+      sheet.style.setProperty('transform', 'scale(' + z + ')', 'important');
+      sheet.style.setProperty('transform-origin', 'top left', 'important');
+      if (wrap){
+        wrap.style.setProperty('width', '210mm', 'important');
+        wrap.style.setProperty('height', _SHEET_MM + 'mm', 'important');
+        wrap.style.setProperty('overflow', 'hidden', 'important');
+        wrap.style.setProperty('flex', '0 0 auto', 'important');
+      }
+      _fitOn = true;
+    }
+    return z;
+  }
+  window.addEventListener('afterprint', () => { _fitUndo(); _fitScreen(); });
 
   function doPrint(){
     _fitOnePage();
-    try { window.print(); } finally { setTimeout(_fitUndo, 0); }
+    try { window.print(); } finally { setTimeout(() => { _fitUndo(); _fitScreen(); }, 0); }
   }
 
   // v1.8.85: PDFダウンロード（html2pdf.js）
@@ -563,6 +625,7 @@
     const filename = `CarFlow_${currentData.year}年${currentData.month}月_${periodTag}.pdf`;
     // v1.8.91: windowWidth指定が原因で左切れしていたので撤去
     // PDF生成中はオーバーレイの中央配置を一旦解除して、シート要素を素直にキャプチャできるようにする
+    _fitUndo();
     const sheetWrap = overlayEl.querySelector('.fp-sheet-wrap');
     const _origWrapStyle = sheetWrap ? sheetWrap.getAttribute('style') || '' : '';
     if (sheetWrap) sheetWrap.setAttribute('style', 'display:block; padding:0; margin:0;');
@@ -589,6 +652,7 @@
     const _restore = () => {
       if (sheetWrap) sheetWrap.setAttribute('style', _origWrapStyle);
       sheet.setAttribute('style', _origSheetStyle);
+      _fitScreen();
     };
     html2pdf().set(opt).from(sheet).save()
       .then(_restore)
@@ -606,11 +670,9 @@
     sheet.setAttribute('data-design', currentDesign);
     sheet.setAttribute('data-mode', currentData._isWeek ? 'week' : 'period');
     sheet.innerHTML = currentData._isWeek ? _buildWeekSheetHtml(currentData) : _buildSheetHtml(currentData);
-    overlayEl.querySelectorAll('.fp-design-toggle button').forEach(b => {
-      b.classList.toggle('active', b.getAttribute('data-design') === currentDesign);
-    });
+    _fitScreen();
   }
 
   // _fitOnePage は自動テスト（test_forecast_print.mjs）からも呼ぶので出しておく
-  window.forecastPrint = { open, close, setDesign, doPrint, doPdf, _fitOnePage, _fitUndo };
+  window.forecastPrint = { open, close, doPrint, doPdf, _fitOnePage, _fitUndo, _fitScreen };
 })();

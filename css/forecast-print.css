@@ -2,7 +2,7 @@
    forecast-print.css (v1.8.83)
    着地予測 印刷オーバーレイ + 集計対象モーダル
    ----------------------------------------
-   3デザイン（A/B/C）切替対応
+   デザインは A（クラシック）だけ（v3.17.0 で B・C を外した）
    ======================================== */
 
 /* ============================================================
@@ -35,25 +35,6 @@
   border-radius: 10px;
   padding: 8px 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-.fp-design-toggle {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.fp-design-toggle button {
-  font-size: 11px;
-  padding: 4px 10px;
-  border: 1px solid #ccc;
-  background: #f4f4f6;
-  color: #555;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.fp-design-toggle button.active {
-  background: #1db97a;
-  color: #fff;
-  border-color: #1db97a;
 }
 .fp-print-btn,
 .fp-close-btn {
@@ -255,8 +236,8 @@
   /* v1.8.90: 背景もうちょい濃く・罫線追加 */
   background: #c8c8cc;
   border: 1px solid #555;
-  padding: 5px 0;
-  margin: 10px 0 8px;
+  padding: 4px 0;
+  margin: 8px 0 4px;
   color: #000;
 }
 
@@ -264,12 +245,12 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .fp-kpi-row td {
   /* v1.8.90: 罫線濃化 */
   border: 1px solid #555;
-  padding: 7px 10px;
+  padding: 5px 10px;
   vertical-align: middle;
 }
 .fp-kpi-label {
@@ -292,7 +273,7 @@
   font-weight: 400;
 }
 .fp-kpi-diff {
-  width: 14%;
+  width: 13%;
   font-size: 15px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -307,7 +288,7 @@
   font-weight: 700;
 }
 .fp-kpi-pct {
-  width: 14%;
+  width: 13%;
   font-size: 15px;
   text-align: center;
   font-weight: 700;
@@ -325,26 +306,27 @@
   background: #fafafa;
 }
 .fp-landing-title {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: #000;
 }
 .fp-bar-row {
   display: grid;
-  grid-template-columns: 36px 1fr 140px;
-  gap: 8px;
+  grid-template-columns: 40px 1fr 200px;
+  gap: 10px;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 .fp-bar-label {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   color: #000;
   text-align: right;
 }
 .fp-bar-value {
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.2;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: #000;
@@ -352,7 +334,7 @@
 }
 .fp-landing-bar {
   display: flex;
-  height: 18px;
+  height: 34px;
   border: 1px solid #555;
   border-radius: 3px;
   overflow: hidden;
@@ -362,12 +344,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
 }
+.fp-landing-range { font-size: 12px; font-weight: 400; margin-left: 2px; }
+.fp-bar-value b { font-size: 22px; }
+.fp-bv-goal { font-size: 13px; }
+.fp-bv-sub { font-size: 11px; color: #333; margin-top: 2px; }
+.fp-landing-block .fp-land-overshoot { font-size: 14px; }
 .fp-land-fixed    { background: #1db97a; }
 .fp-land-likely   { background: #378ADD; }
 .fp-land-possible { background: #f59e0b; }
@@ -441,19 +428,6 @@
 .fp-landing-legend i.dot-likely   { background: #378ADD; }
 .fp-landing-legend i.dot-possible { background: #f59e0b; }
 
-.fp-sheet[data-design="B"] .fp-landing-block {
-  border: 1px solid #1db97a;
-  border-radius: 6px;
-  background: #fcfffd;
-}
-.fp-sheet[data-design="C"] .fp-landing-block {
-  border: none;
-  border-top: 2px solid #222;
-  border-bottom: 1px solid #888;
-  border-radius: 0;
-  background: transparent;
-  padding: 6px 0;
-}
 
 /* v1.8.89: .fp-sheet-pdf による縮小モードは撤去。シート本来のレイアウト自体を A4 に収める設計に */
 
@@ -464,6 +438,42 @@
   background: #f7f9f7;
   font-weight: 700;
 }
+
+/* 🪜 v3.17.0 月の着地（階段）＋スライド分（別枠） */
+.fp-stair-head td {
+  font-size: 10px;
+  color: #555;
+  text-align: center;
+  padding: 0 6px 2px;
+  border-bottom: 1px solid #888;
+}
+.fp-stair-plus { color: #666; margin-right: 3px; }
+.fp-stair-row.is-zero td { color: #888; }
+.fp-stair-table .fp-kpi-label { width: 37%; white-space: nowrap; }
+.fp-stair-table .fp-kpi-actual { white-space: nowrap; }
+.fp-stair-table .fp-kpi-diff { width: 12%; }
+.fp-stair-table .fp-kpi-pct { width: 11%; white-space: nowrap; }
+.fp-stair-n {
+  width: 13%;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #000;
+}
+.fp-stair-simple td { font-size: 13px; }
+.fp-stair-simple .fp-kpi-actual, .fp-stair-simple .fp-stair-n { font-size: 15px; }
+.fp-stair-simple .fp-kpi-diff { font-size: 12px; line-height: 1.25; }
+.fp-stair-lists { margin-top: 6px; margin-bottom: 0; }
+/* 内訳の表はどのデザインでも詰める（A4 1枚に収めるため） */
+.fp-sheet .fp-stair-table .fp-kpi-row td { padding: 4px 10px; }
+.fp-sheet .fp-stair-table .fp-kpi-label { font-size: 13px; }
+.fp-sheet .fp-stair-table .fp-kpi-actual { font-size: 18px; text-align: center; letter-spacing: 0; }
+.fp-sheet .fp-stair-table .fp-kpi-pct { font-size: 14px; }
+.fp-sheet .fp-stair-table .fp-stair-n { font-size: 15px; }
+.fp-stair-lists .fp-car-list li { gap: 6px; }
+.fp-slide-col { border-style: dashed; }
 
 .fp-footer {
   margin-top: 8px;
@@ -489,276 +499,6 @@
 }
 .fp-sheet[data-design="A"] .fp-cars-col {
   border: 1px solid #888;
-}
-
-/* ============================================================
-   デザインB：CarFlow モダン（v1.8.98）
-   カード型・大数字・緑アクセント・グラデーション・印刷映え
-   ============================================================ */
-.fp-sheet[data-design="B"] {
-  background: linear-gradient(180deg, #f8fdfa 0%, #ffffff 30%);
-  color: #1a3a2a;
-}
-.fp-sheet[data-design="B"] .fp-header {
-  border-bottom: 4px solid #1db97a;
-  padding-bottom: 8px;
-  margin-bottom: 14px;
-}
-.fp-sheet[data-design="B"] .fp-title {
-  background: linear-gradient(90deg, #1db97a 0%, #0a8050 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: #1db97a;
-  font-size: 30px;
-}
-.fp-sheet[data-design="B"] .fp-title-period {
-  color: #0a8050;
-}
-.fp-sheet[data-design="B"] .fp-section-title {
-  background: linear-gradient(90deg, #1db97a 0%, #0a8050 100%);
-  color: #fff;
-  border: 0;
-  border-radius: 8px;
-  padding: 6px 12px;
-  text-align: left;
-  letter-spacing: 0.05em;
-}
-.fp-sheet[data-design="B"] .fp-cars-col {
-  border: 0;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 1px 0 #d8efe2, 0 2px 6px rgba(29, 185, 122, 0.08);
-  padding: 8px 12px;
-}
-.fp-sheet[data-design="B"] .fp-cars-head {
-  background: #e8f5ee;
-  color: #0a8050;
-  border: 0;
-  border-radius: 6px;
-  padding: 4px 8px;
-}
-.fp-sheet[data-design="B"] .fp-car-list li {
-  border-bottom: 1px dotted #c8e6d4;
-}
-.fp-sheet[data-design="B"] .fp-cars-sum {
-  border-top: 2px solid #1db97a;
-  color: #0a8050;
-}
-.fp-sheet[data-design="B"] .fp-kpi-table {
-  border-collapse: separate;
-  border-spacing: 0 4px;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row td {
-  border: 0;
-  background: #f4faf6;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row td:first-child {
-  border-radius: 8px 0 0 8px;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row td:last-child {
-  border-radius: 0 8px 8px 0;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row-sales td {
-  background: linear-gradient(90deg, #e8f5ee 0%, #d4ecd9 100%);
-}
-.fp-sheet[data-design="B"] .fp-kpi-actual {
-  font-size: 26px;
-  color: #0a8050;
-}
-.fp-sheet[data-design="B"] .fp-kpi-label {
-  color: #1a3a2a;
-}
-.fp-sheet[data-design="B"] .fp-kpi-pct {
-  font-size: 18px;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row-emph td {
-  background: linear-gradient(90deg, #1db97a 0%, #0a8050 100%);
-  color: #fff;
-}
-.fp-sheet[data-design="B"] .fp-kpi-row-emph .fp-kpi-label,
-.fp-sheet[data-design="B"] .fp-kpi-row-emph .fp-kpi-actual,
-.fp-sheet[data-design="B"] .fp-kpi-row-emph .fp-kpi-unit {
-  color: #fff;
-}
-.fp-sheet[data-design="B"] .fp-landing-block {
-  border: 0;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(29, 185, 122, 0.12);
-  padding: 8px 12px;
-}
-.fp-sheet[data-design="B"] .fp-landing-title {
-  color: #0a8050;
-  font-size: 14px;
-}
-.fp-sheet[data-design="B"] .fp-landing-bar {
-  border: 0;
-  height: 22px;
-  border-radius: 11px;
-  background: #f0f0f3;
-}
-
-/* ============================================================
-   デザインC：インフォグラフィック（v1.8.98）
-   罫線なし・超大数字・色帯・アイコン中心・大胆レイアウト
-   ============================================================ */
-.fp-sheet[data-design="C"] {
-  background: #fff;
-  color: #111;
-  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
-}
-.fp-sheet[data-design="C"] .fp-header {
-  border-bottom: 0;
-  margin-bottom: 6px;
-  padding-bottom: 0;
-}
-.fp-sheet[data-design="C"] .fp-title {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  color: #111;
-}
-.fp-sheet[data-design="C"] .fp-title-period {
-  font-size: 18px;
-  font-weight: 400;
-  color: #888;
-  margin-left: 12px;
-}
-.fp-sheet[data-design="C"] .fp-section-title {
-  background: transparent;
-  border: 0;
-  border-bottom: 3px solid #111;
-  text-align: left;
-  padding: 6px 0 4px;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin: 12px 0 8px;
-  color: #111;
-}
-.fp-sheet[data-design="C"] .fp-cars-block {
-  gap: 8px;
-}
-.fp-sheet[data-design="C"] .fp-cars-col {
-  border: 0;
-  border-left: 4px solid #111;
-  border-radius: 0;
-  padding: 4px 10px;
-  background: transparent;
-}
-.fp-sheet[data-design="C"] .fp-cars-col:nth-child(1) {
-  border-left-color: #1db97a;
-}
-.fp-sheet[data-design="C"] .fp-cars-col:nth-child(2) {
-  border-left-color: #378ADD;
-}
-.fp-sheet[data-design="C"] .fp-cars-col:nth-child(3) {
-  border-left-color: #f59e0b;
-}
-.fp-sheet[data-design="C"] .fp-cars-head {
-  background: transparent;
-  border: 0;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  padding: 0;
-  margin-bottom: 6px;
-  color: #555;
-}
-.fp-sheet[data-design="C"] .fp-car-list li {
-  border-bottom: 0;
-}
-.fp-sheet[data-design="C"] .fp-cars-sum {
-  border-top: 1px solid #111;
-  font-weight: 900;
-  font-size: 14px;
-}
-.fp-sheet[data-design="C"] .fp-cars-count {
-  color: #888;
-}
-.fp-sheet[data-design="C"] .fp-kpi-table {
-  border-collapse: collapse;
-}
-.fp-sheet[data-design="C"] .fp-kpi-row td {
-  border: 0;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 8px;
-  vertical-align: middle;
-}
-.fp-sheet[data-design="C"] .fp-kpi-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #555;
-  text-transform: none;
-}
-.fp-sheet[data-design="C"] .fp-kpi-actual {
-  /* 超大数字 */
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  color: #111;
-  text-align: left;
-}
-.fp-sheet[data-design="C"] .fp-kpi-unit {
-  font-size: 11px;
-  color: #888;
-  font-weight: 400;
-}
-.fp-sheet[data-design="C"] .fp-kpi-pct {
-  font-size: 22px;
-  font-weight: 900;
-  color: #111;
-}
-.fp-sheet[data-design="C"] .fp-kpi-diff.pos {
-  color: #0a8050;
-}
-.fp-sheet[data-design="C"] .fp-kpi-diff.neg {
-  color: #c01010;
-}
-.fp-sheet[data-design="C"] .fp-kpi-row-sales td {
-  border-bottom: 3px solid #111;
-}
-.fp-sheet[data-design="C"] .fp-kpi-row-emph td {
-  background: transparent;
-  border-bottom: 0;
-  padding: 8px;
-}
-.fp-sheet[data-design="C"] .fp-kpi-row-emph .fp-kpi-label {
-  font-weight: 900;
-  color: #111;
-}
-.fp-sheet[data-design="C"] .fp-landing-block {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  padding: 6px 0;
-  border-top: 3px solid #111;
-  border-bottom: 1px solid #e0e0e0;
-}
-.fp-sheet[data-design="C"] .fp-landing-title {
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #555;
-}
-.fp-sheet[data-design="C"] .fp-landing-bar {
-  height: 24px;
-  border: 0;
-  border-radius: 0;
-}
-.fp-sheet[data-design="C"] .fp-bar-label {
-  font-weight: 900;
-  font-size: 12px;
-  color: #111;
-}
-.fp-sheet[data-design="C"] .fp-bar-value {
-  font-size: 13px;
-  font-weight: 700;
-  color: #111;
 }
 
 /* ============================================================

@@ -300,6 +300,62 @@
     // 来期分の目標
     const nextGoal = _periodGoal(nextP.mode, nextP.periodId, nextP.year, nextP.month);
 
+    /* 🪜 v3.17.0（ゆうた 2026-10-18「月次なのに暫定が翌月を足して 2,000万・20台になって変」「PitFlow を参考に」）
+       着地は**月の中で閉じる**階段にした（PitFlow の売上ビュー／クォーターと同じ考え方）。
+         ① 前の期までの実績（同じ月・後期や2週目以降だけ）
+         ② 選んだ期の実績（＋その後に同じ月でもう計上した実績）
+         ③ 月末までに納車予定（売約済・まだ納車完了にしていない。予定日を過ぎた車も入れる）
+         ＝ 月の着地 ↔ 月目標（1か月分だけ）
+       🔴 翌月前期（翌月1〜15日）に納車予定の車は**スライド分**として別枠で数える。着地の合計には入れない
+          （前は月次・後期でこれを足し、目標も翌月ぶん足していた＝目標が2か月分になっていた）。
+       ・月がもう終わっていたら③は出さない（答え合わせ）。スライド分は納車済みも含める（後から開いても同じ車が並ぶ）
+       ・売約時計上（revRecog='contract'）は売約＝計上なので③とスライドは無い
+       ⚠ 上の nextPeriodCars / slideList / tentative* は集計対象モーダルの互換のため残している（紙にはもう出さない） */
+    const todayStr = (function(){ const t = new Date(); return _ymd(t.getFullYear(), t.getMonth() + 1, t.getDate()); })();
+    const monthStart = _ymd(year, month, 1);
+    const monthEnd   = _ymd(year, month, _daysInMonth(year, month));
+    let nmY = year, nmM = month + 1; if (nmM > 12){ nmM = 1; nmY++; }
+    const slideRange = { start: _ymd(nmY, nmM, 1), end: _ymd(nmY, nmM, 15) };
+    const monthOpen = monthEnd >= todayStr;
+    const isDoneCar = c => c.col === 'done' || !!c._archivedAt;
+    const recogDate = c => (recogMode === 'contract') ? c.contractDate : (isDoneCar(c) ? c.deliveryDate : '');
+    const prevAct = (range.start > monthStart)
+      ? allCars.filter(c => { const d = recogDate(c); return d && d >= monthStart && d < range.start; })
+      : [];
+    // 選んだ期より後（同じ月）にもう計上した車＝前期・1〜3週目を後から開いた時に月の着地から落ちないように
+    const afterAct = (range.end < monthEnd)
+      ? allCars.filter(c => { const d = recogDate(c); return d && d > range.end && d <= monthEnd; })
+      : [];
+    const pending = (recogMode === 'contract' || !monthOpen) ? [] : _carsArr.filter(c => !isDoneCar(c) && c.contract);
+    const likelyList = pending.filter(c => c.deliveryDate && c.deliveryDate <= monthEnd);
+    const slideCars = (recogMode === 'contract') ? [] : allCars.filter(c =>
+      c.deliveryDate && c.deliveryDate >= slideRange.start && c.deliveryDate <= slideRange.end && (isDoneCar(c) || c.contract));
+    const laterCars   = pending.filter(c => c.deliveryDate && c.deliveryDate > slideRange.end);
+    const undatedCars = pending.filter(c => !c.deliveryDate);
+    const monthGoal = _periodGoal('month', '0', year, month);
+    const frac = (mode === 'month') ? 1 : (mode === 'half') ? Number(periodId) / 2 : Number(periodId) / 4;
+    const sumOf = arr => arr.reduce((s, c) => s + _amt(c), 0);
+    const stairs = {
+      monthStart, monthEnd, monthOpen, slideRange,
+      prevList: prevAct,               prevSales: sumOf(prevAct),
+      selList: salesSourceList,        selSales: salesYen,
+      afterList: afterAct,             afterSales: sumOf(afterAct),
+      likelyList,                      likelySales: sumOf(likelyList),
+      slideList: slideCars,            slideSales: sumOf(slideCars),
+      laterList: laterCars,            laterSales: sumOf(laterCars),
+      undatedList: undatedCars,
+      actCount: prevAct.length + salesSourceList.length + afterAct.length,
+      actSales: sumOf(prevAct) + salesYen + sumOf(afterAct),
+      landingCount: prevAct.length + salesSourceList.length + afterAct.length + likelyList.length,
+      landingSales: sumOf(prevAct) + salesYen + sumOf(afterAct) + sumOf(likelyList),
+      monthGoal,
+      // 選んだ期までの目標（月目標を前期＝½・週＝¼ずつ積む）と、月初〜選んだ期の終わりまでの実績（見込みは入れない）
+      simple: {
+        count: Math.round(monthGoal.count * frac), salesYen: Math.round(monthGoal.salesYen * frac),
+        actCount: prevAct.length + salesSourceList.length, actSales: sumOf(prevAct) + salesYen,
+      },
+    };
+
     return {
       mode, periodId, year, month,
       range, nextRange,
@@ -337,6 +393,7 @@
       isLastInUnit,
       slideList,
       slideSales,
+      stairs,   // v3.17.0 紙の「月の着地」とスライド分はこれだけを見る
     };
   }
 

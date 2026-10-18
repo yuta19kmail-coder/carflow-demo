@@ -84,22 +84,9 @@
         ${_section('② 店頭展示台数', currentData.lists.exhibit, null, exhibitedGetter)}
         ${_section('③ 売約台数', currentData.lists.contract, 'contractDate')}
         ${_section('④ 納車完了台数', currentData.lists.delivery, 'deliveryDate')}
-        <div class="ft-section">
-          <h4 class="ft-section-title">来期 納車予定（売約済） <span class="ft-section-count">${currentData.nextPeriodCars.length}台</span></h4>
-          <div class="ft-section-hint">期間：${currentData.nextRange.start} 〜 ${currentData.nextRange.end}</div>
-          <div class="ft-list">${
-            currentData.nextPeriodCars.length
-              ? currentData.nextPeriodCars.map(c => {
-                  const amt = (typeof _dashAmount === 'function') ? _dashAmount(c) : (Number(c.price)||0);
-                  return `<div class="ft-row">
-                    <span class="ft-row-date">${c.deliveryDate || '—'}</span>
-                    <span class="ft-row-name">${_carLabel(c)}</span>
-                    <span class="ft-row-price">${_fmtYen(amt)}</span>
-                  </div>`;
-                }).join('')
-              : '<div class="ft-empty">対象なし</div>'
-          }</div>
-        </div>
+        ${(currentData.stairs && currentData.stairs.prevList.length) ? _section('前の期までの実績（同じ月）', currentData.stairs.prevList, 'deliveryDate') : ''}
+        ${currentData.stairs ? _section('見込み：月末までに納車予定（売約済）', currentData.stairs.likelyList, 'deliveryDate') : ''}
+        ${currentData.stairs ? _section('スライド分：翌月前期（' + currentData.stairs.slideRange.start + ' 〜 ' + currentData.stairs.slideRange.end + '）に納車予定・着地の合計には入れない', currentData.stairs.slideList, 'deliveryDate') : ''}
       `;
     }
     modalEl.classList.add('open');

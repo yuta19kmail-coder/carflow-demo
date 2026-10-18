@@ -74,7 +74,7 @@
 
   /* 完了フラグの対応表（PitFlow car-sales.js の CS_DONEFLAG と同じ） */
   var DONEFLAG = { wash: 'washSalesDone', headlight: 'headlightDone', coating: 'coatingDone', salesReq: 'salesReqDone' };
-  var TASK_LABEL = { wash: '洗車', headlight: 'ヘッドライト磨き', coating: 'コーティング', salesReq: '車販依頼' };
+  var TASK_LABEL = { wash: '洗車', headlight: 'ライト磨き', coating: 'コーティング', salesReq: '車販依頼' };   /* 🔗 C-07 PitFlow car-sales.js の CS_TASK_W と同じ言葉に */
   var CS_INTASK = ['check', 'estim', 'contact', 'parts', 'work', 'workDone', 'outsource'];
 
   /* ---------------- 中で持っているもの ---------------- */
@@ -633,6 +633,20 @@
   function hm() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
   function cardLabel(c) { var n = custName(c); return (n ? n + ' 様' : '') + (c && c.car ? ' / ' + c.car : ''); }
   function flowEntry(label) { return { label: String(label) + '／CarFlow', at: Date.now(), staff: meName() }; }
+  /* 🔗 2026-10-17（棚卸し C-07）サーバーの今の書類を読んで確かめてから書く（FlowDesk 系の desk-pit と同じ）。
+     前は確かめずに update＝ほかの所で先に済／戻すにされていても上書きしていた（rev は increment なので関門を通る）。
+     guard(cur) が理由を返したら書かない＝err.peStale */
+  function txUpdate(ref, patch, guard) {
+    if (!(window.fb && window.fb.db && typeof window.fb.db.runTransaction === 'function')) return ref.update(patch);
+    return window.fb.db.runTransaction(function (tx) {
+      return tx.get(ref).then(function (s) {
+        var why = guard(s && s.exists ? (s.data() || {}) : null);
+        if (why) { var er = new Error(why); er.peStale = true; throw er; }
+        tx.update(ref, patch);
+      });
+    });
+  }
+  function staleToast(e) { if (window.showToast) showToast(e.message + '（画面を最新にしてから、もう一度確かめてください）', 'CF-7003'); }
   function pitAudit(action, opt) {
     opt = opt || {};
     /* 📝 v3.16.13（棚卸し C-04）共通の形（CFLog）で書く＝どこから・前 → 後（opt.changes）・端末・版が残る。今までの欄も一緒に */
@@ -658,60 +672,73 @@
     try { if (typeof window.addAuditLog === 'function') window.addAuditLog('PitFlow：' + action + (opt.label ? '（' + opt.label + '）' : '')); } catch (e) {}
   }
 
+  /* 🔗 2026-10-17（棚卸し C-07 第2段・ゆうた「C-07 系は全部それぞれの元挙動に揃えて」）
+     完了／戻すの中身（どの印を立てる・外す）・フローと操作ログの言葉・止める条件は、PitFlow の計画
+     （pit-share.js の pitCarSalesPlan）を **PitFlow の本番から読み込んで**借りる（MHS と同じやり方）。
+     前は CarFlow の写し＝言葉が「ヘッドライト磨き」「車販作業 戻す（…）」と PitFlow と違った。
+     ⚠ 読めない時は書かない（CF-7004）＝写しに戻らない */
+  var _pitShareP = null;
+  function loadPitShare() {
+    if (typeof window.pitCarSalesPlan === 'function') return Promise.resolve(true);
+    if (_pitShareP) return _pitShareP;
+    _pitShareP = new Promise(function (res) {
+      try {
+        var sc = document.createElement('script');
+        var d = new Date();
+        sc.src = PITFLOW_URL + '/js/pit-share.js?v=' + d.getFullYear() + (d.getMonth() + 1) + d.getDate() + d.getHours();
+        sc.onload = function () { res(typeof window.pitCarSalesPlan === 'function'); };
+        sc.onerror = function () { _pitShareP = null; res(false); };
+        document.head.appendChild(sc);
+      } catch (e) { _pitShareP = null; res(false); }
+    });
+    return _pitShareP;
+  }
   function setDone(id, task, val) {
     var flag = DONEFLAG[task];
     var c = (PS.cards || []).find(function (x) { return x.id === id; });
     if (!flag || !c) return;
     var col = cardsCol();
     if (!col) { if (window.showToast) showToast('ログインが確認できません', 'CF-7001'); return; }
-
-    var before = !!c[flag];
-    /* 🔴 v3.16.7（A-29）「コーティング・その他依頼」を戻す時は、畳んだ段の印（salesReqDone）も一緒に外す。
-       済の判定は2本（coatDone）なので、片方だけ外すと「戻す」を押しても済のまま動かない */
-    var alsoReq = (task === 'coating' && !val && !!c.salesReqDone);
-    c[flag] = !!val;                       /* 先に画面へ（押した感じを止めない） */
-    if (alsoReq) c.salesReqDone = false;
+    if (typeof window.pitCarSalesPlan !== 'function') {
+      loadPitShare().then(function (ok) {
+        if (ok) setDone(id, task, val);
+        else if (window.showToast) showToast('PitFlow の決めごとが読めませんでした（少し待ってからもう一度）', 'CF-7004');
+      });
+      return;
+    }
+    var pl = window.pitCarSalesPlan(c, task, !!val);
+    if (!pl || !pl.ok) { if (window.showToast) showToast((pl && pl.why) || 'この作業が見つかりません', 'CF-7004'); return; }
+    var keys = Object.keys(pl.patch), before = {};
+    keys.forEach(function (k) { before[k] = c[k]; c[k] = pl.patch[k]; });   /* 先に画面へ（押した感じを止めない） */
     renderPitSales(); renderPitToday();
 
     var patch = {};
-    patch[flag] = !!val;
-    if (alsoReq) patch.salesReqDone = false;
+    keys.forEach(function (k) { patch[k] = pl.patch[k]; });
     /* 工程ログにも1行残す＝PitFlow で見た時に「誰かが CarFlow で済み／戻しにした」と分かる。
-       ⚠ 配列は arrayUnion で足す（読み込み→書き戻しにすると、同時編集を巻き戻す）。
-       📝 v3.16.0 戻す時も書く・担当（staff）も入れる（S-31） */
-    var what = '車販作業 ' + (val ? '完了' : '戻す') + '（' + (TASK_LABEL[task] || task) + (alsoReq ? '・車販依頼の済も外す' : '') + '）';
+       ⚠ 配列は arrayUnion で足す（読み込み→書き戻しにすると、同時編集を巻き戻す）。担当（staff）も入れる（S-31） */
     if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
-      patch.log = firebase.firestore.FieldValue.arrayUnion(flowEntry(what));
-    }
-    /* 🔴🔴 2026-08-29 **PitFlow のカードは版番号（rev）で守られている。**
-       ---------------------------------------------------------
-       ◎背景（PitFlow で実際に起きた事故・2026-08-28）
-         古い画面がカードを**まるごと**書き戻して、他の人の入庫・工程・返車・売上を消した。
-         その対策として、**サーバー（Firestore のルール）が
-         「新しい版 == いまの版 + 1」でない書き込みを受け付けない**ようになった。
-       ◎ここが守られている理由
-         CarFlow は `update` で**触る欄だけ**書く（まるごと差し替えない）ので、そもそも安全。
-         それでも**版を1つ進めておかないとルールに弾かれる**ので、必ず足す。
-       ⚠ `increment` を使う＝サーバー側で「いまの版＋1」になる。
-          自分で数字を読んで書くと、読んだ後に誰かが直した時にズレる。
-       ⚠ **この行を消すと、CarFlow から PitFlow のカードに一切書けなくなる。** */
-    if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
+      patch.log = firebase.firestore.FieldValue.arrayUnion(flowEntry(pl.flow));
+      /* 🔴🔴 2026-08-29 **PitFlow のカードは版番号（rev）で守られている。**
+         サーバー（ルール）が「新しい版 == いまの版 + 1」でない書き込みを受け付けない。
+         CarFlow は触る欄だけ update するので、increment（サーバーで「いまの版＋1」）で送る。
+         ⚠ **この行を消すと、CarFlow から PitFlow のカードに一切書けなくなる。** */
       patch.rev = firebase.firestore.FieldValue.increment(1);
     }
-    col.doc(id).update(patch).then(function () {
-      pitAudit(what, { cardId: id, label: cardLabel(c), kind: 'sales', changes: [{ f: flag, label: TASK_LABEL[task] || task, b: before, a: !!val }] });
+    txUpdate(col.doc(id), patch, pl.guard).then(function () {
+      pitAudit(pl.audit.action, { cardId: id, label: cardLabel(c), kind: pl.audit.kind,
+        changes: keys.map(function (k) { return { f: k, label: (TASK_LABEL[task] || task), b: !!before[k], a: !!pl.patch[k] }; }) });
       if (window.showToast) showToast(val ? '✓ 完了にしました（PitFlowにも反映）' : '↩ 戻しました（PitFlowにも反映）');
     }).catch(function (e) {
-      c[flag] = before;                    /* 書けなかったら画面も戻す */
-      if (alsoReq) c.salesReqDone = true;
+      keys.forEach(function (k) { c[k] = before[k]; });   /* 書けなかったら画面も戻す */
       renderPitSales(); renderPitToday();
+      if (e && e.peStale) return staleToast(e);
       console.error('[pit-embed] 書き込みに失敗', e);
       if (window.showToast) showToast('PitFlow に反映できませんでした（通信または権限）', 'CF-7002');
     });
   }
 
   /* 🚙 代車の洗った印（PitFlow v2.173.0）＝札（pitLoanerAssigns）の washDone だけを update で書く。
-     ⚠ 札には版番号（rev）の決まりが無い（ルール：社員なら update 可）。丸ごと書かないこと。 */
+     ⚠ 札にも版番号（rev）の関門がある（ルール・v3.16.1 から）。丸ごと書かないこと。 */
   function setLoDone(aid, val) {
     var a = (PS.loanerAssigns || []).find(function (x) { return x.id === aid; });
     if (!a || !(window.fb && window.fb.db && window.fb.currentCompanyId)) {
@@ -727,7 +754,11 @@
        increment(1)＝サーバーで「いまの版＋1」（rev が無い古い札は 1＝PitFlow が送る「0＋1」と同じ）。
        CarFlow は washDone の1欄だけを update するので、手元の版を数えて送る必要は無い（pitCards と同じ考え） */
     if (FV && FV.increment) patch.rev = FV.increment(1);
-    window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitLoanerAssigns').doc(aid).update(patch)
+    txUpdate(window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('pitLoanerAssigns').doc(aid), patch, function (cur) {
+      if (!cur) return 'この代車の札は見つかりません';
+      if (!!cur.washDone === !!val) return '代車の洗車は、ほかの所で先に「' + (val ? '済' : '未') + '」になっています（書き直していません）';
+      return '';
+    })
       .then(function () {
         /* 📝 v3.16.0（S-31）代車の洗車も記録に残す。札にはフローが無いので、出す相手の予約カードのフローに1行
            （カードは版で守られている＝rev を1つ進める）＋操作ログ */
@@ -746,6 +777,7 @@
       .catch(function (e) {
         if (before === undefined) delete a.washDone; else a.washDone = before;
         renderPitSales(); renderPitToday();
+        if (e && e.peStale) return staleToast(e);
         console.error('[pit-embed] 代車の洗車を書けませんでした', e);
         if (window.showToast) showToast('PitFlow に反映できませんでした（通信または権限）', 'CF-7002');
       });
@@ -761,6 +793,7 @@
     var col = cardsCol();
     if (!col) return;                      /* ログイン前は何もしない */
     _started = true;
+    loadPitShare();                        /* 🔗 C-07 完了／戻すで借りる PitFlow の計画を先に読んでおく */
 
     var onSnap = function (snap) {
       var arr = [];

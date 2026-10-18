@@ -293,9 +293,7 @@ html,body{
   overflow:hidden;
 }
 
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* スクロールバーは共通の見た目（css/coreflow-ui.css）に寄せた（2026-10-17 棚卸し C-11・B-02 の残り。前は独自の 4px） */
 
 
 /* ============================================================

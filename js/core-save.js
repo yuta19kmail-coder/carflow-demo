@@ -106,12 +106,16 @@
       .then(function () { return _confirm(ref, false); });
   }
 
-  // 統一の失敗トースト（E○○○ 付き）。戻り値はコード番号。
+  // 統一の失敗トースト。戻り値はコード番号（中の印＝101/102/201/301/401/901。呼び出し側の判定はこのまま）。
+  //   🔢 2026-10-17（棚卸し C-10 第3回・B-06）前は文に「（E201）」を埋め込んでいた＝台帳に無い第2の番号の形。
+  //      いまは全アプリ共通の番号（CF-〇〇〇〇・台帳＝errcode-cf.js）で出す＝押すとコピー・一覧に載る。
+  var CF_CODE = { 101: 'CF-0030', 102: 'CF-0031', 201: 'CF-0032', 301: 'CF-0033', 401: 'CF-0034', 901: 'CF-0035' };
   function toastError(e) {
     var code = (e && e.coreCode) || 901;
     var label = (e && e.coreLabel) || '保存に失敗しました';
-    if (typeof showToast === 'function') showToast('' + label + '（E' + code + '）');
-    if (window.console) console.error('[core-save] E' + code + ' ' + label, e);
+    var cf = CF_CODE[code] || 'CF-0035';
+    if (typeof showToast === 'function') showToast(label, cf);
+    if (window.console) console.error('[core-save] ' + cf + '（中の印 ' + code + '） ' + label, e);
     return code;
   }
 

@@ -257,6 +257,7 @@ function _amountFromCarWithSnapshot(car, dashboardSource, dashboardMode) {
 //   🔢 2026-08-17 第2引数＝エラー番号（'CF-0412'）。渡すと2行目の右端に error：CF-0412 と出て、押すとコピーできる。
 //   ⚠ 付けるのは「通らなかった」時だけ（決めごとは js/errcode-cf.js の頭）。
 const showToast = (msg, code) => {
+  /* 🔔 2026-10-17 共通のトースト（ui-dialog.js UI.toast＝黒地＋アプリの色の線・エラーは押すまで残る）へ回す。下は UI が無い時の保険 */ if(window.UI&&window.UI.toast){window.UI.toast(msg,code?{code:code}:null);return;}
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;

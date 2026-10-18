@@ -75,9 +75,14 @@
       };
     } catch (e) { console.warn('[appSummary:carflow] 売上ボード', e); return null; }
   }
-  window._carflowSummaryBuild = build;   // 検証用フック
+  window._carflowSummaryBuild = build;   // 検証用フック／🔴 v3.16.20 サーバー（summary-server.js）がこれを借りて概況を作る
+  /* 📡 v3.16.20（棚卸し C-08 第3段・ゆうた「変わった時＋1時間ごと」）**概況（appSummaries/carflow）はサーバーが作る。**
+     前は開いている端末が10分ごとに書いていた＝誰も開かないと古い・開いた端末の設定や版で揺れる。
+     いま＝サーバーが車の変化を見て10分以内に、変わらなくても1時間ごとに、この build を借りて書く。端末からは書かない（SERVER_OWNS） */
+  var SERVER_OWNS = true;
 
   function publish() {
+    if (SERVER_OWNS) return;
     if (!(window.fb && window.fb.db && window.fb.currentUser)) return;
     try {
       var doc = build(); doc.updatedAt = window.fb.serverTimestamp();
