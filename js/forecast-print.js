@@ -25,7 +25,7 @@
       <div class="fp-controls" data-no-print="1">
         <div style="flex:1"></div>
         <button type="button" class="fp-pdf-btn" onclick="window.forecastPrint.doPdf()">${ic('download','📥',16)} PDF</button>
-        <button type="button" class="fp-print-btn" onclick="window.forecastPrint.doPrint()">${ic('printer','🖨',16)} 印刷</button>
+        <!-- 🗑 v3.17.3（ゆうた 2026-10-18「印刷ボタンも要らない、PDF DL だけで OK」）印刷ボタンは外した。doPrint は残す（Ctrl+P の紙の合わせ・見張り用） -->
         <button type="button" class="fp-close-btn" onclick="window.forecastPrint.close()">${ic('close','✕',15)} 閉じる</button>
       </div>
       <div class="fp-sheet-wrap">
