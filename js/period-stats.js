@@ -141,9 +141,8 @@
       opts.push({ group: groupLabel, value: `${_ym(y,m)}:month:0`, label: _periodLabel('month','0', y, m) });
       opts.push({ group: groupLabel, value: `${_ym(y,m)}:half:1`,  label: _periodLabel('half','1',  y, m) });
       opts.push({ group: groupLabel, value: `${_ym(y,m)}:half:2`,  label: _periodLabel('half','2',  y, m) });
-      for (let i=1; i<=4; i++){
-        opts.push({ group: groupLabel, value: `${_ym(y,m)}:week:${i}`, label: _periodLabel('week', String(i), y, m) });
-      }
+      /* 🗑 v3.17.4（ゆうた 2026-10-18「1週目〜4週目もとりあえず今は要らない」）選択肢から外しただけ。
+         週次の集計・紙（calcWeekReport・_buildWeekSheetHtml）は残してある＝戻す時はこの3行を戻す */
     }
     _addMonth(curYear, curMonth, `${curMonth}月（今月）`);
     let pm = curMonth - 1, py = curYear;
