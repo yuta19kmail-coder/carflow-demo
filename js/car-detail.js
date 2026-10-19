@@ -1029,7 +1029,7 @@ let _deletingCarId = null;
 
 // v2.27.0: 「売れた車」（納車完了/納車準備）を削除できるのはマスター（ゆうた）だけ。
 //          他の管理者・スタッフは弾く（サーバー側 firestore.rules でも同じuidで二重ガード）。
-const CARFLOW_MASTER_UID = 'cIZsMOEsaaWWVVM957TFe6tvql53'; // ゆうた（（マスター））
+const CARFLOW_MASTER_UID = 'cIZsMOEsaaWWVVM957TFe6tvql53'; // ゆうた（マスター）
 function _isCarflowMaster() {
   return !!(window.fb && window.fb.currentUser && window.fb.currentUser.uid === CARFLOW_MASTER_UID);
 }
