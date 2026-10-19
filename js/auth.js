@@ -412,6 +412,14 @@ async function _onSignedIn(user) {
       }
     }
 
+    /* v3.18.0 🚗 メーカー表の会社で足した行（「国産？輸入？」の答え）を受け取る。読めなくても表の本体（car-class.js）で動く */
+    if (window.dbMakers) {
+      try {
+        if (typeof window._makersUnsub === 'function') { try { window._makersUnsub(); } catch (e2) {} }
+        window._makersUnsub = window.dbMakers.subscribe();
+      } catch (e) { console.error('[auth] メーカー表の購読に失敗:', e); }
+    }
+
     if (window.dbArchive) {
       try {
         const seededA = await window.dbArchive.seedArchivedCarsIfEmpty();

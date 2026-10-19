@@ -21,28 +21,16 @@
 // ========================================
 
 // ========================================
-// members.js (v1.5.6〜)
-// メンバー画面：staff コレクション動的取得 + 招待UI + ロール変更/無効化
-// ----------------------------------------
-// 旧 dashboard.js の renderMembers を置き換え（v1.5.5 で動的化したものをさらに拡張）
-// admin のみ表示される操作：
-//   - 「+ メンバーを招待」ボタン
-//   - 各メンバー行のロール変更プルダウン
-//   - 各メンバー行の無効化／削除
-//   - 招待中リストとキャンセル
+// members.js ── メンバー画面（閲覧専用）＋並び替え ▲▼（管理者）
+//   🧹 2026-10-18 v3.17.5 ゆうた「残ってるならいらない部分は消して綺麗に」：
+//      使われていなかった役割の選択肢・編集の窓の状態・招待の箱・空の見出しを消した（動きは変わらない）
 // ========================================
 
-// v1.5.7: 5ロール体制（worker = 作業員：詳細閲覧+チェック作業のみ）
+// 役割の表示名（表示するだけ。変える道は無い）
 const ROLE_LABELS = { admin: '管理者', manager: 'マネージャ', staff: 'スタッフ', worker: '作業員', viewer: '閲覧のみ' };
-const ROLE_OPTIONS = ['admin', 'manager', 'staff', 'worker', 'viewer'];
 
-// v1.7.29: 編集モーダル用のステート＋一覧キャッシュ
+// 一覧の控え（並び替え moveMember が使う）
 let _membersCache = [];
-let _editMemberUid = null;
-let _editMemberPendingPhotoBlob = null; // ファイル選択時に確保。保存ボタンで実アップロード
-let _editMemberPendingPhotoPreview = null;
-let _editMemberClearPhoto = false;
-let _editMemberClearName = false;
 
 function _isAdmin() {
   const s = window.fb && window.fb.currentStaff;
@@ -86,15 +74,11 @@ async function renderMembers() {
       + '</div>';
     if (!staffList.length) {
       list.innerHTML = banner + '<div style="font-size:12px;color:var(--text3)">登録メンバーがいません</div>';
-      const card = document.getElementById('pending-invite-card');
-      if (card) card.style.display = 'none';
       return;
     } else {
       const myUid = (window.fb && window.fb.currentUser && window.fb.currentUser.uid);
       // v2.18.2：並び替えだけ admin に開放。それ以外の編集UIは引き続き CoreFlow 側で。
-      const isAdminReal = _isAdmin();
-      const canSort = isAdminReal;       // 並び替え▲▼ボタン
-      const isAdmin = false;             // 役割変更/グループ変更/招待/編集/削除/無効化は全部 false
+      const canSort = _isAdmin();        // 並び替え▲▼ボタン（ほかの編集は CoreFlow だけ）
       _membersCache = staffList;
 
       list.innerHTML = banner + staffList.map((s, idx) => {
@@ -120,12 +104,8 @@ async function renderMembers() {
           </div>`;
         }
 
-        // ロール表示部
-        let roleHtml;
-        /* 🔴 役割は表示するだけ。変える道は無い（人と権限は CoreFlow が唯一の正）。
-           v2.58.0（2026-09-11）ここにあった「役割を選び直す」は、描かれないまま
-           残っていたので消した。 */
-          roleHtml = `<div style="font-size:11px;color:var(--text3)">${_esc(ROLE_LABELS[s.role] || s.role || 'スタッフ')}${isMe ? '（自分）' : ''}</div>`;
+        // 役割は表示するだけ（人と権限は CoreFlow が唯一の正）
+        const roleHtml = `<div style="font-size:11px;color:var(--text3)">${_esc(ROLE_LABELS[s.role] || s.role || 'スタッフ')}${isMe ? '（自分）' : ''}</div>`;
 
         // v2.35.0：所属は CoreMembers の部署から自動で決まる（CarFlow では変えられない）。
         //   s.group ＝「車販メンバー」か「他部署メンバー」／s.deptNames ＝ 実際の部署名
@@ -144,13 +124,8 @@ async function renderMembers() {
           ? '<span class="pill" style="background:#666;color:#fff">無効</span>'
           : '<span class="pill pill-green">有効</span>') + ' ' + usePill;
 
-        // 操作ボタン（admin かつ自分以外。v1.7.29 で「✏️ 編集」を追加）
-        let actionsHtml = '';
-        /* 🔴 操作ボタンは出さない。出すのは「有効／無効」の札だけ。
-           v2.58.0（2026-09-11）ここにあった 編集／有効無効／削除 の3つは、
-           描かれないまま残っていた（isAdmin が false 固定）。消した。
-           人と権限は CoreFlow（メンバー管理）が唯一の正。上のバナーで案内している。 */
-          actionsHtml = `<div style="margin-left:auto">${statusPill}</div>`;
+        // 操作ボタンは出さない。出すのは「有効／無効」の札だけ（v2.58.0 で 編集／有効無効／削除 を外した）
+        const actionsHtml = `<div style="margin-left:auto">${statusPill}</div>`;
 
         return `<div class="member-row" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
           ${arrowsHtml}
@@ -169,44 +144,7 @@ async function renderMembers() {
     list.innerHTML = '<div style="font-size:12px;color:var(--red)">読み込みエラー</div>';
   }
 
-  // v2.18.3：メンバーグループ作成/編集UI 撤去、招待中リスト撤去（CoreFlowへ集約）
-  // 🔴 メンバーグループの一覧は出さない（v2.18.3 で撤去）。その一式は v2.58.0 で消した
-  // await _renderPendingInvites();  // ← 撤去
 }
-
-
-
-// ========================================
-// 招待モーダル
-// ========================================
-
-
-
-
-
-
-
-
-
-// ========================================
-// メンバー操作（admin 用）
-// ========================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ========================================
 // v1.7.29: 並び替え（管理者）

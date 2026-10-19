@@ -272,7 +272,8 @@ function closeEarlySellConfirm(ok) {
 /* 🔴 v3.16.0（棚卸し S-08）編集を開いた時の値の控え。保存は「ここから変えた欄だけ」を送る。
    ＝開いている間にほかの人が変えた納車日・状態・フロー・見積などを、古い中身で書き戻さない。 */
 const _EDIT_KEYS = ['num', 'maker', 'model', 'grade', 'selectedTasks', 'col', 'isOrder', 'year', 'color', 'size', 'km',
-  'price', 'totalPrice', 'purchaseDate', 'contract', 'contractDate', 'deliveryDate', 'customerName', 'memo', 'photo'];
+  'price', 'totalPrice', 'purchaseDate', 'contract', 'contractDate', 'deliveryDate', 'customerName', 'memo', 'photo',
+  'origin', 'keiHand'];   /* v3.18.0 🚗 国産／輸入・軽を手で直した印（js/car-class-ui.js・空＝自動） */
 let _editBase = null;
 let _formPhotoCleared = false;
 let _autoNumShown = null;   /* v3.16.7（A-34）新規登録で画面が自動で入れた管理番号 */
@@ -330,6 +331,7 @@ function openCarModal(carId) {
   document.getElementById('inp-year').value     = car?.year ? normalizeYear(car.year) : '';
   document.getElementById('inp-color').value    = car?.color || '';
   document.getElementById('inp-size').value     = car?.size || SIZES[0] || 'コンパクト';
+  if (window.ccUi) window.ccUi.open(car);   /* v3.18.0 🚗 国産／輸入・軽（メーカー・ボディを入れた後に描く） */
   document.getElementById('inp-km').value       = car?.km || '';
   document.getElementById('inp-price').value    = car?.price || '';
   const totalEl = document.getElementById('inp-total-price');
@@ -580,6 +582,7 @@ async function _saveCarModalBody(initialCol) {
     next.deliveryDate = deliveryDate;
     next.customerName = customerName; // v2.26.0: 売約のお客様（名前のみ保存・表示時に「様」付与）
     next.memo         = document.getElementById('inp-memo').value;
+    if (window.ccUi) { const cc = window.ccUi.read(); next.origin = cc.origin || ''; next.keiHand = cc.keiHand || ''; }   /* v3.18.0 */
     let moved = false;
     // v2.10.8: 売約と同時に「納車準備」へ移動を選んだ場合だけフェーズを動かす（手動ドラッグと同じ状態）
     if (sellOn && _sellMoveToDelivery && car.col !== 'delivery' && car.col !== 'done') {
@@ -711,6 +714,8 @@ async function _saveCarModalBody(initialCol) {
       selectedTasks: _readOptionalTaskSelection(),
       logs: []
     };
+    /* v3.18.0 🚗 国産／輸入・軽を手で直した時だけ車に書く（空＝メーカー表・ボディで読む） */
+    if (window.ccUi) { const cc = window.ccUi.read(); if (cc.origin) car.origin = cc.origin; if (cc.keiHand) car.keiHand = cc.keiHand; }
     const regKind = isOrder ? 'オーダー車両' : (startCol === 'other' ? 'その他' : '仕入れ');
     cars.push(car);   /* v3.16.0 先に一覧へ入れてから記録（前は addLog が車を見つけられず、フローに「新規登録」が残っていなかった） */
     /* 📝 v3.16.4 金額は最初の値も残す（未設定→◯円）。売約して登録した時は売約日・納車日も */
@@ -872,6 +877,11 @@ function _logEditChanges(carId, base, next, changed, moved) {
   if (has('contractDate')) lines.push(`車両情報を編集：売約日 ${_fmtDayLog(base.contractDate)} → ${_fmtDayLog(next.contractDate)}`);
   if (has('deliveryDate')) lines.push(`納車日変更: ${_fmtDayLog(base.deliveryDate)}→${_fmtDayLog(next.deliveryDate)}（車両情報の編集）`);
   if (has('customerName')) lines.push(`車両情報を編集：お客様 ${base.customerName || '未設定'} → ${next.customerName || '未設定'}`);
+  /* v3.18.0 🚗 区分を手で直した・自動に戻した */
+  const _oL = v => v === 'dom' ? '国産（手で直した）' : v === 'imp' ? '輸入（手で直した）' : '自動（メーカー表）';
+  const _kL = v => v === 'kei' ? '軽（手で直した）' : v === 'normal' ? '普通車（手で直した）' : '自動（ボディ）';
+  if (has('origin'))       lines.push(`車両情報を編集：国産／輸入 ${_oL(base.origin)} → ${_oL(next.origin)}`);
+  if (has('keiHand'))      lines.push(`車両情報を編集：軽 ${_kL(base.keiHand)} → ${_kL(next.keiHand)}`);
   if (has('col')) {
     lines.push(moved ? `売約に伴い納車準備へ移動（${colLabel(base.col)}→${colLabel(next.col)}）`
                      : `ステータス変更: ${colLabel(base.col)}→${colLabel(next.col)}（車両情報の編集）`);

@@ -44,7 +44,7 @@
 (function (w) {
   'use strict';
 
-  var VERSION = '2';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した */
+  var VERSION = '3';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した／3＝v3.18.0 国産輸入・軽の4列・メーカーをメーカー表のまとめる先に・表 carflow.メーカー表 */
 
   function s(v){ return v == null ? '' : String(v); }
   function t(v){ return s(v).trim(); }
@@ -119,7 +119,20 @@
     var x = s(c && c.model) + ' ' + s(c && c.maker);
     return /ミニ|MINI|ﾐﾆ/i.test(x) && !/ミニカ|ミニキャブ|ミニバン/.test(s(c && c.model));
   }
-  function makerOf(c){ return isMini(c) ? 'MINI' : t(c && c.maker); }
+  /* v3.18.0 メーカー表（car-class.js）の「まとめる先」で出す＝ベンツ／メルセデス、ニッサン／日産、ＢＭＷ／BMW が1つになる。
+     MINI の決まりは car-class.js も同じ。表が読み込まれていない時（古いサーバー）は前の決まり */
+  function makerOf(c){
+    if (w.CFMaker) return w.CFMaker.group(c && c.maker, c && c.model);
+    return isMini(c) ? 'MINI' : t(c && c.maker);
+  }
+  var ORG = { dom: '国産', imp: '輸入' };
+  var BYL = { hand: '手で直した', table: 'メーカー表', katashiki: '型式', shaken: '車検証', cc: '排気量', size: 'ボディ' };
+  /* [国産輸入, その出どころ, 軽, その出どころ]。car-class.js が無ければ空 */
+  function classOf(c){
+    if (!w.CFCarClass) return ['', '', '', ''];
+    var o = w.CFCarClass.origin(c), k = w.CFCarClass.kei(c);
+    return [ORG[o.v] || '', o.v ? BYL[o.by] || o.by : '', k.v === true ? '軽' : k.v === false ? '普通' : '', k.v == null ? '' : (BYL[k.by] || k.by)];
+  }
 
   /* ================================================================
      👤 呼び名＝苗字＋車種（決まり §6・ゆうた指定）
@@ -265,7 +278,7 @@
     ['状態', 'カンバンの列（その他・仕入れ・展示準備中・展示中・納車準備・納車完了）。正式削除は空（台帳に列が残っていない）'],
     ['売約', '売約済みなら 1、まだなら 0。正式削除は空（分からない）'],
     ['オーダー', 'オーダー車両（在庫として数えない）なら 1、ちがえば 0'],
-    ['メーカー', 'カードのメーカー。BMW の MINI と MINI はまとめて MINI（全アプリ共通の決まり）'],
+    ['メーカー', 'カードのメーカーを、メーカー表（js/car-class.js＋会社で足した行）の「まとめる先」に読み替えた物（版3〜：ベンツ／メルセデス・ベンツ、ニッサン／日産、ＢＭＷ／BMW は1つ）。BMW の MINI と MINI はまとめて MINI（全アプリ共通の決まり）。表に無いメーカーは打った文字のまま'],
     ['車種', 'カードの車種'],
     ['グレード', 'カードのグレード'],
     ['年式', '西暦（和暦の入力も西暦に直す＝parseYearInput）。読めなければ空'],
@@ -308,7 +321,12 @@
     ['写真', 'カードに写真があれば 1、無ければ 0（写真そのもの・住所は出さない）。正式削除は空'],
     ['作業メモ', 'カードの作業メモ（workMemo・自由記述）。⚠ 売約で納車準備に移す時に空にされる。伏せ字はメモと同じ。引用しない'],
     ['事務メモ', 'バックオフィスのメモ（backofficeMemo・自由記述）。伏せ字はメモと同じ。引用しない'],
-    ['タスクメモの数', 'タスクごとのメモ（taskMemos）で中身のある物の数。0＝無い。中身は出していない。正式削除は空']
+    ['タスクメモの数', 'タスクごとのメモ（taskMemos）で中身のある物の数。0＝無い。中身は出していない。正式削除は空'],
+    /* ↓ 版3（v3.18.0）で末尾に足した列 */
+    ['国産輸入', '国産／輸入。ふだんはメーカー表で読む（車に書いていない）。手で直した車だけ車の origin。空＝メーカー表に無いメーカー（まだだれも答えていない）'],
+    ['国産輸入の出どころ', 'メーカー表／手で直した。空＝分からない'],
+    ['軽', '軽／普通。手で直した車だけ車の keiHand。それ以外はボディ（「軽」を含む名前なら軽）。空＝ボディも無い'],
+    ['軽の出どころ', '手で直した／ボディ（あとで排気量・型式・車検証が入る予定）。空＝分からない']
   ];
 
   /* ================================================================
@@ -317,11 +335,13 @@
   var SOURCES = {
     cols: ['companies/{cid}/cars', 'companies/{cid}/archivedCars', 'companies/{cid}/deletedCars', 'companies/{cid}/checklistTemplates',
       /* v3.16.10 足した（A-70）：操作ログ・名簿（番号と姓だけ使う）・仮登録・手入力の番号 */
-      'companies/{cid}/auditLogs', 'companies/{cid}/portalMembers', 'companies/{cid}/tentativeCars', 'companies/{cid}/manualNumbers'],
+      'companies/{cid}/auditLogs', 'companies/{cid}/portalMembers', 'companies/{cid}/tentativeCars', 'companies/{cid}/manualNumbers',
+      /* v3.18.0 メーカー表の会社で足した行（国産／輸入の答え）。🔴 車の数え方にも効く（メーカーのまとめ方）ので CORE_SOURCES にも入れる */
+      'companies/{cid}/carMakers'],
     docs: ['companies/{cid}/settings/main']
   };
   /* 車の数え方だけに要る入れ物（サーバーの car-month.js＝LINE の月の数字はこれだけ読めば足りる。操作ログは何万件にもなる） */
-  var CORE_SOURCES = { cols: SOURCES.cols.slice(0, 4), docs: SOURCES.docs.slice() };
+  var CORE_SOURCES = { cols: SOURCES.cols.slice(0, 4).concat([SOURCES.cols[8]]), docs: SOURCES.docs.slice() };
   var EXTRA = { audit: null, roster: null, bodies: {}, tentLoaded: false, manualLoaded: false };   /* 状態に置き場が無い物（操作ログ・名簿）。null＝読んでいない（入れ物ごと渡されなかった） */
   /* db-deleted.js isLedger と同じ線（番号台帳に数える行＝正式削除で、戻していない）。db-deleted.js は読み込まないのでここに同じ1行 */
   function isLedgerRow(c){ return !!c && !c.restoredAt && (!c.mode || c.mode === 'formal'); }
@@ -370,6 +390,10 @@
     refill(fnOf('tentativeCars'), te);
     refill(fnOf('manualNumbers'), mn);
     EXTRA.tentLoaded = Array.isArray(te); EXTRA.manualLoaded = Array.isArray(mn);
+    /* v3.18.0 db-makers.js の購読と同じ：会社で足した行を表に重ねる（無ければ表の本体だけ） */
+    var mk = pick(C, SOURCES.cols[8]);
+    EXTRA.makersLoaded = Array.isArray(mk);
+    if (w.CFMaker) w.CFMaker.setExtra(Array.isArray(mk) ? mk.filter(function (x) { return x && typeof x === 'object'; }) : []);
     var n = 0; [C].forEach(function (o) { for (var k in o) if (Array.isArray(o[k])) n += o[k].length; });
     return n;
   }
@@ -534,7 +558,7 @@
         del ? '' : mask(c.workMemo, c),
         del ? '' : mask(c.backofficeMemo, c),
         del ? '' : memoN
-      ];
+      ].concat(classOf(c));
     });
 
     var head = COLS_DEF.map(function (x) { return x[0]; });
@@ -915,11 +939,42 @@
     return { name: 'carflow.削除台帳', csv: toCsv(head, rows), dict: dictOf('carflow.削除台帳', today, opt, lines, DEL_COLS), count: count, _rows: rows, _head: head };
   }
 
+  /* ---------------- 🚗 carflow.メーカー表（v3.18.0・メーカー1社＝1行） ---------------- */
+  var MK_COLS = [
+    ['アプリ', '常に carflow'],
+    ['ID', 'メーカーの鍵（正式名の書き方の違いを消した物＝CFMaker.key。会社で足した行は carMakers の文書の名前と同じ）'],
+    ['書き出した日', 'この表を作った日'],
+    ['メーカー', '正式名'],
+    ['国産輸入', '国産／輸入'],
+    ['まとめる先', 'メーカー別に数える時の名前（carflow の「メーカー」の列はこれ）'],
+    ['別の書き方', 'どれで打っても同じメーカーになる書き方（「・」区切り）。全角半角・ひらがなカタカナ・小さい字・空白の違いは書かなくても同じ扱い'],
+    ['出どころ', '最初からある（js/car-class.js）／会社で足した（登録の時の「国産？輸入？」の答え）／会社で直した（管理者が区分を直した）'],
+    ['足した人', '会社で足した・直した人の名前（姓まで）。最初からある行は空'],
+    ['足した日', '会社で足した日（日本時間）']
+  ];
+  function makerTable(today, opt){
+    var head = heads(MK_COLS);
+    var list = w.CFMaker ? w.CFMaker.list() : [];
+    var base = {};
+    (w.CFMaker ? w.CFMaker._BASE : []).forEach(function (r) { base[w.CFMaker.key(r[0])] = 1; });
+    var rows = list.map(function (r) {
+      var src = !r.extra ? '最初からある' : (base[w.CFMaker.key(r.name)] ? '会社で直した' : '会社で足した');
+      return ['carflow', w.CFMaker.key(r.name), today, r.name, ORG[r.origin] || '', r.group, r.aliases.join('・'), src, t(r.byName).split(/[\s　]+/)[0] || '', day(r.at)];
+    });
+    var lines = [
+      '- 1行＝メーカー1社。CarFlow の車両登録で国産／輸入を自動で入れる表（本体＝CarFlow の js/car-class.js・会社で足した行＝companies/{cid}/carMakers）。',
+      EXTRA.makersLoaded ? '- 行数：' + rows.length + '。' : '- ⚠ 今回は会社で足した行を読めなかった（表の本体だけ）。',
+      '- 🔴 CarFlow だけの決まり（2026-10-19 ゆうた）。PitFlow の 1課／2課とは別物。',
+      '- 相場DB・ほかの道具で国産／輸入を分ける時は、この表を読む（自分で一覧を持たない）。'
+    ];
+    return { name: 'carflow.メーカー表', csv: toCsv(head, rows), dict: dictOf('carflow.メーカー表', today, opt, lines, MK_COLS), count: { 行: rows.length }, _rows: rows, _head: head };
+  }
+
   function allTables(opt){
     opt = opt || {};
     var T = build(opt);
     var out = [{ name: 'carflow', csv: T.csv, dict: T.dict, count: T.count }];
-    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt)]
+    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt), makerTable(T.today, opt)]
       .forEach(function (x) { out.push({ name: x.name, csv: x.csv, dict: x.dict, count: x.count }); });
     return out;
   }
@@ -935,6 +990,6 @@
     fill: fill,
     tables: allTables,
     _build: build,   /* 見張り用（列と行をそのまま見る） */
-    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable }   /* 見張り用 */
+    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable, maker: makerTable }   /* 見張り用 */
   };
 })(window);

@@ -42,6 +42,7 @@ function showPanel(name, el) {
   }
   if (name === 'settings') {
     renderSizeEditor();
+    if (typeof renderMakerTable === 'function') renderMakerTable();   /* v3.18.0 🚗 メーカー表 */
     renderInvWarnEditor();
     renderDelWarnEditor();
     renderGoalsEditor();
