@@ -1040,7 +1040,7 @@ function _runNumDupCheck() {
     const r = dup.record || {};
     warn.style.display = 'block';
     warn.className = 'inp-num-warn error';
-    warn.innerHTML = icoE(`❌ この番号は既に使われています（${label}：${r.maker || ''} ${r.model || ''}）`);
+    warn.innerHTML = icoE(`❌ この番号は既に使われています（${label}：${escapeHtml(r.maker || '')} ${escapeHtml(r.model || '')}）`);   /* 🔐 SEC-07 */
     if (saveBtn) saveBtn.disabled = true;
   }
 }

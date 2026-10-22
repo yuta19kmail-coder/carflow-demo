@@ -15,6 +15,8 @@
 //          戻るボタンが確実に動作。表示項目トグル＋装備品の説明文サポート追加。
 // ========================================
 
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 function getEquipmentState(car) {
   if (!car) return {};
   const isDelivery = (car.col === 'delivery' || car.col === 'done');
@@ -129,7 +131,7 @@ function renderEquipmentView(car, opts) {
   }
   // v1.8.46: 商談モード（opts.hidePrint）では印刷ボタンを出さない
   if (!opts.hidePrint) {
-    html += '<div class="eq-print-bar"><button class="eq-print-btn" onclick="printEquipmentSheet(\'' + car.id + '\')">'+ic('printer','🖨️',16)+' お客様用に印刷</button></div>';
+    html += '<div class="eq-print-bar"><button class="eq-print-btn" onclick="printEquipmentSheet(\'' + jsq(car.id) + '\')">'+ic('printer','🖨️',16)+' お客様用に印刷</button></div>';
   }
   sections.forEach(sec => {
     // v3.2.0: 商談ビュー（opts.forCustomer）では「装備詳細の印刷に表示しない」項目を出さない
@@ -324,7 +326,7 @@ function _buildPrintSheetHtml(car) {
   toolbar += '</div>';
 
   // オプションパネル
-  const chk = (field, label) => '<label><input type="checkbox" ' + (cfg[field] ? 'checked' : '') + ' onchange="setPrintField(\'' + field + '\',this.checked)"> ' + label + '</label>';
+  const chk = (field, label) => '<label><input type="checkbox" ' + (cfg[field] ? 'checked' : '') + ' onchange="setPrintField(\'' + jsq(field) + '\',this.checked)"> ' + label + '</label>';
   let options = '';
   options += '<div class="ps-options no-print" id="ps-options">';
   options += chk('photo', '写真');

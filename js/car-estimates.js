@@ -24,6 +24,8 @@
    ◎v3.5.2［編集］＝チェックして一括削除・理由の選び直し・行ごとの削除（消すと PDF も消える＝確認を1回出す）
    ⚠ PC・タブレットのカード詳細（car-detail-v3.js）だけ。スマホ・1カラム表示には出していない。
    ======================================== */
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -64,7 +66,7 @@
   function bandCell(car) {
     var e = latest(car);
     if (!e) return '';
-    return '<button type="button" class="cd3-est" onclick="CarEstimates.open(\'' + esc(car.id) + '\')" title="最新の見積もりを開く（' + esc(e.name) + '）">'
+    return '<button type="button" class="cd3-est" onclick="CarEstimates.open(\'' + jsq(car.id) + '\')" title="最新の見積もりを開く（' + esc(e.name) + '）">'
       + '<span class="k">見積</span><span class="v">' + I('estimate', '📄', 16) + ' 開く</span></button>';
   }
 
@@ -96,51 +98,51 @@
     var ed = !!editing[car.id];
     var all = ed && ids.length && ids.every(function (id) { return (sel[car.id] || {})[id]; });
     return '<div class="est-tr est-th">'
-      + (ed ? '<span><input type="checkbox" title="この表をすべて選ぶ"' + (all ? ' checked' : '') + ' onchange="CarEstimates._selAll(\'' + esc(car.id) + '\',\'' + ids.join(',') + '\',this.checked)"></span>' : '')
+      + (ed ? '<span><input type="checkbox" title="この表をすべて選ぶ"' + (all ? ' checked' : '') + ' onchange="CarEstimates._selAll(\'' + jsq(car.id) + '\',\'' + ids.join(',') + '\',this.checked)"></span>' : '')
       + '<span>No.</span><span>日付</span><span>理由</span><span>人</span><span>ファイル</span><span class="r">サイズ</span>'
       + (ed ? '<span></span>' : '') + '</div>';
   }
   function reasonCell(car, e, idx) {
     if (!editing[car.id]) return '<span class="est-rs" title="' + esc(reasonText(e)) + '">' + esc(reasonText(e)) + '</span>';
-    var cid = esc(car.id), eid = esc(e.id);
+    var cid = car.id, eid = e.id;  // 🔐 SEC-07：onclick の中で jsq を通す
     if (idx === 0) return '<span class="est-rs" title="1枚目は初稿だけ">初稿</span>';   /* 1枚目は初稿だけ＝選び直しなし */
     var opts = reasonsFor(false);
-    return '<span class="est-rs-ed"><select onchange="CarEstimates._reason(\'' + cid + '\',\'' + eid + '\',this.value)">'
+    return '<span class="est-rs-ed"><select onchange="CarEstimates._reason(\'' + jsq(cid) + '\',\'' + jsq(eid) + '\',this.value)">'
       + (e.reason && opts.indexOf(e.reason) >= 0 ? '' : '<option value="" selected>—（選ぶ）</option>')
       + opts.map(function (r) { return '<option' + (r === e.reason ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('')
       + '</select>'
-      + (e.reason === 'その他' ? '<input type="text" maxlength="60" placeholder="理由を書く" value="' + esc(e.reasonNote || '') + '" onchange="CarEstimates._note(\'' + cid + '\',\'' + eid + '\',this.value)">' : '')
+      + (e.reason === 'その他' ? '<input type="text" maxlength="60" placeholder="理由を書く" value="' + esc(e.reasonNote || '') + '" onchange="CarEstimates._note(\'' + jsq(cid) + '\',\'' + jsq(eid) + '\',this.value)">' : '')
       + '</span>';
   }
   function row(car, e, idx, isNew) {
     var ed = !!editing[car.id], on = ed && (sel[car.id] || {})[e.id];
     return '<div class="est-tr' + (isNew ? ' new' : '') + (on ? ' sel' : '') + '">'
-      + (ed ? '<span><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="CarEstimates._sel(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\',this.checked)"></span>' : '')
+      + (ed ? '<span><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="CarEstimates._sel(\'' + jsq(car.id) + '\',\'' + jsq(e.id) + '\',this.checked)"></span>' : '')
       + '<span class="est-no">' + (idx + 1) + (isNew ? '<span class="est-badge">最新</span>' : '') + '</span>'
       + '<span class="est-dt">' + ymdhm(e.at) + '</span>'
       + reasonCell(car, e, idx)
       + '<span class="est-by">' + esc(e.byName || '—') + '</span>'
-      + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
+      + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + jsq(car.id) + '\',\'' + jsq(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
       + '<span class="r est-sz">' + (e.size ? kb(e.size) : '—') + '</span>'
-      + (ed ? '<span><button type="button" class="est-del1" title="この見積もりを消す" onclick="CarEstimates._del(\'' + esc(car.id) + '\',\'' + esc(e.id) + '\')">' + I('trash', '🗑', 14) + '</button></span>' : '')
+      + (ed ? '<span><button type="button" class="est-del1" title="この見積もりを消す" onclick="CarEstimates._del(\'' + jsq(car.id) + '\',\'' + jsq(e.id) + '\')">' + I('trash', '🗑', 14) + '</button></span>' : '')
       + '</div>';
   }
   function bar(car) {
     if (!canEdit()) return '';
-    var cid = esc(car.id);
-    if (!editing[car.id]) return '<div class="est-bar"><button type="button" class="est-btn" onclick="CarEstimates._edit(\'' + cid + '\',true)">' + I('pencil', '✏', 14) + ' 編集</button></div>';
+    var cid = car.id;  // 🔐 SEC-07：onclick の中で jsq を通す
+    if (!editing[car.id]) return '<div class="est-bar"><button type="button" class="est-btn" onclick="CarEstimates._edit(\'' + jsq(cid) + '\',true)">' + I('pencil', '✏', 14) + ' 編集</button></div>';
     var n = Object.keys(sel[car.id] || {}).length;
     return '<div class="est-bar ed"><span class="est-bar-t">編集中　チェックして一括削除／理由はその場で選び直せます</span>'
-      + '<button type="button" class="est-btn danger"' + (n ? '' : ' disabled') + ' onclick="CarEstimates._delSel(\'' + cid + '\')">' + I('trash', '🗑', 14) + ' 選んだ' + (n ? n + '件' : '物') + 'を消す</button>'
-      + '<button type="button" class="est-btn pri" onclick="CarEstimates._edit(\'' + cid + '\',false)">' + I('check', '✓', 14) + ' 完了</button></div>';
+      + '<button type="button" class="est-btn danger"' + (n ? '' : ' disabled') + ' onclick="CarEstimates._delSel(\'' + jsq(cid) + '\')">' + I('trash', '🗑', 14) + ' 選んだ' + (n ? n + '件' : '物') + 'を消す</button>'
+      + '<button type="button" class="est-btn pri" onclick="CarEstimates._edit(\'' + jsq(cid) + '\',false)">' + I('check', '✓', 14) + ' 完了</button></div>';
   }
   function panel(car) {
     var L = list(car), e = latest(car), up = !!busy[car.id];
     var h = '<div class="est-drop' + (up ? ' busy' : '') + '" id="est-drop" data-car="' + esc(car.id) + '"'
-      + ' ondragover="CarEstimates.over(event)" ondragleave="CarEstimates.leave(event)" ondrop="CarEstimates.drop(event,\'' + esc(car.id) + '\')">'
+      + ' ondragover="CarEstimates.over(event)" ondragleave="CarEstimates.leave(event)" ondrop="CarEstimates.drop(event,\'' + jsq(car.id) + '\')">'
       + '<div class="est-drop-ic">' + I('upload', '⬆', 22) + '</div>'
       + '<div class="est-drop-t">' + (up ? '登録しています…' : '見積もりの PDF をここへドラッグ') + '</div>'
-      + '<div class="est-drop-s">または <label class="est-pick">ファイルを選ぶ<input type="file" accept="application/pdf,.pdf" onchange="CarEstimates.pick(this,\'' + esc(car.id) + '\')"></label>（PDF・10MBまで）</div>'
+      + '<div class="est-drop-s">または <label class="est-pick">ファイルを選ぶ<input type="file" accept="application/pdf,.pdf" onchange="CarEstimates.pick(this,\'' + jsq(car.id) + '\')"></label>（PDF・10MBまで）</div>'
       + '</div>';
     if (!e) { editing[car.id] = false; return h + '<div class="est-empty">まだ見積もりが登録されていません</div>' + goneHtml(car); }
     var ed = editing[car.id] ? ' edit' : '';
@@ -232,7 +234,7 @@
   function goneHtml(car) {
     var G = gone(car);
     if (!G.length) return '';
-    var cid = esc(car.id), master = (typeof _isCarflowMaster === 'function' && _isCarflowMaster());
+    var cid = car.id, master = (typeof _isCarflowMaster === 'function' && _isCarflowMaster());
     return '<div class="cd3-lab" style="margin-top:14px">消した見積もり（' + G.length + '件）</div><div class="est-tbl">'
       + '<div class="est-tr est-th"><span>No.</span><span>日付</span><span>理由</span><span>消した人</span><span>ファイル</span><span class="r"></span></div>'
       + G.map(function (e, i) {
@@ -241,9 +243,9 @@
             + '<span class="est-dt">' + ymdhm(e.at) + '</span>'
             + '<span class="est-rs" title="' + esc(reasonText(e)) + '">' + esc(reasonText(e)) + '</span>'
             + '<span class="est-by">' + esc(e.deletedByName || '—') + '</span>'
-            + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
-            + '<span class="r">' + (canEdit() ? '<button type="button" class="est-btn" onclick="CarEstimates._restore(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('undo', '↩', 14) + ' 元に戻す</button>' : '')
-            + (master ? ' <button type="button" class="est-btn danger" onclick="CarEstimates._purge(\'' + cid + '\',\'' + esc(e.id) + '\')">' + I('trash', '🗑', 14) + ' 完全に消す</button>' : '') + '</span>'
+            + '<span><button type="button" class="est-btn" title="' + esc(e.name) + '" onclick="CarEstimates.open(\'' + jsq(cid) + '\',\'' + jsq(e.id) + '\')">' + I('fileText', '📄', 14) + ' 開く</button></span>'
+            + '<span class="r">' + (canEdit() ? '<button type="button" class="est-btn" onclick="CarEstimates._restore(\'' + jsq(cid) + '\',\'' + jsq(e.id) + '\')">' + I('undo', '↩', 14) + ' 元に戻す</button>' : '')
+            + (master ? ' <button type="button" class="est-btn danger" onclick="CarEstimates._purge(\'' + jsq(cid) + '\',\'' + jsq(e.id) + '\')">' + I('trash', '🗑', 14) + ' 完全に消す</button>' : '') + '</span>'
             + '</div>';
         }).join('') + '</div>';
   }
@@ -305,7 +307,7 @@
     var ref = st.ref(path);
     busy[carId] = true; redraw();
     ref.put(file, { contentType: 'application/pdf' })
-      .then(function () { return ref.getDownloadURL(); })
+      .then(function () { return window.CFFile ? CFFile.plainUrl(path) : ref.getDownloadURL(); })   /* 🔐 2026-10-20 鍵つきの住所は作らない */
       .then(function (url) {
         var e = { id: id, name: String(file.name || '見積もり.pdf').slice(0, 120), url: url, path: path, size: file.size || 0,
                   at: Date.now(), by: (window.fb.currentUser && window.fb.currentUser.uid) || '', byName: myName(),

@@ -26,6 +26,8 @@
   var hideTimer = null;
 
   function API() { return (window.PitEmbed && window.PitEmbed._api) || null; }
+  /* 🔐 2026-10-22 外部監査 SEC-07：作業の色（pitSettings＝社員が書ける）は #16進 の時だけ。ほかは空（今までも色にならない値） */
+  function wcol(c) { c = String(c == null ? '' : c).trim(); return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : ''; }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
@@ -130,7 +132,7 @@
         var w = api.wtOf(id);
         if (!w) return;
         var cd = ((id === 'coat1y' || id === 'coat3m') && c.coatingDone) ? ' ph-done' : '';
-        bd.push('<span class="ph-b' + cd + '" style="background:' + w.color + '22;color:' + w.color + ';border-color:' + w.color + '88">' + esc(w.label) + '</span>');
+        bd.push('<span class="ph-b' + cd + '" style="background:' + wcol(w.color) + '22;color:' + wcol(w.color) + ';border-color:' + wcol(w.color) + '88">' + esc(w.label) + '</span>');
       });
       (Array.isArray(c.workSpecials) ? c.workSpecials : []).forEach(function (id) {
         var lb = api.spLabel(id);
@@ -214,7 +216,7 @@
       var holdN = (function () { var n = daysFromToday(c.reserveDate); return (n == null) ? null : (1 - n); })();
       h += '<div class="ph-stat s-hold"><div class="ph-stat-lb">預かり</div>'
          + '<div class="ph-stat-num">' + (holdN != null ? holdN : '—') + '<span class="u">日目</span></div>'
-         + '<div class="ph-stat-sub">' + (c.reserveDate ? (fmtMD(c.reserveDate) + '〜') : '未定') + '</div></div>';
+         + '<div class="ph-stat-sub">' + (c.reserveDate ? (esc(fmtMD(c.reserveDate)) + '〜') : '未定') + '</div></div>';
 
       /* ② このフェーズ（外注の時は「完了予定 〇/〇」） */
       var pms = phaseStartMs(c);

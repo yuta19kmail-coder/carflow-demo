@@ -15,6 +15,8 @@
 //   - 次の番号計算からは除外（無かったことに）
 //   - 表示には残す（薄表示＋badge）
 // ========================================
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -130,7 +132,7 @@
     if (!entry || !entry.record) return '';
     if (entry.source === 'cars') {
       const id = _escHtml(entry.record.id);
-      return `onclick="event.target.closest('.nl-mark-btn')||openDetail('${id}')"`;
+      return `onclick="event.target.closest('.nl-mark-btn')||openDetail('${jsq(id)}')"`;
     }
     return '';
   }

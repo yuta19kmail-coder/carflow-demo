@@ -24,6 +24,8 @@
 //         問題を修正。tasks-def.js の SVG に width='320' height='200' を追加。
 // ========================================
 
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 let _wsActiveCarId = null;
 let _wsActiveTaskId = null;
 let _wsActiveCatIdx = 0;
@@ -295,8 +297,8 @@ function _renderWorksheetPage(car, taskDef) {
   document.getElementById('ws-title').textContent = `${taskDef.icon || ''} ${taskDef.name}`;
   const thumb = document.getElementById('ws-vehicle-thumb');
   if (thumb) {
-    if (car.photo) {
-      thumb.style.backgroundImage = `url("${car.photo}")`;
+    if (cssUrl(car.photo)) {   /* 🔐 SEC-07：写真の住所は https などだけ */
+      thumb.style.backgroundImage = `url("${cssUrl(car.photo)}")`;
       thumb.textContent = '';
     } else {
       thumb.style.backgroundImage = '';
@@ -403,7 +405,7 @@ function _renderWsSections(car, taskDef, sections) {
     // 中カテゴリ名あり → アコーディオン
     return `
       <div class="ws-section ws-section-accordion" data-section-id="${escapeHtml(sec.id)}" data-open="${isOpen ? 1 : 0}">
-        <div class="ws-section-head" onclick="toggleWsSection('${escapeHtml(sec.id)}')">
+        <div class="ws-section-head" onclick="toggleWsSection('${jsq(sec.id)}')">
           ${sec.icon ? `<span class="ws-section-icon">${icoE(escapeHtml(sec.icon))}</span>` : ''}
           <span class="ws-section-num">${String(sIdx + 1).padStart(2, '0')}</span>
           <span class="ws-section-title">${escapeHtml(sec.title)}</span>
@@ -445,7 +447,7 @@ function _renderWsStepsHtml(car, taskDef, steps) {
       + '<div class="ws-step ' + 'now' + '"><div class="ws-step-body"><div class="ws-step-manual">'
       + '<div class="ws-step-manual-note">「' + escapeHtml(cur.name) + '」には小タスクがありません。'
       + '終わったらここか、車両詳細の丸を押してください。</div>'
-      + '<button class="btn-sm btn-primary" onclick="toggleManualStep(\'' + escapeHtml(car.id) + '\',\''
+      + '<button class="btn-sm btn-primary" onclick="toggleManualStep(\'' + jsq(car.id) + '\',\''
       + escapeHtml(taskDef.id) + '\',\'' + escapeHtml(cur.id) + '\')">完了にする</button>'
       + '</div></div></div>';
   }
@@ -527,7 +529,7 @@ function _renderWsItemHtml(car, taskDef, item) {
        </div>`
     : '';
   const infoBtn = hasExpandable
-    ? `<button class="ws-info-btn ${expanded ? 'open' : ''}" onclick="toggleWsExpand('${item.id}')" aria-label="さらに詳しく">ⓘ</button>`
+    ? `<button class="ws-info-btn ${expanded ? 'open' : ''}" onclick="toggleWsExpand('${jsq(item.id)}')" aria-label="さらに詳しく">ⓘ</button>`
     : '';
 
   // 入力部 ＆ オプション行
@@ -537,7 +539,7 @@ function _renderWsItemHtml(car, taskDef, item) {
 
   if (inputType === 'check') {
     controlHtml = `
-      <button class="ws-item-chk-btn" onclick="toggleWsItem('${itemIdAttr}')" aria-label="完了切替">
+      <button class="ws-item-chk-btn" onclick="toggleWsItem('${jsq(item.id)}')" aria-label="完了切替">
         <div class="ws-item-chk">${filled ? ''+ic('check','✓',14)+'' : ''}</div>
       </button>`;
   } else if (inputType === 'tri') {
@@ -545,7 +547,7 @@ function _renderWsItemHtml(car, taskDef, item) {
     const states = ['none', 'on', 'off'];
     const labels = { none: '未', on: 'あり', off: 'なし' };
     controlHtml = `
-      <div class="ws-tri" onclick="cycleWsTri('${itemIdAttr}')">
+      <div class="ws-tri" onclick="cycleWsTri('${jsq(item.id)}')">
         ${states.map(s => `<span class="ws-tri-btn" data-state="${s}" data-active="${s === cur ? 1 : 0}">${labels[s]}</span>`).join('')}
       </div>`;
   } else if (inputType === 'status') {
@@ -553,7 +555,7 @@ function _renderWsItemHtml(car, taskDef, item) {
     const states = ['none', 'ok', 'ng'];
     const labels = { none: '未確認', ok: 'OK', ng: 'NG' };
     controlHtml = `
-      <div class="ws-status" onclick="cycleWsStatus('${itemIdAttr}')">
+      <div class="ws-status" onclick="cycleWsStatus('${jsq(item.id)}')">
         ${states.map(s => `<span class="ws-status-btn" data-state="${s}" data-active="${s === cur ? 1 : 0}">${labels[s]}</span>`).join('')}
       </div>`;
   } else if (inputType === 'select') {
@@ -573,7 +575,7 @@ function _renderWsItemHtml(car, taskDef, item) {
       <div class="ws-text-row">
         <input type="text" class="ws-text-input" placeholder="記入"
           value="${escapeHtml(value || '')}"
-          oninput="onWsTextInput('${itemIdAttr}', this.value)">
+          oninput="onWsTextInput('${jsq(item.id)}', this.value)">
       </div>`;
   }
 
@@ -633,7 +635,7 @@ function _wsBuildMediaGalleryHtml(itemId, mediaList) {
       const thumbUrl = `https://img.youtube.com/vi/${m.videoId}/hqdefault.jpg`;
       const dur = (typeof m.durationSec === 'number' && m.durationSec > 0) ? _wsFormatDuration(m.durationSec) : '';
       return `
-        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${itemId}', ${idx})" aria-label="動画を再生">
+        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${jsq(itemId)}', ${idx})" aria-label="動画を再生">
           <div class="cl-media-thumb thumb-video" style="background-image:url('${thumbUrl}')">
             <div class="yt-badge">YouTube</div>
             <div class="play-icon"></div>
@@ -648,7 +650,7 @@ function _wsBuildMediaGalleryHtml(itemId, mediaList) {
       const normalized = _wsImgSrc(m.url);
       const safeUrl = normalized.replace(/'/g, "\\'");
       return `
-        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${itemId}', ${idx})" aria-label="写真を拡大">
+        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${jsq(itemId)}', ${idx})" aria-label="写真を拡大">
           <div class="cl-media-thumb thumb-image" style="background-image:url('${safeUrl}')"></div>
           <div class="cl-media-caption">${cap}</div>
         </button>`;
@@ -656,7 +658,7 @@ function _wsBuildMediaGalleryHtml(itemId, mediaList) {
     if (m.type === 'video' && m.url) {
       // 将来の Firebase Storage 動画用（v1.5.4+）
       return `
-        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${itemId}', ${idx})" aria-label="動画を再生">
+        <button type="button" class="cl-media-tile" onclick="openWsLightbox('${jsq(itemId)}', ${idx})" aria-label="動画を再生">
           <div class="cl-media-thumb thumb-video">
             <div class="play-icon"></div>
           </div>

@@ -21,6 +21,8 @@
       大タスクの計算（進み・中タスク・作業管理票）は「車がいまどの状態か」で売約後／展示前を決めているので、
       売約後の車で展示前の大タスクを押すと売約後の方へ書かれてしまう。だから押せなくしてある。
    ======================================== */
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -123,7 +125,7 @@
       + '<span class="cd3-sp"></span>'
       + '<button class="cd3-hbtn" onclick="openCarNoteFromDetail()" title="この車両の付箋を作成">' + I('sticky', '🗒', 15) + ' 付箋を作る</button>'
       + '<button class="cd3-hbtn" onclick="CarDetailV3.setView(\'old\')" title="ビューを切り替える（今までの1カラムの表示へ）">' + I('eye', '👁', 16) + ' 1カラム表示</button>'
-      + '<button class="cd3-hbtn" data-edit-car="1" onclick="openCarModal(\'' + esc(car.id) + '\')" title="車両詳細を編集">' + I('settings', '⚙', 16) + ' 編集</button>'
+      + '<button class="cd3-hbtn" data-edit-car="1" onclick="openCarModal(\'' + jsq(car.id) + '\')" title="車両詳細を編集">' + I('settings', '⚙', 16) + ' 編集</button>'
       + '<button class="mclose" onclick="closeModal(\'modal-detail\')" title="閉じる">' + I('close', '✕', 15) + '</button></div>';
   }
 
@@ -139,7 +141,7 @@
     var hint = car.col === 'other' ? '（保留中のメモ）' : isD ? '（納車準備中のメモ）' : '（再生中のメモ）';
     var w = (car.workMemo || '').trim();
     return '<div class="work-memo" id="work-memo-wrap"><div class="work-memo-label">' + I('pencil', '📝', 16) + ' 作業メモ <span class="work-memo-hint">' + hint + '</span></div>'
-      + '<div class="work-memo-view" onclick="startEditWorkMemo(\'' + esc(car.id) + '\')">'
+      + '<div class="work-memo-view" onclick="startEditWorkMemo(\'' + jsq(car.id) + '\')">'
       + (w ? '<span data-cf-noen>' + esc(w).replace(/\n/g, '<br>') + '</span>' : '<span class="work-memo-placeholder">タップしてメモを記入</span>') + '</div></div>';
   }
   var KM_RE = /[KkＫｋ][MmＭｍ][-－ー−―‐]?[0-9０-９]{1,6}/g;
@@ -195,9 +197,9 @@
       var card = ''; try { card = B.cardHtml(n, { noDrag: true, noMenu: true }); } catch (e) {}
       var A = B.adapter && B.adapter(), can = !(A && A.canMutate) || !!A.canMutate();
       full = '<div class="cd3-arc-full"><div class="cfnb">' + card + '</div>'
-        + (can ? '<button class="cd3-back" onclick="event.stopPropagation();CarDetailV3.arcBack(\'' + esc(n.id) + '\')">' + I('undo', '↩', 14) + ' ボードへ戻す</button>' : '') + '</div>';
+        + (can ? '<button class="cd3-back" onclick="event.stopPropagation();CarDetailV3.arcBack(\'' + jsq(n.id) + '\')">' + I('undo', '↩', 14) + ' ボードへ戻す</button>' : '') + '</div>';
     }
-    return '<div class="cd3-arc-row' + (op ? ' open' : '') + '" onclick="CarDetailV3.arcRow(\'' + esc(n.id) + '\')">'
+    return '<div class="cd3-arc-row' + (op ? ' open' : '') + '" onclick="CarDetailV3.arcRow(\'' + jsq(n.id) + '\')">'
       + '<span class="dot ' + (DOT[n.color] ? n.color : 'yellow') + '"></span>'
       + '<div class="tx"><div class="t1">' + esc(t1) + '</div>' + (t2 ? '<div class="t2">' + esc(t2) + '</div>' : '') + '</div>' + st + '</div>' + full;
   }
@@ -206,7 +208,7 @@
     var cards = list.length ? cardsHtml(list) : '<div class="cd3-empty">ボードに出ている、この車の付箋はありません</div>';
     /* 件数は出さない（共通部品の「アーカイブ済付箋」と同じ・2026-09-26 の決まり） */
     var arcHtml = '<div class="cd3-arc' + (arcClosed[car.id] ? '' : ' open') + '">'
-      + '<div class="cd3-arc-h" onclick="CarDetailV3.arcToggle(\'' + esc(car.id) + '\')">' + I('archive', '🗂', 14) + ' 付箋アーカイブ<span class="ar">' + I('chevDown', '▼', 13) + '</span></div>'
+      + '<div class="cd3-arc-h" onclick="CarDetailV3.arcToggle(\'' + jsq(car.id) + '\')">' + I('archive', '🗂', 14) + ' 付箋アーカイブ<span class="ar">' + I('chevDown', '▼', 13) + '</span></div>'
       + '<div class="cd3-arc-b">' + (arc.length ? arc.map(arcRowHtml).join('')
         : '<div class="cd3-arc-row" style="cursor:default"><div class="tx"><div class="t2">まだありません。済から3日たった付箋・アーカイブにした付箋がここに残ります。</div></div></div>')
       + '</div></div>';
@@ -269,7 +271,7 @@
       if (gr.main) h += row(gr.main, false);
       if (gr.kids.length) {
         var op = !!flowOpen[key];
-        h += '<div class="cv-fsub' + (op ? ' open' : '') + '"><button class="cv-fmore" onclick="CarDetailV3.tgFlow(\'' + esc(key) + '\')"><i class="cv-fcar"></i>'
+        h += '<div class="cv-fsub' + (op ? ' open' : '') + '"><button class="cv-fmore" onclick="CarDetailV3.tgFlow(\'' + jsq(key) + '\')"><i class="cv-fcar"></i>'
           + (op ? 'この間の記録を閉じる' : 'この間の記録 ' + gr.kids.length + '件') + '</button>'
           + (op ? '<div class="cv-fkids">' + gr.kids.slice().reverse().map(function (e) { return row(e, true); }).join('') + '</div>' : '') + '</div>';
       }
@@ -353,7 +355,7 @@
     if (!k || !tabs.some(function (x) { return x.k === k; })) k = (tabs.find(function (x) { return x.k; }) || {}).k;
     var rbar = '<div class="cv-tabs">' + tabs.map(function (x) {
       if (x.gap) return '<span class="cv-tgap"></span>';
-      return '<button class="cv-tab' + (x.k === k ? ' on' : '') + (x.past ? ' past' : '') + '" onclick="CarDetailV3.tab(\'' + x.k + '\')">' + I(x.ic, x.fb, 16) + ' ' + x.lb + cnt(x.c) + (x.n ? '<span class="cv-tcnt">' + x.n + '</span>' : '') + '</button>';
+      return '<button class="cv-tab' + (x.k === k ? ' on' : '') + (x.past ? ' past' : '') + '" onclick="CarDetailV3.tab(\'' + jsq(x.k) + '\')">' + I(x.ic, x.fb, 16) + ' ' + x.lb + cnt(x.c) + (x.n ? '<span class="cv-tcnt">' + x.n + '</span>' : '') + '</button>';
     }).join('') + '</div>';
     /* ［相場］は iframe。開いたままの描き直し（同期・付箋など）で読み直さないよう、右の中身はそのまま残す */
     /* 　車の名前・年式・走行・色・価格が変わった時（data-sig が違う時）は読み直す */

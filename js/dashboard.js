@@ -68,11 +68,11 @@ function _buildInventoryWarningChips() {
       return inv >= t.days;
     });
     if (list.length === 0) return;
-    const style = `background:${t.bg};border:1px solid ${t.color};color:${t.color}`;
+    const style = `background:${cssColor(t.bg)};border:1px solid ${cssColor(t.color)};color:${cssColor(t.color)}`;
     // ライトモード用 severity クラス（tier色から判定）。ダーク時はインライン色のまま、
     //   ライト時のみ CSS(components.css)が !important で読みやすい色に上書きする。
     const sev = _chipCountSevClass(t.color);
-    chips.push(`<div class="chip-count${sev ? ' ' + sev : ''}" style="${style}" title="${t.label} — 在庫${t.days}日以上">${ic('box','📦',16)} 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
+    chips.push(`<div class="chip-count${sev ? ' ' + sev : ''}" style="${style}" title="${escapeHtml(t.label)} — 在庫${t.days}日以上">${ic('box','📦',16)} 在庫${t.days}日以上 <span class="chip-count-num">${list.length}台</span></div>`);
   });
   return chips;
 }
@@ -155,16 +155,16 @@ function _buildTaskUrgencyChips() {
     let cls, msg;
     if (top.severity === 'red') {
       cls = 'chip-red';
-      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 限界ライン超過（${top.overdueDays}日）`;
+      msg = `${icoE(top.icon)} ${escapeHtml(car.maker)} ${escapeHtml(car.model)} ${escapeHtml(top.name)} 限界ライン超過（${top.overdueDays}日）`;
     } else if (top.severity === 'orange') {
       cls = 'chip-orange';
-      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 限界ライン本日`;
+      msg = `${icoE(top.icon)} ${escapeHtml(car.maker)} ${escapeHtml(car.model)} ${escapeHtml(top.name)} 限界ライン本日`;
     } else {
       cls = 'chip-yellow';
       const daysToLimit = Math.max(0, top.toLimit);
-      msg = `${icoE(top.icon)} ${car.maker} ${car.model} ${top.name} 目標ライン超過（限界まであと${daysToLimit}日）`;
+      msg = `${icoE(top.icon)} ${escapeHtml(car.maker)} ${escapeHtml(car.model)} ${escapeHtml(top.name)} 目標ライン超過（限界まであと${daysToLimit}日）`;
     }
-    out.push(`<div class="chip ${cls}" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${msg}</div>`);
+    out.push(`<div class="chip ${cls}" onclick="openDetail('${jsq(car.id)}')"><span class="chip-dot"></span>${msg}</div>`);
   });
   return out;
 }
@@ -189,7 +189,7 @@ function _buildActionChipsHtml() {
       if (car.col === 'delivery' && typeof calcProg === 'function' && (calcProg(car).pct || 0) >= 100) return;
       const d = daysDiff(car.deliveryDate);
       if (d !== null && d <= notif.pre.days && d >= 0) {
-        chips.push(`<div class="chip chip-red" onclick="openDetail('${car.id}')"><span class="chip-dot"></span>${ic('siren','🚨',16)} ${car.maker} ${car.model} 納車${d===0?'本日':d+'日後'}</div>`);
+        chips.push(`<div class="chip chip-red" onclick="openDetail('${jsq(car.id)}')"><span class="chip-dot"></span>${ic('siren','🚨',16)} ${escapeHtml(car.maker)} ${escapeHtml(car.model)} 納車${d===0?'本日':d+'日後'}</div>`);
       }
     });
   }
@@ -480,7 +480,7 @@ function renderLanding() {
   // 詳細：確定・見込みの内訳
   const fixedList = soldPool().filter(c => c.col === 'done' && c.deliveryDate && c.deliveryDate >= `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const likelyList = cars.filter(c => c.col !== 'done' && c.contract && c.deliveryDate && c.deliveryDate.startsWith(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`));
-  const renderList = (arr, label) => arr.length ? arr.map(c => `<div style="font-size:11px;padding:3px 0;color:var(--text2)">・${c.maker} ${c.model} <span style="color:var(--text3)">${c.num}・${fmtPrice(c.price)}${c.deliveryDate?'・納車'+fmtDate(c.deliveryDate):''}</span></div>`).join('') : `<div style="font-size:11px;color:var(--text3)">${label}なし</div>`;
+  const renderList = (arr, label) => arr.length ? arr.map(c => `<div style="font-size:11px;padding:3px 0;color:var(--text2)">・${escapeHtml(c.maker)} ${escapeHtml(c.model)} <span style="color:var(--text3)">${escapeHtml(c.num)}・${fmtPrice(c.price)}${c.deliveryDate?'・納車'+fmtDate(c.deliveryDate):''}</span></div>`).join('') : `<div style="font-size:11px;color:var(--text3)">${label}なし</div>`;
   // スライド売上（売約済だが来月以降納車）
   const slideList = cars.filter(c => c.contract && c.deliveryDate && c.col !== 'done' && c.deliveryDate > `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate()).padStart(2,'0')}`);
 
@@ -643,7 +643,7 @@ function renderKPIs() {
       ${Object.keys(sizeBreakdown).sort((a,b)=>sizeBreakdown[b].count-sizeBreakdown[a].count).map(k => {
         const s = sizeBreakdown[k];
         const pct = allSold.length ? Math.round(s.count / allSold.length * 100) : 0;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px"><div style="width:80px">${k}</div><div style="flex:1"><div class="pbar" style="height:6px"><div class="pfill" style="width:${pct}%;background:var(--blue)"></div></div></div><div style="width:50px;text-align:right;color:var(--text3)">${s.count}台(${pct}%)</div></div>`;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px"><div style="width:80px">${escapeHtml(k)}</div><div style="flex:1"><div class="pbar" style="height:6px"><div class="pfill" style="width:${pct}%;background:var(--blue)"></div></div></div><div style="width:50px;text-align:right;color:var(--text3)">${s.count}台(${pct}%)</div></div>`;
       }).join('')}
       <div style="font-size:12px;font-weight:600;margin:12px 0 8px">価格帯別 販売実績</div>
       ${bandStat.map(b => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px"><div style="width:80px">${b.label}</div><div style="flex:1"><div class="pbar" style="height:6px"><div class="pfill" style="width:${Math.round(b.count/maxBand*100)}%;background:var(--green)"></div></div></div><div style="width:50px;text-align:right;color:var(--text3)">${b.count}台</div></div>`).join('')}
@@ -662,11 +662,11 @@ function renderWarningsSummary() {
   const rows = [];
   tiers.forEach(t => {
     const list = cars.filter(c => c.col !== 'done' && !c.contract && daysSince(c.purchaseDate) >= t.days);
-    if (list.length) rows.push(`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><div class="wr-dot" style="background:${t.color}"></div><div style="flex:1;font-size:12px">在庫${t.days}日以上・${t.label}</div><div style="font-size:12px;font-weight:700;color:${t.color}">${list.length}台</div></div>`);
+    if (list.length) rows.push(`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><div class="wr-dot" style="background:${cssColor(t.color)}"></div><div style="flex:1;font-size:12px">在庫${t.days}日以上・${t.label}</div><div style="font-size:12px;font-weight:700;color:${cssColor(t.color)}">${list.length}台</div></div>`);
   });
   delTiers.forEach(t => {
     const list = cars.filter(c => c.col !== 'done' && c.contract && c.deliveryDate && (()=>{const d=daysDiff(c.deliveryDate); return d!=null && d<=t.days && d>=0;})());
-    if (list.length) rows.push(`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><div class="wr-dot" style="background:${t.color}"></div><div style="flex:1;font-size:12px">納車残${t.days}日以下・${t.label}</div><div style="font-size:12px;font-weight:700;color:${t.color}">${list.length}台</div></div>`);
+    if (list.length) rows.push(`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><div class="wr-dot" style="background:${cssColor(t.color)}"></div><div style="flex:1;font-size:12px">納車残${t.days}日以下・${t.label}</div><div style="font-size:12px;font-weight:700;color:${cssColor(t.color)}">${list.length}台</div></div>`);
   });
   el.innerHTML = rows.length ? rows.join('') : '<div style="font-size:13px;color:var(--text3);padding:8px 0">警告対象の車両はありません '+ic('check','✓',14)+'</div>';
 }
@@ -757,8 +757,8 @@ function _deliveryCardHtml(car) {
   const prog = (typeof calcProg === 'function') ? calcProg(car) : { pct: 0 };
   const pct = prog.pct || 0;
   const pctColor = pct >= 100 ? 'var(--green)' : (pct > 0 ? 'var(--orange)' : 'var(--text3)');
-  const photo = car.photo
-    ? '<div class="ds-photo" style="background-image:url(\'' + car.photo + '\')"></div>'
+  const photo = cssUrl(car.photo)   /* 🔐 SEC-07：写真の住所は https などだけ・引用符は %xx に */
+    ? '<div class="ds-photo" style="background-image:url(\'' + cssUrl(car.photo) + '\')"></div>'
     : '<div class="ds-photo ds-photo-none">'+ic('car','🚗',16)+'</div>';
   const dateBig = car.deliveryDate ? _dsDateLabel(car.deliveryDate) : '<span style="color:var(--text3)">日付未定</span>';
   const time = car.deliveryTime || '';
@@ -768,7 +768,7 @@ function _deliveryCardHtml(car) {
   const badge = confirmed
     ? '<div class="ds-badge ' + (ready ? 'ds-ready' : 'ds-hurry') + '">' + (ready ? '万全！' : '急げ！') + '</div>'
     : '';
-  return '<div class="ds-card" onclick="openDetail(\'' + escapeHtml(car.id) + '\')">'
+  return '<div class="ds-card" onclick="openDetail(\'' + jsq(car.id) + '\')">'
     + badge
     + photo
     + '<div class="ds-maker">' + escapeHtml((car.maker || '') + ' ' + (car.model || '')) + '</div>'
@@ -776,8 +776,8 @@ function _deliveryCardHtml(car) {
     + '<div class="ds-pct" style="color:' + pctColor + '">' + pct + '<span class="ds-pct-u">%</span></div>'
     + '<div class="ds-date">' + dateBig + '</div>'
     + '<div class="ds-time-row" onclick="event.stopPropagation()">'
-    +   '<select class="ds-time" onclick="event.stopPropagation()" onchange="setCarDeliveryTime(\'' + escapeHtml(car.id) + '\',this.value)">' + _deliveryTimeOptions(time, car.deliveryDate) + '</select>'
-    +   '<button class="ds-confirm-btn' + (confirmed ? ' on' : '') + '"' + (time ? '' : ' disabled') + ' onclick="toggleCarDeliveryConfirm(\'' + escapeHtml(car.id) + '\')" title="時間が確定したら押す">確</button>'
+    +   '<select class="ds-time" onclick="event.stopPropagation()" onchange="setCarDeliveryTime(\'' + jsq(car.id) + '\',this.value)">' + _deliveryTimeOptions(time, car.deliveryDate) + '</select>'
+    +   '<button class="ds-confirm-btn' + (confirmed ? ' on' : '') + '"' + (time ? '' : ' disabled') + ' onclick="toggleCarDeliveryConfirm(\'' + jsq(car.id) + '\')" title="時間が確定したら押す">確</button>'
     + '</div>'
     + '</div>';
 }
@@ -887,7 +887,7 @@ function renderVehicleMemoList() {
     const tms = _vmlTaskMemosHtml(c);
     const dash = '<span class="vml-empty">—</span>';
     return '<div class="vml-row">'
-      + `<a class="vml-num" onclick="event.stopPropagation();openDetail('${c.id}')" title="車両を開く">${escapeHtml(c.num || '—')}</a>`
+      + `<a class="vml-num" onclick="event.stopPropagation();openDetail('${jsq(c.id)}')" title="車両を開く">${escapeHtml(c.num || '—')}</a>`
       + `<span class="vml-maker">${escapeHtml(c.maker || '')}</span>`
       + `<span class="vml-model">${escapeHtml(c.model || '')}</span>`
       + `<span class="vml-cell" title="${escapeHtml(core)}">${core ? escapeHtml(core) : dash}</span>`
@@ -900,7 +900,7 @@ function renderVehicleMemoList() {
   GROUPS.forEach(g => {
     const list = groups[g.key];
     if (!list.length) return;
-    groupsHtml += `<div class="vml-group"><div class="vml-group-head">${g.label}<span class="vml-group-count">${list.length}</span></div>${list.map(rowHtml).join('')}</div>`;
+    groupsHtml += `<div class="vml-group"><div class="vml-group-head">${escapeHtml(g.label)}<span class="vml-group-count">${list.length}</span></div>${list.map(rowHtml).join('')}</div>`;
   });
   const body = groupsHtml ? (colhead + groupsHtml) : '<div class="vml-empty-all">メモのある車両はありません</div>';
   const peek = total ? `その他 ${groups.other.length}・在庫 ${groups.stock.length}・売約 ${groups.sold.length}` : 'メモのある車両はありません';
@@ -950,13 +950,17 @@ function renderLogPanel() {
     }
     return (l && l.user) || '—';
   };
+  // 🔐 2026-10-21 外部監査 SEC-02：操作ログの中身は社員なら誰でも書ける＝画面に出す前に必ずエスケープ。
+  //   onclick の車の id は JS の文字列（JSON）にしてから HTML 用にもエスケープ（属性を読む時に戻っても文字列の外へ出ない）
+  const _e = (s) => (typeof escapeHtml === 'function') ? escapeHtml(s == null ? '' : s)
+    : String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // 管理番号：carId があれば車両モーダルを開くリンクに
   const _logCarHtml = (l) => {
     const num = l.carNum || '—';
     if (l.carId && num !== '—') {
-      return `<a class="log-carnum" onclick="event.stopPropagation();openDetail('${l.carId}')" title="車両を開く">${num}</a>`;
+      return `<a class="log-carnum" onclick="event.stopPropagation();openDetail(${_e(JSON.stringify(String(l.carId)))})" title="車両を開く">${_e(num)}</a>`;
     }
-    return num;
+    return _e(num);
   };
   // action 内の大タスクID（t_webup 等）を日本語名に置換し、文中の管理番号（KM-0100 等）を
   // 車両詳細リンクに変換して表示（v2.7.2：付箋と同じ linkifyCarNums ルールを共用）。
@@ -975,7 +979,7 @@ function renderLogPanel() {
   const cntEl = document.getElementById('log-count');
   if (cntEl) cntEl.textContent = _term ? `${list.length} / ${(globalLogs || []).length} 件` : `${(globalLogs || []).length} 件`;
   document.getElementById('log-list').innerHTML = list.length
-    ? list.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${_logCarHtml(l)} — ${_logActionHtml(l)}</span></div>`).join('')
+    ? list.map(l => `<div class="log-row"><span class="log-time">${_e(l.time)}</span><span class="log-user">${_e(resolveByLog(l))}</span><span style="color:var(--text2)">${_logCarHtml(l)} — ${_logActionHtml(l)}</span></div>`).join('')
     : (globalLogs && globalLogs.length ? '<div style="font-size:13px;color:var(--text3)">該当ログなし</div>' : '<div style="font-size:13px;color:var(--text3)">ログなし</div>');
 }
 
@@ -1049,10 +1053,13 @@ async function dbSearchLogs() {
     if (uid) { const s = staffList.find(x => x && x.uid === uid); if (s && typeof resolveStaffDisplayName === 'function') return resolveStaffDisplayName(s, null); }
     return (l && l.user) || '—';
   };
+  // 🔐 2026-10-21 外部監査 SEC-02：DB 検索の操作ログも同じく必ずエスケープ（renderLogPanel と同じ形）
+  const _e = (s) => (typeof escapeHtml === 'function') ? escapeHtml(s == null ? '' : s)
+    : String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const carHtml = (l) => {
     const num = l.carNum || '—';
-    if (l.carId && num !== '—') return `<a class="log-carnum" onclick="event.stopPropagation();openDetail('${l.carId}')" title="車両を開く">${num}</a>`;
-    return num;
+    if (l.carId && num !== '—') return `<a class="log-carnum" onclick="event.stopPropagation();openDetail(${_e(JSON.stringify(String(l.carId)))})" title="車両を開く">${_e(num)}</a>`;
+    return _e(num);
   };
   const actHtml = (l) => {
     const txt = (typeof humanizeTaskIds === 'function') ? humanizeTaskIds(l.action || '') : (l.action || '');
@@ -1061,7 +1068,7 @@ async function dbSearchLogs() {
 
   if (cntEl) cntEl.textContent = `DB検索「${term}」: ${rows.length}件`;
   if (listEl) listEl.innerHTML = rows.length
-    ? rows.map(l => `<div class="log-row"><span class="log-time">${l.time}</span><span class="log-user">${resolveByLog(l)}</span><span style="color:var(--text2)">${carHtml(l)} — ${actHtml(l)}</span></div>`).join('')
+    ? rows.map(l => `<div class="log-row"><span class="log-time">${_e(l.time)}</span><span class="log-user">${_e(resolveByLog(l))}</span><span style="color:var(--text2)">${carHtml(l)} — ${actHtml(l)}</span></div>`).join('')
     : '<div style="font-size:13px;color:var(--text3)">DB全体にも該当ログなし</div>';
 }
 window.dbSearchLogs = dbSearchLogs;

@@ -5,6 +5,8 @@
 
 // v1.7.25: アラート初期値（state.js の appSettings の初期値と同じ内容）
 //   設定画面の「↺ デフォルトに戻す」で参照する。
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 const DEFAULT_INV_WARN = [
   { days: 15, on: true, color: '#fcd34d', bg: 'rgba(245,210,59,.18)', label: '注意' },
   { days: 30, on: true, color: '#fb923c', bg: 'rgba(251,146,60,.20)', label: '要対応' },
@@ -32,8 +34,8 @@ function renderInvWarnEditor() {
   if (!el) return;
   el.innerHTML = appSettings.invWarn.map((t, i) => `
     <div class="warn-row">
-      <div class="wr-dot" style="background:${t.color}"></div>
-      <div class="wr-label">${t.label}（${t.days}日以上）</div>
+      <div class="wr-dot" style="background:${cssColor(t.color)}"></div>
+      <div class="wr-label">${escapeHtml(t.label)}（${t.days}日以上）</div>
       <input type="number" min="1" max="365" value="${t.days}" onchange="onInvWarnDaysChange(${i}, this.value)">
       <div class="toggle${t.on?' on':''}" onclick="toggleInvWarn(${i})"></div>
     </div>
@@ -74,8 +76,8 @@ function renderDelWarnEditor() {
   if (!el) return;
   el.innerHTML = appSettings.delWarn.map((t, i) => `
     <div class="warn-row">
-      <div class="wr-dot" style="background:${t.color}"></div>
-      <div class="wr-label">${t.label}（残${t.days}日以下）</div>
+      <div class="wr-dot" style="background:${cssColor(t.color)}"></div>
+      <div class="wr-label">${escapeHtml(t.label)}（残${t.days}日以下）</div>
       <input type="number" min="0" max="90" value="${t.days}" onchange="onDelWarnDaysChange(${i}, this.value)">
       <div class="toggle${t.on?' on':''}" onclick="toggleDelWarn(${i})"></div>
     </div>
@@ -248,12 +250,12 @@ function renderNotifEditor() {
     return `
       <div class="setting-row" style="flex-wrap:wrap">
         <div style="flex:1;min-width:160px">
-          <div style="font-size:13px;font-weight:600">${r.title}</div>
+          <div style="font-size:13px;font-weight:600">${escapeHtml(r.title)}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5">${c.desc.replace(/N/g, `<strong style="color:var(--blue)">${c.days}</strong>`)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <input type="number" min="0" max="365" value="${c.days}" onchange="onNotifDaysChange('${r.key}', this.value)" style="width:64px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;text-align:right"><span style="font-size:11px;color:var(--text3)">日</span>
-          <div class="toggle${c.on?' on':''}" onclick="toggleNotif('${r.key}')"></div>
+          <input type="number" min="0" max="365" value="${c.days}" onchange="onNotifDaysChange('${jsq(r.key)}', this.value)" style="width:64px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;text-align:right"><span style="font-size:11px;color:var(--text3)">日</span>
+          <div class="toggle${c.on?' on':''}" onclick="toggleNotif('${jsq(r.key)}')"></div>
         </div>
       </div>
     `;
@@ -308,8 +310,8 @@ function renderGoalsEditor() {
     const cur = g.monthly[key] || {...g.default};
     return `<div class="goal-row">
       <div style="font-weight:600">${y}年${m}月</div>
-      <div style="display:flex;gap:4px;align-items:center"><input type="number" min="0" step="10" value="${Math.round((cur.sales||0)/10000)}" onchange="onMonthlyGoalSales('${key}', this.value)"><span style="font-size:11px;color:var(--text3)">万円</span></div>
-      <div style="display:flex;gap:4px;align-items:center"><input type="number" min="0" value="${cur.count||0}" onchange="onMonthlyGoalCount('${key}', this.value)"><span style="font-size:11px;color:var(--text3)">台</span></div>
+      <div style="display:flex;gap:4px;align-items:center"><input type="number" min="0" step="10" value="${Math.round((cur.sales||0)/10000)}" onchange="onMonthlyGoalSales('${jsq(key)}', this.value)"><span style="font-size:11px;color:var(--text3)">万円</span></div>
+      <div style="display:flex;gap:4px;align-items:center"><input type="number" min="0" value="${cur.count||0}" onchange="onMonthlyGoalCount('${jsq(key)}', this.value)"><span style="font-size:11px;color:var(--text3)">台</span></div>
     </div>`;
   }).join('');
 
@@ -492,8 +494,8 @@ function renderTasksEditor() {
         html += `
           <div class="task-edit-row${customCls}" data-task-id="${escapeHtml(t.id)}" data-phase="${ph.key}">
             <div class="task-edit-order-btns">
-              <button class="task-edit-order-btn" onclick="moveTaskUp('${escapeHtml(t.id)}', '${ph.key}')" ${isFirst ? 'disabled' : ''} title="上へ">${ic('chevUp','▲',14)}</button>
-              <button class="task-edit-order-btn" onclick="moveTaskDown('${escapeHtml(t.id)}', '${ph.key}')" ${isLast ? 'disabled' : ''} title="下へ">${ic('chevDown','▼',14)}</button>
+              <button class="task-edit-order-btn" onclick="moveTaskUp('${jsq(t.id)}', '${jsq(ph.key)}')" ${isFirst ? 'disabled' : ''} title="上へ">${ic('chevUp','▲',14)}</button>
+              <button class="task-edit-order-btn" onclick="moveTaskDown('${jsq(t.id)}', '${jsq(ph.key)}')" ${isLast ? 'disabled' : ''} title="下へ">${ic('chevDown','▼',14)}</button>
             </div>
             <span class="task-edit-icon">${icoE(t.icon) || ic('clipboard','📋',16)}</span>
             <span class="task-edit-name">${escapeHtml(t.name)}</span>
@@ -524,7 +526,7 @@ function renderTasksEditor() {
                 <span class="task-edit-deadline-lbl task-edit-deadline-lbl-target">目標</span>
                 <input type="number" min="1" max="365" value="${targetVal}"
                        placeholder="—"
-                       onchange="setTaskTargetDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       onchange="setTaskTargetDays('${jsq(t.id)}', '${jsq(ph.key)}', this.value)"
                        class="task-edit-deadline-inp"
                        title="目標ライン（${ph.deadlineHint} N ${ph.deadlineSuffix}）">
                 <span class="task-edit-deadline-suffix">日</span>
@@ -533,7 +535,7 @@ function renderTasksEditor() {
                 <span class="task-edit-deadline-lbl task-edit-deadline-lbl-limit">限界</span>
                 <input type="number" min="1" max="365" value="${limitVal}"
                        placeholder="—"
-                       onchange="setTaskLimitDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       onchange="setTaskLimitDays('${jsq(t.id)}', '${jsq(ph.key)}', this.value)"
                        class="task-edit-deadline-inp"
                        title="限界ライン（${ph.deadlineHint} N ${ph.deadlineSuffix}）">
                 <span class="task-edit-deadline-suffix">日</span>
@@ -544,7 +546,7 @@ function renderTasksEditor() {
                 <span class="task-edit-deadline-lbl">納車</span>
                 <input type="number" min="1" max="365" value="${targetVal}"
                        placeholder="—"
-                       onchange="setTaskTargetDays('${escapeHtml(t.id)}', '${ph.key}', this.value)"
+                       onchange="setTaskTargetDays('${jsq(t.id)}', '${jsq(ph.key)}', this.value)"
                        class="task-edit-deadline-inp"
                        title="納車から N 日前">
                 <span class="task-edit-deadline-suffix">日前</span>
@@ -553,7 +555,7 @@ function renderTasksEditor() {
             <!-- v2.0.0: ON/OFFトグルを廃止し、すべての操作（ON/OFF含む）を ⋮ メニューに集約。
                  ⋮ボタンの見た目は「OFFのときグレーアウト」で視覚的にON/OFFも判別できる。 -->
             <button class="task-edit-menu-btn${t.enabled ? '' : ' task-edit-menu-off'}"
-                    onclick="openTaskMenu('${escapeHtml(t.id)}', '${ph.key}')"
+                    onclick="openTaskMenu('${jsq(t.id)}', '${jsq(ph.key)}')"
                     title="${t.enabled ? 'ON' : 'OFF'}（クリックで操作メニュー）">⋮</button>
           </div>`;
       });
@@ -565,7 +567,7 @@ function renderTasksEditor() {
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" id="new-task-icon-${ph.key}" class="settings-input" placeholder="" maxlength="4" style="width:48px;text-align:center">
           <input type="text" id="new-task-name-${ph.key}" class="settings-input" placeholder="タスク名" maxlength="20" style="flex:1">
-          <button class="btn-sm" onclick="addCustomTaskForPhase('${ph.key}')">追加</button>
+          <button class="btn-sm" onclick="addCustomTaskForPhase('${jsq(ph.key)}')">追加</button>
         </div>
       </div>`;
     html += `</div>`;
@@ -690,7 +692,7 @@ function _renderTaskSettingsForm() {
       <div class="ts-row-control">${controlHtml}</div>
     </div>`;
   const toggleHtml = (key, on, extraClass) => `
-    <div class="toggle ${on ? 'on' : ''}${extraClass ? ' ' + extraClass : ''}" onclick="_toggleTaskSettingsField('${key}')" role="switch" aria-checked="${on}"></div>`;
+    <div class="toggle ${on ? 'on' : ''}${extraClass ? ' ' + extraClass : ''}" onclick="_toggleTaskSettingsField('${jsq(key)}')" role="switch" aria-checked="${on}"></div>`;
   const memoOptions = ['off', 'freeword', 'date', 'time'].map(v => {
     const label = v === 'off' ? 'OFF（メモ無効）'
                : v === 'freeword' ? 'フリーテキスト'
@@ -1715,7 +1717,7 @@ function renderBoardLabelsEditor() {
     return `<div class="bn-labels-editor-row">
       <span class="bn-labels-editor-swatch ${c.css}"></span>
       <input type="text" maxlength="12" placeholder="ラベル名" value="${escapeHtml(v)}"
-             onchange="onBoardLabelChange('${c.key}', this.value)">
+             onchange="onBoardLabelChange('${jsq(c.key)}', this.value)">
     </div>`;
   }).join('');
 }

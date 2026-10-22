@@ -12,6 +12,8 @@
 
 /* 📝 v3.16.4 カレンダーへ車を落として納車日を変える。売約でなかった車は同時に売約になるので、それも「前 → 後」で残す
    （前は「納車日変更: 旧→新」だけで、売約が立ったこと・売約日が入ったことが記録に無かった） */
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 function calSetDeliveryDate(car, ds) {
   if (!car) return;
   const _d = v => v ? String(v) : '未定';
@@ -663,10 +665,10 @@ function renderCountdown() {
       ? `<div class="countdown-today-badge" title="本日期限のタスク">${ic('warn','⚠',14)} 本日期限 ${it.todayDueCount}件</div>`
       : '';
     return `
-    <div class="countdown-card" onclick="openDetail('${it.car.id}')">
+    <div class="countdown-card" onclick="openDetail('${jsq(it.car.id)}')">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
         <div style="width:9px;height:9px;border-radius:50%;background:${it.bg};flex-shrink:0"></div>
-        <div style="font-size:11px;color:var(--text2)">${it.label}</div>
+        <div style="font-size:11px;color:var(--text2)">${escapeHtml(it.label)}</div>
       </div>
       <div class="countdown-num" style="color:${it.diff === 0 ? 'var(--red)' : it.diff <= 3 ? 'var(--orange)' : it.diff <= 7 ? 'var(--blue)' : 'var(--text)'}">${it.diff === 0 ? '本日！' : it.diff + '日後'}</div>
       <div class="countdown-label">${fmtDate(it.date)}</div>

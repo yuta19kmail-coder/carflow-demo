@@ -346,7 +346,7 @@ function renderWorklog() {
       }
       const cheer = isCompletedDelivery ? '<span class="worklog-car-shine">'+ic('sparkle','✨',15)+' 完成！おめでとう</span>' : oneMore;
       return `
-        <div class="worklog-car-row" onclick="openWorklogCar('${escapeHtml(c.carId)}')">
+        <div class="worklog-car-row" onclick="openWorklogCar(${escapeHtml(JSON.stringify(String(c.carId)))})">
           <div class="worklog-car-main">
             <div class="worklog-car-name">${escapeHtml(carName)} ${cheer}</div>
             <div class="worklog-car-meta">

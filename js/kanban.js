@@ -41,7 +41,7 @@ function renderKanban() {
     const isCompact = colCars.length >= COMPACT_THRESHOLD && !kanbanForceExpand;
     const div = document.createElement('div');
     div.className = 'k-col' + (col.id === 'other' ? ' k-col-other' : '');
-    div.innerHTML = `<div class="k-col-hdr"><div class="k-col-dot" style="background:${col.color}"></div><div class="k-col-title">${col.label}</div><div class="k-col-count">${colCars.length}</div></div><div class="k-cards" id="kc-${col.id}" data-col="${col.id}"></div>`;
+    div.innerHTML = `<div class="k-col-hdr"><div class="k-col-dot" style="background:${cssColor(col.color)}"></div><div class="k-col-title">${escapeHtml(col.label)}</div><div class="k-col-count">${colCars.length}</div></div><div class="k-cards" id="kc-${col.id}" data-col="${col.id}"></div>`;
     wrap.appendChild(div);
     const cd = div.querySelector('.k-cards');
     colCars.forEach(car => cd.appendChild(makeCarCard(car, isCompact)));
@@ -156,7 +156,7 @@ function _renderTentativeColumn(wrap) {
   const col = (typeof TENTATIVE_COL !== 'undefined') ? TENTATIVE_COL : { id:'tentative', label:'仮登録車両', color:'#ec4899' };
   const div = document.createElement('div');
   div.className = 'k-col k-col-tentative';
-  div.innerHTML = `<div class="k-col-hdr"><div class="k-col-dot" style="background:${col.color}"></div><div class="k-col-title">${col.label}</div><div class="k-col-count">${list.length}</div></div><div class="k-cards" id="kc-tentative" data-col="tentative"></div>`;
+  div.innerHTML = `<div class="k-col-hdr"><div class="k-col-dot" style="background:${cssColor(col.color)}"></div><div class="k-col-title">${escapeHtml(col.label)}</div><div class="k-col-count">${list.length}</div></div><div class="k-cards" id="kc-tentative" data-col="tentative"></div>`;
   wrap.appendChild(div);
   const cd = div.querySelector('.k-cards');
   list.forEach(t => cd.appendChild(_makeTentativeCard(t)));
@@ -538,12 +538,12 @@ function _makeOtherCard(car, isCompact) {
   div.dataset.carId = car.id;
   div.dataset.col = car.col;
   div.innerHTML = `
-    <div class="cc-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
+    <div class="cc-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}</div>
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker" data-cf-noen>${car.maker}</div>
-          <div class="cc-model" data-cf-noen>${car.model}${car.grade ? ' ' + car.grade : ''}</div>
+          <div class="cc-maker" data-cf-noen>${escapeHtml(car.maker)}</div>
+          <div class="cc-model" data-cf-noen>${escapeHtml(car.model)}${car.grade ? ' ' + escapeHtml(car.grade) : ''}</div>
         </div>
         <div class="cc-info-right">
           <div class="cc-bigday cc-other-day">仕入<span class="cc-bigday-num">${inv}</span>日</div>
@@ -577,7 +577,7 @@ function makeCarCard(car, isCompact) {
   const dots = tasks.map(t => {
     const p = calcSingleProg(car, t.id, tasks);
     const cls = p.pct === 100 ? 'done' : p.pct > 0 ? 'partial' : '';
-    return `<div class="cc-dot ${cls}" title="${t.name} ${p.pct}%"></div>`;
+    return `<div class="cc-dot ${cls}" title="${escapeHtml(t.name)} ${p.pct}%"></div>`;
   }).join('');
 
   const contractedDays = daysSinceContract(car);
@@ -595,7 +595,7 @@ function makeCarCard(car, isCompact) {
   } else {
     const wt = invWarnTier(inv);
     const cls = wt ? (wt.days >= 45 ? 'dr' : wt.days >= 30 ? 'dw' : 'dg') : 'dg';
-    topDayTag = `<div class="cc-bigday ${cls}"${wt?` style="background:${wt.bg};color:${wt.color}"`:''}>在庫<span class="cc-bigday-num">${inv}</span>日</div>`;
+    topDayTag = `<div class="cc-bigday ${cls}"${wt?` style="background:${cssColor(wt.bg)};color:${cssColor(wt.color)}"`:''}>在庫<span class="cc-bigday-num">${inv}</span>日</div>`;
   }
 
   let bottomBar = '';
@@ -607,7 +607,7 @@ function makeCarCard(car, isCompact) {
       const dt = delWarnTier(delDiff);
       const cls = dt ? (delDiff < 0 ? 'br' : delDiff <= 1 ? 'br' : delDiff <= 3 ? 'bw' : 'bb') : 'bb';
       const label = delDiff === 0 ? '納車本日' : delDiff > 0 ? `納車まで${delDiff}日` : `納車超過${-delDiff}日`;
-      bottomBar = `<div class="cc-bottom-bar ${cls}"${dt?` style="background:${dt.bg};color:${dt.color}"`:''}>${label}</div>`;
+      bottomBar = `<div class="cc-bottom-bar ${cls}"${dt?` style="background:${cssColor(dt.bg)};color:${cssColor(dt.color)}"`:''}>${label}</div>`;
     } else {
       bottomBar = `<div class="cc-bottom-bar">納車日未設定</div>`;
     }
@@ -624,7 +624,7 @@ function makeCarCard(car, isCompact) {
       const _hint = pl.manual
         ? 'この中タスクを完了にする'
         : `作業管理票を開く（小タスクが ${pl.stepTotal - pl.stepDone} 個 残っています）`;
-      stepLine = `<div class="cc-step cc-step-btn" title="${_e(_hint)}" onclick="onKanbanStepClick(event,'${car.id}')">
+      stepLine = `<div class="cc-step cc-step-btn" title="${_e(_hint)}" onclick="onKanbanStepClick(event,'${jsq(car.id)}')">
         <span class="cc-step-chk ${pl.manual ? 'manual' : ''}">${pl.manual ? '☐' : '›'}</span>
         <span class="cc-step-task">${_i(pl.taskIcon)} ${_e(pl.taskName)}</span>
         <span class="cc-step-sep">─</span>
@@ -640,12 +640,12 @@ function makeCarCard(car, isCompact) {
   div.dataset.carId = car.id;
   div.dataset.col = car.col;
   div.innerHTML = `
-    <div class="cc-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
+    <div class="cc-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}</div>
     <div class="cc-body">
       <div class="cc-info-row">
         <div class="cc-info-left">
-          <div class="cc-maker" data-cf-noen>${car.maker}</div>
-          <div class="cc-model" data-cf-noen>${car.model}${car.grade ? ' ' + car.grade : ''}</div>
+          <div class="cc-maker" data-cf-noen>${escapeHtml(car.maker)}</div>
+          <div class="cc-model" data-cf-noen>${escapeHtml(car.model)}${car.grade ? ' ' + escapeHtml(car.grade) : ''}</div>
           ${(() => {
             // v1.8.61: 両方ありの時は1行にまとめる（総額ラベル小・本体は括弧内）。
             //   片方のみ → そちらが緑として表示、税ラベルも緑。
@@ -667,9 +667,9 @@ function makeCarCard(car, isCompact) {
         </div>
         <div class="cc-info-right">
           ${topDayTag}
-          <div class="cc-num-tag">${car.num || ''}</div>
-          <div class="cc-tag">${car.size}</div>
-          <div class="cc-tag">${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div>
+          <div class="cc-num-tag">${escapeHtml(car.num || '')}</div>
+          <div class="cc-tag">${escapeHtml(car.size)}</div>
+          <div class="cc-tag">${escapeHtml(fmtYearDisplay(parseYearInput(car.year)||car.year))}</div>
         </div>
       </div>
       <div class="cc-mid">

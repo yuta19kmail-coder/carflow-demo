@@ -472,6 +472,20 @@ function normCarNum(s) {
     .replace(/[-\s]/g, '');        // ハイフン・空白を除去
 }
 
+// 🔐 2026-10-22 外部監査 SEC-07：社員が書いた値を HTML に入れる時の3つの道具（ふつうの値なら出る形は今まで通り）
+//   jsq(s)      … onclick="f('…')" の '…' の中に入れる時。HTML の段で &#39; が ' に戻るので、先に JS 用に \ と ' を逃がしてから HTML エスケープ
+//   cssColor(c) … 色を style に入れる時。#16進・rgb()/hsl()・英字の色名・var(--x) だけ。それ以外は def（無ければ空）
+//   imgOk(u)    … 写真の住所。https・http・blob・data:image だけ true
+function jsq(s) { return escapeHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
+function cssColor(c, def) {
+  const s = String(c == null ? '' : c).trim();
+  if (/^#[0-9a-fA-F]{3,8}$/.test(s) || /^(rgb|rgba|hsl|hsla)\([0-9.,%\s\/]+\)$/i.test(s) || /^[a-zA-Z]{3,30}$/.test(s) || /^var\(--[\w-]+\)$/.test(s)) return s;
+  return def == null ? '' : def;
+}
+function imgOk(u) { return !!u && /^(https?:|blob:|data:image\/)/i.test(String(u)); }
+//   cssUrl(u)   … style の url('…') に入れる時。imgOk の住所だけ・引用符やかっこは %xx に（住所としては同じ意味）
+function cssUrl(u) { return imgOk(u) ? String(u).replace(/['"()\\\s<>]/g,(ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')) : ''; }
+
 // 文中の管理番号（例 KM-0100）を車両詳細リンクに変換する共通関数。
 //   ・付箋（タイトル/本文）・操作ログのメッセージで共用
 //   ・該当する在庫車（cars）がある場合のみリンク化。なければただの文字のまま
@@ -487,7 +501,9 @@ function linkifyCarNums(text) {
     const norm = normCarNum(m);
     const car = cars.find(c => normCarNum(c.num) === norm);
     if (!car) return m;
-    return `<a class="bn-carlink" onclick="event.stopPropagation();if(typeof openDetail==='function')openDetail('${car.id}');">${m}</a>`;
+    // 🔐 2026-10-21 外部監査 SEC-07：car.id は JS の文字列（JSON）にして HTML 用にもエスケープ（普通の id なら動きは同じ）
+    const _idq = JSON.stringify(String(car.id)).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return `<a class="bn-carlink" onclick="event.stopPropagation();if(typeof openDetail==='function')openDetail(${_idq});">${m}</a>`;
   });
 }
 

@@ -2,6 +2,8 @@
 //  CarFlow メンバー画面（js/members.js）
 // ----------------------------------------
 //  🔴🔴 **この画面は閲覧専用。操作ボタンは1つも出ない。**
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
       const isAdmin = false;             // 🔴 固定。人と権限は CoreFlow が唯一の正なので、ここからは触らせない
 //     役割変更・グループ変更・招待・編集・無効化・削除は **描かれない。**
 //     生きているのは **一覧の表示** と **並び替えの ▲▼**（`canSort`）だけ。
@@ -99,8 +101,8 @@ async function renderMembers() {
           const isFirst = idx === 0;
           const isLast = idx === staffList.length - 1;
           arrowsHtml = `<div style="display:flex;flex-direction:column;gap:2px">
-            <button class="m-arrow" onclick="moveMember('${_esc(s.uid)}', -1)" ${isFirst ? 'disabled' : ''} title="上に移動">${ic('chevUp','▲',14)}</button>
-            <button class="m-arrow" onclick="moveMember('${_esc(s.uid)}', 1)" ${isLast ? 'disabled' : ''} title="下に移動">${ic('chevDown','▼',14)}</button>
+            <button class="m-arrow" onclick="moveMember('${jsq(s.uid)}', -1)" ${isFirst ? 'disabled' : ''} title="上に移動">${ic('chevUp','▲',14)}</button>
+            <button class="m-arrow" onclick="moveMember('${jsq(s.uid)}', 1)" ${isLast ? 'disabled' : ''} title="下に移動">${ic('chevDown','▼',14)}</button>
           </div>`;
         }
 

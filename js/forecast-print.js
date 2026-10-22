@@ -52,11 +52,13 @@
     const d = new Date();
     return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
   }
+  // 🔐 2026-10-22 外部監査 SEC-07：車の欄は HTML に入れる前にエスケープ（ふつうの値なら同じ）
+  function _h(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
   function _carName(c){
     const parts = [];
     if (c.maker) parts.push(c.maker);
     if (c.model) parts.push(c.model);
-    return parts.join(' ') || (c.num || '(無名車)');
+    return _h(parts.join(' ') || (c.num || '(無名車)'));
   }
 
   // ===== 左列：納車完了の車両リスト（販売実績）=====
@@ -209,7 +211,7 @@
     const rowHtml = rows.map((r, i) => {
       cum += r.yen;
       return `<tr class="fp-kpi-row fp-stair-row${r.yen ? '' : ' is-zero'}">
-        <td class="fp-kpi-label">${i ? '<span class="fp-stair-plus">＋</span>' : ''}${r.label}</td>
+        <td class="fp-kpi-label">${i ? '<span class="fp-stair-plus">＋</span>' : ''}${_h(r.label)}</td>
         <td class="fp-kpi-actual">${k(r.yen)}</td>
         <td class="fp-stair-n">${r.n}<span class="fp-kpi-unit"> 台</span></td>
         <td class="fp-kpi-pct">${pct(cum)}%</td>
@@ -368,10 +370,10 @@
     // 要対応の車両カードHTML
     function _overdueCarRow(item, sevClass){
       const c = item.car;
-      const taskNames = item.items.map(t => `${t.icon || ''}${t.name} ${t.overdueDays >= 0 ? '+' : ''}${t.overdueDays}日`).join(' / ');
+      const taskNames = item.items.map(t => `${_h(t.icon || '')}${_h(t.name)} ${t.overdueDays >= 0 ? '+' : ''}${t.overdueDays}日`).join(' / ');
       return `<li class="fp-week-overdue-row ${sevClass}">
-        <span class="fp-week-overdue-num">${c.num || c.id || ''}</span>
-        <span class="fp-week-overdue-car">${(c.maker||'') + ' ' + (c.model||'')}</span>
+        <span class="fp-week-overdue-num">${_h(c.num || c.id || '')}</span>
+        <span class="fp-week-overdue-car">${_h((c.maker||'') + ' ' + (c.model||''))}</span>
         <span class="fp-week-overdue-task">${taskNames}</span>
       </li>`;
     }

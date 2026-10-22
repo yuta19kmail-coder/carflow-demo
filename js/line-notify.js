@@ -46,7 +46,6 @@
     };
     NEW_TRIGGER_KEYS.forEach(k => { triggers[k] = { enabled: false }; });
     return {
-      channelAccessToken: '',
       groupId: '',
       enabled: false,
       triggers,
@@ -54,10 +53,9 @@
   }
 
   let _lineConfig = _defaultConfig();
-  let _tokenMasked = true;
-  /* 🔐 v3.16.7 チャネルシークレット（integrations/line.channelSecret）。LINE の受け口（サーバー）が署名を確かめるのに使う。
-     画面では値を持たない・出さない＝「入っているか」だけ。保存はこの欄だけ（変えた時だけ）。操作ログには「入れた／変えた」だけ（値は残さない） */
-  let _hasSecret = false;
+  /* 🔐 v3.19.0（2026-10-20・セキュリティ棚卸し A-4）LINE の鍵2つ（チャネルアクセストークン・チャネルシークレット）は
+     サーバーの金庫（Secret Manager）が正。画面は鍵を読まない・出さない・書かない（前は「👁」で平文が見えた＝辞めた人が控えられた）。
+     入れ直すのはチーフ（_サーバー\メモ.md の手順）。ここで保存するのはグループID・ON/OFF・時刻などだけ */
 
   // ----------------------------------------
   // Firestore参照
@@ -100,14 +98,11 @@
           mergedTriggers[k] = Object.assign({}, def.triggers[k], (d.triggers && d.triggers[k]) || {});
         });
         _lineConfig = {
-          channelAccessToken: typeof d.channelAccessToken === 'string' ? d.channelAccessToken : '',
           groupId: typeof d.groupId === 'string' ? d.groupId : '',
           enabled: !!d.enabled,
           triggers: mergedTriggers,
         };
-        _hasSecret = typeof d.channelSecret === 'string' && d.channelSecret.length > 0;   /* 値はメモリにも置かない */
       }
-      _tokenMasked = !!_lineConfig.channelAccessToken;
       _renderLineUI();
       console.log('[line-notify] config loaded');
     } catch (err) {
@@ -120,27 +115,11 @@
   // UIに値を流し込む
   // ----------------------------------------
   function _renderLineUI() {
-    const tokenInp = document.getElementById('line-token-inp');
     const groupInp = document.getElementById('line-group-inp');
     const toggleEnabled = document.getElementById('line-enabled-toggle');
 
-    if (tokenInp) {
-      if (_tokenMasked && _lineConfig.channelAccessToken) {
-        tokenInp.value = _lineConfig.channelAccessToken.slice(0, 6) + '●●●●●●●●●●';
-        tokenInp.type = 'password';
-        tokenInp.dataset.masked = '1';
-      } else {
-        tokenInp.value = _lineConfig.channelAccessToken;
-        tokenInp.type = 'password';
-        tokenInp.dataset.masked = '0';
-      }
-    }
     if (groupInp) groupInp.value = _lineConfig.groupId;
     if (toggleEnabled) toggleEnabled.classList.toggle('on', !!_lineConfig.enabled);
-    const secState = document.getElementById('line-secret-state');
-    if (secState) secState.textContent = _hasSecret ? '（入っています）' : '（まだ入っていません）';
-    const secInp = document.getElementById('line-secret-inp');
-    if (secInp) secInp.value = '';
 
     // トリガー個別
     const tDaily = document.getElementById('line-trig-daily-toggle');
@@ -298,22 +277,8 @@
     _saveTogglesOnly();
   }
 
-  function toggleLineTokenVisibility() {
-    const inp = document.getElementById('line-token-inp');
-    if (!inp) return;
-    if (inp.dataset.masked === '1') {
-      // 伏字 → 平文（既存トークンを表示）
-      inp.value = _lineConfig.channelAccessToken;
-      inp.type = 'text';
-      inp.dataset.masked = '0';
-      _tokenMasked = false;
-    } else {
-      // 平文 → 伏字（メモリ値ベースで再描画）
-      inp.type = 'password';
-      _tokenMasked = true;
-      _renderLineUI();
-    }
-  }
+  /* 🔐 v3.19.0 鍵は画面に出さない＝「👁」は無くした（古い画面が残っていても何もしない） */
+  function toggleLineTokenVisibility() {}
 
   // ----------------------------------------
   // 保存
@@ -322,30 +287,17 @@
     const ref = _lineDoc();
     if (!ref) { _setStatus('会社情報がまだ読み込まれていません', 'err'); return; }
 
-    const tokenInp = document.getElementById('line-token-inp');
     const groupInp = document.getElementById('line-group-inp');
-
-    let token = _lineConfig.channelAccessToken;
-    if (tokenInp && tokenInp.dataset.masked === '0') {
-      token = tokenInp.value.trim();
-    }
     const groupId = (groupInp ? groupInp.value : '').trim();
-    const secInp = document.getElementById('line-secret-inp');
-    const secret = (secInp ? secInp.value : '').trim();
-    if (secret && !/^[0-9a-f]{32}$/i.test(secret)) {
-      _setStatus('チャネルシークレットの形式がおかしいです（英数字32文字）', 'err'); return;
-    }
 
     if (_lineConfig.enabled) {
-      if (!token) { _setStatus('トークンが空です（有効化するなら必須）', 'err'); return; }
       if (!groupId) { _setStatus('グループIDが空です（有効化するなら必須）', 'err'); return; }
       if (!/^C[a-z0-9]{32}$/i.test(groupId)) {
         _setStatus('グループIDの形式がおかしいです（C始まりの33文字）', 'err'); return;
       }
     }
 
-    const payload = {
-      channelAccessToken: token,
+    const payload = {   /* 🔐 v3.19.0 鍵は書かない（金庫が正・merge なので Firestore にある古い鍵は消さない＝消すのは移り終えてから） */
       groupId: groupId,
       enabled: !!_lineConfig.enabled,
       // v1.8.107: 新規トリガーも含めて全部シリアライズ
@@ -357,21 +309,7 @@
     try {
       _setStatus('保存中…', '');
       await ref.set(payload, { merge: true });
-      _lineConfig.channelAccessToken = token;
       _lineConfig.groupId = groupId;
-      _tokenMasked = true;
-      /* 🔐 v3.16.7 シークレットは入れた時だけ、この欄だけを書く（update＝ほかの欄に触らない） */
-      if (secret) {
-        const had = _hasSecret;
-        await ref.update({
-          channelSecret: secret,
-          updatedAt: window.fb.serverTimestamp(),
-          updatedBy: (window.fb.currentUser && window.fb.currentUser.uid) || null,
-        });
-        _hasSecret = true;
-        if (secInp) secInp.value = '';
-        if (typeof addAuditLog === 'function') addAuditLog(had ? 'LINE のチャネルシークレットを変えた' : 'LINE のチャネルシークレットを入れた');
-      }
       _renderLineUI();
       _setStatus('✅ 保存しました', 'ok');
       if (typeof showToast === 'function') showToast('LINE連携設定を保存しました');

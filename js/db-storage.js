@@ -78,6 +78,12 @@
   }
 
   // 車両メイン写真をアップロード
+  /* 🔐 2026-10-20（セキュリティ棚卸し M-2）鍵つきの住所（getDownloadURL）は作らない＝鍵の無い住所（CFFile.plainUrl）を返す。
+     見る時は CFFile の見張りがログインの合札で取ってきた中身に差し替える。同じ名前に上書きした物は、覚えている古い中身を捨てる */
+  function _plainUrl(ref) {
+    if (window.CFFile) { CFFile.forget(ref.fullPath); return CFFile.plainUrl(ref.fullPath); }
+    return ref.getDownloadURL();
+  }
   async function uploadCarPhoto(carId, fileOrBlob) {
     const root = _companyRoot();
     if (!root || !carId || !fileOrBlob) return null;
@@ -87,7 +93,7 @@
     const ref = root.child('cars/' + carId + '/main.jpg');
     try {
       await ref.put(blob, { contentType: 'image/jpeg' });
-      return await ref.getDownloadURL();
+      return await _plainUrl(ref);
     } catch (err) {
       console.error('[db-storage] uploadCarPhoto:', err);
       throw err;
@@ -104,7 +110,7 @@
     const ref = root.child('profiles/' + uid + '.jpg');
     try {
       await ref.put(blob, { contentType: 'image/jpeg' });
-      return await ref.getDownloadURL();
+      return await _plainUrl(ref);
     } catch (err) {
       console.error('[db-storage] uploadProfilePhoto:', err);
       throw err;
@@ -148,7 +154,7 @@
     const ref = root.child('boardNotes/' + noteId + '.jpg');
     try {
       await ref.put(blob, { contentType: 'image/jpeg' });
-      return await ref.getDownloadURL();
+      return await _plainUrl(ref);
     } catch (err) {
       console.error('[db-storage] uploadBoardNoteImage:', err);
       throw err;
@@ -175,7 +181,7 @@
     const ref = root.child('boardNotes/' + noteId + '.pdf');
     try {
       await ref.put(file, { contentType: 'application/pdf' });
-      return await ref.getDownloadURL();
+      return await _plainUrl(ref);
     } catch (err) {
       console.error('[db-storage] uploadBoardNotePdf:', err);
       throw err;
@@ -209,7 +215,7 @@
     const ref = root.child(path);
     try {
       await ref.put(blob, { contentType: 'image/jpeg' });
-      return await ref.getDownloadURL();
+      return await _plainUrl(ref);
     } catch (err) {
       console.error('[db-storage] uploadChecklistMedia:', err);
       throw err;

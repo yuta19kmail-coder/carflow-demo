@@ -21,6 +21,8 @@
 //   Firestore ルール側でも write は canEditTemplates を要求。
 // ========================================
 
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -169,7 +171,7 @@
       const label = on ? '📝 小タスク制 ON' : '📝 小タスク制 OFF';
       const tip = on ? 'クリックで OFF（パターンは保持されます）' : 'クリックで ON';
       return `<button type="button" class="tpl-card-mode-chip ${cls}"
-                 onclick="_toggleTaskChecklistFromPatterns('${_esc(tid)}','${_esc(phase)}',${on})"
+                 onclick="_toggleTaskChecklistFromPatterns('${jsq(tid)}','${jsq(phase)}',${on})"
                  title="${tip}">${label}</button>`;
     }
 
@@ -202,11 +204,11 @@
               </div>
             </div>
             <div class="tpl-variant-row-actions">
-              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(t.id)}', '${_esc(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
-              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
-              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
-              <button class="btn-sm" onclick="resetVariantToDefault('${_esc(t.id)}', '${_esc(v.id)}')" title="このパターンを初期状態に戻す">${ic('refresh','↺',15)} 初期化</button>
-              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(t.id)}', '${_esc(v.id)}')" ${deleteAttrs}>${ic('trash','🗑',16)} 削除</button>
+              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${jsq(t.id)}', '${jsq(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
+              <button class="btn-sm" onclick="renameTemplateVariantById('${jsq(t.id)}', '${jsq(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
+              <button class="btn-sm" onclick="duplicateTemplateVariantById('${jsq(t.id)}', '${jsq(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
+              <button class="btn-sm" onclick="resetVariantToDefault('${jsq(t.id)}', '${jsq(v.id)}')" title="このパターンを初期状態に戻す">${ic('refresh','↺',15)} 初期化</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${jsq(t.id)}', '${jsq(v.id)}')" ${deleteAttrs}>${ic('trash','🗑',16)} 削除</button>
             </div>
           </div>`;
       }).join('');
@@ -217,7 +219,7 @@
 
       const isBuiltin = (t.sourceType === 'worksheet' || t.sourceType === 'equipment');
       const resetTaskBtn = isBuiltin
-        ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>`
+        ? `<button class="btn-sm" onclick="resetTemplateToDefault('${jsq(t.id)}')" title="このタスクを初期状態に戻す（追加パターン・カスタム編集は全部消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>`
         : '';
       const modeChip = _modeChipHtml(taskInfo, phase);
 
@@ -308,10 +310,10 @@
               </div>
             </div>
             <div class="tpl-variant-row-actions">
-              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${_esc(tplId)}', '${_esc(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
-              <button class="btn-sm" onclick="renameTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
-              <button class="btn-sm" onclick="duplicateTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
-              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${_esc(tplId)}', '${_esc(v.id)}')" title="このパターンを削除">${ic('trash','🗑',16)} 削除</button>
+              <button class="btn-sm btn-primary" onclick="openTemplateDetail('${jsq(tplId)}', '${jsq(v.id)}')">${ic('pencil','✏️',15)} 中身を編集</button>
+              <button class="btn-sm" onclick="renameTemplateVariantById('${jsq(tplId)}', '${jsq(v.id)}')" title="このパターン名を変更">${ic('pencil','📝',16)} 名前</button>
+              <button class="btn-sm" onclick="duplicateTemplateVariantById('${jsq(tplId)}', '${jsq(v.id)}')" title="このパターンを複製">${ic('clipboard','📋',16)} 複製</button>
+              <button class="btn-sm btn-danger" onclick="deleteTemplateVariantById('${jsq(tplId)}', '${jsq(v.id)}')" title="このパターンを削除">${ic('trash','🗑',16)} 削除</button>
             </div>
           </div>`;
       }).join('');
@@ -340,7 +342,7 @@
             ${variantsHtml}
             ${emptyHint}
             <div class="tpl-variant-add-row">
-              <button class="btn-sm" onclick="addPatternForTask('${_esc(taskInfo.id)}', '${_esc(phase)}')">+ パターンを追加</button>
+              <button class="btn-sm" onclick="addPatternForTask('${jsq(taskInfo.id)}', '${jsq(phase)}')">+ パターンを追加</button>
             </div>
           </div>
         </div>`;
@@ -375,7 +377,7 @@
       return `
         <div class="tpl-phase-group tpl-phase-group-${g.hue}">
           <div class="tpl-phase-group-head">
-            <span class="tpl-phase-group-label">${g.label}</span>
+            <span class="tpl-phase-group-label">${escapeHtml(g.label)}</span>
             <span class="tpl-phase-group-count">${tasks.length}件</span>
           </div>
           <div class="tpl-grid">${cards}</div>
@@ -1010,16 +1012,16 @@
         <!-- v1.6.2: テンプレ名はタスク一覧側で扱うので削除。代わりにプレビュー / インポート/エクスポートを追加 -->
         <!-- v1.7.19: 表示スタイルボタンは廃止（中身の構造で自動決定） -->
         <!-- v1.7.20: 「+ セクション追加」は廃止し、大→中→小それぞれの追加ボタンに分離 -->
-        <button class="btn-sm" onclick="previewTemplate('${_esc(tpl.id)}')" title="作業画面に近い形でプレビュー">${ic('eye','👁',15)} プレビュー</button>
+        <button class="btn-sm" onclick="previewTemplate('${jsq(tpl.id)}')" title="作業画面に近い形でプレビュー">${ic('eye','👁',15)} プレビュー</button>
         ${(tpl.sourceType === 'worksheet' || tpl.sourceType === 'equipment')
-          ? `<button class="btn-sm" onclick="resetTemplateToDefault('${_esc(tpl.id)}')" title="このタスク全体を初期状態に戻す（追加パターン含めて消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>
-             <button class="btn-sm" onclick="resetVariantToDefault('${_esc(tpl.id)}', '${_esc(window._tplEditor.activeVariantId || '')}')" title="今編集中のパターンの中身を初期状態に戻す">${ic('refresh','↺',15)} このパターンを初期化</button>`
+          ? `<button class="btn-sm" onclick="resetTemplateToDefault('${jsq(tpl.id)}')" title="このタスク全体を初期状態に戻す（追加パターン含めて消えます）">${ic('refresh','↺',15)} このタスクを初期化</button>
+             <button class="btn-sm" onclick="resetVariantToDefault('${jsq(tpl.id)}', '${jsq(window._tplEditor.activeVariantId || '')}')" title="今編集中のパターンの中身を初期状態に戻す">${ic('refresh','↺',15)} このパターンを初期化</button>`
           : ''}
         <span class="tpl-toolbar-spacer"></span>
         <!-- v1.6.2: Excel 連携（既存テンプレの構造をそのまま編集してから取込み） -->
-        <button class="btn-sm" onclick="exportTemplateXlsx('${_esc(tpl.id)}')" title="現在の項目を Excel にダウンロード">${ic('down','⬇',14)} Excel書き出し</button>
+        <button class="btn-sm" onclick="exportTemplateXlsx('${jsq(tpl.id)}')" title="現在の項目を Excel にダウンロード">${ic('down','⬇',14)} Excel書き出し</button>
         <label class="btn-sm tpl-import-label" title="Excel から項目を一括取込（既存項目は置き換え）">${ic('up','⬆',14)} Excel取込
-          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importTemplateXlsx('${_esc(tpl.id)}', this.files[0]); this.value=''">
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importTemplateXlsx('${jsq(tpl.id)}', this.files[0]); this.value=''">
         </label>
         <!-- v1.7.14: 書式テンプレ DL（列の説明＋記入例つき空ファイル） -->
         <button class="btn-sm" onclick="downloadTemplateBlank()" title="記入例と列の説明が入った空のテンプレを書き出す">${ic('clipboard','📋',16)} 書式テンプレDL</button>
@@ -1027,9 +1029,9 @@
 
       <div class="tpl-tab-blocks">${tabBlocksHtml || '<div class="tpl-empty">まだ何もありません。下のボタンから始めてください。<br><span style="font-size:11px;color:var(--text3)">シンプルに項目だけ並べたいなら一番右の「+ 小タスクだけ追加」、フォルダ分けしたいなら左から</span></div>'}</div>
       <div class="tpl-add-tab-row" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-sm btn-primary" onclick="addTemplateTab('${_esc(tpl.id)}')">+ 大カテゴリ追加</button>
-        <button class="btn-sm" onclick="addTemplateSectionInTab('${_esc(tpl.id)}', '')" title="タブを使わず中カテゴリだけを直接追加">+ 中カテゴリ追加（タブなし）</button>
-        <button class="btn-sm" onclick="addTemplateItemFlat('${_esc(tpl.id)}')" title="タブも中カテゴリも作らず、項目だけを直接並べる最もシンプルな構成">+ 小タスクだけ追加</button>
+        <button class="btn-sm btn-primary" onclick="addTemplateTab('${jsq(tpl.id)}')">+ 大カテゴリ追加</button>
+        <button class="btn-sm" onclick="addTemplateSectionInTab('${jsq(tpl.id)}', '')" title="タブを使わず中カテゴリだけを直接追加">+ 中カテゴリ追加（タブなし）</button>
+        <button class="btn-sm" onclick="addTemplateItemFlat('${jsq(tpl.id)}')" title="タブも中カテゴリも作らず、項目だけを直接並べる最もシンプルな構成">+ 小タスクだけ追加</button>
       </div>
     `;
   }
@@ -1060,7 +1062,7 @@
     return `
       <div class="tpl-stepmode ${lv === 'item' ? '' : 'on'}">
         <div class="tpl-stepmode-main">
-          <div class="tpl-stepmode-title">${ic('list','📋',16)} このタスクの作り：<b>${cur.name}</b></div>
+          <div class="tpl-stepmode-title">${ic('list','📋',16)} このタスクの作り：<b>${escapeHtml(cur.name)}</b></div>
           <div class="tpl-stepmode-desc">
             ${cur.desc}<br>
             <span class="tpl-stepmode-sub">変えるところ＝<b>設定 → タスク・進捗 → このタスクの ⋮</b>（この画面では切り替えません）</span>
@@ -1101,13 +1103,13 @@
         <div class="tpl-tab-block-head">
           <span class="tpl-tab-block-icon">${ic('files','📑',15)}</span>
           <span class="tpl-tab-block-name">${tabDisplay}</span>
-          <button class="btn-sm" onclick="renameTemplateTab('${_esc(tpl.id)}', '${tabKey}')">${ic('pencil','✏️',15)} 名前変更</button>
-          <button class="btn-sm btn-danger" onclick="deleteTemplateTab('${_esc(tpl.id)}', '${tabKey}')">${ic('trash','🗑',16)} 削除</button>
+          <button class="btn-sm" onclick="renameTemplateTab('${jsq(tpl.id)}', '${jsq(tabName)}')">${ic('pencil','✏️',15)} 名前変更</button>
+          <button class="btn-sm btn-danger" onclick="deleteTemplateTab('${jsq(tpl.id)}', '${jsq(tabName)}')">${ic('trash','🗑',16)} 削除</button>
         </div>
         <div class="tpl-tab-block-body">
           ${innerHtml}
           <div class="tpl-add-section-row">
-            <button class="btn-sm" onclick="addTemplateSectionInTab('${_esc(tpl.id)}', '${tabKey}')">+ 中カテゴリ追加</button>
+            <button class="btn-sm" onclick="addTemplateSectionInTab('${jsq(tpl.id)}', '${jsq(tabName)}')">+ 中カテゴリ追加</button>
           </div>
         </div>
       </div>`;
@@ -1133,10 +1135,10 @@
            ondragover="tplSectionDragOver(this, event)"
            ondragleave="tplSectionDragLeave(this, event)"
            ondrop="tplSectionDrop(this, event)">
-        <div class="tpl-section-block-head" onclick="toggleTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">
+        <div class="tpl-section-block-head" onclick="toggleTemplateSection('${jsq(tpl.id)}', '${jsq(sec.id)}')">
           <div class="tpl-section-arrows">
-            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', -1)" ${isFirstInTab ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
-            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${_esc(tpl.id)}', '${_esc(sec.id)}', 1)" ${isLastInTab ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
+            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${jsq(tpl.id)}', '${jsq(sec.id)}', -1)" ${isFirstInTab ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
+            <button class="tpl-arrow" onclick="event.stopPropagation();moveTemplateSectionInTab('${jsq(tpl.id)}', '${jsq(sec.id)}', 1)" ${isLastInTab ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
           </div>
           <span class="tpl-section-block-name">${titleDisplay}</span>
           <span class="tpl-section-count">${enabledCount}/${itemCount}項目</span>
@@ -1144,9 +1146,9 @@
         </div>
         ${isOpen ? `
           <div class="tpl-section-toolbar">
-            <button class="btn-sm" onclick="renameTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">${ic('pencil','✏️',15)} 中カテゴリ名</button>
-            <button class="btn-sm btn-primary" onclick="addTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}')">+ 小タスク追加</button>
-            <button class="btn-sm btn-danger" onclick="deleteTemplateSection('${_esc(tpl.id)}', '${_esc(sec.id)}')">${ic('trash','🗑',16)} 中カテゴリ削除</button>
+            <button class="btn-sm" onclick="renameTemplateSection('${jsq(tpl.id)}', '${jsq(sec.id)}')">${ic('pencil','✏️',15)} 中カテゴリ名</button>
+            <button class="btn-sm btn-primary" onclick="addTemplateItem('${jsq(tpl.id)}', '${jsq(sec.id)}')">+ 小タスク追加</button>
+            <button class="btn-sm btn-danger" onclick="deleteTemplateSection('${jsq(tpl.id)}', '${jsq(sec.id)}')">${ic('trash','🗑',16)} 中カテゴリ削除</button>
           </div>
           <div class="tpl-items">${itemsHtml || '<div class="tpl-empty">小タスクがありません。「+ 小タスク追加」から作成してください。<br><span class="tpl-drop-hint">他の中カテゴリからドラッグして持ってくることもできます</span></div>'}</div>
         ` : ''}
@@ -1169,8 +1171,8 @@
            ondragend="tplItemDragEnd(this, event)">
         <div class="tpl-item-handle" title="ドラッグして移動">⋮⋮</div>
         <div class="tpl-item-arrows">
-          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
-          <button class="tpl-arrow" onclick="moveTemplateItem('${_esc(tpl.id)}', '${_esc(sec.id)}', ${idx}, 1)" ${idx === (sec.items || []).length - 1 ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
+          <button class="tpl-arrow" onclick="moveTemplateItem('${jsq(tpl.id)}', '${jsq(sec.id)}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>${ic('chevUp','▲',14)}</button>
+          <button class="tpl-arrow" onclick="moveTemplateItem('${jsq(tpl.id)}', '${jsq(sec.id)}', ${idx}, 1)" ${idx === (sec.items || []).length - 1 ? 'disabled' : ''}>${ic('chevDown','▼',14)}</button>
         </div>
         <div class="tpl-item-id">${_esc(item.id)}</div>
         <div class="tpl-item-body">
@@ -1183,8 +1185,8 @@
           ${(item.hideInPrint && _isEquipTpl(tpl)) ? '<span class="tpl-item-noprint">印刷しない</span>' : ''}
         </div>
         <div class="tpl-item-actions">
-          <button class="btn-sm" onclick="openTemplateItemEditor('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${ic('pencil','✏️',15)} 編集</button>
-          <button class="btn-sm" onclick="toggleTemplateItemDisabled('${_esc(tpl.id)}', '${_esc(sec.id)}', '${_esc(item.id)}')">${disabled ? ''+ic('check','✅',15)+' 有効化' : ''+ic('ban','🚫',15)+' 無効化'}</button>
+          <button class="btn-sm" onclick="openTemplateItemEditor('${jsq(tpl.id)}', '${jsq(sec.id)}', '${jsq(item.id)}')">${ic('pencil','✏️',15)} 編集</button>
+          <button class="btn-sm" onclick="toggleTemplateItemDisabled('${jsq(tpl.id)}', '${jsq(sec.id)}', '${jsq(item.id)}')">${disabled ? ''+ic('check','✅',15)+' 有効化' : ''+ic('ban','🚫',15)+' 無効化'}</button>
         </div>
       </div>
     `;

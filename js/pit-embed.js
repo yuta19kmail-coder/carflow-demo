@@ -38,6 +38,8 @@
    ⚠ カードをクリックすると **PitFlow を別タブで開く**（`?card=<id>`／PitFlow の deeplink-pit.js が受ける）。
       CarFlow 側にカード詳細は作らない＝編集の本体は PitFlow、という決めごとのため。
    ======================================== */
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -82,6 +84,8 @@
   var _unsubCards = null, _unsubSettings = null, _unsubLoaners = null, _unsubAssigns = null, _started = false, _loaded = false, _err = '';
 
   /* ---------------- 小道具 ---------------- */
+  /* 🔐 2026-10-22 外部監査 SEC-07：作業の色（pitSettings＝社員が書ける）は #16進 の時だけ。ほかは空（今までも色にならない値） */
+  function wcol(c) { c = String(c == null ? '' : c).trim(); return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : ''; }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
@@ -199,12 +203,12 @@
       var w = wtOf(id);
       if (!w) return;
       var cd = ((id === 'coat1y' || id === 'coat3m') && c.coatingDone) ? ' pcm-done' : '';
-      top += '<span class="pcm-wt' + cd + '" style="background:' + w.color + '22;color:' + w.color + ';border-color:' + w.color + '66;">' + esc(w.label) + '</span>';
+      top += '<span class="pcm-wt' + cd + '" style="background:' + wcol(w.color) + '22;color:' + wcol(w.color) + ';border-color:' + wcol(w.color) + '66;">' + esc(w.label) + '</span>';
     });
 
     var h = '<div class="pit-card pcm' + (c.codeRed ? ' pcm-claim' : '') + (c.resNo ? ' pcm-tab' : '')
           + (c.tentative ? ' is-tentative' : '') + '" data-card-id="' + esc(c.id) + '"'
-          + ' onclick="PitEmbed.open(\'' + esc(c.id) + '\')" title="クリックで PitFlow のカードを開きます"'
+          + ' onclick="PitEmbed.open(\'' + jsq(c.id) + '\')" title="クリックで PitFlow のカードを開きます"'
           + ' style="border-left-color:' + teamColor + ';">';
     if (c.resNo) {
       h += '<div class="pcm-ear" style="border-left-color:' + (c.codeRed ? '#ef4444' : teamColor)
@@ -241,14 +245,14 @@
     var ex = extra ? ('<div class="cs-extra">' + extra + '</div>') : '';
     var body = '<div class="cs-item"><div class="cs-cardwrap">' + cardHtml(c) + ex + '</div>';
     if (task) {
-      body += '<button class="cs-done" onclick="event.stopPropagation();PitEmbed.done(\'' + esc(c.id) + '\',\'' + task + '\')">'
+      body += '<button class="cs-done" onclick="event.stopPropagation();PitEmbed.done(\'' + jsq(c.id) + '\',\'' + jsq(task) + '\')">'
             + icon('check', '✓', 14) + ' 完了</button>';
     }
     return body + '</div>';
   }
   function csDoneCard(c, task) {
     return '<div class="cs-item cs-doneitem"><div class="cs-cardwrap">' + cardHtml(c) + '</div>'
-         + '<button class="cs-undo" onclick="event.stopPropagation();PitEmbed.undo(\'' + esc(c.id) + '\',\'' + task + '\')">'
+         + '<button class="cs-undo" onclick="event.stopPropagation();PitEmbed.undo(\'' + jsq(c.id) + '\',\'' + jsq(task) + '\')">'
          + icon('undo', '↩', 14) + ' 戻す</button></div>';
   }
   function csSec(title, sub, bodyHtml, doneHtml) {
@@ -381,13 +385,13 @@
     var tm = (c && c.reserveDate === a.fromDate && c.reserveTime) ? ' ' + esc(c.reserveTime) : '';
     var ex = '<div class="cs-extra cs-lo-ex">' + icon('calendar', '📅', 16) + ' ' + (c ? '入庫 ' : '貸出 ') + mdw(a.fromDate) + tm + '</div>';
     var btn = x.back
-      ? '<button class="cs-done" onclick="event.stopPropagation();PitEmbed.loDone(\'' + esc(a.id) + '\')">' + icon('check', '✓', 14) + ' 完了</button>'
+      ? '<button class="cs-done" onclick="event.stopPropagation();PitEmbed.loDone(\'' + jsq(a.id) + '\')">' + icon('check', '✓', 14) + ' 完了</button>'
       : '<div class="cs-wait">戻ってから洗車</div>';
     return '<div class="cs-item"><div class="cs-cardwrap">' + loCardHtml(x) + ex + '</div>' + btn + '</div>';
   }
   function loDoneItem(x) {
     return '<div class="cs-item cs-doneitem"><div class="cs-cardwrap">' + loCardHtml(x) + '</div>'
-      + '<button class="cs-undo" onclick="event.stopPropagation();PitEmbed.loUndo(\'' + esc(x.a.id) + '\')">' + icon('undo', '↩', 14) + ' 戻す</button></div>';
+      + '<button class="cs-undo" onclick="event.stopPropagation();PitEmbed.loUndo(\'' + jsq(x.a.id) + '\')">' + icon('undo', '↩', 14) + ' 戻す</button></div>';
   }
   function loSort(p, q) {
     /* 時刻は分に直してくらべる（文字のままだと 10:00 が 9:30 より前に来る） */
@@ -588,19 +592,19 @@
           h += '<span class="pe-nm">' + esc(x.lo.name || '代車') + '</span>';
           h += '<span class="pe-car">' + esc(x.lo.model || '') + '</span>';
           h += '<span class="pe-time">' + esc((x.card && x.card.reserveDate === a.fromDate && x.card.reserveTime) || '') + '</span>';
-          h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.loDone(\'' + esc(a.id) + '\')">' + icon('check', '✓', 14) + ' 済</button>';
+          h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.loDone(\'' + jsq(a.id) + '\')">' + icon('check', '✓', 14) + ' 済</button>';
           h += '</div>';
           return;
         }
         /* data-card-id ＝ マウスオーバーで詳細を出すため（js/pit-hover.js が読む） */
-        h += '<div class="pe-row" data-card-id="' + esc(c.id) + '" onclick="PitEmbed.open(\'' + esc(c.id) + '\')" title="マウスを乗せると詳細／クリックで PitFlow のカードを開きます">';
+        h += '<div class="pe-row" data-card-id="' + esc(c.id) + '" onclick="PitEmbed.open(\'' + jsq(c.id) + '\')" title="マウスを乗せると詳細／クリックで PitFlow のカードを開きます">';
         h += '<span class="pe-when ' + it.when + '">' + (it.when === 'today' ? '今日' : '明日') + '</span>';
         h += '<span class="pe-what pe-t-' + it.task + '">' + esc(it.what) + '</span>';
         h += '<span class="pe-nm" data-cf-noen>' + esc(custSurname(c) || '（未入力）') + ' 様</span>';
         h += '<span class="pe-car" data-cf-noen>' + esc(c.car || '') + '</span>';
         var t = c.returnTime || c.reserveTime || '';
         h += '<span class="pe-time">' + esc(t) + '</span>';
-        h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.done(\'' + esc(c.id) + '\',\'' + it.task + '\')">'
+        h += '<button class="pe-ok" onclick="event.stopPropagation();PitEmbed.done(\'' + jsq(c.id) + '\',\'' + jsq(it.task) + '\')">'
            + icon('check', '✓', 14) + ' 済</button>';
         h += '</div>';
       });

@@ -18,6 +18,8 @@
 //     → タスク行の右側 inline に入れるメモセル HTML（空 or 「ラベル: 値」）
 // ========================================
 
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -81,7 +83,7 @@
     const cfg = getTaskMemoConfig(task.id, phase);
     const label = (typeof getTaskMemoLabel === 'function') ? getTaskMemoLabel(task.id, phase) : (cfg.label || 'メモ');
     const memo = _getMemo(car, task.id);
-    const handlerAttr = `onclick="event.stopPropagation();window.taskMemo.openModal('${_esc(car.id)}','${_esc(task.id)}','${_esc(phase)}')"`;
+    const handlerAttr = `onclick="event.stopPropagation();window.taskMemo.openModal('${jsq(car.id)}','${jsq(task.id)}','${jsq(phase)}')"`;
 
     if (!memo || !memo.value) {
       // 値なし → 薄い追加プロンプト

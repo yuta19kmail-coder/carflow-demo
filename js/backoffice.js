@@ -18,6 +18,8 @@
 //   - アプリ起動時（auth.js）と月次締めボタン押下時（archive.js）に呼ばれる
 // ========================================
 
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 (function () {
   'use strict';
 
@@ -195,7 +197,7 @@
     }
 
     const fromArchiveLit = car._fromArchive ? 'true' : 'false';
-    return `<div class="bo-card" onclick="window.backoffice.openDetail('${_esc(car.id)}',${fromArchiveLit})">
+    return `<div class="bo-card" onclick="window.backoffice.openDetail('${jsq(car.id)}',${fromArchiveLit})">
       <div class="bo-card-thumb">${photo}</div>
       <div class="bo-card-body">
         <div class="bo-card-maker">${_esc(car.maker || '')}</div>

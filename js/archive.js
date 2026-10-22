@@ -309,10 +309,10 @@ function renderArchive() {
           ? `<span class="arc-cust" title="${(typeof escapeHtml==='function')?escapeHtml(custName):custName}">${(typeof escapeHtml==='function')?escapeHtml(custName):custName}</span>`
           : `<span style="color:var(--text3)">—</span>`;
         return `<div class="arc-car-row">
-          <span class="mono">${c.num}${orderMark}</span>
+          <span class="mono">${escapeHtml(c.num)}${orderMark}</span>
           <span>${custCell}</span>
-          <span style="color:var(--text)">${c.maker} ${c.model}${c.grade?' '+c.grade:''}</span>
-          <span>${c.size||'—'}</span>
+          <span style="color:var(--text)">${escapeHtml(c.maker)} ${escapeHtml(c.model)}${c.grade ? ' ' + escapeHtml(c.grade) : ''}</span>
+          <span>${escapeHtml(c.size || '—')}</span>
           <span>${Number(c.km||0).toLocaleString()}km</span>
           <span>${(conv/10000).toFixed(1)}万円${snapNote}</span>
           <span style="text-align:right">${invDisp}</span>

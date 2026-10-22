@@ -51,15 +51,15 @@ function _makeExhibitCard(car) {
   const wt = invWarnTier(inv);
   const invCls = wt ? (wt.days >= 45 ? 'dr' : wt.days >= 30 ? 'dw' : 'dg') : 'dg';
   const km = Number(car.km || 0).toLocaleString();
-  const yr = fmtYearDisplay(parseYearInput(car.year) || car.year);
+  const yr = escapeHtml(fmtYearDisplay(parseYearInput(car.year) || car.year));   /* 🔐 SEC-07：HTML にだけ使う */
   const card = document.createElement('div');
   card.className = 'ex-card';
   card.innerHTML = `
-    <div class="ex-card-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
+    <div class="ex-card-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}</div>
     <div class="ex-card-body">
-      <div class="ex-card-title" data-cf-noen>${car.maker} ${car.model}</div>
+      <div class="ex-card-title" data-cf-noen>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div>
       <div class="ex-card-meta">
-        <span class="ex-card-meta-item ex-card-color" title="${(car.color || '').replace(/"/g,'&quot;')}">${car.color || '—'}</span>
+        <span class="ex-card-meta-item ex-card-color" title="${escapeHtml(car.color || '')}">${escapeHtml(car.color || '—')}</span>
         <span class="ex-card-meta-item">${yr}</span>
       </div>
       <div class="ex-card-meta ex-card-meta-km-row">
@@ -96,7 +96,7 @@ function _makeExhibitColumn(opts) {
   const pctHtml = opts.isStock ? '' : `<span class="ex-col-pct">${opts.pct.toFixed(1)}%</span>`;
   col.innerHTML = `
     <div class="ex-col-hdr">
-      <div class="ex-col-name"><span class="ex-col-icon">${icoE(opts.icon)}</span>${opts.name}</div>
+      <div class="ex-col-name"><span class="ex-col-icon">${icoE(opts.icon)}</span>${escapeHtml(opts.name)}</div>
       <div class="ex-col-stats">
         <span class="ex-col-count">${opts.count}</span>
         <span class="ex-col-count-unit">台</span>
@@ -201,13 +201,13 @@ function renderGantt() { /* removed in v0.8.9 */ }
 // ========================================
 function _makeDealCard(car) {
   const km = Number(car.km || 0).toLocaleString();
-  const yr = fmtYearDisplay(parseYearInput(car.year) || car.year);
+  const yr = escapeHtml(fmtYearDisplay(parseYearInput(car.year) || car.year));   /* 🔐 SEC-07：HTML にだけ使う */
   const card = document.createElement('div');
   card.className = 'deal-card';
   card.innerHTML = `
-    <div class="deal-card-thumb">${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}</div>
+    <div class="deal-card-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}</div>
     <div class="deal-card-body">
-      <div class="deal-card-title" data-cf-noen>${car.maker} ${car.model}</div>
+      <div class="deal-card-title" data-cf-noen>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div>
       <div class="deal-card-stats">
         <div class="deal-stat">
           <div class="deal-stat-num">${yr}</div>
@@ -244,7 +244,7 @@ function _makeDealColumn(opts) {
   col.className = 'deal-col' + (opts.isStock ? ' stock' : '');
   col.innerHTML = `
     <div class="deal-col-hdr">
-      <div class="deal-col-name"><span class="deal-col-icon">${icoE(opts.icon)}</span>${opts.name}</div>
+      <div class="deal-col-name"><span class="deal-col-icon">${icoE(opts.icon)}</span>${escapeHtml(opts.name)}</div>
     </div>
     <div class="deal-col-body"></div>`;
   const body = col.querySelector('.deal-col-body');
@@ -294,26 +294,26 @@ function openDealPopup(car) {
   const body = document.getElementById('deal-popup-body');
   if (!body) return;
   const km = Number(car.km || 0).toLocaleString();
-  const yr = fmtYearDisplay(parseYearInput(car.year) || car.year);
+  const yr = escapeHtml(fmtYearDisplay(parseYearInput(car.year) || car.year));   /* 🔐 SEC-07：HTML にだけ使う */
   // 装備詳細ボタンの表示文言（v1.0.20）
   let eqBtnHtml = '';
   if (typeof calcEquipmentProgress === 'function') {
     const p = calcEquipmentProgress(car);
     if (p.filled > 0) {
-      eqBtnHtml = `<button class="deal-eq-trigger" onclick="dealShowEquipment('${car.id}')">${ic('clipboard','📋',16)} 装備詳細を見る（${p.filled}/${p.total}）</button>`;
+      eqBtnHtml = `<button class="deal-eq-trigger" onclick="dealShowEquipment('${jsq(car.id)}')">${ic('clipboard','📋',16)} 装備詳細を見る（${p.filled}/${p.total}）</button>`;
     }
   }
   body.setAttribute('data-eq-mode', '0');
   body.innerHTML = `
     <div class="deal-main">
-      <div class="deal-popup-photo">${car.photo ? `<img src="${car.photo}">` : `<div class="deal-popup-emoji">${carEmoji(car.size)}</div>`}</div>
+      <div class="deal-popup-photo">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : `<div class="deal-popup-emoji">${carEmoji(car.size)}</div>`}</div>
       <div class="deal-popup-info">
-        <div class="deal-popup-title" data-cf-noen>${car.maker} ${car.model}</div>
+        <div class="deal-popup-title" data-cf-noen>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div>
         <div class="deal-popup-stats">
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">年式</div><div class="deal-popup-stat-val">${yr}</div></div>
           <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">走行距離</div><div class="deal-popup-stat-val">${km}<span class="deal-popup-stat-unit">km</span></div></div>
-          <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">ボディ</div><div class="deal-popup-stat-val">${car.size || '—'}</div></div>
-          <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">色</div><div class="deal-popup-stat-val">${car.color || '—'}</div></div>
+          <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">ボディ</div><div class="deal-popup-stat-val">${escapeHtml(car.size || '—')}</div></div>
+          <div class="deal-popup-stat"><div class="deal-popup-stat-lbl">色</div><div class="deal-popup-stat-val">${escapeHtml(car.color || '—')}</div></div>
         </div>
         ${(() => {
           // v1.8.63: 商談ポップアップもW金額表示
@@ -381,14 +381,14 @@ function _makeProgressCardOther(car, compact) {
   card.innerHTML = `
     <div class="pv-drag" title="ドラッグして並び替え">⋮⋮</div>
     <div class="pv-head">
-      <div class="pv-thumb">${car.photo?`<img src="${car.photo}">`:carEmoji(car.size)}</div>
+      <div class="pv-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">`:carEmoji(car.size)}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:600">${car.maker} ${car.model}</div>
-        <div style="font-size:11px;color:var(--text2)">${car.num}</div>
+        <div style="font-size:13px;font-weight:600">${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div>
+        <div style="font-size:11px;color:var(--text2)">${escapeHtml(car.num)}</div>
       </div>
       <span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span>
     </div>${bodyHtml}
-    <div class="pv-btn" onclick="openDetail('${car.id}')">${ic('chevRight','▶',14)} カードを開く</div>`;
+    <div class="pv-btn" onclick="openDetail('${jsq(car.id)}')">${ic('chevRight','▶',14)} カードを開く</div>`;
   return card;
 }
 
@@ -403,9 +403,9 @@ function _makeProgressCard(car, compact) {
   card.dataset.carId = car.id;
   const taskRows = compact ? '' : tasks.map(t => {
     const p = calcSingleProg(car, t.id, tasks);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:14px">${icoE(t.icon)}</span><div style="flex:1;font-size:12px">${t.name}</div><div class="pbar" style="width:52px"><div class="pfill" style="width:${p.pct}%"></div></div><div style="font-size:11px;color:var(--text3);width:30px;text-align:right">${p.pct}%</div></div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:14px">${icoE(t.icon)}</span><div style="flex:1;font-size:12px">${escapeHtml(t.name)}</div><div class="pbar" style="width:52px"><div class="pfill" style="width:${p.pct}%"></div></div><div style="font-size:11px;color:var(--text3);width:30px;text-align:right">${p.pct}%</div></div>`;
   }).join('');
-  card.innerHTML = `<div class="pv-drag" title="ドラッグして並び替え">⋮⋮</div><div class="pv-head"><div class="pv-thumb">${car.photo?`<img src="${car.photo}">`:carEmoji(car.size)}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${car.maker} ${car.model}</div><div style="font-size:11px;color:var(--text2)">${car.num} · ${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div></div><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></div><div class="pv-body">${taskRows}<div style="margin-top:${compact?'0':'9px'};display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>全体</span><span style="font-weight:700;color:var(--green)">${prog.pct}%</span></div><div class="pbar" style="height:6px;margin-top:5px"><div class="pfill" style="width:${prog.pct}%"></div></div></div><div class="pv-btn" onclick="openDetail('${car.id}')">${ic('chevRight','▶',14)} カードを開く</div>`;
+  card.innerHTML = `<div class="pv-drag" title="ドラッグして並び替え">⋮⋮</div><div class="pv-head"><div class="pv-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">`:carEmoji(car.size)}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div><div style="font-size:11px;color:var(--text2)">${escapeHtml(car.num)} · ${escapeHtml(fmtYearDisplay(parseYearInput(car.year)||car.year))}</div></div><span class="pill ${pillMap[car.col]||'pill-gray'}">${colLabel}</span></div><div class="pv-body">${taskRows}<div style="margin-top:${compact?'0':'9px'};display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>全体</span><span style="font-weight:700;color:var(--green)">${prog.pct}%</span></div><div class="pbar" style="height:6px;margin-top:5px"><div class="pfill" style="width:${prog.pct}%"></div></div></div><div class="pv-btn" onclick="openDetail('${jsq(car.id)}')">${ic('chevRight','▶',14)} カードを開く</div>`;
   return card;
 }
 
@@ -448,7 +448,7 @@ function renderProgress() {
   const tabBar = document.createElement('div');
   tabBar.className = 'pv-tabs';
   tabBar.innerHTML = groups.map(g =>
-    `<button class="pv-tab${g.id === progressActiveGroup ? ' active' : ''}" data-group="${g.id}" onclick="setProgressGroup('${g.id}')">${g.label}<span class="pv-tab-count">${g.cars.length}</span></button>`
+    `<button class="pv-tab${g.id === progressActiveGroup ? ' active' : ''}" data-group="${g.id}" onclick="setProgressGroup('${jsq(g.id)}')">${escapeHtml(g.label)}<span class="pv-tab-count">${g.cars.length}</span></button>`
   ).join('');
   wrap.appendChild(tabBar);
 
@@ -457,14 +457,14 @@ function renderProgress() {
     const expanded = !!progressExpanded[g.id];
     const compact = isMany && !expanded;
     const toggleBtn = isMany
-      ? `<button class="pv-toggle-btn" onclick="toggleProgressGroup('${g.id}')">${expanded ? ''+ic('chevUp','▲',14)+' 縮小表示に戻す' : ''+ic('chevDown','▼',14)+' すべて展開'}</button>`
+      ? `<button class="pv-toggle-btn" onclick="toggleProgressGroup('${jsq(g.id)}')">${expanded ? ''+ic('chevUp','▲',14)+' 縮小表示に戻す' : ''+ic('chevDown','▼',14)+' すべて展開'}</button>`
       : '';
     const sec = document.createElement('div');
     sec.className = 'pv-group' + (g.id === progressActiveGroup ? ' pv-active' : '');
     sec.dataset.group = g.id;
     sec.innerHTML = `
       <div class="pv-group-head">
-        <div class="pv-group-title">${g.label} <span class="pv-group-count">${g.cars.length}台</span></div>
+        <div class="pv-group-title">${escapeHtml(g.label)} <span class="pv-group-count">${g.cars.length}台</span></div>
         ${toggleBtn}
       </div>
       <div class="pv-group-body"></div>`;
@@ -620,7 +620,7 @@ function _renderTableSortBar() {
   ];
   bar.innerHTML = `
     <div class="ex-toolbar-label">並び替え</div>
-    ${items.map(it => `<button class="ex-sort-btn" data-key="${it.key}" onclick="setTableSort('${it.key}')">${icoE(it.icon)} ${it.label}</button>`).join('')}
+    ${items.map(it => `<button class="ex-sort-btn" data-key="${it.key}" onclick="setTableSort('${jsq(it.key)}')">${icoE(it.icon)} ${escapeHtml(it.label)}</button>`).join('')}
     <div class="ex-toolbar-spacer"></div>
     <div class="ex-total-label" id="table-total-label"></div>`;
   bar.querySelectorAll('.ex-sort-btn').forEach(btn => {
@@ -662,11 +662,11 @@ function renderTable() {
       : { totalDisp:'', bodyDisp: car.price?fmtPrice(car.price):'', hasTotal:false, hasBody:!!car.price };
     const totalCell = pt.hasTotal ? pt.totalDisp : '—';
     const bodyCell  = pt.hasBody  ? pt.bodyDisp  : '—';
-    rows += `<tr onclick="openDetail('${car.id}')" style="cursor:pointer">
-      <td style="font-weight:600;color:var(--blue)">${car.num}</td>
-      <td>${car.maker} ${car.model}${car.grade?' '+car.grade:''}</td>
-      <td>${fmtYearDisplay(parseYearInput(car.year)||car.year)}</td>
-      <td>${car.size||'—'}</td>
+    rows += `<tr onclick="openDetail('${jsq(car.id)}')" style="cursor:pointer">
+      <td style="font-weight:600;color:var(--blue)">${escapeHtml(car.num)}</td>
+      <td>${escapeHtml(car.maker)} ${escapeHtml(car.model)}${car.grade ? ' ' + escapeHtml(car.grade) : ''}</td>
+      <td>${escapeHtml(fmtYearDisplay(parseYearInput(car.year)||car.year))}</td>
+      <td>${escapeHtml(car.size || '—')}</td>
       <td>${Number(car.km||0).toLocaleString()}km</td>
       <td style="color:var(--green);font-weight:600">${totalCell}</td>
       <td style="color:var(--text2);font-weight:500">${bodyCell}</td>
@@ -700,13 +700,13 @@ function renderTable() {
 function _invCardHtml(car) {
   const inv = daysSince(car.purchaseDate);
   const dc  = inv > 30 ? '#ef4444' : inv > 14 ? '#f59e0b' : '#1db97a';
-  return `<div class="inv-card" onclick="openDetail('${car.id}')">
-    <div class="inv-thumb">${car.photo?`<img src="${car.photo}">`:carEmoji(car.size)}</div>
+  return `<div class="inv-card" onclick="openDetail('${jsq(car.id)}')">
+    <div class="inv-thumb">${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">`:carEmoji(car.size)}</div>
     <div class="inv-body">
       <div class="inv-row">
         <div class="inv-info">
-          <div class="inv-name" data-cf-noen>${car.maker} ${car.model}</div>
-          <div class="inv-num">${car.num}</div>
+          <div class="inv-name" data-cf-noen>${escapeHtml(car.maker)} ${escapeHtml(car.model)}</div>
+          <div class="inv-num">${escapeHtml(car.num)}</div>
           <span class="pill ${pillMap[car.col]||'pill-gray'}" style="margin-top:5px;display:inline-block">${COLS.find(c=>c.id===car.col)?.label||car.col}</span>
         </div>
         <div class="inv-day-big" style="color:${dc}">${inv}<span class="inv-day-unit">日</span></div>

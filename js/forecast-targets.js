@@ -35,12 +35,13 @@
   }
 
   function _fmtYen(n){ return '¥' + Math.round(Number(n)||0).toLocaleString(); }
+  // 🔐 2026-10-22 外部監査 SEC-07：車の欄は HTML に入れる前にエスケープ（ふつうの値なら同じ）
   function _carLabel(c){
     const parts = [];
     if (c.num) parts.push(c.num);
     if (c.maker) parts.push(c.maker);
     if (c.model) parts.push(c.model);
-    return parts.join(' ') || '(無名車)';
+    return String(parts.join(' ') || '(無名車)').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
 
   function _section(title, items, dateField, dateGetter){

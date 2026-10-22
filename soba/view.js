@@ -171,7 +171,51 @@ const PHSEL=()=>S.ph!=null&&(M.phases||[])[S.ph]&&M.phases[S.ph].by==='ym'?M.pha
 // 今の条件の言葉（比較の札・ライバル店の見出し）
 function condText(){const f=S.f||{},p=[];p.push(S.ys.length>1?S.ys.slice().sort().join('・')+'年式':wy(S.ys[0]));p.push(f.g!=null?f.g:'グレード指定なし');if(f.sb!=null)p.push(f.sb||'詳細なし');if(f.m!=null)p.push(f.m);
  p.push(S.kmx!=null?(S.kmx/10).toFixed(1)+'万km':f.kb!=null?KBN[f.kb]:'走行指定なし');if(f.col!=null)p.push(f.col);if(f.e!=null||f.i!=null)p.push('評価'+(f.e??'—')+'/'+(f.i??'—'));return p.join('・')}
-function KNCOL(){const K=M.kn||{};let cl=K.colors||[];const ph=(M.phases||[]).find(p=>p.years.includes(+S.y));if(ph&&ph.gen)cl=cl.filter(x=>!x.gen||x.gen===ph.gen||x.gen.split(/[（(\s]/)[0]===ph.gen.split(/[（(\s]/)[0]);const seen=new Set();cl=cl.filter(x=>{const k=(x.code||"")+x.name;if(seen.has(k))return false;seen.add(k);return true});if(!cl.length)return "";return `<h5>色番と正式名（${cl.length}色${ph&&ph.gen?"・"+ph.gen:""}）<span class="qi" data-tip="車種知識（メーカー資料・色番一覧で照らし合わせ）。出品票の色番と合わせて、正式な色名が分かる">?</span></h5><div class="cols">${cl.map(x=>`<span class="${x.op?"op":""}" data-tip="${x.code?"色番 "+x.code+"・":""}${x.name}${x.op?"・メーカーオプション色":x.op===false?"・標準色":""}${x.phase?"（"+x.phase+"）":""}">${x.code?`<b>${x.code}</b> `:""}${x.name}</span>`).join("")}</div>`}
+function KNL(){const K=M.kn||{};let cl=K.colors||[];const ph=(M.phases||[]).find(p=>p.years.includes(+S.y));if(ph&&ph.gen)cl=cl.filter(x=>!x.gen||x.gen===ph.gen||x.gen.split(/[（(\s]/)[0]===ph.gen.split(/[（(\s]/)[0]);const seen=new Set();cl=cl.filter(x=>{const k=(x.code||"")+x.name;if(seen.has(k))return false;seen.add(k);return true});return {cl,ph}}
+/* 2026-10-22 純正色を年式の時期×グレードで（決まり 2.98・見本＝結果\純正色_見本_2026-10-22.html）。M.colors_by が無い車・使えない年式（bad・表が無い）は今の全色表示のまま */
+const CBn=s=>(s||'').normalize('NFKC').toUpperCase().replace(/[（(][^）)]*[）)]/g,'').replace(/[\s・･\/／\-‐−ー〔〕\[\]]/g,'').replace(/Ⅱ/g,'II').replace(/Ⅲ/g,'III');
+const CBg=s=>(s||'').normalize('NFKC').replace(/\s+/g,' ').trim(),CBe=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CBKEI={'白系':'#f4f4f2','パール系':'#f1eee6','黒系':'#16181c','灰系':'#7b8088','銀系':'#c3c7cc','紺系':'#1f2f5c','青系':'#2c5aa8','シアン系':'#6fb6d8','赤系':'#b3262d','マルーン(茶)系':'#6b3a2a','茶系':'#7a5534','金系':'#b8a27a','黄系':'#e9d9a6','黄緑系':'#9cc33c','緑系':'#2f6d4a','紫系':'#5a3d7a','マゼンダ系':'#d79bb3','ピンク系':'#e7a8b8','橙系':'#d9792b'};
+let CBS={k:'',seg:null,all:false,code:'',c:null,Y:null};
+const CBym1=ym=>{let [y,m]=ym.split('/').map(Number);m--;if(!m){y--;m=12}return y+'/'+String(m).padStart(2,'0')};
+function CBP(){return M.colors_by.pages.map(p=>({ym:p[0],g:p[1],ci:p[2],line:p[3],sp:p[4]}))}
+function CBsplit(p){return (M.colors_by.cols[p.ci]||[]).flatMap(([n,op,kei])=>n.split('or').map(x=>({n:x.trim(),op,kei,two:/[×＆&]/.test(x)})))}
+function CBsegs(y){const R=M.colors_by.rel,inY=R.filter(r=>r.slice(0,4)===String(y)),prev=R.filter(r=>r<y+'/01').pop(),out=[];
+ if(prev&&(!inY.length||inY[0].slice(5)!=='01'))out.push({ym:prev,from:1,to:inY.length?+inY[0].slice(5)-1:12});
+ inY.forEach((r,i)=>out.push({ym:r,from:+r.slice(5),to:i+1<inY.length?+inY[i+1].slice(5)-1:12}));return out}
+function CBpick(c,Y,ym){const P=CBP(),nm=CBg(c.name),own=P.find(p=>p.ym===ym&&!p.sp&&(CBg(p.g)===nm||CBg(p.g)===CBg(S.g)))||P.find(p=>p.ym===ym&&CBg(p.g)===nm);if(own)return{p:own,own:true};
+ const line=nm.startsWith('カスタム')?1:0,at=P.filter(p=>p.ym===ym&&!p.sp),sc=Y&&Y.std&&Y.cat&&Y.cat[Y.std.grade],st=sc?CBg(sc.name):'',big=L=>L.slice().sort((a,b)=>M.colors_by.cols[b.ci].length-M.colors_by.cols[a.ci].length)[0],same=at.filter(p=>p.line===line);
+ const p=same.find(q=>CBg(q.g)===st)||big(same)||at.find(q=>CBg(q.g)===st)||big(at);return p?{p,own:false,other:p.line!==line}:null}
+function CBmark(line,name){const L=CBP().filter(p=>!p.sp&&p.line===line),R=[...new Set(L.map(p=>p.ym))].sort(),k=CBn(name);
+ const seen=L.filter(p=>CBsplit(p).some(c=>CBn(c.n)===k)).map(p=>p.ym).sort();if(!seen.length||!R.length)return'';
+ const f=seen[0],l=seen[seen.length-1];let s='';if(f>R[0])s=f+'〜';if(l<R[R.length-1]){const nx=R.find(r=>r>l);s=(s?f:'')+'〜'+CBym1(nx)}return s}
+function CBok(c){const B=M&&M.colors_by;return !!(B&&c&&c.match&&c.ym&&!(B.bad||[]).includes(c.ym)&&CBsegs(S.y).length)}
+function CBlk(c,Y){const k=M.key+'|'+S.y+'|'+S.g;if(CBS.k!==k){if(CBS.k.split('|')[0]!==M.key){CBS.all=false;CBS.code=''}CBS.k=k;CBS.seg=null}CBS.c=c;CBS.Y=Y;return `<div id="cbblk">${CBIN()}</div>`}
+function CBdraw(){const e=document.getElementById('cbblk');if(e)e.innerHTML=CBIN()}
+function CBIN(){const c=CBS.c,Y=CBS.Y,B=M.colors_by,sg=CBsegs(S.y);if(!sg.some(s=>s.ym===CBS.seg))CBS.seg=(sg.find(s=>s.ym===c.ym)||sg[sg.length-1]).ym;
+ const seg=sg.find(s=>s.ym===CBS.seg),mo=s=>s.from===1&&s.to===12?'通年':s.from===s.to?s.from+'月':s.from+'〜'+s.to+'月',phs=s=>{const p=(M.phases||[]).find(p=>p.ym&&s.ym>=p.ym&&(!p.to||s.ym<=p.to));return p?'・'+p.name:''};
+ const segH=sg.length>1?`<select class="cbsel" onchange="CBS.seg=this.value;CBdraw()">${sg.map(s=>`<option value="${s.ym}" ${s.ym===CBS.seg?'selected':''}>${S.y}年 ${mo(s)}（${s.ym}発売${phs(s)}）</option>`).join('')}</select>`:'';
+ const pk=CBpick(c,Y,CBS.seg),{cl:kl}=KNL();let h='';
+ if(!pk)return segH+'<p class="note">この時期の色の表がありません。</p>';
+ const p=pk.p,cs=CBsplit(p),oth=CBP().filter(q=>q.ym===p.ym&&!q.sp&&q!==p&&q.line===p.line),has=(q,n)=>CBsplit(q).some(x=>CBn(x.n)===CBn(n)),shown=new Set(cs.map(x=>CBn(x.n))),code=n=>B.code[n]||'';
+ const cq=CBg(CBS.code).toUpperCase(),cqhit=n=>cq&&code(n)&&code(n).split('/').map(z=>CBg(z).toUpperCase()).includes(cq);
+ h+=segH+`<p class="note" style="margin:${segH?'4px':'0'} 0 2px">${cs.length}色・${S.y}年式 ${mo(seg)}・${CBe(c.name)}（${p.ym}発売の表・グーネット）</p>`;
+ if(!pk.own)h+=`<div class="cbfall">「${CBe(c.name)}」の色の表はまだ無い → 同じ ${p.ym} 発売の「${CBe(p.g)}」の表${pk.other?'（系列が違うので色が違うことがある）':''}</div>`;
+ h+=`<ul class="cbl">${cs.map(x=>{const cd=code(x.n),ym=x.two?'':CBmark(p.line,x.n),miss=oth.filter(q=>!has(q,x.n)).map(q=>q.g);
+  return `<li class="${x.op?'op':''}${cqhit(x.n)?' cbhit':''}"><span class="dot" style="background:${CBKEI[x.kei]||'transparent'}" data-tip="${CBe(x.kei)}（グーの系統・色そのものではない）"></span><b class="cd${cd?'':' no'}">${cd?CBe(cd):'—'}</b><span class="nm">${CBe(x.n)}${x.op?' <small class="muted">OP</small>':''}</span>${x.two?'<span class="cbtg tt">2トーン</span>':''}${ym?`<span class="cbtg yr" data-tip="この色が出ている発売の幅">${ym}</span>`:''}${miss.length?`<span class="cbtg gr" data-tip="同じ発売月のほかのグレードの表に無い色">${CBe(miss.slice(0,2).join('・'))}${miss.length>2?' など':''}には無い</span>`:''}</li>`}).join('')}</ul>`;
+ const lack=[];oth.forEach(q=>CBsplit(q).forEach(x=>{if(!shown.has(CBn(x.n))&&!lack.some(l=>CBn(l.n)===CBn(x.n)))lack.push({n:x.n,g:q.g})}));
+ if(lack.length)h+=`<p class="note" style="margin:0 0 4px">このグレードに無い色：${lack.map(l=>CBe(l.n)).join('・')}（${CBe([...new Set(lack.map(l=>l.g))].slice(0,3).join('・'))}にはある）</p>`;
+ h+=`<p class="note" style="margin:0 0 4px">太字＝色番（車種知識に名前で当てた物）・点線＝OP色・<span class="cbtg yr">2022/10〜</span>年式で替わった色・<span class="cbtg gr">〇〇には無い</span>グレードで出ない色</p>`;
+ if(CBS.all&&kl.length)h+=`<h5>この世代の全色（${kl.length}色）<span class="qi" data-tip="車種知識（メーカー資料・色番一覧で照らし合わせ）。この年式・グレードの表に無い色は薄く">?</span></h5><ul class="cbl">${kl.map(x=>{const inn=cs.some(y=>(x.code&&code(y.n)===x.code)||CBn(y.n)===CBn(x.name));return `<li class="${x.op?'op':''}${inn?'':' cbdim'}"><b class="cd${x.code?'':' no'}">${x.code?CBe(x.code):'—'}</b><span class="nm">${CBe(x.name)}${x.op?' <small class="muted">OP</small>':''}</span>${x.phase?`<span class="cbtg tt">${CBe(x.phase)}</span>`:''}</li>`}).join('')}</ul>`;
+ if(kl.length)h+=`<button class="cblnk" onclick="CBS.all=!CBS.all;CBdraw()">${CBS.all?'この年式・グレードだけにもどす':'世代の全色を見る（'+kl.length+'色）'}</button>`;
+ let w='';if(cq){const ent=kl.filter(x=>x.code&&x.code.split('/').map(z=>CBg(z).toUpperCase()).includes(cq));
+  if(!ent.length)w=`<div class="cbw ng">色番 ${CBe(cq)} はこの世代の色に無い。<b>全塗装・色替えかも</b>（色番の書き違いも確かめる）</div>`;
+  else{const x=ent[0];if(cs.some(y=>cqhit(y.n)))w=`<div class="cbw ok">${CBe(cq)} ${CBe(x.name)}＝この年式・グレードの純正色</div>`;
+   else{const ym=CBmark(p.line,x.name),og=CBP().filter(q=>q.ym===p.ym&&!q.sp&&CBsplit(q).some(y=>cqhit(y.n))).map(q=>q.g);
+    w=`<div class="cbw ng">${CBe(cq)} ${CBe(x.name)} は<b>この年式・グレードに無い色</b>${ym?`（${ym} の色）`:''}${og.length?`。同じ発売の ${CBe(og.slice(0,2).join('・'))} にはある`:''}。<b>全塗装・色替えかも</b>（年式・グレードの取り違えも確かめる）</div>`}}}
+ h+=`<div class="cbchk"><label>出品票の色番 <input value="${CBe(CBS.code)}" placeholder="例 070" oninput="CBS.code=this.value;CBdraw();const i=document.querySelector('#cbblk .cbchk input');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}"></label>${w}</div>`;
+ return h}
+function KNCOL(){const {cl,ph}=KNL();if(!cl.length)return "";return `<h5>色番と正式名（${cl.length}色${ph&&ph.gen?"・"+ph.gen:""}）<span class="qi" data-tip="車種知識（メーカー資料・色番一覧で照らし合わせ）。出品票の色番と合わせて、正式な色名が分かる">?</span></h5><div class="cols">${cl.map(x=>`<span class="${x.op?"op":""}" data-tip="${x.code?"色番 "+x.code+"・":""}${x.name}${x.op?"・メーカーオプション色":x.op===false?"・標準色":""}${x.phase?"（"+x.phase+"）":""}">${x.code?`<b>${x.code}</b> `:""}${x.name}</span>`).join("")}</div>`}
 // 流札率（AA・修復歴なし）。全体の平均と比べて、売り手の言い値と業者の値が合っていない車を見つける
 function wyc(y){y=+y;const w=y>=2019?`令和${y-2018===1?'元':y-2018}年`:y>=1989?`平成${y-1988}年`:`昭和${y-1925}年`;return `${w}（${y}年）式の車`}
 function NAG(){const N=M.nag,A=(window.SOBA&&SOBA.avg&&SOBA.avg.nag)||{};if(!N||!N.all||!A.all)return null;
@@ -658,7 +702,7 @@ ${(()=>{   // 詳細の1段目＝カタログ・純正色・主な諸元・装�
    const TXc=SobaCalc.CFG.TAX,rg=(a,z,k)=>man(a/k)+(z&&z!==a?'〜'+man(z/k):'');   // 新車価格は税抜をメインに・税込を添える（2026-10-09 ゆうた）
    cat=`<div class="row"><span>正式名</span><b>${c.name}${c.exact?'':'<small class="muted">（近い名前で突き合わせ）</small>'}</b></div><div class="row"><span>発売・型式</span><b>${c.ym}発売・${c.kata}</b></div><div class="row"><span>新車価格</span><b>${rg(c.pmin,c.pmax,TXc)} <small class="muted">税抜</small></b></div><div class="row"><span></span><span class="muted">税込 ${rg(c.pmin,c.pmax,1)}</span></div>${rr?`<div class="row"><span>いまの小売相場は新車の</span><b>${rr.toFixed(0)}%</b></div>`:''}${c.id?`<div class="row"><span>カタログ</span><b><a href="https://www.goo-net.com${c.url}" target="_blank" rel="noopener">グーネットで見る</a></b></div>`:''}<p class="note">この年式のカタログのグレード：${c.grades.slice(0,20).join('／')}</p>`}
   const cl=d?(DT.colors[d.col]||[]):[],kn=KNCOL();
-  const col=(cl.length?`<p class="note" style="margin-top:0">${cl.length}色・${c.ym}発売・型式${c.kata}（グーネット）</p><div class="cols">${cl.map(x=>`<span class="${x[1]?'op':''}" title="${x[2]}${x[1]?'・オプション':''}">${x[0].replace(/or/g,' または ')}${x[1]?'（OP）':''}</span>`).join('')}</div><p class="note" style="margin-top:0">点線＝OP色・A／B＝2トーン（屋根／車体）</p>`:'')+(kn||'')||none;
+  const col=CBok(c)?CBlk(c,Y):(cl.length?`<p class="note" style="margin-top:0">${cl.length}色・${c.ym}発売・型式${c.kata}（グーネット）</p><div class="cols">${cl.map(x=>`<span class="${x[1]?'op':''}" title="${x[2]}${x[1]?'・オプション':''}">${x[0].replace(/or/g,' または ')}${x[1]?'（OP）':''}</span>`).join('')}</div><p class="note" style="margin-top:0">点線＝OP色・A／B＝2トーン（屋根／車体）</p>`:'')+(kn||'')||none;
   const sp=c&&c.match?`<div class="row"><span>排気量・駆動・ミッション</span><b>${c.cc}・${c.drive}・${c.shift}</b></div><div class="row"><span>定員・燃費</span><b>${c.seat}・${c.fuel}</b></div><div class="row"><span>寸法</span><b>${c.size}</b></div>${d?Object.entries(d.sp).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join(''):''}`:none;
   const eq=d?`${c.didg?`<p class="note" style="margin-top:0">「${c.didg}」のページ（同じ発売月・型式）</p>`:''}<h5>標準</h5><div class="eq">${d.std.map(i=>DT.eq[i]).join('・')||'—'}</div>${d.opt.length?`<h5>オプション</h5><div class="eq">${d.opt.map(i=>DT.eq[i]).join('・')}</div>`:''}`:none;
   return `<div class="blk4">${B('カタログ<span class="note">（グーネット）</span>',cat)}${B('純正色',col)}${B('主な諸元',sp)}${B('装備',eq)}</div><div class="blk4">`})()}

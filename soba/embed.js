@@ -17,6 +17,7 @@
   const LSK = 'cf_soba_pick_' + ID;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /* 🔐 2026-10-22 外部監査 SEC-07：data-tip は吹き出し（tip.js）が innerHTML で出す＝属性で1回戻る。車の欄（スタッフが書ける）は esc(esc(…)) で2回 */
   const man = v => v == null || isNaN(v) ? '—' : (v / 10).toFixed(1) + '万';           // 千円 → 万
   const manY = v => v == null || isNaN(v) ? '—' : (v / 10000).toFixed(1) + '万';       // 円 → 万
   const sg = v => (v >= 0 ? '+' : '−') + (Math.abs(v) / 10).toFixed(1) + '万';
@@ -75,8 +76,8 @@
   }
 
   function gradeNote(m) {
-    if (m.g == null) return CAR.grade || m.hint ? `<span class="emb-w" data-tip="「${esc(CAR.grade || m.hint)}」に合うグレードが相場DBに無いので、グレードを絞らずに出しています。下の「グレード」で選べます">グレード指定なし</span>` : 'グレード指定なし';
-    return esc(m.g) + (m.how === 'near' ? ` <span class="emb-w" data-tip="「${esc(CAR.grade || m.hint)}」と同じ名前が無いので、近い名前のグレードで出しています">近い名前</span>` : '');
+    if (m.g == null) return CAR.grade || m.hint ? `<span class="emb-w" data-tip="「${esc(esc(CAR.grade || m.hint))}」に合うグレードが相場DBに無いので、グレードを絞らずに出しています。下の「グレード」で選べます">グレード指定なし</span>` : 'グレード指定なし';
+    return esc(m.g) + (m.how === 'near' ? ` <span class="emb-w" data-tip="「${esc(esc(CAR.grade || m.hint))}」と同じ名前が無いので、近い名前のグレードで出しています">近い名前</span>` : '');
   }
 
   /* 本体価格と小売相場（どちらも税込）の差 */
@@ -104,7 +105,7 @@
         + `<div class="emb-row"><span class="emb-lb">相場カード</span>${pickSelect(m)}</div>`
         + `<div class="emb-hint">CarFlow の車には型式が無いので、メーカー・車種・グレード・年式の名前で相場DBの車種を探しています。名前が違う時は上で選ぶと、このブラウザに覚えます。</div></div>`;
     }
-    const cond = [m.y + '年式', gradeNote(m), m.col ? esc(m.col) : (CAR.color ? `<span class="emb-w" data-tip="「${esc(CAR.color)}」は相場DBの色の区分に無いので、色を絞らずに出しています">色指定なし</span>` : '色指定なし'),
+    const cond = [m.y + '年式', gradeNote(m), m.col ? esc(m.col) : (CAR.color ? `<span class="emb-w" data-tip="「${esc(esc(CAR.color))}」は相場DBの色の区分に無いので、色を絞らずに出しています">色指定なし</span>` : '色指定なし'),
       m.km != null ? (m.km / 10).toFixed(1) + '万km' : '走行指定なし'];
     const moved = !sameAsBase();
     return `<div class="emb-card">`

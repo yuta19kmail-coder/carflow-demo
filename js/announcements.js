@@ -16,7 +16,25 @@
 // ----- お知らせデータ（version は対応バージョン、date は YYYY-MM-DD） -----
 //   seed:true … 公開時点で「全員既読扱い」（過去機能のまとめ）。ポップアップは出さず受信箱では確認済み表示。
 //   今後の新機能は seed を付けない → 新着ポップアップで通知される。
+/* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
+if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 const ANNOUNCEMENTS = [
+  {
+    id: 'a-20261023-v3200',
+    version: '3.20.0',
+    date: '2026-10-23',
+    title: '\u{1F3A8} 相場ビューの「純正色」が、年式の時期とグレードで絞れるようになりました',
+    body: `
+      <p><b>▼ セールス ▸ 相場ビュー ▸ 詳細の「純正色」</b></p>
+      <ul>
+        <li>選んでいる<b>年式・グレードで出ていた色だけ</b>を、色番・名前・OP色つきで並べます。年の途中で色が替わった車は、時期（「2020年 1〜6月（2019/10発売）」など）を選べます。</li>
+        <li>途中で出た色・消えた色には<b>年式の札</b>（「2022/10〜」など）、同じ時期のほかのグレードに無い色には<b>「〇〇には無い」</b>の札が付きます。</li>
+        <li><b>「世代の全色を見る」</b>で、今までの全色の一覧に切り替わります。</li>
+        <li>下の<b>「出品票の色番」</b>に色番を入れると、その年式・グレードの純正色かどうかを出します。無い色なら「全塗装・色替えかも」と出ます（書き違い・年式やグレードの取り違えも確かめてください）。</li>
+        <li>色の表がまだ無い車は、今まで通りの表示です。</li>
+      </ul>
+    `
+  },
   {
     id: 'a-20261015-v3167',
     version: '3.16.7',
@@ -883,9 +901,9 @@ function renderAnnounce() {
     const verTag = a.version ? '<span class="anc-ver">v' + _ancEsc(a.version) + '</span>' : '';
     const footer = isRead
       ? '<div class="anc-footer"><span class="anc-confirmed">✓ 確認済み</span></div>'
-      : '<div class="anc-footer"><button type="button" class="anc-confirm-btn" onclick="confirmAnnounce(\'' + a.id + '\')">✓ 確認する（OK）</button></div>';
+      : '<div class="anc-footer"><button type="button" class="anc-confirm-btn" onclick="confirmAnnounce(\'' + jsq(a.id) + '\')">✓ 確認する（OK）</button></div>';
     return '<div class="anc-item ' + (isRead ? 'is-read' : 'is-unread') + (isOpen ? ' is-open' : '') + '">'
-      + '<div class="anc-head" onclick="toggleAnnounce(\'' + a.id + '\')">'
+      + '<div class="anc-head" onclick="toggleAnnounce(\'' + jsq(a.id) + '\')">'
       + '<span class="anc-dot"></span>'
       + verTag
       + '<span class="anc-title">' + _ancEsc(a.title) + '</span>'

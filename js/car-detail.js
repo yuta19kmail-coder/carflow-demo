@@ -236,7 +236,7 @@ function _renderDetailBodyOther(car) {
 
   let html = `
     <div class="detail-photo">
-      ${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}
+      ${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}
       <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">${ic('camera','📷',16)} 写真を変更</div>
     </div>
     <input type="file" id="dp-inp" accept="image/*" capture="environment" style="display:none" onchange="onDetailPhoto(this)">
@@ -253,18 +253,18 @@ function _renderDetailBodyOther(car) {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">管理番号</div><div style="font-size:13px;font-weight:600">${car.num}</div></div>
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">年式</div><div style="font-size:13px;font-weight:600">${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div></div>
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">車体色</div><div style="font-size:13px;font-weight:600">${car.color||'—'}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">管理番号</div><div style="font-size:13px;font-weight:600">${escapeHtml(car.num)}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">年式</div><div style="font-size:13px;font-weight:600">${escapeHtml(fmtYearDisplay(parseYearInput(car.year)||car.year))}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">車体色</div><div style="font-size:13px;font-weight:600">${escapeHtml(car.color || '—')}</div></div>
       <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">走行距離</div><div style="font-size:13px;font-weight:600">${Number(car.km||0).toLocaleString()}km</div></div>
     </div>
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
-    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
+    <button onclick="openCarModal('${jsq(car.id)}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
     ${_renderRegistrationBar(car)}
     <div class="work-memo" id="work-memo-wrap">
       <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ <span class="work-memo-hint">（保留中のメモ）</span></div>
-      <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
+      <div class="work-memo-view" onclick="startEditWorkMemo('${jsq(car.id)}')">${
         workMemo
           ? '<span data-cf-noen>' + escapeHtml(workMemo).replace(/\n/g,'<br>') + '</span>'
           : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
@@ -358,7 +358,7 @@ function renderDetailBody(car) {
     const wt = invWarnTier(inv);
     const cls = wt ? (wt.days >= 45 ? 'dr' : wt.days >= 30 ? 'dw' : 'dg') : 'dg';
     dayBlock = `
-      <div class="detail-days-box ${cls}"${wt?` style="background:${wt.bg};color:${wt.color}"`:''}>
+      <div class="detail-days-box ${cls}"${wt?` style="background:${cssColor(wt.bg)};color:${cssColor(wt.color)}"`:''}>
         <div class="detail-days-num">${inv}<span class="detail-days-unit">日</span></div>
         <div class="detail-days-label">在庫</div>
       </div>`;
@@ -376,7 +376,7 @@ function renderDetailBody(car) {
   const workMemo = (car.workMemo || '').trim();
   let html = `
     <div class="detail-photo">
-      ${car.photo ? `<img src="${car.photo}">` : carEmoji(car.size)}
+      ${imgOk(car.photo) ? `<img src="${escapeHtml(car.photo)}">` : carEmoji(car.size)}
       <div class="detail-photo-edit" onclick="document.getElementById('dp-inp').click()">${ic('camera','📷',16)} 写真を変更</div>
     </div>
     <input type="file" id="dp-inp" accept="image/*" capture="environment" style="display:none" onchange="onDetailPhoto(this)">
@@ -403,14 +403,14 @@ function renderDetailBody(car) {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">管理番号</div><div style="font-size:13px;font-weight:600">${car.num}</div></div>
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">年式</div><div style="font-size:13px;font-weight:600">${fmtYearDisplay(parseYearInput(car.year)||car.year)}</div></div>
-      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">車体色</div><div style="font-size:13px;font-weight:600">${car.color}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">管理番号</div><div style="font-size:13px;font-weight:600">${escapeHtml(car.num)}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">年式</div><div style="font-size:13px;font-weight:600">${escapeHtml(fmtYearDisplay(parseYearInput(car.year)||car.year))}</div></div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">車体色</div><div style="font-size:13px;font-weight:600">${escapeHtml(car.color)}</div></div>
       <div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="color:var(--text3);font-size:10px;margin-bottom:3px">走行距離</div><div style="font-size:13px;font-weight:600">${Number(car.km||0).toLocaleString()}km</div></div>
     </div>
     ${_renderEqDetailButton(car)}
     ${coreMemoHtml}
-    <button onclick="openCarModal('${car.id}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
+    <button onclick="openCarModal('${jsq(car.id)}')" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:16px">${ic('pencil','✏️',15)} 車両詳細を編集</button>
     ${_renderRegistrationBar(car)}
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${isBackofficeMode ? ''+ic('files','🗂',16)+' バックオフィス（事務処理）' : (isD ? '納車準備' : '業務タスク')}</div>
     <div class="detail-overall">
@@ -425,7 +425,7 @@ function renderDetailBody(car) {
     html += `
       <div class="work-memo" id="work-memo-wrap">
         <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ ${isD ? '<span class="work-memo-hint">（納車準備中のメモ）</span>' : '<span class="work-memo-hint">（再生中のメモ）</span>'}</div>
-        <div class="work-memo-view" onclick="startEditWorkMemo('${car.id}')">${
+        <div class="work-memo-view" onclick="startEditWorkMemo('${jsq(car.id)}')">${
           workMemo
             ? '<span data-cf-noen>' + escapeHtml(workMemo).replace(/\n/g,'<br>') + '</span>'
             : '<span class="work-memo-placeholder">タップしてメモを記入</span>'
@@ -482,7 +482,7 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
     const placeholder = sel ? '' : '<option value="">パターン</option>';
     return `<select class="task-item-variant-sel"
               onclick="event.stopPropagation()"
-              onchange="onCarTaskVariantChange('${car.id}','${task.id}',this)">
+              onchange="onCarTaskVariantChange('${jsq(car.id)}','${jsq(task.id)}',this)">
         ${placeholder}${opts}
       </select>`;
   }
@@ -528,8 +528,8 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
       const onclickAttr = isAuto
         ? ''
         : (isBackofficeMode
-            ? ` onclick="toggleBackofficeTaskToggle('${car.id}','${task.id}')"`
-            : ` onclick="toggleTaskToggle('${car.id}','${task.id}',${isD})"`);
+            ? ` onclick="toggleBackofficeTaskToggle('${jsq(car.id)}','${jsq(task.id)}')"`
+            : ` onclick="toggleTaskToggle('${jsq(car.id)}','${jsq(task.id)}',${isD})"`);
       const subText = isAuto
         ? (checked ? '✓ 自動完了（他タスク全完了）' : '他タスク完了で自動ON')
         : (checked ? '完了' : '未完了');
@@ -541,7 +541,7 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
         <div class="task-chk${checked?' done':''}${chkExtraCls}"${onclickAttr}>
           ${checked ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
         </div>
-        <div class="task-item-info"><div class="task-item-name">${icoE(task.icon)} ${task.name}</div><div class="task-item-sub">${subText}</div></div>
+        <div class="task-item-info"><div class="task-item-name">${icoE(task.icon)} ${escapeHtml(task.name)}</div><div class="task-item-sub">${subText}</div></div>
         ${memoCell}
         ${_badgeCol(task.id)}
         <div class="task-item-pct">${checked?'100':'0'}%</div>
@@ -562,11 +562,11 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
       // v2.4.1: バックオフィスでも workflow タスクを開けるように対応（worksheet.js が backoffice phase をサポート）
       if (isBackofficeMode) {
         openBtnHtml = hasSelection
-          ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}','backoffice')">開く →</button>`
+          ? `<button class="task-open-btn" onclick="openWorksheet('${jsq(car.id)}','${jsq(task.id)}','backoffice')">開く →</button>`
           : `<button class="task-open-btn" disabled title="先にタスクパターンを選んでください" style="opacity:.4;cursor:not-allowed">開く →</button>`;
       } else {
         openBtnHtml = hasSelection
-          ? `<button class="task-open-btn" onclick="openWorksheet('${car.id}','${task.id}')">開く →</button>`
+          ? `<button class="task-open-btn" onclick="openWorksheet('${jsq(car.id)}','${jsq(task.id)}')">開く →</button>`
           : `<button class="task-open-btn" disabled title="先にタスクパターンを選んでください" style="opacity:.4;cursor:not-allowed">開く →</button>`;
       }
       // v2.2.1: タスク個別メモのインラインセル
@@ -592,15 +592,15 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
         const _cur = _steps.find(x => !x.isDone) || null;
         const _all = !_cur;
         chkHtml = _all
-          ? `<div class="task-chk done" onclick="advanceStep('${car.id}','${task.id}')" title="もう一度押すと 0% に戻ります">
+          ? `<div class="task-chk done" onclick="advanceStep('${jsq(car.id)}','${jsq(task.id)}')" title="もう一度押すと 0% に戻ります">
                <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
              </div>`
-          : `<div class="task-chk task-chk-ring" onclick="advanceStep('${car.id}','${task.id}')"
+          : `<div class="task-chk task-chk-ring" onclick="advanceStep('${jsq(car.id)}','${jsq(task.id)}')"
                   style="background:${window.CarStep.ringBackground(p.done, p.total)}"
                   title="${_cur.manual ? '押すと1工程すすみます' : '「開く →」から進めてください'}"><i></i></div>`;
         nameHtml = _all
-          ? `${icoE(task.icon)} ${task.name}<span class="ti-sep">─</span><span class="ti-mid done">ぜんぶ完了</span>`
-          : `${icoE(task.icon)} ${task.name}<span class="ti-sep">─</span><span class="ti-mid">${escapeHtml(_cur.name)}</span>`;
+          ? `${icoE(task.icon)} ${escapeHtml(task.name)}<span class="ti-sep">─</span><span class="ti-mid done">ぜんぶ完了</span>`
+          : `${icoE(task.icon)} ${escapeHtml(task.name)}<span class="ti-sep">─</span><span class="ti-mid">${escapeHtml(_cur.name)}</span>`;
         subHtml = `中タスク ${p.done}/${p.total} 完了`
           + (_cur && !_cur.manual ? `　（${escapeHtml(_cur.name)} ${_cur.done}/${_cur.total}）` : '');
         openHtml = (_cur && !_cur.manual) ? openBtnHtml : '';
@@ -608,7 +608,7 @@ function _detailTaskItemsHtml(car, tasks, isD, isBackofficeMode) {
         chkHtml = `<div class="task-chk${isDone?' done':isPartial?' partial':''}">
           ${isDone ? '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : isPartial ? '<div style="width:7px;height:7px;border-radius:50%;background:#fff"></div>' : ''}
         </div>`;
-        nameHtml = `${icoE(task.icon)} ${task.name}`;
+        nameHtml = `${icoE(task.icon)} ${escapeHtml(task.name)}`;
         subHtml = `${p.done}/${p.total} 完了`;
       }
       html += `<div class="task-item"><div class="task-item-row">
@@ -646,10 +646,10 @@ function _detailBoFooterHtml(car, tasks) {
       : '';
     html += `<div class="detail-bo-done-banner" style="margin-top:14px">
       ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
-      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${car.id}')">完了を取り消す</button>
+      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${jsq(car.id)}')">完了を取り消す</button>
     </div>`;
   } else if (allDone) {
-    html += `<button class="detail-bo-complete-btn" style="margin-top:14px" onclick="window.backoffice.markComplete('${car.id}')">
+    html += `<button class="detail-bo-complete-btn" style="margin-top:14px" onclick="window.backoffice.markComplete('${jsq(car.id)}')">
       ✅ バックオフィス完了
     </button>`;
   }
@@ -715,7 +715,7 @@ function _renderBackofficeMemoHtml(car) {
   return `
     <div class="bo-memo" id="bo-memo-wrap">
       <div class="bo-memo-label">${ic('pencil','📝',16)} バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
-      <div class="bo-memo-view" onclick="startEditBackofficeMemo('${car.id}')">${
+      <div class="bo-memo-view" onclick="startEditBackofficeMemo('${jsq(car.id)}')">${
         memo
           ? escapeHtml(memo).replace(/\n/g,'<br>')
           : '<span class="bo-memo-placeholder">タップしてメモを記入</span>'
@@ -733,8 +733,8 @@ function startEditBackofficeMemo(carId) {
     <div class="bo-memo-label">${ic('pencil','📝',16)} バックオフィスメモ <span class="bo-memo-hint">（事務処理用の申し送り）</span></div>
     <textarea id="bo-memo-ta" class="bo-memo-input" rows="6" placeholder="原価処理の進捗・書類の所在・申し送りなど">${escapeHtml(cur)}</textarea>
     <div class="bo-memo-btns">
-      <button class="btn-sm" onclick="cancelEditBackofficeMemo('${carId}')">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveBackofficeMemo('${carId}')">保存</button>
+      <button class="btn-sm" onclick="cancelEditBackofficeMemo('${jsq(carId)}')">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveBackofficeMemo('${jsq(carId)}')">保存</button>
     </div>`;
 }
 
@@ -804,7 +804,7 @@ function _renderBackofficeSectionHtml(car) {
     const lockedCls = completed ? ' bo-locked' : '';
     return `<label class="detail-bo-item${done ? ' is-done' : ''}${lockedCls}">
       <input type="checkbox" ${done ? 'checked' : ''} ${disabledAttr}
-        onchange="window.backoffice.toggleTask('${escapeHtml(car.id)}','${escapeHtml(t.id)}',this.checked)">
+        onchange="window.backoffice.toggleTask('${jsq(car.id)}','${jsq(t.id)}',this.checked)">
       <span class="detail-bo-item-icon">${icoE(escapeHtml(icon))}</span>
       <span class="detail-bo-item-name">${escapeHtml(name)}</span>
     </label>`;
@@ -817,10 +817,10 @@ function _renderBackofficeSectionHtml(car) {
       : '';
     actionHtml = `<div class="detail-bo-done-banner">
       ✅ バックオフィス完了済み${at ? `（${escapeHtml(at)}）` : ''}
-      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${escapeHtml(car.id)}')">完了を取り消す</button>
+      <button class="detail-bo-unmark-btn" onclick="window.backoffice.unmarkComplete('${jsq(car.id)}')">完了を取り消す</button>
     </div>`;
   } else if (allDone) {
-    actionHtml = `<button class="detail-bo-complete-btn" onclick="window.backoffice.markComplete('${escapeHtml(car.id)}')">
+    actionHtml = `<button class="detail-bo-complete-btn" onclick="window.backoffice.markComplete('${jsq(car.id)}')">
       ✅ バックオフィス完了
     </button>`;
   }
@@ -869,7 +869,7 @@ function _renderEqDetailButton(car) {
     label = `📋 装備詳細を見る（${p.filled}/${p.total} 入力済）`;
   }
   return `
-    <button id="eq-acc-btn-${car.id}" class="${cls}" data-open="0" onclick="toggleEquipmentAccordion('${car.id}')">
+    <button id="eq-acc-btn-${car.id}" class="${cls}" data-open="0" onclick="toggleEquipmentAccordion('${jsq(car.id)}')">
       <span class="detail-eq-btn-label">${label}</span>
       <span class="detail-eq-btn-arrow">${ic('chevDown','▼',14)}</span>
     </button>
@@ -900,8 +900,8 @@ function startEditWorkMemo(carId) {
     <div class="work-memo-label">${ic('pencil','📝',16)} 作業メモ</div>
     <textarea id="work-memo-ta" class="work-memo-input" rows="4" placeholder="作業の進捗・申し送りなど">${escapeHtml(cur)}</textarea>
     <div class="work-memo-btns">
-      <button class="btn-sm" onclick="cancelEditWorkMemo('${carId}')">キャンセル</button>
-      <button class="btn-sm btn-primary" onclick="saveWorkMemo('${carId}')">保存</button>
+      <button class="btn-sm" onclick="cancelEditWorkMemo('${jsq(carId)}')">キャンセル</button>
+      <button class="btn-sm btn-primary" onclick="saveWorkMemo('${jsq(carId)}')">保存</button>
     </div>`;
   const ta = document.getElementById('work-memo-ta');
   if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
