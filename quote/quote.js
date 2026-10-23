@@ -211,8 +211,16 @@ function baseCalc(car, b){
   const {y,m} = ym(car.firstReg);
   const d13 = (m===1)?(y+12)+'-12':(y+13)+'-'+String(m-1).padStart(2,'0'), d18 = (m===1)?(y+17)+'-12':(y+18)+'-'+String(m-1).padStart(2,'0');
   let key = b.eco; if (key==='std'){ if (rd.slice(0,7)>=d18) key='y18'; else if (rd.slice(0,7)>=d13) key='y13'; }
-  const units = Math.ceil(car.weight/500);
-  const weight = R.insp && !R.buyerReg ? (kei ? WEIGHT_KEI_2Y[key] : WEIGHT_2Y[key]*units) : 0;
+  const units = Math.ceil((+car.weight||0)/500);
+  /* 🗣 2026-10-23 重量税は国交省の「次回自動車重量税額照会」で出た額を入れる（減税・13年・18年・その年の税制が全部入った額）。
+     登録車は照会した額（b.wtQ＝{amt, at}）だけ＝重さからは計算しない（AA の車は重さが分からない・減税の対象が毎年変わる）。
+     軽は重さに関係なく決まった額＝区分（b.eco）から。照会した額を入れたらそちら */
+  const wtNeed = R.insp && !R.buyerReg, wq = b.wtQ && b.wtQ.amt != null && b.wtQ.amt !== '' ? +b.wtQ.amt : null;
+  const weight = !wtNeed ? 0 : wq != null ? wq : kei ? WEIGHT_KEI_2Y[key] : 0;
+  const wtMiss = wtNeed && !kei && wq == null;
+  /* 照会し直し：照会した日と登録の予定日が、重量税の税制の年度（5/1 から）をまたぐ時 */
+  const tyOf = d => { const y = +String(d).slice(0,4), md = String(d).slice(5,10); return md >= '05-01' ? y : y-1; };
+  const wtStale = wtNeed && wq != null && !!b.wtQ.at && tyOf(b.wtQ.at) !== tyOf(rd);
   const tb = jibaiTable(rd), jt = kei ? tb.kei : tb.car;
   const jb = R.insp ? jibaiOf(b, jt) : { amt:0, src:'none', m:0 };
   const seibiIn = seibiOf(b), seibiI = seibiInfo(b);
@@ -223,7 +231,7 @@ function baseCalc(car, b){
   const unexpJb = !R.insp ? f100((jt[24]||0)*remM/24) : 0;
   const daikoG = kei ? F.daikoGarageKei : F.daikoGarage;
   const plateFee = R.buyerReg ? 0 : (R.k==='shinki' || b.plate==='change') ? (kei ? (F.plateKei||F.plate) : F.plate) : 0;
-  return { R, rd, kei, annual, heavy, months, carTax, unexpTax, weight, weightKey:key, units, d13, jibai:jb.amt, jibaiSrc:jb.src, jibaiM:jb.m, tbFrom:tb.from, unexpJb, remM,
+  return { R, rd, kei, annual, heavy, months, carTax, unexpTax, weight, weightKey:key, units, d13, wtNeed, wtQ:wq, wtAt: wq != null ? (b.wtQ.at||'') : '', wtMiss, wtStale, jibai:jb.amt, jibaiSrc:jb.src, jibaiM:jb.m, tbFrom:tb.from, unexpJb, remM,
     body, bodyIn:Math.floor(body*1.1), seibiIn, seibiInfo:seibiI, daikoG, plateFee, regFee:S.set.reg[kei?'kei':plateClsOf(car,b)==='5'?'sm':'car'][R.k]||0, garageFee: (kei||R.buyerReg)?0:F.garage, imp: isImport(car) };
 }
 /* 販売諸費用（課税）の行。🗣 2026-10-04「色々なパターンがあるから、基本価格にその販売諸費用欄の内容と金額を出して、手打ちでも変更できるし、内容を足せるように」
@@ -575,7 +583,7 @@ function renderList(){
   if (!u.histMode) list.forEach(r=>{ const c = r.car;
     h += `<tr class="row ${u.bulkMode&&sel[c.id]?'sel':''}" onclick="${u.bulkMode?(c.base?`selOne('${c.id}',${sel[c.id]?'false':'true'})`:`toast('基本価格が無い車は刷れません')`):`openRowMenu('${c.id}')`}">${u.bulkMode?`<td class="ck" onclick="event.stopPropagation()"><input type="checkbox" ${sel[c.id]?'checked':''} ${c.base?'':'disabled'} onclick="selOne('${c.id}',this.checked)"></td>`:''}<td><div class="ph">${carSvg(c)}</div></td>
       <td class="nm"><div class="nmw"><span class="kmno">${c.base&&c.base.sale?`<span class="q-pill ${c.base.sale.on?'high':'warn'}" style="display:block;width:fit-content;margin-bottom:2px">${c.base.sale.on?'セール中':'セール予定'}〜${jd(c.base.sale.to).slice(5)}</span>`:''}${esc(c.num)}${c.base?`<small class="q-ver" title="${c.order?'売約した見積の番号':'見積の最新の番号（基本価格-プラン見積-個別見積）'}">${verLabel(c)}</small>`:''}</span><div class="nmb"><b>${esc(c.maker)} ${esc(c.model)}</b> <small>${esc(c.grade)}・${c.firstReg?wareki(c.firstReg):''}・${(c.km/10000).toFixed(1)}万km${c.kei?'・軽':''}</small></div></div></td>
-      <td>${u.sort==='days' ? `<b class="q-dnum">${r.days}</b>日` : u.sort==='stale' ? (c.base&&c.base.hist.length ? `<b class="q-dnum">${daysBetween(lastChg(c), TODAY)}</b>日<small class="q-dsub">${jd(lastChg(c)).slice(5)} から</small>` : '<span class="q-empty">—</span>') : `<span class="q-pill ${r.st}">${esc(r.stl)}</span>`}</td>
+      <td>${u.sort==='days' ? `<b class="q-dnum">${r.days}</b>日` : u.sort==='stale' ? (c.base&&c.base.hist.length ? `<b class="q-dnum">${daysBetween(lastChg(c), TODAY)}</b>日<small class="q-dsub">${jd(lastChg(c)).slice(5)} から</small>` : '<span class="q-empty">—</span>') : `<span class="q-pill ${r.st}">${esc(r.stl)}</span>${r.k&&(r.k.bc.wtMiss||r.k.bc.wtStale)?`<span class="q-pill warn" style="margin-left:4px" title="基本価格の「国交省で照会」で重量税を入れる">${r.k.bc.wtMiss?'重量税 未照会':'重量税 照会し直し'}</span>`:''}`}</td>
       <td class="v">${r.k?yen(c.base.price):`<span class="q-empty">基本価格なし</span>`}</td>
       <td class="v"><b>${r.k?yen(r.k.cash):'—'}</b></td>
       <td>${r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:r.sb?'<span class="q-pill none">—</span>':'<span class="q-pill none">相場なし</span>'}</td>
@@ -598,7 +606,7 @@ function renderCar(){
   const split = !car.base || u.step==='base';
   let h = `<div class="q-wrap ${split?'split':''}"><div class="q-back" onclick="goList()">${I('left','←',14)} 見積の一覧</div>
     <div class="q-band"><div class="ph">${carSvg(car)}</div><div><div class="ttl"><small>${esc(car.num)}</small><small>${esc(car.maker)}</small>${esc(car.model)} ${esc(car.grade)}${car.base?`<span class="q-verb" title="${car.order?'売約した見積の番号':'見積の最新の番号（基本価格-プラン見積-個別見積）'}">${esc(verLong(car))}</span>`:''}</div>
-      <div class="ch"><span class="q-pill ${st}">${esc(stl)}</span><span>${warekiYM(car.firstReg)}${car.firstReg?'（'+car.firstReg.slice(0,4)+'）':''}${car._firstRegGuess&&car.firstReg?' <small class="q-why" style="display:inline">年式から仮</small>':''}</span><span>${car.km?car.km.toLocaleString()+'km':'走行 —'}</span><span>${car.cc?ccU(car):'排気量 —'}・${car.weight?car.weight.toLocaleString()+'kg':'重量 —'}${car.kei?'・軽':''}${car.hybrid?'・HV':''}</span><span>${esc(car.color)}</span><span>${esc(car.fmodel)}</span><span>在庫 <b>${days}日</b></span></div></div>
+      <div class="ch"><span class="q-pill ${st}">${esc(stl)}</span><span>${warekiYM(car.firstReg)}${car.firstReg?'（'+car.firstReg.slice(0,4)+'）':''}${car._firstRegGuess&&car.firstReg?' <small class="q-why" style="display:inline">年式から仮</small>':''}</span><span>${car.km?car.km.toLocaleString()+'km':'走行 —'}</span><span>${car.cc?ccU(car):'排気量 —'}${car.kei?'・軽':''}${car.hybrid?'・HV':''}</span><span>${esc(car.color)}</span><span>${esc(car.fmodel)}</span><span>在庫 <b>${days}日</b></span></div></div>
       <span class="sp"></span>
       ${k?`<div class="tot"><div class="k">掲載の支払総額（税込）</div><div class="v">${yen(k.cash)}</div><div class="k">本体（税抜）${yen(car.base.price)}</div></div>`:''}
       <div style="display:flex;flex-direction:column;gap:6px"><button class="q-btn sm" onclick="QData.openCar('${car.id}')">${I('card','🪪',14)} カード詳細</button>${car.base?`<button class="q-btn sm" onclick="openDocs()">${I('printer','🖨',14)} 帳票を見る</button>`:''}</div></div>`;
@@ -727,7 +735,6 @@ function leftCompact(car){
     + cpRow(lab('maker','メーカー'), txt('maker'))
     + cpRow(lab('model','車名'), txt('model'))
     + cpRow(lab('cc','排気量'), `<div class="km-in">${num('cc','cc')}</div>`)
-    + cpRow(lab('weight','車両重量'), `<div class="km-in">${num('weight','kg')}</div>`)
     + cpRow(lab('kei','区分'), seg(car.kei?'kei':'car',[['car','普通車'],['kei','軽自動車']],`setCar('kei','$v'==='kei')`, dis))
     + cpRow(lab('fuel','動力'), seg(power,[['gas','ガソリン'],['diesel','ディーゼル'],['hv','ハイブリッド']],`setPower('$v')`, dis))
     + vehKata(car)
@@ -745,14 +752,14 @@ function leftCompact(car){
     /* 🗣 2026-10-01「業販価格は別設定する／しないのスイッチで、しないがデフォ。するの場合は金額手入れ」 */
     + cpRow('業販価格（税抜）', `<div class="sb-pick">${seg(b.wsOn||b.wsPrice>0?'on':'off',[['off','しない'],['on','別に設定する']],`setWs('${car.id}','$v'==='on')`, dis)}${b.wsOn||b.wsPrice>0?`<div class="km-in">${money('b-ws', b.wsPrice, `setBase('wsPrice',parseYen(this.value)||0)`, dis)}</div>`:''}</div><div class="q-why" style="margin-top:2px">${b.wsPrice>0?'業販（D）はこの金額・現状渡し':'業販（D）は車両本体価格と同じ '+yen(b.price)+'・現状渡し'}</div>`));
   const jbIn = [12,13,24,25,36,37].includes(+b.jibaiM);
-  h += cpSec('reg', true, `${I('clipboard','📋',14)} 登録・保証`, `${b.newCar?'新車':'中古車'}・${esc(R.l)}${car.kei?'':'・'+plateClsOf(car,b)+'ナンバー'}${R.xfer?'（ナンバー'+(b.plate==='change'?'変更':'そのまま')+'）':''}・${ym(bc.rd).y}年${ym(bc.rd).m}月登録${b.regAuto?'（自動）':''}・${R.insp?'自賠責 '+bc.jibaiM+'か月':'車検 '+b.shakenEnd.replace('-','/')+'まで'}・保証 ${esc(warText(b))}・修復歴 ${esc(b.repair)}`, '',
+  h += cpSec('reg', true, `${I('clipboard','📋',14)} 登録・保証`, `${b.newCar?'新車':'中古車'}・${esc(R.l)}${car.kei?'':'・'+plateClsOf(car,b)+'ナンバー'}${R.xfer?'（ナンバー'+(b.plate==='change'?'変更':'そのまま')+'）':''}・${ym(bc.rd).y}年${ym(bc.rd).m}月登録${b.regAuto?'（自動）':''}・${R.insp?'自賠責 '+bc.jibaiM+'か月':'車検 '+b.shakenEnd.replace('-','/')+'まで'}・保証 ${esc(warText(b))}・修復歴 ${esc(b.repair)}`, bc.wtMiss?'<span class="q-pill warn">重量税 未照会</span>':bc.wtStale?'<span class="q-pill warn">重量税 照会し直し</span>':'',
     cpRow('新車／中古車', seg(b.newCar?'new':'used',[['used','中古車'],['new','新車']],`setBase('newCar','$v'==='new',1)`))
     + cpRow('登録予定月', `${seg(b.regAuto?'auto':'fix',[['auto','来月（自動）'],['fix','月を決める']],`setBase('regAuto','$v'==='auto',1)`)}${b.regAuto?`<div class="q-why">いま＝${nextMonth().replace('-','年')}月（月が変わると自動で次の月）</div>`:`<input id="b-regm" type="month" class="q-in" style="margin-top:5px;max-width:180px" value="${b.regMonth}" onchange="setBase('regMonth',this.value,1)">`}`)
     + cpRow('登録の種類', `${seg(b.regType, REG_TYPES.map(r=>[r.k,r.l]), `setBase('regType','$v',1)`)}<div class="q-why">${esc(R.d)}</div>`)
     + (car.kei ? '' : cpRow('ナンバー', `${seg(plateClsOf(car,b), [['5','5ナンバー'],['3','3ナンバー']], `setBase('plateCls','$v',1)`)}<div class="q-why">${R.l}の検査・登録手数料 ${yen(bc.regFee)}（陸運局へ持込）${b.plateCls?'':'・排気量から仮に選択'}</div>`))
     + (R.xfer ? cpRow('ナンバー', seg(b.plate,[['keep','変更なし'],['change','変更あり']],`setBase('plate','$v',1)`)) : '')
     + (!R.insp ? cpRow('車検の満了', `<input id="b-she" type="month" class="q-in" style="max-width:180px" value="${b.shakenEnd}" onchange="setBase('shakenEnd',this.value,1)">`)
-       : !R.buyerReg ? cpRow('重量税の区分', `<select id="b-eco" class="q-in" onchange="setBase('eco',this.value,1)">${[['std','当分の間税率（13年・18年は自動）'],['eco','本則税率（環境性能のある車）'],['exempt','免税']].map(([v,l])=>`<option value="${v}" ${b.eco===v?'selected':''}>${l}</option>`).join('')}</select>`) : '')
+       : !R.buyerReg ? cpRow('自動車重量税', wtUI(car, b, bc)) : '')
     + (R.insp ? cpRow('自賠責の月数', `<div class="two"><input id="b-jm" class="q-in num" style="width:60px" inputmode="numeric" value="${b.jibaiM}" onchange="setBase('jibaiM',Math.max(1,Math.min(37,Math.round(numIn(this.value))||25)),1)"><span>か月</span>${seg(jbIn?String(b.jibaiM):'',[['12','12'],['24','24'],['25','25'],['36','36']],`setBase('jibaiM',$v,1)`)}</div>`)
        + (jbIn ? '' : cpRow(`自賠責保険料（${b.jibaiM}か月）`, `${money('b-ja', bc.jibai, `setBase('jibaiAmt',parseYen(this.value))`)}<div class="q-why">${bc.jibaiSrc==='est'?'<b>目安</b>（表から近似）。保険会社の額を入れる':'入れた額'}</div>`)) : '')
     /* 🗣 2026-10-01「保証もとりあえず 3か月3千キロと3年3万キロが選べて、手打ちも可能」（保証会社のチェックは「ここでは要らない」で外した） */
@@ -817,7 +824,7 @@ function confPanel(car, k){
       : R.buyerReg?row('自動車税', null, null, '予備検＝登録の時にお客様側で')
       : R.xfer?row('自動車税の未経過相当額', bc.unexpTax, K, '移転＝今年度の残りを持ち主から引き継ぐ（課税）')
       : row(`自動車税（${ym(bc.rd).m}月登録・${bc.months}か月）`, bc.carTax, T, `年額 ${yen(bc.annual)}円${bc.heavy?'（13年超の重課）':''} × 月数 ÷12・100円未満切り捨て`)}
-    ${row('自動車重量税', bc.weight||null, T, R.buyerReg?'予備検＝登録の時にお客様側で':R.insp?(bc.kei?'軽・2年':'0.5t×'+bc.units+'・2年')+'・'+({exempt:'免税',eco:'本則',std:'当分の間',y13:'13年経過',y18:'18年経過'}[bc.weightKey]):'車検が残っているので無し')}
+    ${row('自動車重量税', bc.wtMiss?null:bc.weight, T, R.buyerReg?'予備検＝登録の時にお客様側で':!R.insp?'車検が残っているので無し':bc.wtQ!=null?'国交省の照会 '+jd(bc.wtAt)+(bc.wtStale?'・<b>照会し直し</b>（税制の年度が変わる）':''):bc.kei?'軽・2年・'+({exempt:'免税',eco:'本則',std:'当分の間',y13:'13年経過',y18:'18年経過'}[bc.weightKey]):'<b>未照会</b>（登録・保証の「国交省で照会」）')}
     ${R.insp?row(`自賠責保険料（${bc.jibaiM}か月）`, bc.jibai, T, (bc.jibaiSrc==='est'?'<b>目安</b>・':'')+'保険の始まる日 '+jd(bc.rd)+(bc.tbFrom==='2026-11-01'?'（11/1 からの新料金）':''))
       : row(`自賠責の未経過相当額（残り ${bc.remM}か月）`, bc.unexpJb, K)}
     <div class="q-sec">法定費用（立替）</div>
@@ -848,7 +855,7 @@ function infoPanel(car){
     ['発売（このモデル）', nm.first+'〜'+nm.last, car.firstReg ? '初度登録 '+car.firstReg.replace('-','/') : '—', J(!w, !car.firstReg)],
     ['グレード', sp ? sp.g : `候補 ${G.list.length}件`, (car.grade||'—')+(car.gradeSub?'・'+car.gradeSub:''), J(!!sp, !car.grade)],
     ['排気量', sp?sp.cc:'—', car.cc?ccU(car):'—', J(sp && Math.abs(num(sp.cc)-car.cc)<=20, !sp)],
-    ['車両重量', sp?sp.kg:'—', car.weight?car.weight.toLocaleString()+'kg':'—', J(sp && Math.abs(num(sp.kg)-car.weight)<=40, !sp)],
+    /* 車両重量の行は v4.0.5 で外した（重量税は国交省の照会の額・重さは使わない） */
     ['区分', sp?(num(sp.cc)<=660?'軽自動車':'普通車'):'—', car.kei?'軽自動車':'普通車', J(sp && (num(sp.cc)<=660)===!!car.kei, !sp)],
     ['駆動・ミッション', sp?sp.drive+'・'+sp.shift:'—', '（車両情報に無い）', J(0,1)],
     ['定員', sp?sp.seat:'—', '（車両情報に無い）', J(0,1)],
@@ -1177,6 +1184,8 @@ function renderDocs(){ _reprint = null;
     <span class="sp"></span>${zoomBar()}<button onclick="window.print()">${I('printer','🖨',14)} 印刷${eqWith(doc)?'（2枚）':''}</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers"><div class="paper" id="q-paper"></div><div class="paper" id="q-paper2" hidden></div></div></div></div>`;
   const k = calc(d.ctx);
+  const wb = k.bc.wtMiss ? '重量税が入っていません（基本価格の「国交省で照会」で入れる）' : k.bc.wtStale ? '重量税の照会し直しが要ります（税制の年度が変わる）' : '';
+  if (wb) { const t = $('q-docov').querySelector('.q-docbar .t'); if (t) t.insertAdjacentHTML('afterend', `<span class="q-pill warn" style="margin-left:8px">⚠ ${wb}</span>`); }
   const html = { quote:()=>'', compare:()=>cmpShow(d,k), board:()=>docBoard(d.car), order:()=>docOrder(d,k), orderH:()=>docOrderH(d,k), equip:()=>eqShow(d,k), contract:()=>docContract(d,k), terms:()=>docTerms(), cond:()=>docCond(d,k), invoice:()=>docInvoice(d,k), delivery:()=>docDelivery(d,k) }[doc]();
   $('q-paper').innerHTML = html;
   if (doc==='compare' && !cmpBaseOn(d)) document.querySelectorAll('#q-paper table.cmp tr').forEach(tr=>{ if (tr.cells[1]) tr.cells[1].remove(); });   // ベースの列を外す
@@ -3765,6 +3774,24 @@ function setWs(cid, on){ const b = carOf(cid).base; snap(); b.wsOn = on ? 1 : 0;
 function setBase(k, v, hard){ const car = curCar(); if (hard) snap(); car.base[k] = v; car.base.changed = TODAY; if (hard){ save(); render(); } else renderKeep(); }
 function setCostTax(cid, v){ const car = carOf(cid); snap(); if (v==='on') car.base.cost.tax = 0; else delete car.base.cost.tax; save(); render(); if (v==='on') setTimeout(()=>{ const e = $('b-c-tax'); if (e){ e.focus(); e.select(); } }, 30); }
 function setCost(k, v){ curCar().base.cost[k] = v; renderKeep(); }
+/* 🗣 2026-10-23 重量税＝国交省（軽は軽自動車検査協会）の「次回自動車重量税額照会」の額。登録車は車両重量の欄を外した */
+const WT_URL = { car:'https://www.nextmvtt.mlit.go.jp/nextmvtt-web/nextmvttshokai/init', kei:'https://www.kei-nextmvtt.jp/kei_nextmvtt-web/' };
+function wtUI(car, b, bc){ const kei = bc.kei, dis = !QData.canEdit();
+  const sel = kei ? `<select id="b-eco" class="q-in" style="max-width:260px" onchange="setBase('eco',this.value,1)" ${dis?'disabled':''}>${[['std','当分の間税率（13年・18年は自動）'],['eco','本則税率（環境性能のある車）'],['exempt','免税']].map(([v,l])=>`<option value="${v}" ${b.eco===v?'selected':''}>${l}</option>`).join('')}</select>` : '';
+  const amt = `<div class="km-in"><input id="b-wtq" class="q-in num" inputmode="numeric" placeholder="照会した額" value="${bc.wtQ!=null?yen(bc.wtQ):''}" onfocus="this.value=this.value.replace(/,/g,'')" onchange="setWtQ(this.value)" ${dis?'disabled':''}><span>円</span></div>`;
+  const btn = `<button type="button" class="q-btn sm" onclick="wtQuery('${car.id}')" title="車台番号を写して、照会のページを新しいタブで開きます（照会のボタンは自分で押す）">${I('search','🔎',13)} ${kei?'軽自動車検査協会で照会':'国交省で照会'}</button>`;
+  const note = bc.wtQ!=null ? `照会 ${jd(bc.wtAt)}${bc.wtStale?'　<b style="color:var(--orange)">照会し直し</b>（登録の予定月が税制の年度（5/1〜）をまたぐ）':''}`
+    : kei ? `いまは区分から ${yen(bc.weight)} 円（照会した額を入れるとそちら）`
+    : `<b style="color:var(--orange)">未照会</b>：照会した重量税の額を入れてください（入れるまで支払総額に重量税が入りません）`;
+  return `<div class="sb-pick">${sel}${amt}${btn}${bc.wtQ!=null&&!dis?`<button type="button" class="q-btn sm" onclick="setWtQ('')">クリア</button>`:''}</div><div class="q-why">${note}</div>`; }
+function setWtQ(raw){ const car = curCar(), b = car.base; snap(); const t = String(raw==null?'':raw).trim();
+  if (t === '') delete b.wtQ; else b.wtQ = { amt: parseYen(t), at: TODAY };
+  b.changed = TODAY; save(); render(); }
+function wtQuery(cid){ const car = carOf(cid), url = car.kei ? WT_URL.kei : WT_URL.car, vin = String(car.vin||'').trim();
+  try { window.open(url, '_blank', 'noopener'); } catch(e){}
+  if (!vin) { toast('照会のページを開きました。車台番号が入っていないので、車両情報の車台番号を入れると次から写します'); return; }
+  try { navigator.clipboard.writeText(vin).then(()=>toast(`車台番号 ${vin} を写しました。照会のページに貼り付けて照会し、出た額を入れてください`), ()=>toast(`照会のページを開きました。車台番号 ${vin} を入れて照会してください`)); }
+  catch(e){ toast(`照会のページを開きました。車台番号 ${vin} を入れて照会してください`); } }
 function setCar(k, v){ const car = curCar(); if (REAL_K.includes(k)){ if (String(v??'') !== String(car[k]??'')) toast('メーカー・車名・グレード・走行・色・仕入日は カードの車両情報で直します（見積からは書きません）'); return; }
   snap(); car[k] = typeof v==='string' ? v.trim() : v; if (k==='kei') car.keiQ = !!v; if (k==='firstReg') car._firstRegGuess = false; if (car.base) car.base.changed = TODAY; save(); render(); toast('車両情報（見積の側）を直しました', true); }
 function setPower(v){ const car = curCar(); snap(); car.hybrid = v==='hv'; car.fuel = v==='diesel' ? 'diesel' : 'gas'; if (car.base) car.base.changed = TODAY; save(); render(); }
