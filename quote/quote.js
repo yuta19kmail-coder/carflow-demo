@@ -750,7 +750,8 @@ function leftCompact(car){
   const b = car.base; if (!b) return h;
   const k = calc(baseCtx(car)), bc = k.bc, R = bc.R, L0 = bc.seibiInfo, cst = b.cost, costSum = costOf(b), gross = b.price - costSum;
   h += cpSec('price', true, `${I('estimate','🧾',14)} 車両価格`, `本体 ${yen(b.price)}（税抜）・リサイクル ${yen(b.recycle)}${b.wsPrice?'・業販 '+yen(b.wsPrice):''}${b.hist.length>1?'・値下げ '+(b.hist.length-1)+'回':''}`, '',
-    cpRow('車両本体価格（税抜）', money('b-price', b.price, `setBase('price',parseYen(this.value))`))
+    /* 🗣 2026-10-23「一度でも本体価格を決めた車は、手打ちで変更でも、売れそうな金額の3BOXでも、変更するときはポップアップでOKさせたい」＝打ち終わった時（離れた・Enter）に確認の窓 */
+    cpRow('車両本体価格（税抜）', `<input id="b-price" class="q-in num" inputmode="numeric" value="${yen(b.price)}" onfocus="this.value=this.value.replace(/,/g,'')" onkeydown="if(event.key==='Enter'){this.blur();}" onchange="priceAsk('${car.id}', parseYen(this.value), '手入力')" onblur="this.value=yen(parseYen(this.value))" ${!QData.canEdit()?'disabled':''}>`)
     + cpRow('納車整備', `<div class="sb-pick"><div class="km-in">${money('b-seibi', L0.price, `setBase('seibi',parseYen(this.value))`, dis)}</div></div><div class="q-why" style="margin-top:2px">車両価格に含む（定期点検整備付）・${b.seibi==null ? `<b>既定の ${yen(lightPrice())}</b>（設定の値。設定を変えるとこの車も変わる）` : `<b style="color:#f59e0b">この車だけ ${yen(seibiOf(b))}</b>（既定は ${yen(lightPrice())}）${dis?'':` <button class="q-lnk" onclick="setBase('seibi',null,1)">既定に戻す</button>`}`}</div>`)
     + cpRow('車両価格（税込）', `<span class="vv">${yen(k.bodyIn)}</span> <span class="q-why" style="display:inline">＝ポータルの「車両価格」</span>`, 'tot')
     + cpRow('リサイクル預託金 <span class="q-cls h">非課税</span>', money('b-rec', b.recycle, `setBase('recycle',parseYen(this.value))`))
@@ -3848,7 +3849,18 @@ function setCar(k, v){ const car = curCar(); if (REAL_K.includes(k)){ if (String
   snap(); car[k] = typeof v==='string' ? v.trim() : v; if (k==='kei') car.keiQ = !!v; if (k==='firstReg') car._firstRegGuess = false; if (car.base) car.base.changed = TODAY; save(); render(); toast('車両情報（見積の側）を直しました', true); }
 function setPower(v){ const car = curCar(); snap(); car.hybrid = v==='hv'; car.fuel = v==='diesel' ? 'diesel' : 'gas'; if (car.base) car.base.changed = TODAY; save(); render(); }
 function vehRevert(cid){ const car = carOf(cid); snap(); VEH_FIELDS.filter(k=>!REAL_K.includes(k)).forEach(k=>car[k]=car.cf[k]); save(); render(); toast('車両情報を最初の値に戻しました', true); }
-function setFromSoba(cid, ex){ const car = carOf(cid); snap(); const from = car.base.price; car.base.price = ex; car.base.hist.push({ date:TODAY, from, to:ex, why:'相場から', soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; save(); render(); toast(`車両本体（税抜）を ${yen(ex)} にしました。プラン見積とカード・ポータルの値がそろいます`, true); }
+/* 本体価格を変える前の確認の窓（手入力・売れそうな金額）。OK で値付けの履歴に1行（理由つき）。やめる＝元の金額に戻す */
+function priceAsk(cid, to, why){ const car = carOf(cid), b = car.base; if (!b) return; const from = b.price;
+  if (!(to > 0) || to === from){ render(); return; }
+  const k0 = calc(baseCtx(car)), b2 = Object.assign({}, b, { price: to }), k1 = calc(Object.assign({}, baseCtx(car), { b: b2 }));
+  ov(`<div class="hd">${I('warn','⚠',16)} 車両本体価格を変える<button class="x" onclick="priceAskNo()">✕</button></div><div class="bd">
+    <div style="font-size:14px">車両本体価格（税抜）を <b>${yen(from)}</b> → <b>${yen(to)}</b>（${to<from?'▲':'＋'}${yen(Math.abs(to-from))}）に変えます。</div>
+    <div class="q-why" style="margin-top:6px">支払総額（税込）${yen(k0.cash)} → <b>${yen(k1.cash)}</b>。プラン見積・見積書・カードとポータルの値に効き、値付けの履歴に「${esc(why)}」で残ります。</div></div>
+    <div class="ft"><button class="q-btn" onclick="priceAskNo()">やめる</button><button class="q-btn pri" onclick="priceAskOk('${cid}',${to},'${jsq(why)}')">OK</button></div>`, true); }
+function priceAskNo(){ closeOv(); render(); }
+function priceAskOk(cid, to, why){ closeOv(); const car = carOf(cid); snap(); const from = car.base.price; car.base.price = to; car.base.hist.push({ date:TODAY, from, to, why, soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; save(); render(); toast(`車両本体（税抜）を ${yen(to)} にしました（${why}）`, true); }
+function setFromSoba(cid, ex){ return priceAsk(cid, ex, '相場から（売れそうな金額）'); }
+function setFromSobaOld(cid, ex){ const car = carOf(cid); snap(); const from = car.base.price; car.base.price = ex; car.base.hist.push({ date:TODAY, from, to:ex, why:'相場から', soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; save(); render(); toast(`車両本体（税抜）を ${yen(ex)} にしました。プラン見積とカード・ポータルの値がそろいます`, true); }
 function makeBase(cid){ const car = carOf(cid); snap(); car.base = mkBase({ price:parseYen($('nb-price').value), recycle:parseYen($('nb-rec').value), jibaiM:25, hist:[{date:TODAY,from:0,to:parseYen($('nb-price').value),why:'基本価格を作成（車両カードの金額から）'}], changed:TODAY }); save(); render(); toast('基本価格を作りました。以後の金額はここがもとになります', true); }
 function portalDone(cid, site){ const car = carOf(cid); snap(); car.base.portalDone[site] = TODAY; save(); render(); toast((site==='goo'?'グーネット':'カーセンサー')+' に入れたと記録しました', true); }
 function copyText(t){ try { navigator.clipboard.writeText(String(t)).then(()=>toast('「'+yen(t)+'」を写しました')).catch(()=>toast('写せませんでした（手で選んでコピー）')); } catch(e){ toast('写せませんでした'); } }
