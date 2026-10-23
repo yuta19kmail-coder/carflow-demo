@@ -1631,73 +1631,8 @@ function _resizeImageToDataUrl(file, maxSize, quality) {
   });
 }
 
-// ========================================
-// v1.5.12: 写真 data:URL → Storage 一括移行
-// ========================================
-function _setMigrateStatus(msg) {
-  const el = document.getElementById('migrate-photos-status');
-  if (el) el.textContent = msg || '';
-}
-
-async function dryRunMigratePhotos() {
-  if (!window.migrateDataUrls) {
-    showToast('移行モジュールが読み込まれていません');
-    return;
-  }
-  if (typeof window.hasPermission === 'function' && !window.hasPermission('canEditTemplates')) {
-    showToast('この操作には管理者権限が必要です', 'CF-9016');
-    return;
-  }
-  _setMigrateStatus('対象を確認中…');
-  const targets = window.migrateDataUrls.scanTargets();
-  const carCount = (targets.cars || []).length;
-  const sizeMb = ((targets.cars || []).reduce((a, b) => a + (b.sizeBytes || 0), 0) / (1024 * 1024)).toFixed(2);
-  const msg = `車両写真：${carCount}件（合計 約${sizeMb}MB）`;
-  _setMigrateStatus(msg);
-  showToast('dry-run: ' + msg);
-}
-
-async function runMigratePhotos() {
-  if (!window.migrateDataUrls) {
-    showToast('移行モジュールが読み込まれていません');
-    return;
-  }
-  if (typeof window.hasPermission === 'function' && !window.hasPermission('canEditTemplates')) {
-    showToast('この操作には管理者権限が必要です', 'CF-9016');
-    return;
-  }
-  const targets = window.migrateDataUrls.scanTargets();
-  const carCount = (targets.cars || []).length;
-  if (carCount === 0) {
-    showToast('移行対象の写真はありません', 'CF-9017');
-    _setMigrateStatus('対象なし');
-    return;
-  }
-  if (!(await cfAsk(`車両写真 ${carCount}件 を Firebase Storage に移行します。\n通信に時間がかかる場合があります。実行しますか？`, { ok: '移行する' }))) {   /* v3.16.7（B-03） */
-    return;
-  }
-  _setMigrateStatus('移行中…0/' + carCount);
-  try {
-    const result = await window.migrateDataUrls.runAll({
-      dryRun: false,
-      includeStaff: true,
-      onProgress: (msg, done, total) => {
-        if (typeof done === 'number' && typeof total === 'number') {
-          _setMigrateStatus(`移行中…${done}/${total}`);
-        }
-      },
-    });
-    const summary = window.migrateDataUrls.summarize(result);
-    _setMigrateStatus('完了：' + summary);
-    showToast('移行完了：' + summary);
-    if (typeof renderAll === 'function') renderAll();
-    if (typeof _refreshHeaderAvatars === 'function') _refreshHeaderAvatars();
-  } catch (err) {
-    console.error('[runMigratePhotos]', err);
-    _setMigrateStatus('失敗：' + (err.message || err));
-    showToast('移行に失敗しました', 'CF-9018');
-  }
-}
+// 🗑 v4.4.2（2026-10-23・ゆうた「写真のストレージ移行と一括編集とかはもういらないよね？」→「両方外して」）
+// 写真 data:URL → Storage 一括移行（_setMigrateStatus・dryRunMigratePhotos・runMigratePhotos）は外した（古い形の写真が0件）
 
 
 // ========================================
