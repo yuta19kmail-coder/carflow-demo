@@ -102,10 +102,12 @@
   function ver() { var m = document.querySelector('meta[name="app-version"]'); return m ? m.getAttribute('content') : ''; }
 
   /* サイドバーの［見積］［原価管理］。同じ iframe を開いて、中の画面だけ切り替える */
+  var SRC = function (app) { return 'quote/index.html?v=' + encodeURIComponent(ver()) + '&app=' + encodeURIComponent(app); };
+  var dirty = {};   /* 見積の設定が変わった＝その iframe は次に見せる時に読み直す（iframe ごとに設定を読んでいるため） */
   function open(app, el) {
     if (typeof showPanel === 'function') showPanel('quote', el);
     var f = document.getElementById('quote-frame'); if (!f) return;
-    if (!f.getAttribute('src')) { f.setAttribute('src', 'quote/index.html?v=' + encodeURIComponent(ver()) + '&app=' + encodeURIComponent(app || 'quote')); return; }
+    if (!f.getAttribute('src') || dirty['quote-frame']) { dirty['quote-frame'] = false; f.setAttribute('src', SRC(app || 'quote') + '&r=' + Date.now()); return; }
     try { if (f.contentWindow && f.contentWindow.QApp) f.contentWindow.QApp.go(app || 'quote'); } catch (e) {}
   }
   /* 車両詳細などから「この車の見積を開く」 */
@@ -118,10 +120,21 @@
     if (!go()) { var n = 0, t = setInterval(function () { if (go() || ++n > 60) clearInterval(t); }, 250); }
   }
 
+  /* 🗣 2026-10-23「見積と原価にそれぞれ右上に設定があるけど、モックじゃないから素直に CarFlow の設定に見積・原価を足して正式な設定に」
+     ＝設定 ▸ 見積（app＝set）／設定 ▸ 原価（app＝cgset）。中身は見積と同じ quote/index.html を、設定の欄の中の iframe で開く（js/settings.js の selectSettingsSection から呼ぶ） */
+  var SET_FRAMES = { 'quote-set': ['quote-set-frame', 'set'], 'cost-set': ['cost-set-frame', 'cgset'] };
+  function mountSet(sec) {
+    var m = SET_FRAMES[sec]; if (!m) return; var f = document.getElementById(m[0]); if (!f) return;
+    if (!f.getAttribute('src') || dirty[m[0]]) { dirty[m[0]] = false; f.setAttribute('src', SRC(m[1]) + '&r=' + Date.now()); }
+  }
+  function setChanged(win) {
+    ['quote-frame', 'quote-set-frame', 'cost-set-frame'].forEach(function (id) { var f = document.getElementById(id); if (f && f.getAttribute('src') && f.contentWindow !== win) dirty[id] = true; });
+  }
+
   window.CarQuote = {
     cars: carsList, car: function (id) { var c = find(id); return c ? facts(c) : null; }, sig: sig,
     me: me, can: can, canEdit: canEdit, staff: staffNames, company: company,
-    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver,
+    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, mountSet: mountSet, setChanged: setChanged,
     demo: function () { return window.__DEMO_MODE === true; }
   };
 })();

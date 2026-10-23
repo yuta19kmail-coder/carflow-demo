@@ -127,7 +127,7 @@ let S = (function(){
   const s = { v:40, set: B.set || defaultSettings(), cars: B.cars || [],
     ui: Object.assign({ view:'list', carId:null, step:'base', custId:null, plan:'B', filter:'all', q:'', sort:'fresh', doc:null, rtab:'soba' }, (loc && loc.ui) || {}),
     pending: (loc && loc.pending) || null };
-  s.ui.app = B.app === 'cost' ? 'cost' : 'quote';
+  s.ui.app = ['cost','set','cgset'].includes(B.app) ? B.app : 'quote';   /* set・cgset＝CarFlow の設定 ▸ 見積／原価 の中に開いた時（v4.4.0） */
   if (!B.set){ const co = window.QData ? QData.company() : {};   /* 見積の設定がまだ無い時＝会社の欄は CarFlow の会社情報から */
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
   const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
@@ -603,7 +603,7 @@ function renderList(){
   list.sort(sorters[u.sort]);
   const sel = u.sel = u.sel || {}; Object.keys(sel).forEach(id=>{ if (!carOf(id)) delete sel[id]; });
   const selN = Object.keys(sel).filter(id=>sel[id]).length;
-  let h = `<div class="q-wrap"><div class="q-top"><div><div class="t">${I('estimate','🧾',18)} 見積</div><div class="s">在庫車 ${S.cars.length}台。基本価格 → プラン見積 → 個別見積 → 売約（売約は見積の上の札だけ。カンバンの売約・納車のタスクには触れません）</div></div><span class="sp"></span>${roNote()}<button class="q-btn" onclick="openSettings()" title="プランの中身・諸費用・税の表・帳票の会社の欄">${I('settings','⚙️',15)} 見積の設定</button></div>
+  let h = `<div class="q-wrap"><div class="q-top"><div><div class="t">${I('estimate','🧾',18)} 見積</div><div class="s">在庫車 ${S.cars.length}台。基本価格 → プラン見積 → 個別見積 → 売約（売約は見積の上の札だけ。カンバンの売約・納車のタスクには触れません）</div></div><span class="sp"></span>${roNote()}</div>
     ${S.pending && carOf(S.pending.carId) ? (()=>{ const pc = carOf(S.pending.carId); return `<div class="q-pend">${I('info','ℹ',15)} 途中の見積：<b>${esc(pc.num)} ${esc(pc.model)}</b>（${STEP_L[S.pending.step]}・${esc(S.pending.at)}）<span class="sp"></span><button class="q-btn sm" onclick="pendingDrop()">破棄</button><button class="q-btn pri sm" onclick="pendingResume()">続きから</button></div>`; })() : ''}
     <div class="q-phase">${PHASES.map(([id,l])=>`<button class="${u.phase===id?'on':''}" onclick="S.ui.phase='${id}';_hideSold=false;save();render()">${l}<b>${cnt(id)}</b></button>`).join('')}</div>
     <div class="q-tools"><input id="q-search" class="q-in" style="max-width:280px" placeholder="管理番号・車名で探す" value="${esc(u.q)}" oninput="if(event.isComposing)return;S.ui.q=this.value;renderKeep()" oncompositionend="S.ui.q=this.value;renderKeep()">
@@ -1176,7 +1176,7 @@ function stepStd(car){ let RW;
           <select class="q-in" onchange="stdVsel('${car.id}','${jsq(x.key)}',this.value)" ${dis?'disabled':''} title="取付工賃">${x.vo.map((o,j)=>`<option value="${j}" ${j===x.vi?'selected':''}>工賃：${esc(o[0])}</option>`).join('')}</select>
           <span class="mb">${money('s-l-'+i, x.laborA, `stdAmtL('${car.id}','${jsq(x.key)}',parseYen(this.value))`, dis)}${x.lMan?`<button class="rs" title="工賃の種類の金額に戻す" onclick="stdAmtBL('${car.id}','${jsq(x.key)}','amtL')">↺</button>`:''}</span></div></div>`:''}</div>`).join(''))(true)}
     ${addSel(items.filter(x=>!stdUp(car, x)).length + stdExtraRows(car, items, dis).n, RW(false) + stdExtraRows(car, items, dis).html, dis, `stdAddFree('${car.id}')`)}
-    <div class="q-why" style="margin-top:8px">金額・種類・並び・A/B/C はこの車だけ変わります（店のパックは変わらない）。↺ でテンプレの金額に戻す。全車に効かせる時は「見積の設定 ▸ プランの中身」。</div>
+    <div class="q-why" style="margin-top:8px">金額・種類・並び・A/B/C はこの車だけ変わります（店のパックは変わらない）。↺ でテンプレの金額に戻す。全車に効かせる時は CarFlow の「設定 ▸ 見積 ▸ プランの中身」。</div>
     ${Object.keys(car.std.ov).length||(car.std.extra||[]).length||Object.keys(car.std.tier||{}).length||Object.keys(car.std.amt||{}).length||Object.keys(car.std.vsel||{}).length||(car.std.order||[]).length||(car.std.hide||[]).length?`<button class="q-btn sm" style="margin-top:6px" onclick="stdReset('${car.id}')">店のパックに戻す</button>`:''}
   </div></div></div><div><div class="q-card"><h3>おすすめ・業販（この車だけ）</h3><div class="bd">
     <div><label class="k" style="font-size:11px;color:var(--text3)">おすすめのプラン</label><div>${seg(rec,PLANS.map(p=>[p,p]),`stdRec('${car.id}','$v')`, dis)}</div></div>
@@ -2593,7 +2593,10 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
       <div><label class="k">見積の有効日数</label><input id="st-c-valid" class="q-in num" value="${c.valid}" onchange="S.set.company.valid=Math.round(numIn(this.value))||30;save()"></div>
       <div><label class="k">担当者（, 区切り）</label><input id="st-staff" class="q-in" value="${esc(s.staff.join(','))}" onchange="S.set.staff=this.value.split(',').map(x=>x.trim()).filter(Boolean);save()"></div></div>`;
   }
-  ov(`<div class="hd">${I('settings','⚙',16)} 見積の設定<button class="x" onclick="closeOv()">✕</button></div><div class="bd">${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（会社の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>${b}</div><div class="ft"><button class="q-btn pri" onclick="closeOv()">閉じる</button></div>`);
+  const head = `${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（会社の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>`;
+  /* v4.4.0 CarFlow の設定 ▸ 見積 の中（app＝set）は画面として出す。前の「見積の設定」の窓は、見積の画面の右上から外した */
+  if (S.ui.app==='set'){ const r = $('q-root'), keep = r.scrollTop; r.innerHTML = `<div class="q-wrap q-setpage">${head}${b}</div>`; r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
+  ov(`<div class="hd">${I('settings','⚙',16)} 見積の設定<button class="x" onclick="closeOv()">✕</button></div><div class="bd">${head}${b}</div><div class="ft"><button class="q-btn pri" onclick="closeOv()">閉じる</button></div>`);
 }
 
 /* =====================================================================
@@ -2740,7 +2743,7 @@ function cgDone(on){ const car = carOf(S.ui.cgCar), R = cgCalc(car);
 
 function renderCost(){ const r = $('q-root'), car = S.ui.cgCar && carOf(S.ui.cgCar);
   if (!QData.canEdit()){ r.innerHTML = `<div class="q-wrap"><div class="q-note warn" style="margin-top:20px">${I('lock','🔒',15)} 原価管理は 管理者・マネージャー・スタッフだけが見られます。</div></div>`; return; } r.innerHTML = S.ui.cgView==='link' ? cgLinkPage() : car && car.base ? cgDetail(car) : cgList(); }
-/* ---------- 部品と StockFlow のつなぎ（設定）＝本物では CarFlow の設定 ▸ 原価の単価 の想定 ---------- */
+/* ---------- 部品と StockFlow のつなぎ（設定）＝v4.4.0 から CarFlow の設定 ▸ 原価 の中（app＝cgset）。原価管理の画面の右上のボタンは外した ---------- */
 function cgLinkView(on){ S.ui.cgView = on === false ? '' : 'link'; save(); render(); $('q-root').scrollTop = 0; }
 function cgLinkSet(k, ids){ S.set.cgLink = S.set.cgLink || {}; S.set.cgLink[k] = ids; save(); }
 function cgLinkToggle(k, id, on){ const L = cgLinks(k).slice(), i = L.indexOf(id); if (on && i<0) L.push(id); if (!on && i>=0) L.splice(i,1); cgLinkSet(k, L); render(); }
@@ -2771,7 +2774,7 @@ function cgLinkPage(){
           <span class="ops">${j?`<button title="前へ（選択肢の並び）" onclick="cgLinkMove('${d.k}','${id}',-1)">‹</button>`:''}<button title="つなぎを外す" onclick="cgLinkToggle('${d.k}','${id}',false)">✕</button></span></span>`; }).join('') : '<span class="cg-nolink">つなぎ無し＝毎回手で入れる</span>'}
         ${d.k==='texa'?`<div class="cg-nt" style="margin-top:3px">＋ A/C オイル（${sfItem(CG_TEXA_OIL).no} ${yen(sfItem(CG_TEXA_OIL).cost)}/回）を1回分たす＝原価表の「ガス量×3円＋75円」と同じ形</div>`:''}</td>
       <td style="width:96px"><button class="q-btn sm" onclick="cgPick('${d.k}')">${I('plus','＋',12)} 品を選ぶ</button></td></tr>`; };
-  return `<div class="q-wrap"><div class="q-top"><button class="q-btn sm" onclick="cgLinkView(false)">${I('left','←',13)} 原価管理</button><div style="margin-left:10px"><div class="t">${I('link','🔗',18)} 部品と StockFlow のつなぎ</div>
+  return `<div class="q-wrap"><div class="q-top">${S.ui.app==='cgset' ? '' : `<button class="q-btn sm" onclick="cgLinkView(false)">${I('left','←',13)} 原価管理</button>`}<div style="${S.ui.app==='cgset' ? '' : 'margin-left:10px'}"><div class="t">${I('link','🔗',18)} 部品と StockFlow のつなぎ</div>
       <div class="s">原価表の部品ごとに、StockFlow の料金表の品をつなぐ。つないだ品が原価管理の「銘柄」の選択肢になり、単価は StockFlow の仕切（税抜）を読む。先頭の品（太枠）が最初に選ばれる</div></div></div>
     <div class="cg-lk-grid"><div class="q-card"><h3>原価表の部品 → StockFlow の品 <span class="r">${CG_PARTS.filter(d=>cgLinks(d.k).length).length} / ${CG_PARTS.length} 部品をつないだ</span></h3><div class="bd">
       <table class="cg-tb cg-lk"><thead><tr><th style="width:150px">部品（原価表）</th><th>つないだ StockFlow の品（＝銘柄の選択肢）</th><th></th></tr></thead><tbody>${CG_PARTS.map(row).join('')}</tbody></table>
@@ -2805,7 +2808,7 @@ function cgList(){
   list = list.slice().sort((a,b)=>b.c.num.localeCompare(a.c.num));
   const sumG = a => a.reduce((s,x)=>s+(x.R.gross||0),0);
   return `<div class="q-wrap"><div class="q-top"><div><div class="t">${I('calculator','🧮',18)} 原価管理</div><div class="s">原価表（車販原価記入シート）と同じ並び。売約した車は原価を確定する（＝バックオフィスの「原価処理」）。金額はすべて税抜。部品の単価は StockFlow の料金表から</div></div>
-      <span class="sp"></span><button class="q-btn" onclick="cgLinkView()">${I('link','🔗',14)} 部品と StockFlow のつなぎ</button></div>
+</div>
     ${(()=>{ const hit = S.cars.filter(c=>c.base && cgChanged(c)); return hit.length ? `<div class="q-note warn" style="margin-bottom:10px">${I('refresh','⟳',14)} StockFlow で値段が変わった部品を使っている車が <b>${hit.length}台</b>（原価の確定前＝新しい値段で計算し直しています）：${hit.map(c=>esc(c.num)).join('・')}</div>` : ''; })()}
     <div class="cg-tiles">
       <div class="cg-tile"><div class="l">在庫の原価（売約前 ${inStock.length}台）</div><div class="v">${yen(inStock.reduce((s,x)=>s+x.R.veh+x.R.parts+x.R.out,0))}</div><div class="s">車両本体・仕入れ＋整備・部品＋外注（立替は入れない）</div></div>
@@ -3802,7 +3805,8 @@ function goApp(a){ if (a==='soba'){ try { window.parent.showPanel('soba', window
 function svFromQuote(id){ openCarSoba(id); }
 
 function render(){ const r = $('q-root'); const keep = r.scrollTop, kl = $('q-colL') ? $('q-colL').scrollTop : 0, kr = $('q-colR') ? $('q-colR').scrollTop : 0;
-  if (S.ui.app!=='cost') S.ui.app = 'quote';   /* v4.0.0：この画面は見積と原価管理だけ（相場ビュー・ダッシュボードは CarFlow 本体・帳票サンプルはモックだけ） */
+  if (!['cost','set','cgset'].includes(S.ui.app)) S.ui.app = 'quote';   /* v4.0.0：この画面は見積と原価管理だけ（相場ビュー・ダッシュボードは CarFlow 本体・帳票サンプルはモックだけ） */
+  if (S.ui.app==='set' || S.ui.app==='cgset'){ $('soba-panel').hidden = true; r.hidden = false; if (S.ui.app==='set') openSettings(); else { S.ui.cgView = 'link'; renderCost(); } r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
   try { const pd = window.parent.document; if (pd.getElementById('panel-quote').classList.contains('open')) ['quote','qcost'].forEach(a=>{ const e = pd.getElementById('si-'+a); if (e) e.classList.toggle('active', (a==='qcost'?'cost':'quote')===S.ui.app); }); } catch(e){}
   $('soba-panel').hidden = true; r.hidden = false;
   if (S.ui.app==='cost') renderCost(); else if (S.ui.view==='car') renderCar(); else renderList();

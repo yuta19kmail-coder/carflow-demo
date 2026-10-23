@@ -20,6 +20,20 @@
 if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
 const ANNOUNCEMENTS = [
   {
+    id: 'a-20261023-v440',
+    version: '4.4.0',
+    date: '2026-10-23',
+    title: '⚙️ 見積と原価の設定は「設定」の中へ',
+    body: `
+      <p>見積・原価管理の画面の右上にあった設定のボタンは、<b>左のメニューの［設定］</b>に移りました。</p>
+      <ul>
+        <li><b>設定 ▸ 見積</b>：プランの中身・納車整備・諸費用・税と保険の表・帳票の会社の欄</li>
+        <li><b>設定 ▸ 原価</b>：原価表の部品と StockFlow の品のつなぎ</li>
+      </ul>
+      <p>直せるのは今までどおり 管理者・マネージャーです。直した値は会社の全員の見積に効きます。</p>
+    `
+  },
+  {
     id: 'a-20261023-v400',
     version: '4.0.0',
     date: '2026-10-23',

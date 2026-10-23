@@ -162,6 +162,7 @@
     await coll('settings').doc('quote').set(doc);
     D.setWritten = json;
     CQ.log(null, '見積の設定を変更');
+    try { if (CQ.setChanged) CQ.setChanged(window); } catch (e) {}   /* v4.4.0 設定の画面と見積の画面は別の iframe＝ほかの iframe は次に開く時に読み直す */
   }
   async function flush() {
     if (busy) { again = true; return; }

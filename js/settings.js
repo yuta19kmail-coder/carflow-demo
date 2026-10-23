@@ -426,6 +426,8 @@ function selectSettingsSection(sectionId) {
   if (sectionId === 'task-patterns' && typeof window.renderTaskPatternsInSettings === 'function') {
     window.renderTaskPatternsInSettings();
   }
+  // v4.4.0: 見積・原価の設定（中身は quote/index.html を iframe で開く＝js/car-quote.js）
+  if ((sectionId === 'quote-set' || sectionId === 'cost-set') && window.CarQuote && CarQuote.mountSet) CarQuote.mountSet(sectionId);
 }
 window.selectSettingsSection = selectSettingsSection;
 
