@@ -1185,7 +1185,7 @@ function stepStd(car){ let RW;
     <label class="q-tog" style="margin-top:10px"><input type="checkbox" ${car.std.showD?'checked':''} onchange="stdShowD('${car.id}',this.checked)" ${dis?'disabled':''}><span><b>業販（D）も出す</b>　業者向けの現状渡し（納車整備・保証・登録なし）</span><span class="v">${yen(calc(stdCtx(car,'D')).cash)}</span></label></div></div>
     <div class="q-card"><h3>印刷</h3><div class="bd">
       <div class="q-prow">${['base'].concat(ps).map(p=>`<button class="q-btn" onclick="stdPrint('${p}')">${I('printer','🖨',14)} ${p==='base'?'基本':p==='D'?'業販':p+'（'+esc(planName(p))+'）'}を印刷</button>`).join('')}</div>
-      <div class="q-prow" style="margin-top:8px">${eqDone(car)?`<button class="q-btn" onclick="S.ui.docBase=true;save();openDocs('equip')">${I('printer','🖨',14)} 装備品一覧を印刷</button>`:`<button class="q-btn" disabled title="装備品チェックが終わっていません（カードの装備品チェックで入力）">${I('printer','🖨',14)} 装備品一覧を印刷（チェック前）</button>`}</div>
+      <div class="q-prow" style="margin-top:8px">${eqDone(car)?`<button class="q-btn" onclick="eqPrint('${car.id}')">${I('printer','🖨',14)} 装備品一覧を印刷</button>`:`<button class="q-btn" disabled title="装備品チェックが終わっていません（カードの装備品チェックで入力）">${I('printer','🖨',14)} 装備品一覧を印刷（チェック前）</button>`}</div>
       <div class="q-prow" style="margin-top:8px"><button class="q-btn" onclick="openPick('${car.id}')">${I('printer','🖨',14)} まとめて印刷（選んで）</button><button class="q-btn" onclick="openDocs('compare')">${I('table','▦',14)} プラン比較</button><button class="q-btn" onclick="openDocs('board')">プライスボード</button></div></div></div></div></div>`;
   return h;
 }
@@ -1721,7 +1721,10 @@ const EQ_TPL = [
 const EQ_BASE = { nav:'on',navm:'SSD/メモリ',tv:'フルセグ',bt:'on',bcam:'on',fcam:'off',scam:'off',acam:'off',rmon:'off',cd:'on',dvd:'on',mp:'off', ac:'on',wac:'off',cc:'off',acc:'off',sh:'off',scool:'off',lea:'off',psea:'off',bench:'off',row3:'on',walk:'on',flat:'off', skey:'on',kless:'off',push:'on',rstart:'off',spare:'off',pw:'on',psd:'両側',pgate:'off',etc:'on',wel:'off', head:'LED',ahb:'on', abs:'on',ab:'on',sab:'off',esc:'on',body:'on',aeb:'on',lane:'on',apark:'off',passist:'off',csens:'off',immo:'on', alu:'on',aero:'off',sun:'off',uv:'on',low:'off',idle:'on', own1:'off',nosmoke:'off',manual:'on',warr:'off', acq:'よく効く',acc2:'なし',belt:'off',room:'ok',mirror:'ok',sparek:'ng',memo:'なし', tfr:'7mm',tfl:'7mm',trr:'7mm',trl:'7mm',tsf:'205/60R16',tsr:'205/60R16' };
 /* 装備品チェックが終わっているか（🗣 2026-10-02「終わってない場合はグレーアウト」）。本番は カードの装備品チェックの入力済みの印。
    モック：仕入れ・展示準備中の車はまだ（car.eqDone で上書きできる） */
-const eqDone = car => car.eqDone != null ? !!car.eqDone : !['purchase','regen'].includes(car.status);
+const eqDone = car => car._f && window.QData && QData.equipDone ? QData.equipDone(car.id) : car.eqDone != null ? !!car.eqDone : !['purchase','regen'].includes(car.status);   /* v4.5.2 本物＝カードの装備品チェックに「あり」が1つでもある */
+/* 🗣 2026-10-23「見積のプランで装備品の印刷をすると見積もりが出てきちゃう」＝帳票の窓は見積書だけ（docList）なので、装備品一覧はカードの装備品チェックの印刷を開く。
+   見積の中の装備品一覧（docEquip・eqShow）は見本の値（eqStateOf）なので本物では使わない */
+function eqPrint(cid){ if (!(window.QData && QData.printEquip && QData.printEquip(cid))) toast('装備品一覧を開けませんでした（カード詳細の装備品チェックから印刷してください）'); }
 function eqStateOf(car){
   const s = Object.assign({}, EQ_BASE), n = parseInt(car.num.slice(-2),10)||0;
   const van = /ノア|ヴォクシー|セレナ|フリード|エスクァイア/.test(car.model), mini = /ミニ|MINI/.test(car.model);
@@ -1921,9 +1924,9 @@ function quickDoc(cid, p){ S.ui.carId = cid; S.ui.step = 'std'; S.ui.custId = nu
 function selOne(id, on){ S.ui.sel = S.ui.sel || {}; if (on) S.ui.sel[id] = 1; else delete S.ui.sel[id]; save(); render(); }
 function selAll(on){ S.ui.sel = S.ui.sel || {}; (S.ui.listIds||[]).forEach(id=>{ if (on) S.ui.sel[id] = 1; else delete S.ui.sel[id]; }); save(); render(); }
 /* 何を刷るかの選び方（一括印刷と選択印刷で同じ）。set＝{ base, A, B, C, equip } */
-const PRINT_KINDS = withD => [['base','基本（オプションなし・掲載の支払総額）'],['A','プラン A（'+planName('A')+'）'],['B','プラン B（'+planName('B')+'）'],['C','プラン C（'+planName('C')+'）']].concat(withD ? [['D', withD===2 ? '業販（D）※出している車だけ' : '業販（D・現状渡し）']] : []).concat([['compare','プラン比較'],['equip','装備品一覧'],['board','プライスボード（A3 横）']]);
+const PRINT_KINDS = withD => [['base','基本（オプションなし・掲載の支払総額）'],['A','プラン A（'+planName('A')+'）'],['B','プラン B（'+planName('B')+'）'],['C','プラン C（'+planName('C')+'）']].concat(withD ? [['D', withD===2 ? '業販（D）※出している車だけ' : '業販（D・現状渡し）']] : []).concat([['compare','プラン比較']].concat(window.QData ? [] : [['equip','装備品一覧']]).concat([['board','プライスボード（A3 横）']]));   // v4.5.2 本物では装備品一覧を外す（見本の値で刷られるため。装備品一覧は［装備品一覧を印刷］＝カードの装備品チェックの印刷）
 function printChecks(path, set, redraw, withD, noEq){ return `<div class="q-f" style="grid-template-columns:1fr 1fr">${PRINT_KINDS(withD).map(([k,l])=>`<label class="q-tog ${noEq&&k==='equip'?'off':''}" style="margin:4px 0" ${noEq&&k==='equip'?'title="装備品チェックが終わっていません"':''}><input type="checkbox" ${set[k]&&!(noEq&&k==='equip')?'checked':''} ${noEq&&k==='equip'?'disabled':''} onchange="${path}.${k}=this.checked?1:0;${redraw}"><span>${esc(l)}</span></label>`).join('')}</div>`; }
-const sheetsOf = (n, set) => n * (['base','A','B','C','D','compare','equip','board'].filter(k=>set[k]).length);
+const sheetsOf = (n, set) => n * (['base','A','B','C','D','compare','equip','board'].filter(k=>set[k] && (k!=='equip' || !window.QData)).length);
 /* 枚数の書き方（A3 のプライスは別に数える） */
 const sheetsTxt = (n, set) => { const a3 = set.board ? n : 0, a4 = sheetsOf(n, set) - a3; return [a4 ? `A4 ${a4} 枚` : '', a3 ? `A3 ${a3} 枚` : ''].filter(Boolean).join('・') || '0 枚'; };
 /* 一括印刷：一覧でチェックした車 */
@@ -1949,7 +1952,7 @@ function bulkGo(ids){ const B = S.ui.bulkSet;
 function openPick(cid){
   const car = carOf(cid), P = S.ui.pickSet = Object.assign({ base:0, A:1, B:0, C:1, D:0, equip:1 }, S.ui.pickSet||{}); if (!car.std.showD) P.D = 0; const n = sheetsOf(1, Object.assign({}, P, { equip: eqDone(car) ? P.equip : 0 }));
   ov(`<div class="hd">${I('printer','🖨',16)} 選択印刷　${esc(car.num)} ${esc(car.maker)} ${esc(car.model)}<button class="x" onclick="closeOv()">✕</button></div><div class="bd">
-    <div class="q-sec" style="margin-top:0">刷るものを選ぶ</div>${printChecks('S.ui.pickSet', P, `openPick('${cid}')`, car.std.showD ? 1 : 0, !eqDone(car))}
+    <div class="q-sec" style="margin-top:0">刷るものを選ぶ</div>${printChecks('S.ui.pickSet', P, `openPick('${cid}')`, car.std.showD ? 1 : 0, !eqDone(car))}${window.QData?`<div class="q-why" style="margin-top:6px">装備品一覧は、プラン見積の［装備品一覧を印刷］から（カードの装備品チェックの印刷が開きます）</div>`:''}
     <div class="q-why" style="margin-top:6px">${['base','A','B','C','D'].filter(k=>P[k]).map(k=>(k==='base'?'基本':k==='D'?'業販':k)+' '+yen(calc(k==='base'?{car,b:car.base}:stdCtx(car,k)).cash)+'円').join('　')}</div>
     ${P.board && !car.board ? `<div class="q-why" style="margin-top:6px">プライスの装備をまだ選んでいません。自動で選んだ10個で出します（<a href="#" onclick="closeOv();openBrdPick('${cid}');return false">先に選ぶ</a>）</div>` : ''}
     <div class="q-note info" style="margin-top:10px"><b>${sheetsTxt(1, P)}</b>。画面に並べて見せ、そこから印刷します。</div></div>
@@ -1963,7 +1966,7 @@ function printSheets(ids, set){ _reprint = () => printSheets(ids, set);
     plans.filter(p=>p!=='D' || car.std.showD).forEach(p=>{ const ctx = p==='base' ? { car, b:car.base, plan:null } : stdCtx(car, p), d = { car, ctx, who:null, kind:'std' };
       papers += quotePapers(d, calc(ctx)); });
     if (set.compare){ const d = { car, ctx:{ car, b:car.base, plan:null }, who:null, kind:'std' }; papers += `<div class="paper qvp">${cmpShow(d)}</div>`; }
-    if (set.equip && eqDone(car)){ const d = { car, ctx:{ car, b:car.base, plan:null }, who:null, kind:'std' }; papers += `<div class="paper qvp">${eqShow(d)}</div>`; }
+    if (set.equip && !window.QData && eqDone(car)){ const d = { car, ctx:{ car, b:car.base, plan:null }, who:null, kind:'std' }; papers += `<div class="paper qvp">${eqShow(d)}</div>`; }
     if (set.board) papers += `<div class="paper a3">${docBoard(car)}</div>`; });
   const n = (papers.match(/class="paper[ "]/g)||[]).length;
   $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${cars.length===1?esc(cars[0].num+' '+cars[0].model)+' の選択印刷':'一括印刷　'+cars.length+' 台'}・${n} 枚</span><span class="sp"></span>${zoomBar()}<button onclick="window.print()">${I('printer','🖨',14)} 印刷（${n}枚）</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>

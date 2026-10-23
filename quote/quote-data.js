@@ -401,6 +401,8 @@
   window.QData = {
     demo: DEMO, me: () => CQ.me(), canEdit: () => CQ.canEdit(), canSet: () => CQ.can('canEditSettings'), staff: () => CQ.staff(), company: () => CQ.company(),
     ver: () => CQ.ver(), log: (id, a) => CQ.log(id, a), toastTop: (m, c) => CQ.toast(m, c), openCar: id => CQ.openCar(id),
+    /* 装備品一覧＝カードの装備品チェックの印刷（親の画面で開く）。入力があるかは開くたびに親から読む（車の一覧の目印に装備は入っていない） */
+    printEquip: id => !!(CQ.printEquip && CQ.printEquip(id)), equipDone: id => { const f = CQ.car(id); return !!(f && f.equip && f.equip.length); },
     schedule, flush, soba, rx: id => RX[id] || null,
     /* 見張り用：いま保存すると書きに行く車（書かずに見るだけ） */
     _pending: () => { const S = window.QApi && QApi.state(); if (!S) return []; return S.cars.filter(car => { const c0 = (S.edit && S.edit.carId === car.id) ? JSON.parse(S.edit.orig) : car; const j = jsonOf(c0, car); return j !== D.written[car.id] && !(D.written[car.id] === undefined && j === D.empty[car.id]); }).map(c => c.num); }, ensureKata, kata: () => KATA, sf: () => SF, sobaMeta: () => META, pickKey,

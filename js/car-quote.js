@@ -105,6 +105,8 @@
   function toast(msg, code) { try { if (typeof showToast === 'function') showToast(msg, code); } catch (e) {} }
   function openCar(id) { try { if (typeof openDetail === 'function') openDetail(id); } catch (e) {} }
   function ver() { var m = document.querySelector('meta[name="app-version"]'); return m ? m.getAttribute('content') : ''; }
+  /* 🗣 2026-10-23「見積のプランで装備品の印刷をすると見積もりが出てきちゃう」＝見積の［装備品一覧を印刷］はカードの装備品チェックの印刷（equipment-view.js）を開く */
+  function printEquip(id) { try { if (find(id) && typeof printEquipmentSheet === 'function') { printEquipmentSheet(id); return true; } } catch (e) { console.warn('[CarQuote] printEquip', e); } return false; }
 
   /* サイドバーの［見積］［原価管理］。同じ iframe を開いて、中の画面だけ切り替える */
   var SRC = function (app) { return 'quote/index.html?v=' + encodeURIComponent(ver()) + '&app=' + encodeURIComponent(app); };
@@ -144,7 +146,7 @@
   window.CarQuote = {
     cars: carsList, car: function (id) { var c = find(id); return c ? facts(c) : null; }, sig: sig,
     me: me, can: can, canEdit: canEdit, staff: staffNames, company: company,
-    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, mountSet: mountSet, setChanged: setChanged, histPanel: histPanel,
+    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, printEquip: printEquip, mountSet: mountSet, setChanged: setChanged, histPanel: histPanel,
     demo: function () { return window.__DEMO_MODE === true; }
   };
 })();
