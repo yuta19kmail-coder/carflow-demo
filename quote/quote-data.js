@@ -380,7 +380,8 @@
       qs.forEach(d => {
         const x = d.data() || {}; if (x.typ === 'labor' || x.deleted || x.trash) return;
         const no = typeof x.no === 'number' ? 'P' + String(x.no).padStart(4, '0') : String(x.no || '');
-        out.push({ id: d.id, no, kind: x.kind || '', maker: x.maker || '', name: x.name || '', code: x.code || '', sup: x.sup || '', unit: x.unit || '', cost: +x.cost || 0, at: ymd(x.updatedAt) });
+        /* cat・list（定価）・shop（店頭）＝見積の品の本体（ドラレコなど sfCat の品）の機種と値段に使う（2026-10-23） */
+        out.push({ id: d.id, no, kind: x.kind || '', cat: x.cat || '', maker: x.maker || '', name: x.name || '', code: x.code || '', sup: x.sup || '', unit: x.unit || '', cost: +x.cost || 0, list: +x.list || 0, shop: +x.shop || 0, at: ymd(x.updatedAt) });
       });
       out.sort((a, b) => String(a.no).localeCompare(String(b.no)));
       SF = out; if (window.QApi) QApi.refreshSoon();

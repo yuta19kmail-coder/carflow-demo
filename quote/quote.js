@@ -35,6 +35,10 @@ const custPlans = u => u.plans && u.plans.length ? u.plans : plansOf(u.showD);  
 const COLORS = { 'パール':'#f1efe9','ブラック':'#2b2f38','シルバー':'#c5ccd6','ホワイト':'#fafafa','レッド':'#c0392b','ブルー':'#2f5d9e','グレー':'#8a929e','ベージュ':'#d9c7a7','ミントグリーン':'#9fd8c4' };
 /* プランのオプションのテンプレ（🗣 2026-10-03「テンプレ部分を作り込んで」。金額は見本＝設定で直す）
    vt＝種類：null（1つの金額）／'size'（ボディサイズで金額が変わる・車から自動で選ぶ）／'pick'（工賃などを選ぶ）。金額＝a ＋ vo の選んだ金額 */
+/* ドラレコの取付工賃（社内料金表 ドラレコ取付工賃 2023.03.23 の「コバモ購入」・税抜）。並びの最初＝選ぶ前の値（前後カメラが多いので 前後セダン） */
+const DR_VO = () => [['前後セダン',16000],['前後セダン＋駐車監視',19000],['前後ワゴン',25000],['前後ワゴン＋駐車監視',28000],['前のみ',9000],['前のみ＋駐車監視',12000]];
+const DR_VO_IMP = () => [['前後セダン',18000],['前後セダン＋駐車監視',21000],['前後ワゴン',26000],['前後ワゴン＋駐車監視',29000],['前のみ',13000],['前のみ＋駐車監視',16000]];
+const DR_BO = () => [['ユピテル SN-TW73d',27000],['ユピテル SN-ST 5700d',19500],['ユピテル Z-330',50000],['ユピテル ZNV-800M',55000]];   // StockFlow の定価（2026-10-23）の控え
 const PACK_ITEMS = () => [
   /* 🗣 2026-10-04「希望ナンバーはパックとしてプラン見積に入れたい」→「デフォで ABC チェック・OP の一番上」。SCD の在庫見積では 10/11 件に「希望ナンバーパック（10,000円）」（調査 10）。
      金額の中に希望番号のナンバー代と手続きが入る＝パックが入ったプランはナンバー代（通常）を外す。名前に「希望ナンバー」が入る品で判定 */
@@ -44,7 +48,10 @@ const PACK_ITEMS = () => [
   { id:'etc_new', n:'ETC車載器 新規取付', a:9800, bo:[['ETC車載器（アンテナ分離型）',9800],['ETC2.0車載器',19800]], vt:'pick', vl:'取付工賃', labor:1, vo:[['標準取付',10000],['持ち込み品の取付（本体なし）',10000,1]], in:{A:0,B:0,C:0} },
   { id:'etc_set', n:'ETCセットアップ', a:3500, in:{A:0,B:0,C:0} },
   /* bo＝機種（本体の名前と金額）。🗣 2026-10-03「ドラレコは本体の金額も先に設定しておきたい」→「機種を何種類か用意して選ぶ形」＝そっち。金額は見本 */
-  { id:'dr_tw73', n:'ドライブレコーダー前後', a:27800, bo:[['ユピテル SN-TW73d（前後2カメラ）',27800],['ユピテル SN-TW9900d（前後2カメラ）',34800],['コムテック ZDR035（前後2カメラ）',24800]], vt:'pick', vl:'取付工賃', labor:1, vo:[['標準取付',11000],['駐車監視（常時電源）',16500],['輸入車・内張り脱着多め',22000],['持ち込み品の取付（本体なし）',11000,1]], in:{A:0,B:1,C:1} },
+  /* 🗣 2026-10-23「ドラレコの工賃をこれ（社内料金表 ドラレコ取付工賃 2023.03.23・コバモ購入）に揃えて」「本体は StockFlow のドラレコを見て」
+     「種類で分ける・OBD と特殊（＋5千円〜）だけ外す」「持ち込みは入れない」「駐車記録ユニットなど別売りは今回入れない」
+     ＝工賃は 前後セダン／前後ワゴン／前のみ（それぞれ駐車監視あり・なし）・国産と輸入車（voImp）で別の値段・税抜。本体＝StockFlow の料金表の「ドライブレコーダー」（sfCat・定価。店頭が入ったら店頭）。bo は StockFlow を読めない時の控え */
+  { id:'dr_tw73', n:'ドライブレコーダー', a:27000, sfCat:'ドライブレコーダー', bo:DR_BO(), vt:'pick', vl:'取付工賃', labor:1, vo:DR_VO(), voImp:DR_VO_IMP(), in:{A:0,B:1,C:1} },
   /* 納車の洗車・コーティング・ルームクリーニング（🗣 2026-10-16「納車の洗車系も全部 OP に。裸はなし＝水洗い洗車のみ・内装なし。
        A＝納車クリーニング（GYEON 洗車＋室内清掃）1.5万／B＝1y とルームクリーニング梅／C＝ジーゾックスとルームクリーニング竹。コーティングとルークリはそれぞれ別料金」）
      金額＝社内料金表（カーケア料金表 2021.04.13／コーティング料金表 2022.10.24・社外秘）の税抜。大きさはこっちで決める（自動選択なし・car.std.csize）
@@ -126,6 +133,8 @@ let S = (function(){
   const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
   /* 🗣 2026-10-23 スマートカーディーラーからの移行：基本（L）を 納車整備 5.5万・保証 3年または30,000km に（前の設定の 納車前点検 1.5万 を1回だけ置き換え。読み込んだ直後の形なので、見ただけでは書かない） */
+  /* 🗣 2026-10-23 ドラレコを社内料金表の工賃・StockFlow の本体に（品の id dr_tw73 は同じ＝車ごとの選びはそのまま） */
+  if (s.set.packs && !s.set.packs.v10){ const d = (s.set.packs.items||[]).find(x=>x.id==='dr_tw73'); if (d) Object.assign(d, { n:'ドライブレコーダー', a:27000, sfCat:'ドライブレコーダー', bo:DR_BO(), vo:DR_VO(), voImp:DR_VO_IMP() }); s.set.packs.v10 = 1; }
   if (s.set.seibi && !s.set.seibi.v3){ const L = (s.set.seibi.tiers||[]).find(x=>x.k==='L'), N = SEIBI_TIERS()[0]; if (L && L.price===15000 && L.name==='納車前点検') Object.assign(L, { name:N.name, price:N.price, war:N.war, note:N.note }); s.set.seibi.v3 = 1; }
   if (s.pending && !s.cars.some(c=>c.id===s.pending.carId)) s.pending = null;
   /* 🗣 2026-10-23「サイドバーから見積もりをクリックしたときに一覧に戻るように」＝開いた時はいつも一覧から（前に開いていた車・原価管理の車は覚えない） */
@@ -335,6 +344,10 @@ function loanCalc(net, down, rate, n){
   const total = Math.round(pm*n), later = f100(pm), first = total - later*(n-1);
   return { P, n, first, later, fee: total-P, total, hanbai: down+total, rate, down };
 }
+/* 本体の機種を StockFlow の料金表から（p.sfCat＝分類）。値段＝店頭（入っていれば）か定価・税抜。並びは控え（p.bo）の順を先に＝車ごとに選んだ番号がずれない */
+function sfBo(p){ if (!p.sfCat || !window.QData || !QData.sf) return null; const L = QData.sf().filter(x=>x.cat===p.sfCat && (x.shop || x.list)); if (!L.length) return null;
+  const nm = x => [x.maker && !String(x.name||'').includes(x.maker) ? x.maker : '', x.name, x.code].filter(Boolean).join(' '), at = x => { const i = (p.bo||[]).findIndex(o=>sfN(o[0]).endsWith(sfN(x.code||x.name))); return i < 0 ? 99 : i; };
+  return L.slice().sort((a,b)=>at(a)-at(b) || String(a.no).localeCompare(String(b.no))).map(x=>[nm(x), x.shop || x.list]); }
 function stdItemsOf(s, car){
   /* 🗣 2026-10-03「ドラレコはプランによって変える可能性があるから何回も入れられるように」→ 同じテンプレの品を car.std.dups[品] に足した分だけ並べる（キーは 品~番号） */
   const set = s.set, st = car.std, ov = st.ov || {}, amt = st.amt || {}, vs = st.vsel || {}, dups = st.dups || {};
@@ -345,7 +358,7 @@ function stdItemsOf(s, car){
       let ask = false;
       if (p.vt==='size' && p.vo && p.vo.length){ const ci = st.csize ? p.vo.findIndex(o=>o[0]===st.csize) : -1; if (ci>=0 && p.vo[ci][1]!=null){ vi = ci; vlab = p.vo[vi][0]; } else if (ci>=0){ noSize = true; ask = true; } else noSize = true; }
       else if (p.vt && p.vo && p.vo.length){ vi = Math.min(vs[key] != null ? vs[key] : 0, p.vo.length-1); vlab = p.vo[vi][0]; }
-      const nobody = !!(p.labor && vi!=null && p.vo[vi][2]), bo = p.labor && p.bo && p.bo.length ? p.bo : null, bi = bo ? Math.min((st.bsel && st.bsel[key]) || 0, bo.length-1) : null;
+      const nobody = !!(p.labor && vi!=null && p.vo[vi][2]), bo = p.labor ? (sfBo(p) || (p.bo && p.bo.length ? p.bo : null)) : null, bi = bo ? Math.min((st.bsel && st.bsel[key]) || 0, bo.length-1) : null;
       const bodyA = p.labor ? (nobody ? 0 : (st.amtB && st.amtB[key] != null ? st.amtB[key] : (bo ? bo[bi][1] : (p.a||0)))) : null;
       const laborA = p.labor ? (st.amtL && st.amtL[key] != null ? st.amtL[key] : p.vo[vi][1]) : null;
       const calcA = p.labor ? bodyA + laborA : (p.a||0) + (vi!=null ? p.vo[vi][1] : 0);
@@ -2527,7 +2540,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
         <span class="q-pcs">${['A','B','C'].map(p=>`<button class="q-pc ${x.in[p]?'on':''} ${p}" onclick="S.set.packs.items[${i}].in.${p}=S.set.packs.items[${i}].in.${p}?0:1;save();render();openSettings()">${p}</button>`).join('')}</span>
         <button class="q-del" onclick="S.set.packs.items.splice(${i},1);save();render();openSettings()">✕</button></div>
         <div class="q-tplv"><label class="k">種類</label>${seg(x.labor?'labor':(x.vt||'none'),[['none','金額1つ'],['size','ボディサイズで変わる'],['pick','選んで変わる'],['labor','本体＋取付工賃']],`tplVt(${i},'$v')`)}
-          ${x.labor?`<div class="q-tplo"><span class="k">機種（本体）</span>${(x.bo||[[x.bn||x.n, x.a||0]]).map((o,j)=>`<span class="op1"><input class="q-in" style="width:230px" value="${esc(o[0])}" placeholder="見積書に出す本体の名前" onchange="tplBo(${i},${j},0,this.value)">${money(`st-bo-${i}-${j}`, o[1], `tplBo(${i},${j},1,parseYen(this.value))`)}${(x.bo||[]).length>1?`<button class="q-del" onclick="S.set.packs.items[${i}].bo.splice(${j},1);save();render();openSettings()">✕</button>`:''}</span>`).join('')}<button class="q-btn sm" onclick="tplBo(${i},${(x.bo||[]).length||1},0,'新しい機種')">＋ 機種</button><span class="q-why" style="margin:0;width:100%">プラン見積で機種を選ぶ。見積書では「機種の名前 本体」と「└ 取付工賃」の2行</span></div>`:''}
+          ${x.labor && sfBo(x) ? `<div class="q-tplo"><span class="k">機種（本体）</span><span class="q-why" style="margin:0">StockFlow の料金表の「${esc(x.sfCat)}」から読む（値段は店頭、無ければ定価・税抜。直す時は StockFlow で）：${sfBo(x).map(o=>esc(o[0])+' '+yen(o[1])).join('／')}</span></div>${x.voImp?`<div class="q-tplo"><span class="k">輸入車の工賃</span><span class="q-why" style="margin:0">${x.voImp.map(o=>esc(o[0])+' '+yen(o[1])).join('／')}</span></div>`:''}` : x.labor?`<div class="q-tplo"><span class="k">機種（本体）</span>${(x.bo||[[x.bn||x.n, x.a||0]]).map((o,j)=>`<span class="op1"><input class="q-in" style="width:230px" value="${esc(o[0])}" placeholder="見積書に出す本体の名前" onchange="tplBo(${i},${j},0,this.value)">${money(`st-bo-${i}-${j}`, o[1], `tplBo(${i},${j},1,parseYen(this.value))`)}${(x.bo||[]).length>1?`<button class="q-del" onclick="S.set.packs.items[${i}].bo.splice(${j},1);save();render();openSettings()">✕</button>`:''}</span>`).join('')}<button class="q-btn sm" onclick="tplBo(${i},${(x.bo||[]).length||1},0,'新しい機種')">＋ 機種</button><span class="q-why" style="margin:0;width:100%">プラン見積で機種を選ぶ。見積書では「機種の名前 本体」と「└ 取付工賃」の2行</span></div>`:''}
           ${x.vt?`<div class="q-tplo">${x.vt==='pick'?`<input class="q-in" style="width:110px" value="${esc(x.vl||'')}" placeholder="選ぶ物の名前" onchange="S.set.packs.items[${i}].vl=this.value;save();openSettings()">`:`<span class="k">${SIZE_CLS.join('・')}</span>`}
             ${x.vo.map((o,j)=>`<span class="op1">${x.vt==='pick'?`<input class="q-in" style="width:130px" value="${esc(o[0])}" onchange="S.set.packs.items[${i}].vo[${j}][0]=this.value;save();openSettings()">`:`<b>${esc(o[0])}</b>`}${money(`st-pv-${i}-${j}`, o[1], `S.set.packs.items[${i}].vo[${j}][1]=parseYen(this.value);save();render()`)}${x.labor?`<label class="k" style="white-space:nowrap"><input type="checkbox" ${o[2]?'checked':''} onchange="S.set.packs.items[${i}].vo[${j}][2]=this.checked?1:0;save();render()"> 本体なし</label>`:''}${x.vt==='pick'&&x.vo.length>1?`<button class="q-del" onclick="S.set.packs.items[${i}].vo.splice(${j},1);save();render();openSettings()">✕</button>`:''}</span>`).join('')}
             ${x.vt==='pick'?`<button class="q-btn sm" onclick="S.set.packs.items[${i}].vo.push(['新しい種類',0]);save();openSettings()">＋ 種類</button>`:''}
@@ -2965,7 +2978,7 @@ function qBreak(q, o){ o = o || {}; const k = q.k;
 const QEXPL = [[/納車整備費（販売価格に含む）/, '納車前の点検整備の費用（車両販売価格に含みます）'], [/^└ 車両本体価格$/, 'お車そのものの価格'], [/本体/, 'お車そのものの価格。納車前の点検整備を含みます'], [/値引/, '本見積だけのお値引きです'], [/検査登録|登録手続|名義/, '名義変更・登録の手続きを当店が代わりに行う費用'], [/車庫証明手続|車庫.*代行/, '警察署への車庫証明の申請を当店が代わりに行う費用'],
   [/自動車税 未経過|自賠責 未経過/, '前の持ち主が先に払った分のうち、残りの期間の相当額'], [/種別割/, '4月1日の持ち主に毎年かかる税金。登録の翌月から3月までの月割り'], [/重量税/, '車検の時に国へ納める税金'], [/自賠責保険料/, '法律で入ることが決まっている保険（対人）'],
   [/検査.*手数料|登録手数料/, '運輸支局（国）へ納める手数料'], [/車庫証明手数料/, '警察署へ納める手数料（証紙代）'], [/ナンバー/, 'ナンバープレートの代金'], [/希望ナンバー/, 'お好きな番号のナンバーにする手続きと代金'],
-  [/ボディコーティング/, 'ボディの艶を保ち、汚れを落としやすくします'], [/ドライブレコーダー|SN-/, '前後の映像を記録するカメラ'], [/組替/, 'タイヤの組み替えとバランス調整'], [/工賃/, '取り付けの作業代'], [/延長保証/, '保証の期間を延ばします'],
+  [/ボディコーティング/, 'ボディの艶を保ち、汚れを落としやすくします'], [/ドライブレコーダー|SN-/, '走行中の映像を記録するカメラ'], [/組替/, 'タイヤの組み替えとバランス調整'], [/工賃/, '取り付けの作業代'], [/延長保証/, '保証の期間を延ばします'],
   [/ETC.*車載器|ETC2/, '料金所を止まらずに通れる車載器'], [/ETC/, 'お客様の情報でETCを使えるようにします'], [/マット/, '足元の汚れを防ぐ専用マット'], [/バイザー/, '雨の日も窓を少し開けられます'], [/スタッドレス/, '冬用のタイヤとホイール'],
   [/撥水/, '雨をはじいて視界を保ちます'], [/ヘッドライト/, '黄ばみを落としてコーティング'], [/クリーニング/, 'シートや内装を洗浄します'], [/地図/, 'ナビの地図を新しくします'], [/盗難/, '車両の盗難を防ぐ装置'], [/ホイールコーティング/, 'ブレーキの汚れを落としやすくします'], [/フレーム/, 'ナンバーを縁取るフレーム'],
   [/メンテナンスパック/, 'オイル交換や消耗品の交換と、長い保証がセットになります'], [/消臭|除菌/, '車内のにおいを分解します'], [/フィルター/, 'エアコンの空気をきれいにするフィルターに交換'], [/発煙筒/, '期限の無い LED の非常信号灯に交換']];
