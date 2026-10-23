@@ -1615,3 +1615,34 @@ img.car-ph{width:100%;height:100%;object-fit:cover;display:block}
 .q-i:hover .q-i-pop,.q-i:focus .q-i-pop,.q-i:focus-within .q-i-pop{display:block}
 .q-sh{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:800;font-size:12.5px;margin:12px 0 4px}
 .q-sh .q-sub{font-weight:400;font-size:11px;color:var(--text3)}
+
+/* 値付けの段（v4.2.0）：ふだんは1行の数字・押すとその場で入力欄／2本のバーはどちらも線をドラッグでき、もう片方も連動（quote.js vpBlock） */
+.q-vread{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:4px 0 12px}
+.q-vread .ed,.q-vread .ro{display:inline-flex;align-items:baseline;gap:4px;position:relative}
+.q-vread .lb{font-size:12px;color:var(--text2)}
+.q-vread b{font-size:17px;color:var(--text);font-variant-numeric:tabular-nums}
+.q-vread .ed b{cursor:text;border-bottom:1px dashed var(--text3)}
+.q-vread .ed b:hover,.q-vread .ed b:focus{border-bottom-color:var(--blue);outline:none}
+.q-vread input{width:8ch;font:inherit;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;background:transparent;color:var(--text);border:none;border-bottom:1px solid var(--blue);border-radius:0;padding:0;margin:0;outline:none}
+.q-vread .st{display:none;flex-direction:column;gap:1px;position:absolute;right:-19px;top:50%;transform:translateY(-50%)}
+.q-vread .ed.editing{margin-right:8px}
+.q-vread .ed.editing .st{display:inline-flex}
+.q-vread .st button{width:16px;height:11px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:3px;font-size:7px;line-height:1;padding:0;cursor:pointer}
+.q-vread .st button:hover{border-color:var(--blue);color:var(--text)}
+.q-vlab{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:800;font-size:12px;margin:0 0 8px}
+.q-vlab .q-pill{font-size:11px}
+.q-vtrack{position:relative;margin:0 4px 30px;touch-action:none;cursor:ew-resize;user-select:none}
+.q-vbar{height:22px;border-radius:6px;opacity:.85;background:linear-gradient(90deg,#15803d,#22c55e 30%,#0ea5e9 50%,#f59e0b 70%,#dc2626)}
+.q-vtrack .t{position:absolute;top:0;height:22px;width:1px;background:rgba(255,255,255,.5);pointer-events:none}
+.q-vtrack .l{position:absolute;top:26px;font-size:10px;color:var(--text2);transform:translateX(-50%);white-space:nowrap;pointer-events:none}
+.q-vknob{position:absolute;top:-6px;height:34px;width:18px;margin-left:-9px;cursor:ew-resize;outline:none;z-index:3}
+.q-vknob i{position:absolute;left:7.5px;top:0;bottom:0;width:3px;background:var(--text);box-shadow:0 0 0 1px var(--bg);border-radius:2px}
+.q-vknob::before{content:"";position:absolute;left:2px;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--text);box-shadow:0 0 0 2px var(--blue)}
+.q-vknob:focus::before{box-shadow:0 0 0 3px var(--blue)}
+.q-vknob.edge i{background:var(--orange)}
+.q-vghost{position:absolute;top:-4px;height:30px;width:0;border-left:2px dashed var(--text);opacity:.5;z-index:2;pointer-events:none}
+.q-sugg .o.mid{border-color:rgba(59,130,246,.55)}
+.q-sugg .o.on{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.q-sugg .o .bd{font-size:12px;color:var(--text);margin-top:2px}
+.q-sugg .o .bd small{color:var(--text3);font-size:10.5px}
+.q-btn.sm:disabled{opacity:.45;cursor:default}

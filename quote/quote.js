@@ -891,30 +891,112 @@ function infoPanel(car){
    ＝保証・整備付きの店（ライバル店DB の C1＝うちと同じ層）の掲載と、支払総額どうしで比べる（よその店は整備・保証を本体に入れ、うちは諸費用・パックに入れる＝総額なら差が消える）。
    車両価格どうしは参考。値は quote-data.js c1Of（相場ビューと同じ計算）。金額は千円・税込 */
 /* C1 の中のどこにいるか（my・c は千円・税込の総額）。cls＝札の色・lab＝札・short＝一覧の短い札・pct＝C1 の真ん中に対する% */
-function c1Judge(my, c){ const [cls, lab, short] = my < c.p25 ? ['great','C1 の安い方（下位25%より安い）','安い方'] : my <= c.total ? ['good','C1 の中で安め','安め'] : my <= c.p75 ? ['fair','C1 の中で高め','高め'] : ['high','C1 の高い方（上位25%より高い）','高い方'];
+function c1Judge(my, c){ const [cls, lab, short] = my < c.p25 ? ['great','安い方（下位25%より安い）','安い方'] : my <= c.total ? ['good','安め','安め'] : my <= c.p75 ? ['fair','高め','高め'] : ['high','高い方（上位25%より高い）','高い方'];
   return { cls, lab, short, pct: Math.round(my/c.total*100) }; }
-function c1Block(car, k, sb){ const c = sb.c1;
-  if (!c) return `<div class="q-note warn" style="margin:6px 0">${I('warn','⚠',14)} 保証・整備付きの店（C1）の値がありません（ライバル店DB にこの車種が無い）。下の全部の店の相場で見てください。</div>`;
-  const man = v => (Math.round(v)/10).toFixed(1)+'万';   /* 千円 → 万 */
-  const my = k && car.base ? k.cash/1000 : null, myB = k && car.base ? k.bodyIn/1000 : null;
-  let pos = null, lab = '', cls = 'fair';
-  if (my != null){ const lo = c.p25, mid = c.total, hi = c.p75;
-    pos = my <= lo ? Math.max(3, 25 - (lo-my)/Math.max(1,mid-lo)*25) : my <= mid ? 25 + (my-lo)/Math.max(1,mid-lo)*25 : my <= hi ? 50 + (my-mid)/Math.max(1,hi-mid)*25 : Math.min(97, 75 + (my-hi)/Math.max(1,hi-mid)*25);
-    [cls, lab] = my < lo ? ['great','C1 の安い方（下位25%より安い）'] : my <= mid ? ['good','C1 の中で安め'] : my <= hi ? ['fair','C1 の中で高め'] : ['high','C1 の高い方（上位25%より高い）']; }
-  const d = my != null ? my - c.total : null;
-  const why = `<b>C1</b>＝一般店で保証あり＋法定整備付（うちと同じ層）。${c.n}台・保証あり ${c.warr!=null?Math.round(c.warr)+'%':'—'}${c.warrM?'・保証 '+c.warrM+'か月':''}・法定整備付 ${c.seibi!=null?Math.round(c.seibi)+'%':'—'}${c.days?'・掲載 '+c.days+'日':''}。<br>
-    この車の相場（グレード・年式・走行・色）× C1 の店の倍率 ${c.ratio.toFixed(3)}${c.age?'（'+c.age+'・'+c.nAge+'台）':''}。<br>
-    ライバル店DB ${esc(c.built)} の<b>掲載の値</b>（売れた値ではない）。<br>
-    よその店は整備・保証を車両価格に入れ、うちは諸費用・パックに入れる＝<b>支払総額どうし</b>で比べる。車両価格は参考。`;
+/* ---------- 値付けの段（v4.2.0）
+   🗣 2026-10-23「バーは2本出しておいて」「2本今までのように並べる・どっちのバーもドラッグできる・ドラッグすると連動」
+   「売れそうな金額はバーの位置を変えるに使って」「総額や本体・粗利はクリックすると手打ち or 上下ボタンで変えられるように（ちょうどが難しいから）」
+   「ボックス表示は要らない。そのままの感じで」→「この見本の形で本番に入れて」
+   見本＝_記録\モック\モック_2026-10-23_相場の列_C1元の売れそうな金額.html
+   ・上のバー＝保証・整備付きの店（C1）と支払総額（下位25%・真ん中・上位25% を 25・50・75% の所）／下のバー＝全部の店と車両価格（今までの相場比 50＋(比−1)×500）
+   ・どちらの線も動かせて、本体の値が1つ決まり、もう片方の線も動く。動かしただけでは保存しない＝「この値にする」で priceAsk（確認の窓 → 値付けの履歴）
+   ・総額から本体は、本物の見積の計算（calc）で逆算＝消費税の端数も合う ---------- */
+let VP = null, VPD = null;   // VP＝動かし中の値 { id, price }（描き直しても残す。別の車では使わない）／VPD＝ドラッグ中
+const vpCar = () => VP && carOf(VP.id);
+const vpPrice = car => VP && VP.id===car.id ? VP.price : car.base.price;
+const vpAt = (car, p) => calc(Object.assign({}, baseCtx(car), { b: Object.assign({}, car.base, { price: p }) }));
+/* 支払総額 T（円）になる一番安い本体（1円単位）。総額は本体に対してまっすぐ（1円 → 約1.1円）なので、傾きで当たりを付けて前後を詰める */
+function vpSolveT(car, T){ const p0 = car.base.price, c0 = vpAt(car, p0).cash, sl = (vpAt(car, p0+100000).cash - c0)/100000 || 1.1;
+  let p = Math.max(0, Math.ceil(p0 + (T - c0)/sl)), n = 0;
+  while (n++ < 40 && p > 0 && vpAt(car, p-1).cash >= T) p--;
+  while (n++ < 80 && vpAt(car, p).cash < T) p++;
+  return p; }
+/* 上のバー（千円・税込の総額 ↔ 位置%） */
+const vp1 = (c, t) => { const L = Math.max(1, c.total-c.p25), R = Math.max(1, c.p75-c.total); return t<=c.p25 ? 25-(c.p25-t)/L*25 : t<=c.total ? 25+(t-c.p25)/L*25 : t<=c.p75 ? 50+(t-c.total)/R*25 : 75+(t-c.p75)/R*25; };
+const vp1i = (c, x) => { const L = Math.max(1, c.total-c.p25), R = Math.max(1, c.p75-c.total); return x<=25 ? c.p25-(25-x)/25*L : x<=50 ? c.p25+(x-25)/25*L : x<=75 ? c.total+(x-50)/25*R : c.p75+(x-75)/25*R; };
+/* 下のバー（相場比 ↔ 位置%）。相場比は今までどおり 車両価格（税込）÷ 小売の成約の相場 */
+const vp2 = r => 50 + (r-1)*500, vp2i = x => 1 + (x-50)/500;
+const vpClip = x => Math.max(1, Math.min(99, x));
+/* この本体の値での数字一式 */
+function vpState(car, p){ const sb = sobaOf(car), c = sb.c1, k = vpAt(car, p), t = k.cash/1000, ratio = k.bodyIn/1000/sb.now;
+  const d = c ? (t/c.total-1)*100 : (ratio-1)*100;
+  const j1 = c ? c1Judge(t, c) : null, dd = c ? t - c.total : 0;
+  const j2 = ratio > 1.15 ? ['warn', '全部の店より +'+Math.round((ratio-1)*100)+'%'] : ratioLabel(ratio);
+  return { p, k, t, ratio, days: sobaDays(sb, Math.round(d*10)/10), gross: p - costOf(car.base), j1, dd, j2,
+    x1: c ? vp1(c, t) : null, x2: vp2(ratio), pct1: c ? Math.round(t/c.total*100) : null }; }
+/* 動かした時は描き直さずに、線・数字・札だけ書き換える */
+function vpPaint(){ const car = vpCar(); if (!car || !$('vp-total')) return; const s = vpState(car, VP.price), c = sobaOf(car).c1, man = v => mk(v)+'万';
+  const tx = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+  tx('vp-total', man(s.t)); tx('vp-body', man(s.p/1000)); tx('vp-gross', yen(s.gross)); tx('vp-days', '約'+s.days+'日');
+  const kn = (id, x) => { const e = $(id); if (e){ e.style.left = vpClip(x)+'%'; e.classList.toggle('edge', x<1 || x>99); } };
+  if (c){ kn('vp-k1', s.x1); const p1 = $('vp-p1'); p1.className = 'q-pill '+s.j1.cls; p1.textContent = s.j1.short;
+    tx('vp-t1', '真ん中より '+(s.dd>=0?'+':'−')+man(Math.abs(s.dd))+'（'+s.pct1+'%）');
+    tx('vp-ctot', man(s.t)); tx('vp-cbody', man(s.k.bodyIn/1000)); tx('vp-cfee', man(s.t - s.k.bodyIn/1000)); }
+  kn('vp-k2', s.x2); const p2 = $('vp-p2'); p2.className = 'q-pill '+s.j2[0]; p2.textContent = s.j2[1];
+  tx('vp-t2', '相場 '+man(mktEx(car, sobaOf(car).now))+' の '+Math.round(s.ratio*100)+'%');
+  const set = $('vp-set'); if (set) set.disabled = VP.price === car.base.price;
+  document.querySelectorAll('.q-sugg .o[data-p]').forEach(o=>o.classList.toggle('on', +o.dataset.p === VP.price));
+  ['total','body','gross'].forEach(k=>{ const i = $('vp-i-'+k); if (i && !i.hidden && document.activeElement !== i) i.value = yen(vpVal(k)); }); }
+function vpSet(p, exact){ const car = vpCar(); if (!car) return; p = Math.max(1000, Math.min(99999000, p)); VP.price = exact ? Math.round(p) : Math.round(p/1000)*1000; vpPaint(); }
+/* ドラッグ（バーのどこを押しても線がそこへ。もう片方のバーも連動） */
+function vpDown(e, bar){ if (e.button) return; e.preventDefault(); VPD = { el: e.currentTarget, bar }; try { VPD.el.setPointerCapture(e.pointerId); } catch(_){}
+  vpFromX(e); const kn = $('vp-k'+bar); if (kn) kn.focus({ preventScroll: true }); }
+function vpFromX(e){ const car = vpCar(); if (!car || !VPD) return; const r = VPD.el.getBoundingClientRect(), x = (e.clientX - r.left)/r.width*100, sb = sobaOf(car);
+  if (VPD.bar === 1) vpSet(vpSolveT(car, vp1i(sb.c1, x)*1000));
+  else vpSet(vp2i(x)*sb.now*1000/1.1 - seibiOf(car.base)); }
+document.addEventListener('pointermove', e=>{ if (VPD) vpFromX(e); });
+document.addEventListener('pointerup', ()=>{ VPD = null; });
+function vpKey(e){ if (e.key!=='ArrowLeft' && e.key!=='ArrowRight') return; e.preventDefault(); vpSet(VP.price + (e.key==='ArrowRight'?1:-1)*(e.shiftKey?10000:1000), true); }
+/* 総額・本体・粗利：押すとその場で入力欄（1円まで）・▲▼／↑↓ で ±1,000円（Shift で ±1万）。Enter・離れたら決まる／Esc でやめる */
+function vpVal(k){ const car = vpCar(); return k==='total' ? vpAt(car, VP.price).cash : k==='body' ? VP.price : VP.price - costOf(car.base); }
+function vpTo(k, v){ const car = vpCar(); return k==='total' ? vpSolveT(car, v) : k==='body' ? v : v + costOf(car.base); }
+function vpFit(i){ i.style.width = (String(i.value).length + 0.6)+'ch'; }
+function vpEdit(k){ const b = $('vp-'+k), i = $('vp-i-'+k); if (!b || !i) return; i.value = yen(vpVal(k)); vpFit(i); b.hidden = true; i.hidden = false; b.parentNode.classList.add('editing'); i.focus(); i.select(); }
+function vpApply(k){ const i = $('vp-i-'+k), v = +String(i.value).replace(/[^\d-]/g,''); if (String(i.value).trim()!=='' && isFinite(v) && v > 0) vpSet(vpTo(k, v), true); }
+function vpClose(k, ok){ const b = $('vp-'+k), i = $('vp-i-'+k); if (!i || i.hidden) return; if (ok) vpApply(k); i.hidden = true; b.hidden = false; b.parentNode.classList.remove('editing'); vpPaint(); }
+function vpInKey(e, k){ if (e.key==='Enter'){ e.preventDefault(); vpClose(k, true); $('vp-'+k).focus(); }
+  else if (e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); vpClose(k, false); $('vp-'+k).focus(); }
+  else if (e.key==='ArrowUp' || e.key==='ArrowDown'){ e.preventDefault(); vpStep(k, e.key==='ArrowUp'?1:-1, e); } }
+function vpStep(k, d, e){ const i = $('vp-i-'+k); if (i && !i.hidden) vpApply(k); vpSet(vpTo(k, vpVal(k) + d*(e && e.shiftKey ? 10000 : 1000)), true);
+  if (i && !i.hidden){ i.value = yen(vpVal(k)); vpFit(i); } }
+function vpReset(){ const car = vpCar(); if (car) vpSet(car.base.price, true); }
+function vpCommit(){ const car = vpCar(); if (car && VP.price !== car.base.price) priceAsk(car.id, VP.price, '値付け（相場の列）'); }
+function vpEd(k, lab, val){ return `<span class="ed"><span class="lb">${lab}</span><b id="vp-${k}" tabindex="0" title="押すと手打ち" onclick="vpEdit('${k}')" onkeydown="if(event.key==='Enter'){event.preventDefault();vpEdit('${k}')}">${val}</b><input id="vp-i-${k}" inputmode="numeric" hidden onkeydown="vpInKey(event,'${k}')" onblur="vpClose('${k}',true)" oninput="vpFit(this)"><span class="st"><button type="button" tabindex="-1" title="+1,000円（Shift で +1万）" onmousedown="event.preventDefault()" onclick="vpStep('${k}',1,event)">▲</button><button type="button" tabindex="-1" title="−1,000円（Shift で −1万）" onmousedown="event.preventDefault()" onclick="vpStep('${k}',-1,event)">▼</button></span></span>`; }
+const vpTick = (x, t) => `<span class="t" style="left:${x}%"></span><span class="l" style="left:${x}%">${t}</span>`;
+/* 値付けの段（基本価格がある車）。c＝C1（無い車は下のバーだけ） */
+function vpBlock(car, sb, days){ const c = sb.c1, base = car.base;
+  if (!VP || VP.id !== car.id || VP.base !== base.price) VP = { id: car.id, price: base.price, base: base.price };   // 別の車・保存された値が変わった（OK・よその端末）時は、動かし中の値を捨てる
+  const s = vpState(car, VP.price), s0 = vpState(car, base.price), man = v => mk(v)+'万', exS = mktEx(car, sb.now);
+  const why = (c ? `<b>上のバー＝保証・整備付きの店（C1）</b>：一般店で保証あり＋法定整備付（うちと同じ層）。${c.n}台・保証あり ${c.warr!=null?Math.round(c.warr)+'%':'—'}${c.warrM?'・保証 '+c.warrM+'か月':''}・法定整備付 ${c.seibi!=null?Math.round(c.seibi)+'%':'—'}${c.days?'・掲載 '+c.days+'日':''}。
+    この車の相場（グレード・年式・走行・色）× C1 の店の倍率 ${c.ratio.toFixed(3)}${c.age?'（'+c.age+'・'+c.nAge+'台）':''}。ライバル店DB ${esc(c.built)} の<b>掲載の値</b>（売れた値ではない）。
+    よその店は整備・保証を車両価格に入れ、うちは諸費用・パックに入れる＝<b>支払総額どうし</b>で比べる。<br>` : `<b>保証・整備付きの店（C1）の値がありません</b>（ライバル店DB にこの車種が無い）。<br>`)
+    + `<b>下のバー＝全部の店</b>：格安・現状販売の店も含む小売の成約と、車両価格（税込）どうし。保証・整備付きの店より安く出るのがふつう。全部の店より +15% を超えると札が黄色。<br>
+    線はどちらもドラッグでき、もう片方も連動（← → で 1,000円・Shift で 1万円）。点線＝いま保存されている値。<br>
+    ちょうどの値は、総額・本体・粗利の数字を押すと手打ち（▲▼ で ±1,000円）。動かしただけでは保存しない＝「この値にする」で確認の窓 → 値付けの履歴に残る。`;
+  const bar1 = c ? `<div class="q-vlab">保証・整備付きの店と <span class="q-sub">支払総額・税込</span><span class="q-pill ${s.j1.cls}" id="vp-p1">${s.j1.short}</span><span class="q-sub" id="vp-t1">真ん中より ${s.dd>=0?'+':'−'}${man(Math.abs(s.dd))}（${s.pct1}%）</span></div>
+    <div class="q-vtrack" onpointerdown="vpDown(event,1)"><div class="q-vbar"></div>${vpTick(25, man(c.p25))}${vpTick(50, '真ん中 '+man(c.total))}${vpTick(75, man(c.p75))}
+      <div class="q-vghost" style="left:${vpClip(s0.x1)}%" title="いま保存されている値"></div><div class="q-vknob${s.x1<1||s.x1>99?' edge':''}" id="vp-k1" tabindex="0" role="slider" aria-label="支払総額" style="left:${vpClip(s.x1)}%" onkeydown="vpKey(event)"><i></i></div></div>` : '';
+  const bar2 = `<div class="q-vlab">全部の店と <span class="q-sub">車両価格・税込の相場比</span><span class="q-pill ${s.j2[0]}" id="vp-p2">${s.j2[1]}</span><span class="q-sub" id="vp-t2">相場 ${man(exS)} の ${Math.round(s.ratio*100)}%</span></div>
+    <div class="q-vtrack" onpointerdown="vpDown(event,2)"><div class="q-vbar"></div>${[[-5,'−5%'],[-2,'−2%'],[0,'相場 '+man(exS)],[3,'+3%'],[8,'+8%']].map(([d,t])=>vpTick(vp2(1+d/100), t)).join('')}
+      <div class="q-vghost" style="left:${vpClip(s0.x2)}%" title="いま保存されている値"></div><div class="q-vknob${s.x2<1||s.x2>99?' edge':''}" id="vp-k2" tabindex="0" role="slider" aria-label="車両価格" style="left:${vpClip(s.x2)}%" onkeydown="vpKey(event)"><i></i></div></div>`;
   return `<div class="q-c1" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--bg2)">
-    <div class="q-sh" style="margin:0 0 4px;font-size:13px">保証・整備付きの店と <span class="q-sub">支払総額・税込</span>${info(why)}</div>
-    ${my != null ? `<div class="q-pos"><span class="q-pill ${cls}" style="font-size:12px">${lab}</span><span>自社 総額 <b>${man(my)}</b>／C1 の真ん中 <b>${man(c.total)}</b> → ${d>=0?'+':'−'}${man(Math.abs(d))}（${(my/c.total*100).toFixed(0)}%）</span></div>
-    <div class="q-bar"><div class="m" style="left:${pos}%"></div><span class="l" style="left:25%">下位25% ${man(c.p25)}</span><span class="l" style="left:50%">真ん中</span><span class="l" style="left:75%">上位25% ${man(c.p75)}</span></div>`
-    : `<div class="q-why">C1 の総額の真ん中 <b>${man(c.total)}</b>（幅 ${man(c.p25)}〜${man(c.p75)}）。基本価格を作ると、自社の支払総額と並べます。</div>`}
-    <table class="q-tbl" style="margin-top:6px"><tr><th>税込</th><th class="v">C1</th><th class="v">自社</th></tr>
-      <tr><td>支払総額</td><td class="v"><b>${man(c.total)}</b></td><td class="v">${my!=null?'<b>'+man(my)+'</b>':'—'}</td></tr>
-      <tr><td>車両価格（参考）</td><td class="v">${man(c.body)}</td><td class="v">${myB!=null?man(myB):'—'}</td></tr>
-      <tr><td>諸費用（参考）</td><td class="v">${c.fees!=null?man(c.fees):'—'}</td><td class="v">${my!=null?man(my-myB):'—'}</td></tr></table></div>`; }
+    <div class="q-sh" style="margin:0 0 4px;font-size:13px">値付け <span class="q-sub">2本のバーで比べる</span>${info(why)}<span style="margin-left:auto;display:flex;gap:6px;font-weight:400"><button class="q-btn sm" onclick="vpReset()">元に戻す</button><button class="q-btn sm pri" id="vp-set" onclick="vpCommit()"${VP.price===base.price?' disabled':''}>この値にする</button></span></div>
+    <div class="q-vread">${vpEd('total','総額',man(s.t))}${vpEd('body','本体',man(s.p/1000))}${vpEd('gross','粗利',yen(s.gross))}<span class="ro"><span class="lb">売れるまで</span><b id="vp-days">約${s.days}日</b></span></div>
+    ${c ? '' : `<div class="q-note warn" style="margin:0 0 8px">${I('warn','⚠',14)} 保証・整備付きの店（C1）の値がありません（ライバル店DB にこの車種が無い）。全部の店の相場だけで見ています。</div>`}
+    ${bar1}${bar2}
+    ${c ? `<table class="q-tbl" style="margin-top:2px"><tr><th>税込</th><th class="v">C1</th><th class="v">自社</th></tr>
+      <tr><td>支払総額</td><td class="v"><b>${man(c.total)}</b></td><td class="v"><b id="vp-ctot">${man(s.t)}</b></td></tr>
+      <tr><td>車両価格（参考）</td><td class="v">${man(c.body)}</td><td class="v" id="vp-cbody">${man(s.k.bodyIn/1000)}</td></tr>
+      <tr><td>諸費用（参考）</td><td class="v">${c.fees!=null?man(c.fees):'—'}</td><td class="v" id="vp-cfee">${man(s.t - s.k.bodyIn/1000)}</td></tr></table>` : ''}
+    ${vpSugg(car, sb)}
+    <div class="q-why" style="margin-top:6px">在庫 ${days}日目${days>=240?'（<b>8か月＝業販かAAに戻す時期</b>）':days>=120?'（<b>4か月＝値付けを見直す時期</b>）':''}</div></div>`; }
+/* 売れそうな金額：C1 の総額の真ん中 ±2%（C1 が無い車は全部の店の相場 ±2%）。箱は線をその値に動かすだけ（保存は「この値にする」） */
+function vpSugg(car, sb){ const c = sb.c1, man = v => mk(v)+'万', sK = seibiOf(car.base)/1000;
+  const box = [[-2,'早く売る'],[0,'相場どおり'],[2,'粘る']].map(([d,l])=>{
+    const p = c ? Math.round(vpSolveT(car, c.total*1000*(1+d/100))/1000)*1000 : Math.round(sb.now/1.1*(1+d/100) - sK)*1000, k = vpAt(car, p);
+    return `<div class="o${d===0?' mid':''}${p===VP.price?' on':''}" data-p="${p}" onclick="vpSet(${p})"><div class="s">${l}${d?'（'+(d>0?'+':'−')+Math.abs(d)+'%）':''}</div><b>${man(k.cash/1000)}</b><div class="bd">本体 ${man(p/1000)} <small>税抜</small></div><div class="s">約${sobaDays(sb, d)}日・粗利 ${yen(p - costOf(car.base))}</div></div>`; }).join('');
+  return `<div class="q-sh">売れそうな金額 <span class="q-sub">${c ? '保証・整備付きの店の真ん中から・支払総額' : ''}</span>${c ? '' : '<span class="q-pill warn">C1 なし・全部の店から</span>'}${info(c ? `保証・整備付きの店（C1）の支払総額の真ん中 ${man(c.total)} を「相場どおり」として ±2%。本体（税抜）は、その支払総額になる値を見積の計算で逆算。<br>押すと上の線がその値に動く（まだ保存しない）。「この値にする」で確認の窓 → 値付けの履歴に残る。<br>日数は相場カードの「売れるまでの日数」を、C1 の真ん中＝ふつう として当てた目安。` : `全部の店の小売の成約の相場（本体に直した値）を「相場どおり」として ±2%。押すと上の線がその値に動く（まだ保存しない）。`)}</div>
+    <div class="q-sugg">${box}</div>`; }
 function sobaPanel(car,k){
   if (!sobaOf(car) && sobaWait(car)) return `<div class="q-note info">${I('info','ℹ',15)} 相場を読み込み中…（相場ビューと同じ相場カードから、この車の条件で出しています）</div>`;
   if (!sobaOf(car)){ const L = katLookup(car.fmodel, car.firstReg, car.maker), nm = L.state==='ok' ? (L.names.find(n=>n.car===car.model) || L.names[0]) : null, G = nm ? katGrades(nm, L.y, car.firstReg).list.find(x=>x.g===car.grade) : null;
@@ -923,32 +1005,28 @@ function sobaPanel(car,k){
       <table class="q-tbl"><tr><th>型式DB（グーのカタログ）</th><th></th></tr>
       <tr><td>車名</td><td>${nm?esc(nm.mk+' '+nm.car):'見つかりません'}</td></tr><tr><td>発売</td><td>${nm?esc(nm.first)+'〜'+esc(nm.last):'—'}</td></tr>
       <tr><td>新車価格</td><td>${G&&G.price?yen(G.price)+'円':'グレードを選ぶと出ます'}</td></tr><tr><td>いまの価格は新車の</td><td>${G&&G.price&&k.bodyIn?Math.round(k.bodyIn/G.price*100)+'%':'—'}</td></tr></table>`; }
-  /* 🗣 2026-10-19「本体価格か、総額か、税抜きか税込みかを明確に。本体の税抜きに揃えたい」
-     ＝この列の金額は全部「車両本体（税抜）」。小売の相場（成約の車両価格・税込）は ÷1.1 − この車の納車前点検 で本体（税抜）に直す。AA は落札額（税抜）のまま。
-     相場比は前と同じ（車両価格どうしで比べる＝一覧・値付けの履歴と同じ%） */
-  const sb = sobaOf(car), my = k.bodyIn/1000, ratio = my/sb.now, lab = ratioLabel(ratio), days = daysBetween(car.buyDate, TODAY);
+  /* 🗣 2026-10-19「本体価格か、総額か、税抜きか税込みかを明確に。本体の税抜きに揃えたい」＝相場カードの数字は「車両本体（税抜）」に直して出す（ex）。
+     値付けの段（v4.2.0）は 上＝支払総額（税込）／下＝今までの相場比（車両価格どうし＝一覧・値付けの履歴と同じ%） */
+  const sb = sobaOf(car), days = daysBetween(car.buyDate, TODAY);
   const sK = seibiOf(car.base)/1000, ex = v => mktEx(car, v);   // 千円：小売の相場（車両価格・税込）→ 本体（税抜）
-  const myEx = car.base ? car.base.price/1000 : (k.bodyIn ? ex(my) : 0);
-  const pos = Math.max(2,Math.min(98, 50 + (ratio-1)*500));
-  const sugg = [[-2,'早く売る'],[0,'相場どおり'],[2,'粘る']].map(([d,l])=>{ const ex = Math.round(sb.now/1.1*(1+d/100) - sK)*1000; const g = ex - costOf(car.base);   // 本体（税抜）で ±%（「相場どおり」＝上の相場 本体と同じ値）
-    return `<div class="o" onclick="${car.base?`setFromSoba('${car.id}',${ex})`:`$('nb-price').value=yen(${ex});toast('車両本体価格（税抜）に入れました。「基本価格を作る」で確定')`}"><div class="s">${l}（相場${d>0?'+':''}${d}%）</div><b>${mk(ex/1000)}万</b><div class="s">税込 ${mk(ex/1000*1.1)}万</div><div class="s">約${sobaDays(sb,d)}日・粗利 ${yen(g)}</div></div>`; }).join('');
+  const myEx = car.base ? car.base.price/1000 : 0;
   /* v4.1.4 ふだん見せるのは 車名・年式・信頼度だけ。グレード・色・走行・データ日・外れの目安・出し方は ⓘ */
   const tc = /^A/.test(sb.trust) ? 'good' : /^B/.test(sb.trust) ? 'fair' : 'warn';
   const cardWhy = `<b>相場カード</b>：${esc(sb.cardName)} ${sb.y}年・${sb.g!=null?esc(sb.g):'グレード指定なし'}${sb.col?'・'+esc(sb.col):''}${sb.km!=null?'・'+(sb.km/10).toFixed(1)+'万km':''}<br>
     データ ${esc(sb.built||'—')}・信頼度 ${esc(sb.trust)}${sb.pct!=null?'（外れの目安 ±'+sb.pct+'%）':''}<br>
     相場ビューと同じ相場カード（相場DB の受け渡し）を、この車の条件（年式・グレード・走行・色）で出した値。グラフはこの条件の今の値に合わせて伸縮。売れるまでの日数は、相場カードの「売れるまでの日数」をもとにした目安。`;
-  const allWhy = `<b>全部の店</b>＝格安・現状販売の店も含む小売の成約。<br>
-    この段の金額は全部 <b>車両本体（税抜）</b>。小売の相場は、成約の車両価格（税込）÷1.1 から納車前点検 ${mk(sK)}万を引いて本体に直した値。AA は落札額（税抜）のまま。${k.bodyIn?`<br>税込にすると 自社 ${mk(myEx*1.1)}万／相場 ${mk(ex(sb.now)*1.1)}万。`:''}`;
+  /* 基本価格がまだの車：比べる自社の値が無い＝線は出さず、C1 と全部の店の相場だけ。売れそうな金額（全部の店から）は押すと「基本価格を作る」の欄に入る */
+  const noBase = () => { const c = sb.c1, man = v => mk(v)+'万';
+    const sugg = [[-2,'早く売る'],[0,'相場どおり'],[2,'粘る']].map(([d,l])=>{ const p = Math.round(sb.now/1.1*(1+d/100) - sK)*1000;
+      return `<div class="o" onclick="$('nb-price').value=yen(${p});toast('車両本体価格（税抜）に入れました。「基本価格を作る」で確定')"><div class="s">${l}（相場${d>0?'+':''}${d}%）</div><b>${mk(p/1000)}万</b><div class="s">税込 ${mk(p/1000*1.1)}万</div><div class="s">約${sobaDays(sb,d)}日</div></div>`; }).join('');
+    return `<div class="q-note info" style="margin:8px 0">${I('info','ℹ',14)} まだ基本価格がありません。基本価格を作ると、ここに値付けのバー（保証・整備付きの店と・全部の店と）が出ます。</div>
+      ${c ? `<div class="q-why">保証・整備付きの店（C1）の支払総額の真ん中 <b>${man(c.total)}</b>（${man(c.p25)}〜${man(c.p75)}）</div>` : ''}
+      <div class="q-why">全部の店の相場（本体・税抜）<b>${man(ex(sb.now))}</b></div>
+      <div class="q-sh">売れそうな金額 <span class="q-sub">車両本体・税抜・全部の店から</span>${info('押すと「基本価格を作る」の車両本体価格（税抜）に入ります。基本価格ができたら、保証・整備付きの店の支払総額から出し直します。')}</div>
+      <div class="q-sugg">${sugg}</div>`; };
   return `<button class="q-btn sm" style="float:right;margin-left:8px" onclick="svFromQuote('${car.id}')" title="カード詳細の［相場］タブと同じ画面（相場カードの選び直しもここで）">${I('signal','📶',13)} 相場ビューで見る</button>
     <div class="q-sh" style="margin:2px 0 4px;font-weight:400;font-size:12px;color:var(--text2)">${esc(sb.cardName)} ${sb.y}年 <span class="q-pill ${tc}" title="相場の信頼度">信頼度 ${esc(sb.trust)}</span>${info(cardWhy)}${car._firstRegGuess?'<span class="q-pill warn">年式は CarFlow の年式から（初度登録を入れると正確に）</span>':''}</div>
-    ${c1Block(car, k, sb)}
-    <div class="q-sh">全部の店と <span class="q-sub">車両本体・税抜</span>${info(allWhy)}</div>
-    ${!k.bodyIn?`<div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} まだ価格がありません。下の「売れそうな金額」を押すと、車両本体価格（税抜）に入ります。</div>`:`    <div class="q-pos"><span class="q-pill ${lab[0]}" style="font-size:12px">${lab[1]}</span><span>自社 <b>${mk(myEx)}万</b>／相場 <b>${mk(ex(sb.now))}万</b> → <b>${Math.round(ratio*100)}%</b></span></div>
-    <div class="q-bar"><div class="m" style="left:${pos}%"></div><span class="l" style="left:10%">−5%</span><span class="l" style="left:35%">−2%</span><span class="l" style="left:50%">相場</span><span class="l" style="left:65%">+3%</span><span class="l" style="left:90%">+8%</span></div>
-    <div class="q-why">売れるまで <b>約${sobaDays(sb, Math.round((ratio-1)*1000)/10)}日</b>・在庫 ${days}日目${days>=240?'（<b>8か月＝業販かAAに戻す時期</b>）':days>=120?'（<b>4か月＝値付けを見直す時期</b>）':''}</div>
-    `}
-    <div class="q-sh">売れそうな金額 <span class="q-sub">車両本体・税抜</span>${info('押すと車両本体価格（税抜）に入り、値下げ履歴に残ります。日数は相場カードの「売れるまでの日数」をもとにした目安。')}</div>
-    <div class="q-sugg">${sugg}</div>
+    ${car.base ? vpBlock(car, sb, days) : noBase()}
     <div class="q-sh">相場の動き（13か月） <span class="q-sub">小売 ${sb.slope}%/月・AA ${sb.slopeAA.toFixed(1)}%/月</span></div>
     ${chart(car, sb, myEx, ex)}
     <table class="q-tbl" style="margin-top:8px"><tr><th>相場カードの数字（万・税抜）${info('小売は成約・掲載の車両価格（税込）を本体（税抜）に直した値。AA は落札額（税抜）のまま。「生の真ん中」は条件を当てる前の、その年式の全グレードの真ん中。')}</th><th class="v">真ん中</th><th>件数など</th></tr>
