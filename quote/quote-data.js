@@ -336,11 +336,13 @@
         const code = String(r['型式'] || '').toUpperCase(); if (!code) return;
         const mkr = r['メーカー'] || '', full = String(r['車種'] || ''), car = full.split(' ').slice(1).join(' ') || full;
         const mk0 = full.split(' ')[0], hit = window.CFMaker ? (CFMaker.find(mk0) || CFMaker.find(mkr)) : null, mkJ = hit ? hit.name : mk0;
-        const ym = String(r['初出'] || '').replace(/\D/g, '').replace(/^(\d{4})(\d{2}).*/, '$1/$2');
+        const ymOf = v => String(v || '').replace(/\D/g, '').replace(/^(\d{4})(\d{2}).*/, '$1/$2');
+        const ym = ymOf(r['初出']), ymL = ymOf(r['最終']) || ym;   /* 🔴 v4.0.4 最終（最後の発売）も行にする＝発売の幅が「初出〜最終」になる（前は初出だけ＝2020/02〜2020/02 と出て、ヤリス 2023/07 に「年式が違う」） */
         const cc = parseInt(String(r['排気量'] || '').replace(/[^\d]/g, ''), 10) || '';
         const grades = String(r['グレード'] || '').split('／').map(s => s.trim()).filter(Boolean);
         const price = r['新車価格最高'] ? Math.round(+r['新車価格最高'] * 10000) : '';
-        const rows = (grades.length ? grades : ['']).map(g => [ym, g, cc ? cc + 'cc' : '', r['駆動'] || '', '', r['定員'] || '', '', price, r['型式全体'] || code, '', '', '']);
+        const rows = [];
+        (grades.length ? grades : ['']).forEach(g => (ymL !== ym ? [ym, ymL] : [ym]).forEach(y => rows.push([y, g, cc ? cc + 'cc' : '', r['駆動'] || '', '', r['定員'] || '', '', price, r['型式全体'] || code, '', '', ''])));
         const k = mkJ + '|' + car;
         ((K[code] = K[code] || {})[k] = (K[code][k] || []).concat(rows));
       });

@@ -95,8 +95,10 @@ function defaultSettings(){
 }
 function mkBase(o){ const nm = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date(+TODAY.slice(0,4), +TODAY.slice(5,7), 1)), se = (+TODAY.slice(0,4)+1)+TODAY.slice(4,7);
   return Object.assign({ price:0, wsPrice:0, newCar:false, regType:'shinki', plate:'keep', regAuto:true, regMonth:nm, shakenEnd:se, eco:'std', jibaiM:25, jibaiAmt:0, recycle:12000, warranty:'3か月または3,000km', repair:'なし', cost:{buy:0,aa:10000,move:0,fix:0}, hist:[], portalDone:{goo:'',cs:''}, changed:'' }, o); }
+/* 担当の初めの値＝いま開いている人（名簿の書き方の空白の違いは見ない）。名簿にいなければ空（選んでもらう） */
+function meStaff(list){ const me = window.QData ? String(QData.me().name||'') : '', k = x => String(x||'').replace(/[\s　]/g,''); return (list||[]).find(n=>k(n)===k(me)) || ''; }
 function newCustObj(s, car, o){
-  return Object.assign({ id:'u'+Date.now()+Math.floor(Math.random()*1000), name:'', tel:'', addr:'', made:TODAY, staff:s.set.staff[0],
+  return Object.assign({ id:'u'+Date.now()+Math.floor(Math.random()*1000), name:'', tel:'', addr:'', made:TODAY, staff:meStaff(s.set.staff),
     baseSnap:JSON.parse(JSON.stringify(car.base)), items:stdItemsOf(s, car).map(x=>Object.assign({ n:x.n, a:x.a, in:{...x.in} }, x.laborL!=null ? { bodyA:x.bodyA, laborL:x.laborL, bn:x.bn } : {}, (x.extra || x.dup || (car.std.keep||[]).includes(x.key)) && !PLANS.some(p=>x.in[p]) ? { keep:1 } : {})),
     tiers:JSON.parse(JSON.stringify({...s.set.packs.tier, ...(car.std.tier||{})})),   /* カスタムの段（物）を写す＝プラン見積と別々に直せる */ showD:!!car.std.showD,
     disc:{A:0,B:0,C:0,D:0,...car.std.disc}, cond:{ wish:false, out:false, garage:false, deliver:false }, trade:0, tradeLoan:0,
@@ -1064,7 +1066,7 @@ function stepCust(car){
       <div><label class="k">お名前</label><input id="u-name" class="q-in" value="${esc(u.name)}" onchange="custSet('${car.id}','${u.id}','name',this.value,1)" ${dis?'disabled':''}></div>
       <div><label class="k">TEL</label><input id="u-tel" class="q-in" value="${esc(u.tel)}" onchange="custSet('${car.id}','${u.id}','tel',this.value,1)" ${dis?'disabled':''}></div>
       <div style="grid-column:1/-1"><label class="k">ご住所</label><input id="u-addr" class="q-in" value="${esc(u.addr)}" onchange="custSet('${car.id}','${u.id}','addr',this.value,1)" ${dis?'disabled':''}></div>
-      <div><label class="k">担当</label><select id="u-staff" class="q-in" onchange="custSet('${car.id}','${u.id}','staff',this.value,1)" ${dis?'disabled':''}>${S.set.staff.map(n=>`<option ${n===u.staff?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+      <div><label class="k">担当</label><select id="u-staff" class="q-in" onchange="custSet('${car.id}','${u.id}','staff',this.value,1)" ${dis?'disabled':''}><option value="" ${u.staff?'':'selected'}>（担当を選ぶ）</option>${[...new Set([u.staff].filter(Boolean).concat(S.set.staff))].map(n=>`<option ${n===u.staff?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
       <div><label class="k">作成日</label><div style="padding:7px 0">${jd(u.made)}</div></div>
       <div style="grid-column:1/-1"><label class="k">商談メモ</label><textarea id="u-note" class="q-in" onchange="custSet('${car.id}','${u.id}','note',this.value,1)" ${dis?'disabled':''}>${esc(u.note)}</textarea></div></div></div></div>
 </div></div>
@@ -2744,7 +2746,7 @@ function qvData(d, k){
   const vehIn = Math.floor(k.vehicle*1.1), fr = car.firstReg || '';
   const hasPh = !!carPh(car);
   return { d, no: estNo(car, p ? (p==='D'?'D':p) : 'base', who), p: p || 'base', plan: p ? `プラン ${p}（${planName(p)}）` : '基本（オプションなし）', planS: p ? planName(p) : '基本',
-    date: jd(TODAY), valid: jd(addDays(TODAY, c.valid)), cust: who && who.name ? who.name : '', staff: who ? who.staff : S.set.staff[0], c, car, b, k,
+    date: jd(TODAY), valid: jd(addDays(TODAY, c.valid)), cust: who && who.name ? who.name : '', staff: who ? (who.staff||'') : '',   /* 🗣 2026-10-23「プラン見積では担当欄自体を無くして」＝お客様の無い見積書は担当を出さない */ c, car, b, k,
     title: car.maker+' '+car.model, yearW: wareki(fr), yearA: fr ? `${fr.slice(0,4)}年${+fr.slice(5,7)}月` : '', km: kmText(car,b),
     spec: [['車名', car.maker+' '+car.model], ['グレード', car.grade], ['年式', wareki(fr)+'（'+fr.slice(0,4)+'年）'], ['走行距離', kmText(car,b)], ['車体色', car.color], ['排気量', ccU(car)],
            ['型式', car.fmodel], ['修復歴', b.repair], ['車検', shakenText(b,k)], ['保証', k.ws ? 'なし（現状渡し）' : warText(b)], ['管理番号', car.num]],
@@ -2830,7 +2832,7 @@ const QV = [
        <h3>主な装備</h3><div class="eqs">${q.equip.map(e=>`<span>${esc(e)}</span>`).join('')}</div>
        <h3>納車整備</h3><div class="tx"><b>${esc(q.seibi.name)}</b>　${esc(q.seibi.note)}</div></div>
      <div class="r"><h3>お見積の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(q,{note:1})}</div></div>
-   <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}</div></div>
+   <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</div></div>
      <div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div></div>
    <div class="notes">${qNotes(q).map(n=>`<span>※ ${esc(n)}</span>`).join('')}</div></div>`; } },
 
@@ -2846,7 +2848,7 @@ const QV = [
    <div class="gaiyo"><div class="gh">車両概要</div><table>${(()=>{ const L = q.spec.concat([['納車整備', q.seibi.name], ['見積番号', q.no], ['見積日', q.date], ['有効期限', q.valid]]); let h=''; for(let i=0;i<L.length;i+=2) h+=`<tr><th>${L[i][0]}</th><td>${esc(L[i][1])}</td>${L[i+1]?`<th>${L[i+1][0]}</th><td>${esc(L[i+1][1])}</td>`:'<th></th><td></td>'}</tr>`; return h; })()}</table>
      <div class="gh">価格の内訳</div><div class="bk">${qBreak(q,{loan:1})}</div></div>
    <div class="nt">${qNotes(q).map(esc).join('　')}</div>
-   <div class="ft"><div class="lb">販売店</div><div class="cp"><b>${esc(q.c.name)}</b><span>${qAddr(q)}　${qTel(q)}</span><span>${qReg(q)}　担当 ${esc(q.staff)}</span></div><div class="cu">${qCustLine(q)}</div></div></div>`; } },
+   <div class="ft"><div class="lb">販売店</div><div class="cp"><b>${esc(q.c.name)}</b><span>${qAddr(q)}　${qTel(q)}</span><span>${qReg(q)}${q.staff?'　担当 '+esc(q.staff):''}</span></div><div class="cu">${qCustLine(q)}</div></div></div>`; } },
 
  /* 3 注文の確認（Apple・テスラの注文の確認画面の型）：白・写真を中央に大きく・選んだ物を一覧・右に合計 */
  { name:'注文の確認', sub:'Apple・テスラの型・白と灰色・選んだ物の一覧', col:'#6b7280', render:q=>{ const k = q.k;
@@ -2901,7 +2903,7 @@ const QV = [
        <h3>ローンの条件（割賦販売法の表示）</h3><table class="kj">${[['現金販売価格', yen(k.cash)], ['下取車価格・残債', q.tr ? `▲${yen(k.trade)}・${yen(k.tradeLoan)}` : 'なし'], ['頭金', yen(L.down)], ['割賦元金（分割する額）', yen(L.P)], ['分割手数料', yen(L.fee)], ['実質年率', L.rate+'%'], ['お支払回数・期間', `${L.n}回（${ymS(m0)}〜${ymS(mE)}）`], ['割賦販売価格', yen(L.hanbai)]].map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('')}</table></div>
      <div><h3>お支払総額の内訳</h3>${qBreak(q)}</div></div>
    <div class="ft"><div class="nt">${qNotes(q).concat(q.loanEx?['ローンは例です。信販会社の審査があり、条件（実質年率・回数）は審査の結果で変わることがあります。']:['信販会社の審査があります。']).map(t=>'※ '+esc(t)).join('<br>')}</div>
-     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.c.name)}　担当 ${esc(q.staff)}<br>${qTel(q)}</div></div></div>`; } },
+     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.c.name)}${q.staff?'　担当 '+esc(q.staff):''}<br>${qTel(q)}</div></div></div>`; } },
 
  /* 6 プラン比較：携帯の料金プラン・結婚式場の見積の型。基本・A・B・C を横に並べ、おすすめに印。いま選んでいるプランを強調 */
  { name:'プラン比較', sub:'4つの見積を横に並べる・含む物に✓', col:'#7c3aed', render:q=>{ const P = qPlans(q), sel = q.p;
@@ -2918,7 +2920,7 @@ const QV = [
      ${[['車両販売価格（税込）', x=>yen(Math.floor(x.k.vehicle*1.1))], ['諸費用（税込）', x=>yen(x.k.cash-Math.floor(x.k.vehicle*1.1))], ['現金販売価格', x=>yen(x.k.cash)], ...(q.k.trade?[[qTrName(q), x=>'▲'+yen(x.k.trade)]]:[]), ...(q.k.tradeLoan?[['下取車の残債', x=>yen(x.k.tradeLoan)]]:[]), [q.headLb, x=>`<b>${yen(x.k.net)}</b>`], [q.loan?`ローン月々（頭金 ${yen(q.loan.down)}）`:'ローン月々（例）', x=>{ const L = x.k.loan || loanCalc(x.k.net, 0, S.set.loan.rate, S.set.loan.count); return yen(L.later)+'<small>'+L.n+'回・割賦 '+yen(L.hanbai)+'</small>'; }]].map(r=>`<tr class="m"><td>${r[0]}</td>${P.map(x=>`<td class="${x.p===sel?'sel':''}">${r[1](x)}</td>`).join('')}</tr>`).join('')}
      </tbody></table>
    <div class="g3">${qI(q,'dash')}${qI(q,'seat2')}${qI(q,'lug')}<div class="eq"><h3>主な装備</h3>${q.equip.map(e=>`<span>${esc(e)}</span>`).join('')}</div></div>
-   <div class="ft"><div>${['どのプランも、税金・保険料・登録の費用は同じです（差は オプションと整備の内容だけ）。', (q.loan?'ローンは 実質年率 '+q.loan.rate+'%・'+q.loan.n+'回・頭金 '+yen(q.loan.down)+'円で計算しています。':'ローン月々は 実質年率 '+S.set.loan.rate+'%・頭金なしの例です。')].concat(qNotes(q)).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}<br>担当 ${esc(q.staff)}　有効期限 ${q.valid}</div></div></div>`; } },
+   <div class="ft"><div>${['どのプランも、税金・保険料・登録の費用は同じです（差は オプションと整備の内容だけ）。', (q.loan?'ローンは 実質年率 '+q.loan.rate+'%・'+q.loan.n+'回・頭金 '+yen(q.loan.down)+'円で計算しています。':'ローン月々は 実質年率 '+S.set.loan.rate+'%・頭金なしの例です。')].concat(qNotes(q)).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}　有効期限 ${q.valid}</div></div></div>`; } },
 
  /* 7 写真で見る車両の状態：カーセンサーの「状態の写真」・海外の Carvana の写真の見せ方。9枚の写真に、その写真で分かる事を書く */
  { name:'写真で見る状態', sub:'9枚の写真＋説明・状態の表・総額は下に', col:'#0369a1', render:q=>{ const k = q.k;
@@ -2928,7 +2930,7 @@ const QV = [
    <div class="grid">${P9.map((x,i)=>`<figure class="qi ${i===0?'big':''}">${q.hasPh?`<img src="${q.ph(x[0])}" alt="">`:carSvg(q.car)}<figcaption><b>${i+1}　${x[1]}</b>${x[2]?`<span>${esc(x[2])}</span>`:''}</figcaption></figure>`).join('')}</div>
    <div class="g2"><div class="st"><h3>お車の状態</h3><table>${[['走行距離', q.km], ['修復歴', q.b.repair], ['車検', shakenText(q.b,k)], ['保証', k.ws?'なし（現状渡し）':warText(q.b)], ['納車整備', q.seibi.name+'（'+q.seibi.note+'）'], ['年式・色', q.yearW+'・'+q.car.color], ['型式・排気量', q.car.fmodel+'・'+ccU(q.car)], ['管理番号', q.car.num]].map(r=>`<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('')}</table></div>
      <div class="pz"><h3>お支払総額の内訳 <small>${esc(q.planS)}</small></h3>${qBreak(q)}</div></div>
-   <div class="ft"><div class="cu">${qCustLine(q)}<small>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}</small></div><div class="cp">${esc(q.c.name)}　${qTel(q)}<br>${qAddr(q)}　登録番号 ${esc(q.c.inv)}</div></div>
+   <div class="ft"><div class="cu">${qCustLine(q)}<small>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</small></div><div class="cp">${esc(q.c.name)}　${qTel(q)}<br>${qAddr(q)}　登録番号 ${esc(q.c.inv)}</div></div>
    <div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('　')}</div></div>`; } },
 
  /* 8 パンフレット（お車・お金・これから）：注文住宅の提案書・旅行の旅程表の型。上半分は写真、下は3つの柱 */
@@ -2943,7 +2945,7 @@ const QV = [
        ${[['車両販売価格（税込）', q.vehIn], ['諸費用（税込）', q.feesIn]].concat(q.tr?[['お支払総額', k.cash]]:[], k.trade?[[qTrName(q), -k.trade]]:[], k.tradeLoan?[['下取車の残債', k.tradeLoan]]:[]).map(r=>`<div class="sp"><small>${r[0]}</small><b>${r[1]<0?'▲'+yen(-r[1]):yen(r[1])}</b></div>`).join('')}
        <div class="det">${qBreak(q)}</div>${q.fold?`<div class="sp fo"><small>付属品・オプション ${q.nOpt}点（税抜 ${yen(q.k.optSum)}）</small><b>明細は別紙</b></div>`:''}${q.loanX?`<div class="ln">${q.loanEx?'ローンなら ':'ローン '}月々 <b>${yen(q.loanX.later)}</b> 円${q.loanEx?'〜':''}<small>${q.loanX.n}回・頭金 ${yen(q.loanX.down)}円・実質年率 ${q.loanX.rate}%・割賦販売価格 ${yen(q.loanX.hanbai)}円${q.loanEx?'（例）':''}</small></div>`:''}</section>
      <section><h2><i>3</i>これからのこと</h2><ol class="steps">${steps.map(s=>`<li><b>${s[0]}</b><span>${s[1]}</span></li>`).join('')}</ol></section></div>
-   <div class="ft"><div>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}<br>${qNotes(q).slice(0,3).map(esc).join(' ')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}　${qTel(q)}</div></div></div>`; } },
+   <div class="ft"><div>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}<br>${qNotes(q).slice(0,3).map(esc).join(' ')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}　${qTel(q)}</div></div></div>`; } },
 
  /* 9 はじめての方へ（説明つき）：保険の設計書・携帯の料金の説明の型。1行ずつ「これは何の費用か」を書く */
  { name:'説明つき', sub:'1行ずつ「何の費用か」・課税／立替の札', col:'#4d7c0f', render:q=>{ const k = q.k;
@@ -2956,7 +2958,7 @@ const QV = [
    <div class="inc">${[[I('wrench','🔧',18),'納車整備', q.seibi.name], [I('shield','🛡',18),'保証', k.ws?'なし':warText(q.b)], [I('file','📄',18),'登録の手続き', '当店で代行'], [I('receipt','🧾',18),'税金・保険', '登録に要る分を含む']].map(x=>`<div><i>${x[0]}</i><b>${x[1]}</b><span>${esc(x[2])}</span></div>`).join('')}</div>
    <h3>お見積の内訳と説明</h3>${qBreak(q,{tag:1,desc:1,loan:1})}
    <div class="qa"><div><b>「課税」「立替」とは？</b>課税＝当店の売上で消費税がかかる物。立替＝国・県・保険会社などへ当店が代わりに納める物で、消費税はかかりません。</div><div><b>この金額のほかに要る物は？</b>任意保険（自動車保険）とガソリン代は含みません。${q.opts.some(o=>o.tbd)?'「'+OPT_TBD+'」の品もまだ入っていません。':''}</div></div>
-   <div class="ft"><div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}<br>担当 ${esc(q.staff)}</div></div></div>`; } },
+   <div class="ft"><div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}</div></div></div>`; } },
 
  /* 10 インボイス（Stripe・freee の請求書の型）：明細の表・税率ごとの集計・登録番号。法人のお客様・経理向け */
  { name:'インボイス', sub:'Stripe・会計ソフトの型・税率ごとの集計', col:'#4338ca', render:q=>{ const k = q.k;
@@ -2998,7 +3000,7 @@ const QV_P2 = [
        <div class="op tt"><span>付属品・オプション 合計（税抜）</span><b>${yen(k.optSum)}</b></div></div>
      <div class="r"><div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div>${q.loan?`<div class="ln"><b>月々 ${yen(q.loan.later)}円</b><span>× ${q.loan.n-1}回（初回 ${yen(q.loan.first)}円）・頭金 ${yen(q.loan.down)}円<br>実質年率 ${q.loan.rate}%・割賦販売価格 ${yen(q.loan.hanbai)}円</span></div>`:''}</div>
        <h3>お見積の内訳</h3>${qBreak(q,{note:1})}</div></div>
-   <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}</div></div>
+   <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</div></div>
      <div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}　${qP2no(q)}</div></div>
    <div class="notes">${qNotes(q).map(n=>`<span>※ ${esc(n)}</span>`).join('')}</div></div>`; },
 
@@ -3013,7 +3015,7 @@ const QV_P2 = [
        <tfoot><tr><td></td><td>合計（税抜）</td><td class="v">${yen(k.optSum)}</td></tr></tfoot></table>
      <div class="bk">${qBreak(q,{loan:1})}</div></div>
    <div class="nt">${qNotes(q).map(esc).join('　')}</div>
-   <div class="ft"><div class="lb">販売店</div><div class="cp"><b>${esc(q.c.name)}</b><span>${qAddr(q)}　${qTel(q)}</span><span>${qReg(q)}　担当 ${esc(q.staff)}</span></div><div class="cu">${qCustLine(q)}<small>${qP2no(q)}</small></div></div></div>`; },
+   <div class="ft"><div class="lb">販売店</div><div class="cp"><b>${esc(q.c.name)}</b><span>${qAddr(q)}　${qTel(q)}</span><span>${qReg(q)}${q.staff?'　担当 '+esc(q.staff):''}</span></div><div class="cu">${qCustLine(q)}<small>${qP2no(q)}</small></div></div></div>`; },
 
  /* 3 注文の確認：白・中央の見出し・✓の一覧・灰色の角丸の合計 */
  q=>{ const k = q.k;
@@ -3050,7 +3052,7 @@ const QV_P2 = [
      <div><h3>お支払い</h3><div class="mo2"><small>${q.headLb}（税込）</small><b>${qY(k.net)}</b>${q.tr?`<span>${esc(q.headSub)}</span>`:''}${L?`<div class="lnb"><span>月々</span><b>${yen(L.later)}</b><span>円 × ${L.n-1}回（初回 ${yen(L.first)}円）</span></div><span>頭金 ${yen(L.down)}円・実質年率 ${L.rate}%・割賦販売価格 ${yen(L.hanbai)}円</span>`:''}</div>
        <h3>お支払総額の内訳</h3>${qBreak(q)}</div></div>
    <div class="ft"><div class="nt">${qNotes(q).concat(['月々の目安は、ローンの月々を金額の割合で分けた物です（実際は合計で計算します）。']).map(t=>'※ '+esc(t)).join('<br>')}</div>
-     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.c.name)}　担当 ${esc(q.staff)}<br>${qTel(q)}</div></div></div>`; },
+     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.c.name)}${q.staff?'　担当 '+esc(q.staff):''}<br>${qTel(q)}</div></div></div>`; },
 
  /* 6 プラン比較：紫の細い写真の帯・1ページ目と同じプランの見出し・品ごとの金額 */
  q=>{ const P = qPlans(q), sel = q.p, names = []; P.forEach(x=>x.all.forEach(it=>{ if (!names.includes(it.n)) names.push(it.n); }));
@@ -3060,7 +3062,7 @@ const QV_P2 = [
    <table class="cmp"><thead><tr><th class="h"><div class="cu">${qCustLine(q)}</div></th>${P.map(x=>`<th class="${x.p===sel?'sel':''}">${x.p==='B'?'<em>おすすめ</em>':''}<b>${x.name}</b><small>${esc(x.sub)}</small><div class="pz">${yen(x.k.net)}<span>円</span></div><small>${q.headLb}（税込）</small></th>`).join('')}</tr></thead>
      <tbody><tr class="grp"><td colspan="5">付属品・オプション</td></tr>${names.map(nm=>`<tr class="${/^\s*└/.test(nm)?'sub':''}"><td>${esc(String(nm).replace(/^\s*└\s*/,'└ '))}</td>${P.map(x=>{ const it = x.all.find(a=>a.n===nm); return td(x, it ? (it.tbd ? '<small>サイズ確認後</small>' : yen(+it.a||0)) : '<i class="no">—</i>'); }).join('')}</tr>`).join('')}
      <tr class="grp"><td colspan="5">合計</td></tr><tr class="m"><td>付属品・オプション（税抜）</td>${P.map(x=>td(x, yen(x.k.optSum))).join('')}</tr><tr class="m"><td>点数</td>${P.map(x=>td(x, x.items.length+'点')).join('')}</tr><tr class="m"><td>${q.headLb}（税込）</td>${P.map(x=>td(x, `<b>${yen(x.k.net)}</b>`)).join('')}</tr></tbody></table>
-   <div class="ft"><div>${['金額は税抜です。消費税は1枚目で合計に対して計算しています。'].concat(qNotes(q)).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}<br>担当 ${esc(q.staff)}　有効期限 ${q.valid}</div></div></div>`; },
+   <div class="ft"><div>${['金額は税抜です。消費税は1枚目で合計に対して計算しています。'].concat(qNotes(q)).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}　有効期限 ${q.valid}</div></div></div>`; },
 
  /* 7 写真で見る状態：青の見出し・品をカード（番号・説明・金額）で並べる・残りの写真 */
  q=>{ const k = q.k;
@@ -3069,7 +3071,7 @@ const QV_P2 = [
    <div class="cards">${qOptGroups(q).map(g=>`<div class="cd"><i>${g.no}</i><div><b>${esc(g.n)}</b>${g.ex?`<span>${esc(g.ex)}</span>`:''}${g.subs.map(s=>`<span class="s">＋ ${esc(s.n)} ${qAmtTd(s)}</span>`).join('')}</div><em>${qAmtTd(g)}</em></div>`).join('')}</div>
    <div class="g2"><div class="st"><h3>お車の写真</h3><div class="ph2">${qI(q,'nav','','ナビ・カメラ')}${qI(q,'wheel','','タイヤ・ホイール')}</div><div class="osum"><span>付属品・オプション ${q.nOpt}点（税抜）</span><b>${yen(k.optSum)}</b></div></div>
      <div class="pz"><h3>お支払総額の内訳 <small>${esc(q.planS)}</small></h3>${qBreak(q)}</div></div>
-   <div class="ft"><div class="cu">${qCustLine(q)}<small>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}</small></div><div class="cp">${esc(q.c.name)}　${qTel(q)}<br>${qAddr(q)}　登録番号 ${esc(q.c.inv)}</div></div>
+   <div class="ft"><div class="cu">${qCustLine(q)}<small>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</small></div><div class="cp">${esc(q.c.name)}　${qTel(q)}<br>${qAddr(q)}　登録番号 ${esc(q.c.inv)}</div></div>
    <div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('　')}</div></div>`; },
 
  /* 8 パンフレット：表紙の小さい版・「4 付属品・オプションのこと」と「2 お金のこと（全体）」の2本 */
@@ -3080,7 +3082,7 @@ const QV_P2 = [
      <section class="mn"><h2><i>2</i>お金のこと（全体）</h2><div class="tot"><small>${q.headLb}（税込）</small><b>${qY(k.net)}</b></div>
        ${[['車両販売価格（税込）', q.vehIn], ['うち付属品・オプション（税込の目安）', qOptIn(q)], ['諸費用（税込）', q.feesIn]].concat(q.tr?[['お支払総額', k.cash]]:[], k.trade?[[qTrName(q), -k.trade]]:[], k.tradeLoan?[['下取車の残債', k.tradeLoan]]:[]).map(r=>`<div class="sp"><small>${r[0]}</small><b>${r[1]<0?'▲'+yen(-r[1]):yen(r[1])}</b></div>`).join('')}
        <div class="det">${qBreak(q)}</div>${q.loanX?`<div class="ln">${q.loanEx?'ローンなら ':'ローン '}月々 <b>${yen(q.loanX.later)}</b> 円${q.loanEx?'〜':''}<small>${q.loanX.n}回・頭金 ${yen(q.loanX.down)}円・実質年率 ${q.loanX.rate}%・割賦販売価格 ${yen(q.loanX.hanbai)}円${q.loanEx?'（例）':''}</small></div>`:''}</section></div>
-   <div class="ft"><div>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}　${qP2no(q)}<br>${qNotes(q).slice(0,3).map(esc).join(' ')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}　${qTel(q)}</div></div></div>`; },
+   <div class="ft"><div>${esc(q.no)}　見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}　${qP2no(q)}<br>${qNotes(q).slice(0,3).map(esc).join(' ')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}　${qTel(q)}</div></div></div>`; },
 
  /* 9 説明つき：緑・4つの数字の札・1行ずつ説明つきの明細・まとめの内訳は2段 */
  q=>{ const k = q.k, nt = q.opts.filter(o=>o.tbd).length;
@@ -3090,7 +3092,7 @@ const QV_P2 = [
    <h3>付属品・オプションの内訳と説明</h3>
    <div class="qb op"><div class="g"><div class="gh"><span>付属品・オプション<i class="tg">課税</i></span><b>${yen(k.optSum)}</b></div>${qOptRows(q).map(r=>`<div class="gr ${r.sub?'sub':''}"><span>${esc(r.n)}<em>${esc(r.ex)}</em></span><b>${qAmtTd(r)}</b></div>`).join('')}</div></div>
    <h3>お見積の内訳（まとめ）</h3><div class="two">${qBreak(q,{tag:1,loan:1})}</div>
-   <div class="ft"><div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}<br>担当 ${esc(q.staff)}</div></div></div>`; },
+   <div class="ft"><div class="nt">${qNotes(q).map(t=>'※ '+esc(t)).join('<br>')}</div><div class="cp"><b>${esc(q.c.name)}</b><br>${qAddr(q)}<br>${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}</div></div></div>`; },
 
  /* 10 インボイス：1枚目の続き＝同じ見出し・同じ明細の表・同じ集計の表・「2 / 2」 */
  q=>{ const k = q.k, t10 = k.vehicle + q.sumK;
@@ -3186,7 +3188,7 @@ const QC = [
    <table class="it"><thead><tr><th>項目</th>${P.map(x=>`<th class="v ${x.p===sel?'sel':''}">${x.name}<small>${esc(x.sub)}</small></th>`).join('')}</tr></thead>
      <tbody>${rows.map(r=>`<tr class="${r[2]||''}"><td>${r[0]}</td>${P.map(x=>td(x, r[1](x))).join('')}</tr>`).join('')}</tbody></table>
    <div class="bm"><div class="bx"><div class="h">備考</div>${['付属品・オプションの金額は税抜です（取付工賃を含む）。'].concat(qNotes(q)).map(t=>`<div>・${esc(t)}</div>`).join('')}</div>
-     <div class="bx cpb"><div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}<br>担当 ${esc(q.staff)}${qStamp('社印')}</div></div></div></div>`; } },
+     <div class="bx cpb"><div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}${qStamp('社印')}</div></div></div></div>`; } },
  /* 4 ショールーム：おすすめを1つ大きく（写真・明朝・金）。ほかのプランは細い帯で */
  { name:'ショールーム（おすすめを大きく・見積タブで使用中）', sub:'写真・明朝・金。おすすめ1つを主役に', col:'#1c1917', render:q=>{ const P = qPlans(q), rec = P.find(x=>x.p===(q.p==='base'?'B':q.p)) || P[2], base = P[0];
    const its = rec.items, cut = its.length > 16, shown = cut ? its.slice(0,15) : its, L = rec.k.loan || loanCalc(rec.k.net, 0, S.set.loan.rate, S.set.loan.count);
@@ -3201,7 +3203,7 @@ const QC = [
    <div class="others">${P.filter(x=>x!==rec).map(x=>{ const Lx = x.k.loan || loanCalc(x.k.net, 0, S.set.loan.rate, S.set.loan.count), d = x.k.net - rec.k.net;
      return `<div class="o"><div class="n"><b>${x.name}</b><small>${esc(x.sub)}・${esc(x.seibi.name)}</small></div><div class="i">${x.items.length ? x.items.slice(0,5).map(i=>esc(i.n)).join('・') + (x.items.length>5?` ほか${x.items.length-5}点`:'') : 'オプションなし（掲載の支払総額）'}</div>
        <div class="p"><b>${yen(x.k.net)}</b><small>${d>=0?'＋':'−'}${yen(Math.abs(d))}・月々 ${yen(Lx.later)}</small></div></div>`; }).join('')}</div>
-   <div class="foot"><div class="cu">${qCustLine(q)}<small>見積日 ${q.date}　有効期限 ${q.valid}　担当 ${esc(q.staff)}</small></div><div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}　${qTel(q)}</div></div>
+   <div class="foot"><div class="cu">${qCustLine(q)}<small>見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</small></div><div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}　${qTel(q)}</div></div>
    <div class="notes">${['どのプランも、税金・保険料・登録の費用は同じです。'].concat(qNotes(q)).map(n=>`<span>※ ${esc(n)}</span>`).join('')}</div></div>`; } },
  /* 5 モダン：差額の階段（ベース → A → B → C で、増える物と増える金額） */
  { name:'モダン（差額の階段）', sub:'ベースから1段ずつ「増える物と金額」', col:'#4338ca', render:q=>{ const P = qPlans(q), sel = q.p;
@@ -3214,7 +3216,7 @@ const QC = [
        <div class="pr">${prev?`<span class="df">${x.k.net-prev.k.net>=0?'＋':'−'}${yen(Math.abs(x.k.net-prev.k.net))}</span>`:''}<b>${yen(x.k.net)}</b><small>${q.headLb}・月々 ${yen(L.later)}</small></div></div>`; }).join('')}</div>
    <div class="bt">${qI(q,'dash')}${qI(q,'seat2')}${qI(q,'lug')}<div class="eq"><b>主な装備</b>${q.equip.map(e=>`<span>${esc(e)}</span>`).join('')}</div></div>
    <div class="ft"><div>${(q.tr?[q.headSub]:[]).concat(['金額は消費税込。月々は '+(q.loan?q.loan.n+'回・頭金 '+yen(q.loan.down)+'円':S.set.loan.count+'回・実質年率 '+S.set.loan.rate+'%・頭金なしの例')+'です。'], qNotes(q)).map(t=>'※ '+esc(t)).join('<br>')}</div>
-     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.no)}　${q.date}<br>${esc(q.c.name)}　${qTel(q)}<br>担当 ${esc(q.staff)}</div></div></div>`; } },
+     <div class="cp"><div class="cu">${qCustLine(q)}</div>${esc(q.no)}　${q.date}<br>${esc(q.c.name)}　${qTel(q)}${q.staff?'<br>担当 '+esc(q.staff):''}</div></div></div>`; } },
 ];
 
 /* =========================== 装備品一覧 =========================== */
@@ -3293,7 +3295,7 @@ const QO = [
          <h3>付属品・オプション</h3><div class="ol">${qOptInline(q, 8)}</div>
          <h3>お約束したこと</h3><div class="pm">${q.o.promise?esc(q.o.promise):''}</div></div></div>
      <div class="sg"><div class="ag">裏面の約款に同意し、上記のとおり契約します。自動車の売買はクーリング・オフの対象外です。☐ 反社会的勢力ではありません${L?'　☐ 承認前の着手を（ 依頼する ・ しない ）':''}</div>
-       <div class="bx"><div><small>ご購入者</small><b>${qBuyer(q)||'　'}</b><span class="ln2"></span><small>ご住所 ${q.u&&q.u.addr?esc(q.u.addr):''}</small></div><div><small>販売店</small><b>${esc(q.c.name)}</b><span class="ln2"></span><small>${qAddr(q)}　担当 ${esc(q.staff)}</small>${qSeal()}</div></div></div></div></div>`; } },
+       <div class="bx"><div><small>ご購入者</small><b>${qBuyer(q)||'　'}</b><span class="ln2"></span><small>ご住所 ${q.u&&q.u.addr?esc(q.u.addr):''}</small></div><div><small>販売店</small><b>${esc(q.c.name)}</b><span class="ln2"></span><small>${qAddr(q)}${q.staff?'　担当 '+esc(q.staff):''}</small>${qSeal()}</div></div></div></div></div>`; } },
  /* 4 モダン（横）：6つの番号カード＋署名の帯 */
  { name:'モダン（横・6つのカード）', sub:'①お車〜⑥ご署名を番号のカードで', col:'#4338ca', land:true, render:q=>{ const k = q.k, L = q.loan;
    const card = (n, t, body) => `<div class="cd"><div class="h"><i>${n}</i>${t}</div><div class="b">${body}</div></div>`;
@@ -3307,7 +3309,7 @@ const QO = [
      ${card(5,'下取車とお約束', kv(q.tr?[['下取車', esc(q.tradeModel||'')], ['下取価格', yen(k.trade)+'円'], ['残債', yen(k.tradeLoan)+'円（当店で精算）']]:[['下取車','なし']])+`<div class="pm"><small>お約束したこと</small>${q.o.promise?esc(q.o.promise):''}</div>`)}
      ${card(6,'ご署名', `<div class="chk"><div>☐ 裏面の約款を読み、同意します</div><div>☐ クーリング・オフの対象外と確認しました</div><div>☐ 反社会的勢力ではありません</div>${L?'<div>☐ 承認前の着手を（ 依頼する ・ しない ）</div>':''}</div><div class="sg"><small>ご購入者（自署）</small><b>${qBuyer(q)||'　'}</b><span></span><small>ご住所・電話</small><span></span></div>`)}
    </div>
-   <div class="ft"><span>売主 <b>${esc(q.c.name)}</b>　${qAddr(q)}　${qTel(q)}　登録番号 ${esc(q.c.inv)}　古物商 ${esc(q.c.kobutsu)}　担当 ${esc(q.staff)}</span>${qSeal()}</div></div>`; } },
+   <div class="ft"><span>売主 <b>${esc(q.c.name)}</b>　${qAddr(q)}　${qTel(q)}　登録番号 ${esc(q.c.inv)}　古物商 ${esc(q.c.kobutsu)}${q.staff?'　担当 '+esc(q.staff):''}</span>${qSeal()}</div></div>`; } },
 ];
 
 /* =========================== 約款 =========================== */
