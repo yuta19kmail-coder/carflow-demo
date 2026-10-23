@@ -7077,7 +7077,6 @@ window.CF_EN_DICT = {
 "売約済み":"Sold (pending)",
 "売約済みでまだ納車完了でない車の":"For cars Sold but not yet Delivered",
 "売約済みなら":"If Sold",
-"売約済み（カンバン）":"Sold (kanban)",
 "売約設定":"Set as Sold",
 "売約車":"Sold (pending) car",
 "売約通知":"Sold (pending) notification",

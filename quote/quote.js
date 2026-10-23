@@ -468,7 +468,7 @@ const PHASES = [['all','全て'],['purchase','仕入れ'],['regen','展示準備
 /* 売約＝見積の売約の札（car.order）か、CarFlow で売約・納車準備・納車完了の車（_sold・_col） */
 function phaseOf(car){ return (car.order || car._sold || car._col==='delivery' || car._col==='done') ? 'delivery' : (car.status==='purchase' || car.status==='regen') ? car.status : 'exhibit'; }
 function carStatus(car){ const ph = phaseOf(car);
-  if (ph==='delivery') return car.order ? ['sold','売約済み（見積・'+jd(car.order.date).slice(5)+'）'] : ['sold','売約済み（カンバン）'];
+  if (ph==='delivery') return car.order ? ['sold','売約済み（見積・'+jd(car.order.date).slice(5)+'）'] : ['sold','売約済み'];
   if (ph==='purchase') return ['purchase','仕入れ'];
   if (ph==='regen') return ['regen','展示準備中'];
   return car.custs.length ? ['deal','展示中・商談中'] : ['exhibit','展示中']; }
