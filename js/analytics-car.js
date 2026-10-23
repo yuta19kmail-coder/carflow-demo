@@ -1006,7 +1006,8 @@
   ];
   function quoteTable(today, opt){
     var head = heads(QT_COLS);
-    var list = EXTRA.quotes || [];
+    /* v4.0.1 中身の無い見積（基本価格・お客様・売約・原価の確定のどれも無い＝画面を開いただけで出来た物）は出さない */
+    var list = (EXTRA.quotes || []).filter(function (q) { return q.base || (Array.isArray(q.custs) && q.custs.length) || q.order || (q.cogs && q.cogs.done); });
     var num = function (v) { var n = Number(v); return isFinite(n) && v !== '' && v != null ? Math.round(n) : ''; };
     var rows = list.map(function (q) {
       var b = q.base || null, c = (b && b.cost) || {}, h = (b && Array.isArray(b.hist)) ? b.hist : [], last = h.length ? h[h.length - 1] : null;
@@ -1018,7 +1019,7 @@
         o ? 1 : 0, o ? t(o.date) : '', o ? t(o.plan) : '', t(g.done), day(q.updatedAt), t(q.updatedByName).split(/[\s　]+/)[0] || ''];
     });
     var lines = [
-      '- 1行＝見積のある車1台（CarFlow v4.0.0 から。セールス ▸ 見積で作った物）。見積の無い車は出ない。',
+      '- 1行＝見積のある車1台（CarFlow v4.0.0 から。セールス ▸ 見積で作った物）。見積の無い車・中身の無い見積（基本価格・お客様・売約・原価の確定のどれも無い）は出ない。',
       EXTRA.quotes ? '- 行数：' + rows.length + '。' : '- ⚠ 今回は見積（carQuotes）を読めなかった。',
       '- 🔴 「売約（見積）」は見積の上の札だけ。車が売れたかは表 carflow（CarFlow の売約・納車）で数える。',
       '- 粗利（本体−原価）は車両本体と車両原価だけの差。オプション・諸費用・原価管理の部品や外注は入っていない。'

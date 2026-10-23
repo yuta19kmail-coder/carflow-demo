@@ -48,11 +48,13 @@
   const pobj = o => P.JSON.parse(JSON.stringify(o));   /* 親の窓の物にする（Firestore に渡す物は全部これを通す） */
 
   /* 見積の中で保存する欄（それ以外＝CarFlow の車の欄・画面だけの一時の値は保存しない） */
-  const QKEYS = ['base', 'std', 'custs', 'order', 'cogs', 'board', 'reached', 'eqx', 'eqDone', 'cf'];
+  const QKEYS = ['base', 'std', 'custs', 'order', 'cogs', 'board', 'reached', 'eqx', 'eqDone'];   /* cf（車両情報の最初の値の控え）は画面を開くと作られるので保存しない */
   const VKEYS = ['fmodel', 'firstReg', 'cc', 'weight', 'fuel', 'hybrid', 'gradeSub', 'colorCat', 'vin', 'keiQ', 'sizeQ'];
   function partOf(car, live) {
     const o = {};
     QKEYS.forEach(k => { if (car[k] !== undefined) o[k] = car[k]; });
+    /* 🔴 v4.0.1 画面を開いただけで作られる物は保存しない＝原価表の空の形（原価管理の一覧を開くと全部の車に作られる） */
+    if (o.cogs && window.QApi && QApi.cogsBlank && JSON.stringify(o.cogs) === QApi.cogsBlank()) delete o.cogs;
     const v = {}; VKEYS.forEach(k => {
       const x = car[k];
       if (x === undefined || x === '' || x === null) return;
@@ -369,7 +371,9 @@
   window.QData = {
     demo: DEMO, me: () => CQ.me(), canEdit: () => CQ.canEdit(), canSet: () => CQ.can('canEditSettings'), staff: () => CQ.staff(), company: () => CQ.company(),
     ver: () => CQ.ver(), log: (id, a) => CQ.log(id, a), toastTop: (m, c) => CQ.toast(m, c), openCar: id => CQ.openCar(id),
-    schedule, flush, soba, ensureKata, kata: () => KATA, sf: () => SF, sobaMeta: () => META, pickKey,
+    schedule, flush, soba,
+    /* 見張り用：いま保存すると書きに行く車（書かずに見るだけ） */
+    _pending: () => { const S = window.QApi && QApi.state(); if (!S) return []; return S.cars.filter(car => { const c0 = (S.edit && S.edit.carId === car.id) ? JSON.parse(S.edit.orig) : car; const j = jsonOf(c0, car); return j !== D.written[car.id] && !(D.written[car.id] === undefined && j === D.empty[car.id]); }).map(c => c.num); }, ensureKata, kata: () => KATA, sf: () => SF, sobaMeta: () => META, pickKey,
     get savedSet() { return D.set; }
   };
   (async () => {

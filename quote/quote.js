@@ -2524,7 +2524,8 @@ function cgOf(car){ const g = car.cogs = car.cogs || {};
     g.out = CG_OUT.map((n,i)=>({ id:'o'+i, n, a:0, on:0, st:'est' }));
     (g.rows||[]).forEach((r,i)=>{ const n = (r.cat?r.cat+'：':'')+(r.n||''), hit = g.out.find(o=>!o.a && n.startsWith(o.n));
       if (hit) Object.assign(hit, { n, a:+r.a||0, on:1, st:r.st||'fix' }); else g.out.push({ id:'m'+i, n, a:+r.a||0, on:1, st:r.st||'fix' }); }); delete g.rows; }
-  g.parts.forEach(p=>{ if (p.sf !== undefined) return; const L = cgLinks(p.k), d = CG_PARTS.find(x=>x.k===p.k) || {};
+  g.parts.forEach(p=>{ if (p.sf !== undefined) return; if (window.QData && !QData.demo && !QData.sf().length) return;   /* 料金表を読めるまで品を決めない（読む前に決めると空のまま残る） */
+    const L = cgLinks(p.k), d = CG_PARTS.find(x=>x.k===p.k) || {};
     if (!L.length) { p.sf = ''; return; }
     const same = L.find(id=>sfItem(id).cost===+p.unit); p.sf = same || (d.br || d.unit || d.texa ? L[0] : ''); });
   if (!g.form) g.form = '店頭'; if (!g.src) g.src = 'オークション'; return g; }
@@ -3927,6 +3928,7 @@ let _rfT = null;
 function refreshSoon(){ clearTimeout(_rfT); _rfT = setTimeout(()=>{ const a = document.activeElement;
   if (a && a !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { refreshSoon(); return; }
   render(); if (!$('q-docov').hidden) renderDocs(); }, 250); }
-window.QApi = { state: () => S, refresh: () => { render(); if (!$('q-docov').hidden) renderDocs(); }, refreshSoon, toast: m => toast(m), costSum: costOf };
+window.QApi = { cogsBlank: () => JSON.stringify(cgOf({})),   /* 原価表の空の形（画面を開いただけで作られる物＝保存しない物の見分けに使う） */
+  state: () => S, refresh: () => { render(); if (!$('q-docov').hidden) renderDocs(); }, refreshSoon, toast: m => toast(m), costSum: costOf };
 window.QApp = { ready: () => true, go: a => goApp(a), openCar: id => { if (S.ui.app!=='quote') goApp('quote'); if (carOf(id)) openCar(id); else toast('この車は見積の一覧にありません（月次で締めた車など）'); } };
 const _qb = document.getElementById('q-boot'); if (_qb) _qb.remove();
