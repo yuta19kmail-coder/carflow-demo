@@ -492,6 +492,13 @@ const $ = id => document.getElementById(id);
 const jsq = s => esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function I(n, fb, sz){ return (typeof ic==='function') ? ic(n, fb, sz||14) : fb; }
+/* 🗣 2026-10-23「相場をもっときれいに・情報が多くて分かりにくい」「インフォマークとかにしたら？」＝長い説明は ⓘ にしまう（乗せる／押すと出る） */
+function info(t){ return `<span class="q-i" tabindex="0" role="button" aria-label="説明">i<span class="q-i-pop">${t}</span></span>`; }
+function qiPlace(el){ requestAnimationFrame(()=>{ const p = el.querySelector('.q-i-pop'); if (!p) return;
+  const r = el.getBoundingClientRect(), w = Math.min(330, innerWidth-16); p.style.width = w+'px';
+  p.style.left = Math.max(8, Math.min(innerWidth-w-8, r.left + r.width/2 - w/2))+'px';
+  const h = p.offsetHeight; p.style.top = (r.bottom+6+h > innerHeight ? Math.max(8, r.top-6-h) : r.bottom+6)+'px'; }); }
+['mouseover','focusin'].forEach(ev=>document.addEventListener(ev, e=>{ const el = e.target.closest && e.target.closest('.q-i'); if (el && !el.contains(e.relatedTarget)) qiPlace(el); }));
 /* 🗣 2026-10-19 昼の点検：日本語入力のまま全角で打っても数字になるように（１２０００・－5000・３．９）。前は 0 になっていた */
 const numIn = v => { const n = parseFloat(String(v||'').normalize('NFKC').replace(/[^\d.\-]/g,'')); return isNaN(n) ? 0 : n; };
 function parseYen(v){ v = String(v||'').normalize('NFKC').replace(/[¥,円\s]/g,''); const m = v.match(/^([\d.]+)万$/); if (m) return Math.round(parseFloat(m[1])*10000); const n = parseFloat(v); return isNaN(n)?0:Math.round(n); }
@@ -895,16 +902,19 @@ function c1Block(car, k, sb){ const c = sb.c1;
     pos = my <= lo ? Math.max(3, 25 - (lo-my)/Math.max(1,mid-lo)*25) : my <= mid ? 25 + (my-lo)/Math.max(1,mid-lo)*25 : my <= hi ? 50 + (my-mid)/Math.max(1,hi-mid)*25 : Math.min(97, 75 + (my-hi)/Math.max(1,hi-mid)*25);
     [cls, lab] = my < lo ? ['great','C1 の安い方（下位25%より安い）'] : my <= mid ? ['good','C1 の中で安め'] : my <= hi ? ['fair','C1 の中で高め'] : ['high','C1 の高い方（上位25%より高い）']; }
   const d = my != null ? my - c.total : null;
+  const why = `<b>C1</b>＝一般店で保証あり＋法定整備付（うちと同じ層）。${c.n}台・保証あり ${c.warr!=null?Math.round(c.warr)+'%':'—'}${c.warrM?'・保証 '+c.warrM+'か月':''}・法定整備付 ${c.seibi!=null?Math.round(c.seibi)+'%':'—'}${c.days?'・掲載 '+c.days+'日':''}。<br>
+    この車の相場（グレード・年式・走行・色）× C1 の店の倍率 ${c.ratio.toFixed(3)}${c.age?'（'+c.age+'・'+c.nAge+'台）':''}。<br>
+    ライバル店DB ${esc(c.built)} の<b>掲載の値</b>（売れた値ではない）。<br>
+    よその店は整備・保証を車両価格に入れ、うちは諸費用・パックに入れる＝<b>支払総額どうし</b>で比べる。車両価格は参考。`;
   return `<div class="q-c1" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--bg2)">
-    <div style="font-weight:800;font-size:13px;margin-bottom:4px">保証・整備付きの店（C1）と比べて <span class="q-why" style="display:inline">支払総額どうし・税込</span></div>
+    <div class="q-sh" style="margin:0 0 4px;font-size:13px">保証・整備付きの店と <span class="q-sub">支払総額・税込</span>${info(why)}</div>
     ${my != null ? `<div class="q-pos"><span class="q-pill ${cls}" style="font-size:12px">${lab}</span><span>自社 総額 <b>${man(my)}</b>／C1 の真ん中 <b>${man(c.total)}</b> → ${d>=0?'+':'−'}${man(Math.abs(d))}（${(my/c.total*100).toFixed(0)}%）</span></div>
     <div class="q-bar"><div class="m" style="left:${pos}%"></div><span class="l" style="left:25%">下位25% ${man(c.p25)}</span><span class="l" style="left:50%">真ん中</span><span class="l" style="left:75%">上位25% ${man(c.p75)}</span></div>`
     : `<div class="q-why">C1 の総額の真ん中 <b>${man(c.total)}</b>（幅 ${man(c.p25)}〜${man(c.p75)}）。基本価格を作ると、自社の支払総額と並べます。</div>`}
-    <table class="q-tbl" style="margin-top:6px"><tr><th>C1 の店の掲載（この車の条件に当てた値・税込）</th><th class="v">C1</th><th class="v">自社</th></tr>
+    <table class="q-tbl" style="margin-top:6px"><tr><th>税込</th><th class="v">C1</th><th class="v">自社</th></tr>
       <tr><td>支払総額</td><td class="v"><b>${man(c.total)}</b></td><td class="v">${my!=null?'<b>'+man(my)+'</b>':'—'}</td></tr>
       <tr><td>車両価格（参考）</td><td class="v">${man(c.body)}</td><td class="v">${myB!=null?man(myB):'—'}</td></tr>
-      <tr><td>諸費用の真ん中（参考）</td><td class="v">${c.fees!=null?man(c.fees):'—'}</td><td class="v">${my!=null?man(my-myB):'—'}</td></tr></table>
-    <div class="q-why" style="margin-top:6px">C1＝一般店で保証あり＋法定整備付（${c.n}台・保証あり ${c.warr!=null?Math.round(c.warr)+'%':'—'}${c.warrM?'・保証 '+c.warrM+'か月':''}・法定整備付 ${c.seibi!=null?Math.round(c.seibi)+'%':'—'}${c.days?'・掲載 '+c.days+'日':''}）。この車の相場（グレード・年式・走行・色）× C1 の店の倍率 ${c.ratio.toFixed(3)}${c.age?'（'+c.age+'・'+c.nAge+'台）':''}。ライバル店DB ${esc(c.built)} の掲載の値（売れた値ではない）。車両価格は、よその店が整備・保証を本体に入れることが多いので参考。</div></div>`; }
+      <tr><td>諸費用（参考）</td><td class="v">${c.fees!=null?man(c.fees):'—'}</td><td class="v">${my!=null?man(my-myB):'—'}</td></tr></table></div>`; }
 function sobaPanel(car,k){
   if (!sobaOf(car) && sobaWait(car)) return `<div class="q-note info">${I('info','ℹ',15)} 相場を読み込み中…（相場ビューと同じ相場カードから、この車の条件で出しています）</div>`;
   if (!sobaOf(car)){ const L = katLookup(car.fmodel, car.firstReg, car.maker), nm = L.state==='ok' ? (L.names.find(n=>n.car===car.model) || L.names[0]) : null, G = nm ? katGrades(nm, L.y, car.firstReg).list.find(x=>x.g===car.grade) : null;
@@ -921,29 +931,34 @@ function sobaPanel(car,k){
   const myEx = car.base ? car.base.price/1000 : (k.bodyIn ? ex(my) : 0);
   const pos = Math.max(2,Math.min(98, 50 + (ratio-1)*500));
   const sugg = [[-2,'早く売る'],[0,'相場どおり'],[2,'粘る']].map(([d,l])=>{ const ex = Math.round(sb.now/1.1*(1+d/100) - sK)*1000; const g = ex - costOf(car.base);   // 本体（税抜）で ±%（「相場どおり」＝上の相場 本体と同じ値）
-    return `<div class="o" onclick="${car.base?`setFromSoba('${car.id}',${ex})`:`$('nb-price').value=yen(${ex});toast('車両本体価格（税抜）に入れました。「基本価格を作る」で確定')`}"><div class="s">${l}（相場${d>0?'+':''}${d}%）</div><b>${mk(ex/1000)}万</b><div class="s">本体・税抜（税込 ${mk(ex/1000*1.1)}万）</div><div class="s">約${sobaDays(sb,d)}日・粗利 ${yen(g)}</div></div>`; }).join('');
-  return `<button class="q-btn sm" style="float:right;margin-left:8px" onclick="svFromQuote('${car.id}')" title="カード詳細の［相場］タブと同じ画面（相場カードの選び直しもここで）">${I('signal','📶',13)} 相場ビューで見る</button><div class="q-why">相場カード：${esc(sb.cardName)} ${sb.y}年・${sb.g!=null?esc(sb.g):'グレード指定なし'}${sb.col?'・'+esc(sb.col):''}${sb.km!=null?'・'+(sb.km/10).toFixed(1)+'万km':''}・データ ${esc(sb.built||'—')}・信頼度 ${esc(sb.trust)}${sb.pct!=null?'（外れの目安 ±'+sb.pct+'%）':''}${car._firstRegGuess?'　<span class="q-pill warn">年式は CarFlow の年式から（初度登録を入れると正確に）</span>':''}</div>
+    return `<div class="o" onclick="${car.base?`setFromSoba('${car.id}',${ex})`:`$('nb-price').value=yen(${ex});toast('車両本体価格（税抜）に入れました。「基本価格を作る」で確定')`}"><div class="s">${l}（相場${d>0?'+':''}${d}%）</div><b>${mk(ex/1000)}万</b><div class="s">税込 ${mk(ex/1000*1.1)}万</div><div class="s">約${sobaDays(sb,d)}日・粗利 ${yen(g)}</div></div>`; }).join('');
+  /* v4.1.4 ふだん見せるのは 車名・年式・信頼度だけ。グレード・色・走行・データ日・外れの目安・出し方は ⓘ */
+  const tc = /^A/.test(sb.trust) ? 'good' : /^B/.test(sb.trust) ? 'fair' : 'warn';
+  const cardWhy = `<b>相場カード</b>：${esc(sb.cardName)} ${sb.y}年・${sb.g!=null?esc(sb.g):'グレード指定なし'}${sb.col?'・'+esc(sb.col):''}${sb.km!=null?'・'+(sb.km/10).toFixed(1)+'万km':''}<br>
+    データ ${esc(sb.built||'—')}・信頼度 ${esc(sb.trust)}${sb.pct!=null?'（外れの目安 ±'+sb.pct+'%）':''}<br>
+    相場ビューと同じ相場カード（相場DB の受け渡し）を、この車の条件（年式・グレード・走行・色）で出した値。グラフはこの条件の今の値に合わせて伸縮。売れるまでの日数は、相場カードの「売れるまでの日数」をもとにした目安。`;
+  const allWhy = `<b>全部の店</b>＝格安・現状販売の店も含む小売の成約。<br>
+    この段の金額は全部 <b>車両本体（税抜）</b>。小売の相場は、成約の車両価格（税込）÷1.1 から納車前点検 ${mk(sK)}万を引いて本体に直した値。AA は落札額（税抜）のまま。${k.bodyIn?`<br>税込にすると 自社 ${mk(myEx*1.1)}万／相場 ${mk(ex(sb.now)*1.1)}万。`:''}`;
+  return `<button class="q-btn sm" style="float:right;margin-left:8px" onclick="svFromQuote('${car.id}')" title="カード詳細の［相場］タブと同じ画面（相場カードの選び直しもここで）">${I('signal','📶',13)} 相場ビューで見る</button>
+    <div class="q-sh" style="margin:2px 0 4px;font-weight:400;font-size:12px;color:var(--text2)">${esc(sb.cardName)} ${sb.y}年 <span class="q-pill ${tc}" title="相場の信頼度">信頼度 ${esc(sb.trust)}</span>${info(cardWhy)}${car._firstRegGuess?'<span class="q-pill warn">年式は CarFlow の年式から（初度登録を入れると正確に）</span>':''}</div>
     ${c1Block(car, k, sb)}
-    <div style="font-weight:800;font-size:12.5px;margin:12px 0 4px">全部の店の相場と車両価格で比べて <span class="q-why" style="display:inline">格安・現状販売も含む小売の成約</span></div>
-    <div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} この段の金額は全部 <b>車両本体（税抜）</b>。小売の相場は、成約の車両価格（税込）÷1.1 から納車前点検 ${mk(sK)}万を引いて本体に直した値。AA は落札額（税抜）のまま。</div>
-    ${!k.bodyIn?`<div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} まだ価格がありません。下の「売れそうな金額」を押すと、車両本体価格（税抜）に入ります。</div>`:`    <div class="q-pos"><span class="q-pill ${lab[0]}" style="font-size:12px">${lab[1]}</span><span>自社 本体 <b>${mk(myEx)}万</b>（税抜）／相場（小売成約の「いま」）本体 <b>${mk(ex(sb.now))}万</b>（税抜） → 相場比 <b>${Math.round(ratio*100)}%</b></span></div>
-    <div class="q-why" style="margin:-2px 0 6px">税込にすると 自社 本体 ${mk(myEx*1.1)}万／相場 本体 ${mk(ex(sb.now)*1.1)}万</div>
+    <div class="q-sh">全部の店と <span class="q-sub">車両本体・税抜</span>${info(allWhy)}</div>
+    ${!k.bodyIn?`<div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} まだ価格がありません。下の「売れそうな金額」を押すと、車両本体価格（税抜）に入ります。</div>`:`    <div class="q-pos"><span class="q-pill ${lab[0]}" style="font-size:12px">${lab[1]}</span><span>自社 <b>${mk(myEx)}万</b>／相場 <b>${mk(ex(sb.now))}万</b> → <b>${Math.round(ratio*100)}%</b></span></div>
     <div class="q-bar"><div class="m" style="left:${pos}%"></div><span class="l" style="left:10%">−5%</span><span class="l" style="left:35%">−2%</span><span class="l" style="left:50%">相場</span><span class="l" style="left:65%">+3%</span><span class="l" style="left:90%">+8%</span></div>
-    <div class="q-why">この位置なら <b>約${sobaDays(sb, Math.round((ratio-1)*1000)/10)}日</b>で売れる見込み（相場カードの売れるまでの日数をもとにした目安）。在庫 ${days}日目${days>=240?'（<b>8か月＝業販かAAに戻す時期</b>）':days>=120?'（<b>4か月＝値付けを見直す時期</b>）':'／4か月で見直し・8か月で業販かAA'}</div>
+    <div class="q-why">売れるまで <b>約${sobaDays(sb, Math.round((ratio-1)*1000)/10)}日</b>・在庫 ${days}日目${days>=240?'（<b>8か月＝業販かAAに戻す時期</b>）':days>=120?'（<b>4か月＝値付けを見直す時期</b>）':''}</div>
     `}
-    <div style="font-weight:800;font-size:12.5px;margin:10px 0 6px">売れそうな金額 <span class="q-why">押すと車両本体価格（税抜）に入り、値下げ履歴に残ります</span></div>
+    <div class="q-sh">売れそうな金額 <span class="q-sub">車両本体・税抜</span>${info('押すと車両本体価格（税抜）に入り、値下げ履歴に残ります。日数は相場カードの「売れるまでの日数」をもとにした目安。')}</div>
     <div class="q-sugg">${sugg}</div>
-    <div style="font-weight:800;font-size:12.5px;margin:12px 0 4px">相場の動き（13か月） <span class="q-why">小売 ${sb.slope}%/月・AA ${sb.slopeAA.toFixed(1)}%/月</span></div>
+    <div class="q-sh">相場の動き（13か月） <span class="q-sub">小売 ${sb.slope}%/月・AA ${sb.slopeAA.toFixed(1)}%/月</span></div>
     ${chart(car, sb, myEx, ex)}
-    <table class="q-tbl" style="margin-top:8px"><tr><th>相場カードの数字（万円・税抜。小売は本体に直した値）</th><th class="v">真ん中</th><th>件数など</th></tr>
+    <table class="q-tbl" style="margin-top:8px"><tr><th>相場カードの数字（万・税抜）${info('小売は成約・掲載の車両価格（税込）を本体（税抜）に直した値。AA は落札額（税抜）のまま。「生の真ん中」は条件を当てる前の、その年式の全グレードの真ん中。')}</th><th class="v">真ん中</th><th>件数など</th></tr>
       <tr><td>小売 掲載中（本体）</td><td class="v">${mk(ex(sb.stock))}</td><td>在庫 ${sb.days}日・90日超 ${sb.old90}%・${sb.nStock}台</td></tr>
       <tr><td>小売 新着（20日以内・本体）</td><td class="v">${mk(ex(sb.fresh))}</td><td></td></tr>
       <tr><td>小売 成約・この車の条件（本体）</td><td class="v"><b>${mk(ex(sb.now))}</b></td><td>年式・グレード・走行・色で当てた値</td></tr>
       <tr><td>　生の真ん中 1年／直近3か月（本体）</td><td class="v">${sb.rawSold12?mk(ex(sb.rawSold12)):'—'}／${sb.rawSold3?mk(ex(sb.rawSold3)):'—'}</td><td>${sb.y}年式の全グレード・${sb.nSold}台</td></tr>
       <tr><td>AA 落札・この車の条件</td><td class="v"><b>${mk(sb.aaNow)}</b></td><td>評価点4・内装Bとして</td></tr>
       <tr><td>　生の真ん中 13か月／直近2か月・ASNET 4週</td><td class="v">${sb.rawAA13?mk(sb.rawAA13):'—'}／${sb.rawAA2?mk(sb.rawAA2):'—'}・${sb.asnet?mk(sb.asnet):'—'}</td><td>${sb.y}年式の全グレード・${sb.nAA}台</td></tr>
-      <tr><td>4か月後の見込み 小売（本体）／AA</td><td class="v">${mk(ex(sb.in4rt))}／${mk(sb.in4aa)}</td><td>今の動きが続いたら</td></tr></table>
-    <div class="q-why" style="margin-top:6px">相場ビューと同じ相場カード（相場DB の受け渡し）を、この車の条件（年式・グレード・走行・色）で出した値。グラフはこの条件の今の値に合わせて伸縮。売れるまでの日数は、相場カードの「売れるまでの日数」をもとにした目安。</div>`;
+      <tr><td>4か月後の見込み 小売（本体）／AA</td><td class="v">${mk(ex(sb.in4rt))}／${mk(sb.in4aa)}</td><td>今の動きが続いたら</td></tr></table>`;
 }
 /* 🗣 2026-10-19 全部「税抜」：小売の線は本体（税抜）に直す（ex＝sobaPanel の換算）・自社は車両本体（税抜）・AA は落札額（税抜）のまま */
 function chart(car, sb, my, ex){
