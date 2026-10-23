@@ -255,6 +255,8 @@
       const hidden = {}; (META.hidden || []).forEach(k => { hidden[k] = 1; });
       IDX = idx.filter(e => !hidden[e.key] && (e.years || []).length);
       if (calc != null) await addScript(null, calc + '\n//# sourceURL=soba-calc.js');
+      /* ライバル店DB（rival.js＝店のカテゴリごとの掲載の倍率）。無ければ C1 の比べを出さないだけ */
+      if (!window.RIVAL) { const rv = await get('rival.js', 'text').catch(() => null); if (rv) await addScript(null, rv + '\n//# sourceURL=rival.js'); }
       if (!window.SobaStock) await addScript('../soba/stock.js?v=' + encodeURIComponent(CQ.ver()));
       if (!window.SobaCalc || !window.SobaStock) throw new Error('相場の計算を読み込めませんでした');
     })();
@@ -275,6 +277,18 @@
     return out;
   }
   function slopeOf(a) { const f = a.filter(x => x > 0); if (f.length < 2) return 0; return Math.round((Math.pow(f[f.length - 1] / f[0], 1 / (f.length - 1)) - 1) * 1000) / 10; }
+  /* 🗣 2026-10-23「小売りの方は保証有の店から合わせていかないと」「車両価格としてがっつり組ませて高いか安いかを見たい」→「とりあえずやってみて」
+     ＝ライバル店DB の C1（一般店・保証あり＋法定整備付＝うちと同じ層）の店の掲載の値を、この車の条件に当てて出す。
+     計算は相場ビュー（soba/view.js rivalAdj）と同じ：この車の相場（R.rt＝グレード・年式・走行・色で当てた値）× C1 の倍率（年数帯があればそちら）。
+     返す形（千円・税込）：total 総額の真ん中・p25／p75 幅・body 本体（車両価格）・fees 諸費用の真ん中・warr 保証あり%・warrM 保証の月・seibi 法定整備付%・days 掲載日数・n 台数 */
+  const rvAge = a => a <= 1 ? '〜1年' : a <= 3 ? '2-3年' : a <= 6 ? '4-6年' : a <= 10 ? '7-10年' : '11年〜';
+  function c1Of(key, y, R) {
+    const RV = window.RIVAL; if (!RV || !RV.R || R.rt == null) return null;
+    const T = RV.R[key]; if (!T || !T.C1) return null;
+    const A = ((RV.RA || {})[key] || {})[rvAge((RV.yr || 2026) - (+y))] || {}, v = T.C1, r = A.C1 ? A.C1[0] : v[0], sh = r / v[0];
+    return { total: R.rt * r, p25: R.rt * v[1] * sh, p75: R.rt * v[2] * sh, body: R.rt * v[3] * sh, fees: v[4], warr: v[5], warrM: v[6], seibi: v[7], days: v[8], n: v[9],
+      ratio: r, nAge: A.C1 ? A.C1[1] : null, age: A.C1 ? rvAge((RV.yr || 2026) - (+y)) : '', built: RV.built || '' };
+  }
   /* 相場カード＋計算 → 画面の形（quote.js の sobaOf が返す物）。金額は千円・小売は税込・AA は税抜 */
   function shape(m, R) {
     const Y = m.card.years[m.y] || {}, ser = (Y.ser_sold || []).slice(-13), sa = (Y.ser_aa || []).slice(-13);
@@ -292,6 +306,7 @@
       fresh: Math.round(R.frs || R.rt), rawSold12: (Y.sold && Y.sold.p12) || null, rawSold3: (Y.sold && Y.sold.p3) || null,
       aaNow: Math.round(R.aa || 0), rawAA13: (Y.aa && Y.aa.p13) || null, rawAA2: (Y.aa && Y.aa.p1) || null, asnet: Math.round((Y.asnet && Y.asnet.p) || 0),
       in4rt: Math.round(R.rt4 || R.rt), in4aa: Math.round(R.aa4 || R.aa || 0), slope: slopeOf(series), slopeAA: slopeOf(aa),
+      c1: c1Of(m.key, m.y, R),
       trust: cr.grade || '—', pct: cr.pct, nSold: n.sold || cr.n || 0, nAA: n.aa || 0, up: R.up, speed: sp, sellDays: z
     };
   }
