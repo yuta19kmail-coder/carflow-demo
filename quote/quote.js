@@ -3779,7 +3779,7 @@ const WT_URL = { car:'https://www.nextmvtt.mlit.go.jp/nextmvtt-web/nextmvttshoka
 function wtUI(car, b, bc){ const kei = bc.kei, dis = !QData.canEdit();
   const sel = kei ? `<select id="b-eco" class="q-in" style="max-width:260px" onchange="setBase('eco',this.value,1)" ${dis?'disabled':''}>${[['std','当分の間税率（13年・18年は自動）'],['eco','本則税率（環境性能のある車）'],['exempt','免税']].map(([v,l])=>`<option value="${v}" ${b.eco===v?'selected':''}>${l}</option>`).join('')}</select>` : '';
   const amt = `<div class="km-in"><input id="b-wtq" class="q-in num" inputmode="numeric" placeholder="照会した額" value="${bc.wtQ!=null?yen(bc.wtQ):''}" onfocus="this.value=this.value.replace(/,/g,'')" onchange="setWtQ(this.value)" ${dis?'disabled':''}><span>円</span></div>`;
-  const btn = `<button type="button" class="q-btn sm" onclick="wtQuery('${car.id}')" title="車台番号を写して、照会のページを新しいタブで開きます（照会のボタンは自分で押す）">${I('search','🔎',13)} ${kei?'軽自動車検査協会で照会':'国交省で照会'}</button>`;
+  const btn = `<button type="button" class="q-btn sm" onclick="wtQuery('${car.id}')" title="${kei?'車台番号を写して、照会のページを新しいタブで開きます':'車台番号と検査予定日（登録の予定日）を入れて、国交省の照会の結果を新しいタブで開きます'}">${I('search','🔎',13)} ${kei?'軽自動車検査協会で照会':'国交省で照会'}</button>`;
   const note = bc.wtQ!=null ? `照会 ${jd(bc.wtAt)}${bc.wtStale?'　<b style="color:var(--orange)">照会し直し</b>（登録の予定月が税制の年度（5/1〜）をまたぐ）':''}`
     : kei ? `いまは区分から ${yen(bc.weight)} 円（照会した額を入れるとそちら）`
     : `<b style="color:var(--orange)">未照会</b>：照会した重量税の額を入れてください（入れるまで支払総額に重量税が入りません）`;
@@ -3787,9 +3787,19 @@ function wtUI(car, b, bc){ const kei = bc.kei, dis = !QData.canEdit();
 function setWtQ(raw){ const car = curCar(), b = car.base; snap(); const t = String(raw==null?'':raw).trim();
   if (t === '') delete b.wtQ; else b.wtQ = { amt: parseYen(t), at: TODAY };
   b.changed = TODAY; save(); render(); }
-function wtQuery(cid){ const car = carOf(cid), url = car.kei ? WT_URL.kei : WT_URL.car, vin = String(car.vin||'').trim();
+/* 🗣 2026-10-23「入ってる車体番号は自動でいれられないの？」＝登録車は、車台番号と検査予定日（登録の予定日）を入れた状態で国交省の照会まで進み、結果を新しいタブで開く
+   （照会の入力欄に送るだけ＝人がボタンを押した時の1回。2026-10-23 本番から KM-0546 で試して通った＝15,000 円）。結果の額は人が「照会した額」に入れる。
+   車台番号に漢字がある車（「札123」など）・軽（軽自動車検査協会）は、今までどおり車台番号を写して入力のページを開く */
+function wtQuery(cid){ const car = carOf(cid), vin = String(car.vin||'').normalize('NFKC').trim().toUpperCase();
+  if (!car.kei && vin && /^[A-Z0-9.\-]+$/.test(vin)){
+    const rd = car.base ? regDateOf(car.base) : '', f = document.createElement('form');
+    f.method = 'post'; f.action = 'https://www.nextmvtt.mlit.go.jp/nextmvtt-web/nextmvttshokai/search'; f.target = '_blank'; f.rel = 'noopener';
+    [['shadaibangoShubetsu','1'], ['shadaibango', vin], ['kensayoteibi', rd ? rd.replace(/-/g,'/') : '']].forEach(([n,v])=>{ const x = document.createElement('input'); x.type = 'hidden'; x.name = n; x.value = v; f.appendChild(x); });
+    document.body.appendChild(f); try { f.submit(); } finally { f.remove(); }
+    toast(`国交省の照会を開きました（車台番号 ${vin}${rd?'・検査予定日 '+rd.replace(/-/g,'/'):''}）。出た重量税の額を入れてください`); return; }
+  const url = car.kei ? WT_URL.kei : WT_URL.car;
   try { window.open(url, '_blank', 'noopener'); } catch(e){}
-  if (!vin) { toast('照会のページを開きました。車台番号が入っていないので、車両情報の車台番号を入れると次から写します'); return; }
+  if (!vin) { toast('照会のページを開きました。車台番号が入っていないので、車両情報の車台番号を入れると次から自動で入ります'); return; }
   try { navigator.clipboard.writeText(vin).then(()=>toast(`車台番号 ${vin} を写しました。照会のページに貼り付けて照会し、出た額を入れてください`), ()=>toast(`照会のページを開きました。車台番号 ${vin} を入れて照会してください`)); }
   catch(e){ toast(`照会のページを開きました。車台番号 ${vin} を入れて照会してください`); } }
 function setCar(k, v){ const car = curCar(); if (REAL_K.includes(k)){ if (String(v??'') !== String(car[k]??'')) toast('メーカー・車名・グレード・走行・色・仕入日は カードの車両情報で直します（見積からは書きません）'); return; }
