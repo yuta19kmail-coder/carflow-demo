@@ -2770,12 +2770,12 @@ const cgChanged = car => false;
 function cgLinkPage(){
   const row = d => { const L = cgLinks(d.k);
     return `<tr><td class="nm"><b>${esc(d.n)}</b>${d.u?`<small class="cg-nt">数量は ${d.u}</small>`:''}</td>
-      <td>${L.length ? L.map((id,j)=>{ const x = sfItem(id); return `<span class="cg-chip ${j===0?'first':''}"><a class="sf-no" onclick="sfOpen('${id}')">${x.no}</a>${esc(sfLabel(x))}<b>${yen(x.cost)}</b><small>/${esc(x.unit)}</small>${x.was!=null?`<i class="up">${x.cost>x.was?'↑':'↓'}</i>`:''}
+      <td>${L.length ? L.map((id,j)=>{ const x = sfItem(id); if (!x) return `<span class="cg-chip">${QData.sf().length ? '（StockFlow に見つからない品）' : 'StockFlow を読み込み中…'}</span>`; return `<span class="cg-chip ${j===0?'first':''}"><a class="sf-no" onclick="sfOpen('${id}')">${x.no}</a>${esc(sfLabel(x))}<b>${yen(x.cost)}</b><small>/${esc(x.unit)}</small>${x.was!=null?`<i class="up">${x.cost>x.was?'↑':'↓'}</i>`:''}
           <span class="ops">${j?`<button title="前へ（選択肢の並び）" onclick="cgLinkMove('${d.k}','${id}',-1)">‹</button>`:''}<button title="つなぎを外す" onclick="cgLinkToggle('${d.k}','${id}',false)">✕</button></span></span>`; }).join('') : '<span class="cg-nolink">つなぎ無し＝毎回手で入れる</span>'}
-        ${d.k==='texa'?`<div class="cg-nt" style="margin-top:3px">＋ A/C オイル（${sfItem(CG_TEXA_OIL).no} ${yen(sfItem(CG_TEXA_OIL).cost)}/回）を1回分たす＝原価表の「ガス量×3円＋75円」と同じ形</div>`:''}</td>
+        ${d.k==='texa' && sfItem(CG_TEXA_OIL)?`<div class="cg-nt" style="margin-top:3px">＋ A/C オイル（${sfItem(CG_TEXA_OIL).no} ${yen(sfItem(CG_TEXA_OIL).cost)}/回）を1回分たす＝原価表の「ガス量×3円＋75円」と同じ形</div>`:''}</td>
       <td style="width:96px"><button class="q-btn sm" onclick="cgPick('${d.k}')">${I('plus','＋',12)} 品を選ぶ</button></td></tr>`; };
   return `<div class="q-wrap"><div class="q-top">${S.ui.app==='cgset' ? '' : `<button class="q-btn sm" onclick="cgLinkView(false)">${I('left','←',13)} 原価管理</button>`}<div style="${S.ui.app==='cgset' ? '' : 'margin-left:10px'}"><div class="t">${I('link','🔗',18)} 部品と StockFlow のつなぎ</div>
-      <div class="s">原価表の部品ごとに、StockFlow の料金表の品をつなぐ。つないだ品が原価管理の「銘柄」の選択肢になり、単価は StockFlow の仕切（税抜）を読む。先頭の品（太枠）が最初に選ばれる</div></div></div>
+      <div class="s">原価表の部品ごとに、StockFlow の料金表の品をつなぐ。つないだ品が原価管理の「銘柄」の選択肢になり、単価は StockFlow の仕切（税抜）を読む。先頭の品（太枠）が最初に選ばれる</div></div></div>${window.QData && !QData.demo && !QData.sf().length ? `<div class="q-note info" style="margin-bottom:10px">${I('info','ℹ',14)} StockFlow の料金表を読み込み中…（読み終わると、つないだ品が出ます）</div>` : ''}
     <div class="cg-lk-grid"><div class="q-card"><h3>原価表の部品 → StockFlow の品 <span class="r">${CG_PARTS.filter(d=>cgLinks(d.k).length).length} / ${CG_PARTS.length} 部品をつないだ</span></h3><div class="bd">
       <table class="cg-tb cg-lk"><thead><tr><th style="width:150px">部品（原価表）</th><th>つないだ StockFlow の品（＝銘柄の選択肢）</th><th></th></tr></thead><tbody>${CG_PARTS.map(row).join('')}</tbody></table>
       <div class="q-why" style="margin-top:6px">ドラレコ・カーナビ・タイヤ・ETC本体などは車ごとに物が違う＝つながずに毎回手で入れる（StockFlow の在庫を数える商品の側にある物は、後で在庫の商品にもつなげる）</div></div></div>
