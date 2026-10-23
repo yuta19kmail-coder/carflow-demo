@@ -533,8 +533,8 @@ function listRow(car){
   const k = car.base ? calc(baseCtx(car)) : null;
   /* 🗣 2026-10-23「どっちも欲しい。店で区切った総額の比較と、裸の車両価格を全部で比較した2本」
      ①全部の店の小売の成約の相場と車両価格（税込）で（ratio・前からの相場比）／②保証・整備付きの店（C1）の掲載と支払総額で（c1）。
-     見積（基本価格）が無い車は CarFlow の掲載の値（本体・総額）で比べる（src＝'cf'） */
-  const f = car._f || {}, src = k ? 'q' : 'cf', myBody = k ? k.bodyIn : (f.bodyIncl||0), myTotal = k ? k.cash : (f.totalIncl||0);
+     🗣「見積なしでOK。CarFlow 見積が進めば、手入れはすぐに無くすつもり」＝見積（基本価格）が無い車は比べない（カードの掲載の値は使わない） */
+  const src = 'q', myBody = k ? k.bodyIn : 0, myTotal = k ? k.cash : 0;
   const ratio = sb && myBody ? myBody/1000/sb.now : null, lab = ratio ? ratioLabel(ratio) : null;
   const c1 = sb && sb.c1 && myTotal ? c1Judge(myTotal/1000, sb.c1) : null;
   const pend = car.base && car.base.changed && ['goo','cs'].some(s=>(car.base.portalDone[s]||'')<car.base.changed);
@@ -592,8 +592,8 @@ function renderList(){
       <td>${u.sort==='days' ? `<b class="q-dnum">${r.days}</b>日` : u.sort==='stale' ? (c.base&&c.base.hist.length ? `<b class="q-dnum">${daysBetween(lastChg(c), TODAY)}</b>日<small class="q-dsub">${jd(lastChg(c)).slice(5)} から</small>` : '<span class="q-empty">—</span>') : `<span class="q-pill ${r.st}">${esc(r.stl)}</span>${r.k&&(r.k.bc.wtMiss||r.k.bc.wtStale)?`<span class="q-pill warn" style="margin-left:4px" title="基本価格の「国交省で照会」で重量税を入れる">${r.k.bc.wtMiss?'重量税 未照会':'重量税 照会し直し'}</span>`:''}`}</td>
       <td class="v">${r.k?yen(c.base.price):`<span class="q-empty">基本価格なし</span>`}</td>
       <td class="v"><b>${r.k?yen(r.k.cash):'—'}</b></td>
-      <td>${r.c1?`<span class="q-pill ${r.c1.cls}" title="${r.c1.lab}">${r.c1.short} ${r.c1.pct}%</span>`:r.sb?(r.sb.c1?'<span class="q-pill none">価格まだ</span>':'<span class="q-pill none">C1 なし</span>'):sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}${r.c1&&r.src==='cf'?'<small class="q-dsub">掲載の値</small>':''}</td>
-      <td>${r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:r.sb?'<span class="q-pill none">価格まだ</span>':sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}${r.lab&&r.src==='cf'?'<small class="q-dsub">掲載の値</small>':''}</td>
+      <td>${!r.k?'<span class="q-pill none">見積なし</span>':r.c1?`<span class="q-pill ${r.c1.cls}" title="${r.c1.lab}">${r.c1.short} ${r.c1.pct}%</span>`:r.sb?'<span class="q-pill none">C1 なし</span>':sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}</td>
+      <td>${!r.k?'<span class="q-pill none">見積なし</span>':r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}</td>
       <td onclick="event.stopPropagation()">${c.base?`<div class="qd"><button class="b0" title="カード詳細を開く" onclick="QData.openCar('${c.id}')">${I('car','🚗',13)} 詳細</button><button class="b0" title="値付けの履歴と相場の状況を見る" onclick="openPriceView('${c.id}')">${I('down','↓',13)} 価格履歴</button><button class="b0" title="見積書の閲覧画面を開く（中で 基本・A・B・C を切り替え）" onclick="quickDoc('${c.id}','base')">${I('estimate','🧾',13)} 見積</button><button class="b0" title="基本・A・B・C・装備品一覧から選んで印刷" onclick="openPick('${c.id}')">${I('printer','🖨',13)} 選択印刷</button></div>`:'<span class="q-empty" style="float:right">基本価格なし</span>'}</td></tr>`; });
   if (!list.length) h += `<tr><td colspan="${u.bulkMode?9:8}" class="q-placeholder">当てはまる車がありません</td></tr>`;
   h += `</tbody></table></div></div>`;
