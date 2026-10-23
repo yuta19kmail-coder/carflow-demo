@@ -1322,7 +1322,8 @@ function openDocs(doc){ const d = docCtx(); const list = docList(d.kind); S.ui.d
 function closeDocs(){ $('q-docov').hidden = true; S.ui.docBase = false; if (S.ui.bulk){ S.ui.bulk = null; } }
 /* 🗣 2026-10-23「見積は今の金色のやつを暫定的に決定として印刷できるように。これはこの後変更予定」＝v4.0 は見積書（ショールーム・金の線）だけ。
    注文書・プラン比較・装備品一覧・プライスボードなどはモック（資料\モック\_見積モック_src）に残して、決まったら足す */
-function docList(kind){ return [['quote','見積書']]; }
+/* 🗣 2026-10-23「プラン比較のボタンも、ちゃんとプラン比較が出るように」→ v4.5.3 プラン比較（ショールーム＝QC[3]・金額は本物の計算）を足す */
+function docList(kind){ return [['quote','見積書'],['compare','プラン比較']]; }
 let _docNew = false;   // 帳票の「新車・中古車」の丸
 let diffOnly = false;
 /* 見積書・注文書・3案くらべ・納品書は「装備品一覧」を2枚目に付けて一緒に刷れる（🗣 ゆうた 2026-10-01「装備のチェック一覧は見積から無くして、
