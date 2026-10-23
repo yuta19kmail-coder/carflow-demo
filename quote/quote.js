@@ -121,7 +121,8 @@ let S = (function(){
   const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
   if (s.pending && !s.cars.some(c=>c.id===s.pending.carId)) s.pending = null;
-  if (!s.cars.some(c=>c.id===s.ui.carId)) { s.ui.view = 'list'; s.ui.carId = null; }
+  /* 🗣 2026-10-23「サイドバーから見積もりをクリックしたときに一覧に戻るように」＝開いた時はいつも一覧から（前に開いていた車・原価管理の車は覚えない） */
+  s.ui.view = 'list'; s.ui.carId = null; s.ui.cgCar = null; s.ui.cgView = null;
   return s;
 })();
 /* 前の希望ナンバーの種類（一般＝パックと同じ 10,000 を課税で1本）→ 代行＋ナンバー代に分けた種類へ */
@@ -3636,8 +3637,8 @@ function qsPrintAll(all){ _reprint = () => qsPrintAll(all); const cats = all ? Q
 function goApp(a){ if (a==='soba'){ try { window.parent.showPanel('soba', window.parent.document.getElementById('si-soba')); } catch(e){} return; }
   if (a!=='cost') a = 'quote';
   if (a!==S.ui.app) _hideSold = false; if (S.ui.app==='quote' && a!=='quote' && S.ui.view==='car'){ const kept = stashPending(); S.ui.view = 'list'; if (kept) toast('保存していない見積の変更は反映していません（次に開く時に続きからできます）'); }
-  if (a==='quote' && S.ui.app==='quote' && S.ui.view==='car'){ goList(); return; }
-  if (a==='cost' && S.ui.app==='cost') S.ui.cgCar = null;   // 原価管理の中でもう一度押す＝一覧へ
+  if (a==='quote' && S.ui.view==='car'){ S.ui.app = 'quote'; goList(); $('q-root').scrollTop = 0; return; }   /* サイドバーの［見積］＝いつも一覧へ（原価管理から来た時も） */
+  if (a==='cost') { S.ui.cgCar = null; S.ui.cgView = null; }   // サイドバーの［原価管理］＝いつも一覧へ
   S.ui.app = a; save(); render(); $('q-root').scrollTop = 0; }
 function svFromQuote(id){ openCarSoba(id); }
 
