@@ -657,7 +657,7 @@ function colorCat(c){ c = c||''; if (!c) return '—';   // 🗣「白とパー�
 function vehMatch(car){ const code = (car.fmodel||'').split('-').pop();
   return [esc(car.model||'—'), '型式 '+esc(code||'—'), (car.firstReg?car.firstReg.slice(0,4)+'年式':'年式 —'), esc(car.grade||'—')+(car.gradeSub?'・'+esc(car.gradeSub):''), (car.km?(car.km/10000).toFixed(1)+'万km':'走行 —'), '色 '+carCat(car)]; }
 function vehKata(car){
-  const L = katLookup(car.fmodel, car.firstReg);
+  const L = katLookup(car.fmodel, car.firstReg, car.maker);
   if (L.state!=='ok') return `<div class="match"><b>型式DB</b><span>${L.state==='empty'?'型式を入れると候補が出ます':'型式「'+esc(L.code)+'」は見つかりません'}</span></div>`;
   const nm = L.names.find(n=>n.car===car.model) || L.names[0], w = katWarn(nm, car.firstReg), G = katGrades(nm, L.y, car.firstReg);
   return `<div class="match"><b>型式DB</b><span>${L.names.map(n=>esc(n.mk+' '+n.car)).join('／')}（${esc(nm.first)}〜${esc(nm.last)} 発売）</span>
@@ -840,7 +840,7 @@ function confPanel(car, k){
 }
 /* 基本情報：型式DB（グーのカタログ）と、入れた車両情報の突き合わせ（人の目で確かめる用） */
 function infoPanel(car){
-  const L = katLookup(car.fmodel, car.firstReg);
+  const L = katLookup(car.fmodel, car.firstReg, car.maker);
   if (L.state!=='ok') return `<div class="q-note warn">${I('warn','⚠',15)} ${L.state==='empty'?'型式が入っていません。左の車両情報で型式を入れると、カタログと突き合わせます。':'型式「'+esc(L.code)+'」は型式DB に見つかりません。型式を確かめてください（カタログに無い車種のこともあります）。'}</div>`;
   const nm = L.names.find(n=>n.car===car.model) || L.names.find(n=>car.model && n.car.includes(car.model)) || L.names[0];
   const G = katGrades(nm, L.y, car.firstReg), want = nfkc(car.grade+' '+(car.gradeSub||'')).trim(), g0 = nfkc(car.grade);
@@ -874,7 +874,7 @@ function infoPanel(car){
 }
 function sobaPanel(car,k){
   if (!sobaOf(car) && sobaWait(car)) return `<div class="q-note info">${I('info','ℹ',15)} 相場を読み込み中…（相場ビューと同じ相場カードから、この車の条件で出しています）</div>`;
-  if (!sobaOf(car)){ const L = katLookup(car.fmodel, car.firstReg), nm = L.state==='ok' ? (L.names.find(n=>n.car===car.model) || L.names[0]) : null, G = nm ? katGrades(nm, L.y, car.firstReg).list.find(x=>x.g===car.grade) : null;
+  if (!sobaOf(car)){ const L = katLookup(car.fmodel, car.firstReg, car.maker), nm = L.state==='ok' ? (L.names.find(n=>n.car===car.model) || L.names[0]) : null, G = nm ? katGrades(nm, L.y, car.firstReg).list.find(x=>x.g===car.grade) : null;
     return `<div class="q-note warn">${I('warn','⚠',15)} <b>相場なし</b>：${esc(car._sbWhy||'この車種は相場カードがまだありません')}。<br><span class="q-why">カードの車種・グレード・年式（初度登録）の名前で相場DB の車種を探しています。違う時は「相場ビューで見る」で相場カードを選び直すと、ここにも出ます（このブラウザに覚えます）。</span></div>
       <button class="q-btn sm" style="margin:0 0 8px" onclick="svFromQuote('${car.id}')">${I('signal','📶',13)} 相場ビューで見る</button>
       <table class="q-tbl"><tr><th>型式DB（グーのカタログ）</th><th></th></tr>
@@ -1615,13 +1615,16 @@ function docEquip(d, k, second){
 const SOBA_KEYS = {};
 const kataCode = s => String(s||'').trim().toUpperCase().replace(/[‐－ー−―]/g,'-').replace(/\s/g,'').split('-').pop();
 /* 行＝[発売年月, グレード, 排気量, 駆動, ミッション, 定員, 重量, 新車価格, 型式（全体）] */
-function katLookup(fmodel, firstReg){
+function katLookup(fmodel, firstReg, maker){
   const code = kataCode(fmodel), g = (window.KATA || {})[code];
   if (code && !window.KATA && window.QData) QData.ensureKata().then(()=>refreshSoon());
   if (!code) return { code, state:'empty' };
   if (!g) return { code, state:'none', soba:[] };
   const names = Object.keys(g).map(k=>{ const rows = g[k], yms = rows.map(r=>r[0]).filter(Boolean).sort(), [mk, car] = k.split('|');
     return { k, mk, car, first:yms[0]||'', last:yms[yms.length-1]||'', rows, full:rows[0][8] }; });
+  /* 🗣 2026-10-23「ヤリスで光岡のビュートストーリーが出ちゃってる。メーカーで絞ってるんだから出す必要ない」＝同じ型式の別メーカーの車は、車のメーカーで外す（合う物が無い時だけ全部） */
+  if (maker){ const mk = window.CFMaker ? CFMaker.find(maker) : null, same = names.filter(n=>(mk && CFMaker.find(n.mk)===mk) || nfkc(n.mk)===nfkc(maker));
+    if (same.length) names.splice(0, names.length, ...same); }
   return { code, state:'ok', names, y: firstReg ? +firstReg.slice(0,4) : null, soba: SOBA_KEYS[code] || [] };
 }
 /* グレードの候補：初度登録の年月までに発売されたグレード（同じ名前は一番新しい発売のもの）。カタログの全角英数は半角に */
