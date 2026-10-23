@@ -11,7 +11,9 @@
 (function () {
   'use strict';
   /* 並び＝訴求力のある順（🗣 2026-10-23「訴求力のある写真の並びを調査して」→ 1 頭（斜め前）・2 運転席まわり（コックピットは2番目に見たい写真という調査）・3 後ろ・4 横・5 前の席・6 後ろの席・7 荷室・8 メーター・9 ナビ・10 タイヤ。新しく入れた写真の角度はこの順に付く） */
-  var ANG = ['外装 前', '運転席まわり', '外装 後ろ', '外装 横', '前の席', '後ろの席', '荷室', 'メーター', 'ナビ・カメラ', 'タイヤ'];
+  /* v4.5.4 深掘りの結果で並べ直し（🗣 2026-10-23「調査のおすすめの並びに変えて」・業務ツール\車販\ポータル運用\調査_写真の並び_2026-10.md）
+     ＝ポータルの一覧には 2〜4番も小さく並ぶ → 外装を続けない。中古車の人は状態（走行距離・運転席・座席）を見る → メーターを5番へ。横は最後 */
+  var ANG = ['外装 前', '運転席まわり', '外装 後ろ', '前の席', 'メーター', '後ろの席', '荷室', 'ナビ・カメラ', 'タイヤ', '外装 横'];
   var MAX = 10;
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function I(n, fb, px) { return (typeof ic === 'function') ? ic(n, fb, px || 15) : fb; }
@@ -89,6 +91,14 @@
     busy = false;
     return await save(car, added, '写真を入れ替えた（' + before + '枚 → ' + added.length + '枚' + (note ? '・' + note : '') + '）＝1番 ' + added[0].angle + ' をサムネに');
   }
+  /* 角度の順（ANG）に並べ直す（v4.5.4 で並びを変えた時に、入れてあった車をそろえる用・画面のボタンは無い）。ANG に無い角度は後ろに元の順のまま */
+  async function sortByAngle(carId) {
+    var car = (typeof cars !== 'undefined' ? cars : []).find(function (c) { return c.id === carId; }); if (!car || !guard()) return false;
+    var cur = list(car), rank = function (p) { var r = ANG.indexOf(p.angle); return r < 0 ? ANG.length : r; };
+    var next = cur.map(function (p, j) { return { p: p, j: j }; }).sort(function (a, b) { return rank(a.p) - rank(b.p) || a.j - b.j; }).map(function (x) { return x.p; });
+    if (next.every(function (p, j) { return p === cur[j]; })) return true;
+    return await save(car, next, '写真の並びを角度の順にそろえた（' + next.map(function (p) { return p.angle; }).join('・') + '）' + (next[0] !== cur[0] ? '＝サムネ ' + cur[0].angle + ' → ' + next[0].angle : ''));
+  }
   async function remove(i) {
     var car = curCar(); if (!car || !guard()) return; var cur = list(car); if (!cur[i]) return;
     var ok = (typeof cfAsk === 'function') ? await cfAsk((i + 1) + '番の写真（' + (cur[i].angle || '') + '）を外しますか？' + (i === 0 ? '\n1番を外すと、2番の写真がサムネになります。' : ''), { ok: '外す' }) : true;
@@ -147,6 +157,6 @@
       + '<b>1番</b>は、カードのサムネ・一覧・見積の表紙。1番を変える時は、ほかの写真を1番の枠へ（左上のサムネでは変えられません）。</div></div>';
   }
 
-  window.CarPhotos = { ANG: ANG, list: list, count: count, panel: panel, pick: pick, addFiles: addFiles, replaceFor: replaceFor, remove: remove, move: move, angle: angle,
+  window.CarPhotos = { ANG: ANG, list: list, count: count, panel: panel, pick: pick, addFiles: addFiles, replaceFor: replaceFor, sortByAngle: sortByAngle, remove: remove, move: move, angle: angle,
     dStart: dStart, dEnd: dEnd, dOver: dOver, dLeave: dLeave, dDrop: dDrop, zoom: zoom };
 })();
