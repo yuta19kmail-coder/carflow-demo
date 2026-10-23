@@ -69,9 +69,14 @@ const SIZE_EX = { S:'ワゴンR・アルト', SM:'エブリイ・タント・ス
    ・スタンダードメンテナンスパック ＋4万（＝いままでの「スタンダード 5.5万」と同じ合計）。保証 1年または10,000km
    ・プレミアムメンテナンスパック ＋8万（金額も内容もまだ仮）。保証 3年または30,000km
    ・プラン見積は A・B＝スタンダード、C＝プレミアム（設定・車ごと・お客様ごとに変えられる）
-   k＝L（基本）/M/H。L の price＝車両価格に含む既定の金額、M・H の add＝パックの金額（車の納車前点検の金額に関係なく固定）、war＝そのプランの保証 */
+   k＝L（基本）/M/H。L の price＝車両価格に含む既定の金額、M・H の add＝パックの金額（車の納車前点検の金額に関係なく固定）、war＝そのプランの保証
+   🗣 2026-10-23「とにかくスマートカーディーラーから移行することに全力で行く」「メンテナンスパックと保証が大きく違う」「メンテナンスパックを選ばせないようにして、
+   基本の納車整備を5.5万円で3年3万キロ保証をデフォルトに。ただし無くすなどではなく、グレーアウトにしてその上に枠を置いて暫定処置」
+   （見本＝_記録\モック\モック_2026-10-23_メンテナンスパックの暫定処置.html）
+   ＝基本（L）を「納車整備 5.5万・保証 3年または30,000km」・中身は今までのスタンダードの内容。パック（M・H）は PACK_HOLD の間は使わない（設定は残す＝枠を外せば戻る） */
+const PACK_HOLD = true;
 const SEIBI_TIERS = () => [
-  { k:'L', name:'納車前点検', price:15000, war:'3か月または3,000km', note:'法定12か月点検の項目を点検してお渡しします（オイル交換・部品の交換はしません）。洗車は水洗いのみ（室内の清掃なし）', tbd:false },
+  { k:'L', name:'納車整備', price:55000, war:'3年または30,000km', note:'法定12か月点検の項目の点検／エンジンオイル・フィルター交換／バッテリー交換／ワイパーゴム交換／ブレーキフルード交換／エアコンガスクリーニング＆補充', tbd:false },
   { k:'M', name:'スタンダードメンテナンスパック', add:40000, war:'1年または10,000km', note:'エンジンオイル・フィルター交換／バッテリー交換／ワイパーゴム交換／ブレーキフルード交換／エアコンガスクリーニング＆補充', tbd:false },
   { k:'H', name:'プレミアムメンテナンスパック', add:80000, war:'3年または30,000km', note:'スタンダードの内容＋足回り・消耗品の予防交換（内容は検討中）', tbd:true } ];
 function defaultSettings(){
@@ -94,7 +99,7 @@ function defaultSettings(){
   };
 }
 function mkBase(o){ const nm = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date(+TODAY.slice(0,4), +TODAY.slice(5,7), 1)), se = (+TODAY.slice(0,4)+1)+TODAY.slice(4,7);
-  return Object.assign({ price:0, wsPrice:0, newCar:false, regType:'shinki', plate:'keep', regAuto:true, regMonth:nm, shakenEnd:se, eco:'std', jibaiM:25, jibaiAmt:0, recycle:12000, warranty:'3か月または3,000km', repair:'なし', cost:{buy:0,aa:10000,move:0,fix:0}, hist:[], portalDone:{goo:'',cs:''}, changed:'' }, o); }
+  return Object.assign({ price:0, wsPrice:0, newCar:false, regType:'shinki', plate:'keep', regAuto:true, regMonth:nm, shakenEnd:se, eco:'std', jibaiM:25, jibaiAmt:0, recycle:12000, warranty:'3年または30,000km', repair:'なし', cost:{buy:0,aa:10000,move:0,fix:0}, hist:[], portalDone:{goo:'',cs:''}, changed:'' }, o); }
 /* 担当の初めの値＝いま開いている人（名簿の書き方の空白の違いは見ない）。名簿にいなければ空（選んでもらう） */
 function meStaff(list){ const me = window.QData ? String(QData.me().name||'') : '', k = x => String(x||'').replace(/[\s　]/g,''); return (list||[]).find(n=>k(n)===k(me)) || ''; }
 function newCustObj(s, car, o){
@@ -120,6 +125,8 @@ let S = (function(){
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
   const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
+  /* 🗣 2026-10-23 スマートカーディーラーからの移行：基本（L）を 納車整備 5.5万・保証 3年または30,000km に（前の設定の 納車前点検 1.5万 を1回だけ置き換え。読み込んだ直後の形なので、見ただけでは書かない） */
+  if (s.set.seibi && !s.set.seibi.v3){ const L = (s.set.seibi.tiers||[]).find(x=>x.k==='L'), N = SEIBI_TIERS()[0]; if (L && L.price===15000 && L.name==='納車前点検') Object.assign(L, { name:N.name, price:N.price, war:N.war, note:N.note }); s.set.seibi.v3 = 1; }
   if (s.pending && !s.cars.some(c=>c.id===s.pending.carId)) s.pending = null;
   /* 🗣 2026-10-23「サイドバーから見積もりをクリックしたときに一覧に戻るように」＝開いた時はいつも一覧から（前に開いていた車・原価管理の車は覚えない） */
   s.ui.view = 'list'; s.ui.carId = null; s.ui.cgCar = null; s.ui.cgView = null;
@@ -184,8 +191,8 @@ const costOf = b => { const c = (b && b.cost) || {}; return (c.buy||0)+(c.aa||0)
    b.seibi＝この車の納車整備（車両価格に含む・税抜）。未設定（null）は設定のいちばん下の段（ライト 1.5万）＝既定
    🗣 2026-10-16「裸の見積もりの最低限の納車整備は1.5万円。ただし状況によっては動かすので、ここはデフォ値として」＝既定は設定から・車ごとに変えられる・「既定に戻す」で null に */
 const seibiOf = b => (b && b.seibi != null) ? +b.seibi : lightPrice();
-const packAdd = k => k && k!=='L' ? (+tierOf(k).add||0) : 0;   // メンテナンスパックの金額（車の納車前点検の金額に関係なく固定）
-const planWar = k => k && k!=='L' && tierOf(k).war ? tierOf(k).war : null;   // そのプランの保証（パックの保証）
+const packAdd = k => !PACK_HOLD && k && k!=='L' ? (+tierOf(k).add||0) : 0;   // メンテナンスパックの金額（車の納車前点検の金額に関係なく固定）
+const planWar = k => !PACK_HOLD && k && k!=='L' && tierOf(k).war ? tierOf(k).war : null;   // そのプランの保証（パックの保証）
 const withWar = (b, k) => { const w = planWar(k); return w && b ? Object.assign({}, b, { warranty:w }) : b; };
 function seibiInfo(b){ const v = seibiOf(b), t = S.set.seibi.tiers[0]; return v===t.price ? { name:t.name, price:v, note:t.note, k:t.k } : { name:t.name, price:v, note:t.note+'（この車の状態に合わせた金額）', k:null, own:1 }; }
 /* 自賠責：表にある月数（12・13・24・25・36・37）は表から。ほかの月数（例 3か月）は手で入れた額、無ければ表から近似した目安 */
@@ -287,7 +294,7 @@ function calc(ctx){
     return { ws:true, bc:{...bc, seibiIn:0, carTax:0, weight:0, jibai:0, unexpTax:0, unexpJb:0, months:0}, body, bodyIn:Math.floor(body*1.1), optSum:0, inPlan:[], disc, vehicle, feeK:[], feeKSum:0, legal:[], legalSum:0, taxIns:0, condRows:[], condK:0, condT:0,
       taxable, ctax, nonTax, tate:0, cash, net, loan, trade, tradeLoan, seibi:false, tier:null };
   }
-  const tier = plan ? ((ctx.tiers && ctx.tiers[plan]) || 'L') : 'L';
+  const tier = plan && !PACK_HOLD ? ((ctx.tiers && ctx.tiers[plan]) || 'L') : 'L';   // PACK_HOLD＝暫定でパックを使わない（どのプランも基本の納車整備）
   const upA = packAdd(tier);   // メンテナンスパック（固定の金額）
   const up = tier!=='L' && upA ? [{ n:tierOf(tier).name, a:upA, up:tier }] : [];
   const items = ctx.items || [];
@@ -1075,7 +1082,14 @@ function syncPanel(car,k){
 }
 
 /* ---------- ② プラン見積（店のパックから自動。来店・問い合わせで渡す見積） ---------- */
-function tierSeg(cur, on, dis){ return seg(cur && typeof cur === 'object' ? 'X' : cur, S.set.seibi.tiers.map(x=>[x.k, x.k==='L' ? 'なし（点検のみ）' : esc(x.name.replace('メンテナンスパック',''))+' ＋'+(x.add/10000)+'万'+(x.tbd?'（仮）':'')]).concat([['X','カスタム']]), on, dis); }
+/* 納車整備とパックの説明の行（PACK_HOLD の間は基本だけ） */
+function tierNotes(){ return (PACK_HOLD ? S.set.seibi.tiers.slice(0,1) : S.set.seibi.tiers).map(x=>`<b>${esc(x.name)}</b> ${x.k==='L'?'車両価格に含む（既定 '+yen(x.price)+'円）':'＋'+yen(x.add)+'円'}${x.tbd?'（仮）':''}・保証 ${esc(x.war||'')}：${esc(x.note)}`).join('<br>'); }
+/* 暫定の枠（🗣 2026-10-23「無くすなどではなく、グレーアウトにしてその上に付箋じゃないけど枠を置いて暫定処置」）。中身は灰色で押せない・設定は残す */
+function packHold(inner, car, u){ if (!PACK_HOLD) return inner; const b = u ? u.baseSnap : car && car.base, L = tierOf('L');
+  const seibi = b ? seibiOf(b) : L.price, war = b ? warText(b) : L.war;
+  return `<div class="q-held"><div class="under" aria-hidden="true">${inner}</div><div class="q-heldnote"><div class="t"><span class="q-pill warn">暫定</span>スマートカーディーラーからの移行中</div>
+    メンテナンスパックは使いません。どのプランも<br><b>${esc(L.name)} ${yen(seibi)}円（車両価格に含む）・保証 ${esc(war||'—')}</b>${b ? '' : '（既定）'}。<br><small>移行が済んだら、ここを戻してパックを使います。</small></div></div>`; }
+function tierSeg(cur, on, dis){ return seg(cur && typeof cur === 'object' ? 'X' : cur, S.set.seibi.tiers.map(x=>[x.k, x.k==='L' ? 'なし（'+esc(x.name)+'のみ）' : esc(x.name.replace('メンテナンスパック',''))+' ＋'+(x.add/10000)+'万'+(x.tbd?'（仮）':'')]).concat([['X','カスタム']]), on, dis); }
 /* カスタムの中身（ふだんは畳む）。sc＝'std'（プラン見積）／'cust'（個別見積） */
 function tierXUI(sc, car, u, p, t, dis){ if (!t || typeof t !== 'object') return ''; const T = tierOf(t), id = `${sc}-${p}`, open = (S.ui.txOpen||{})[id], A = `'${sc}','${car.id}','${u?u.id:''}','${p}'`;
   return `<details class="q-tx" ${open?'open':''} ontoggle="(S.ui.txOpen=S.ui.txOpen||{})['${id}']=this.open"><summary>カスタム：<b>${esc(T.name||'（名前なし）')}</b>・${T.add?'＋'+yen(T.add)+'円':'追加料金なし'}・保証 ${esc(T.war || '基本価格の保証のまま（'+warText(u ? u.baseSnap : car.base)+'）')}</summary>
@@ -1093,7 +1107,7 @@ function tierPick(sc, cid, uid, p, v){ snap(); const h = tierHolder(sc, cid, uid
 function tierXSet(sc, cid, uid, p, k, v, soft){ const h = tierHolder(sc, cid, uid), t = h[p]; if (!t || typeof t !== 'object') return; if (!soft) snap(); t[k] = v; if (soft) renderKeep(); else { save(); renderSoon(); } }   // 確定のあと Tab で移った先にカーソルを残す
 function planCard(p, k, kb, sel, rec, extra, no){
   return `<div class="q-plan ${sel?'on':''} ${p==='D'?'ws':''}" onclick="S.ui.plan='${p}';save();render()">
-    ${no?`<div class="q-eno">No. ${esc(no)}</div>`:''}<div>${pb(p)}${rec?' <span class="q-pb rec" style="position:static">おすすめ</span>':''}</div>${k.tier?`<div style="margin-top:4px"><span class="q-tier ${tierOf(k.tier).tbd?'tbd':''}" style="margin-left:0">${esc(k.tier==='L'?'納車前点検のみ':tierOf(k.tier).name)}${tierOf(k.tier).tbd?'（仮）':''}</span></div>`:''}<div class="am">${yen(k.net)}</div>
+    ${no?`<div class="q-eno">No. ${esc(no)}</div>`:''}<div>${pb(p)}${rec?' <span class="q-pb rec" style="position:static">おすすめ</span>':''}</div>${k.tier?`<div style="margin-top:4px"><span class="q-tier ${tierOf(k.tier).tbd?'tbd':''}" style="margin-left:0">${esc(k.tier==='L'?tierOf('L').name+'のみ':tierOf(k.tier).name)}${tierOf(k.tier).tbd?'（仮）':''}</span></div>`:''}<div class="am">${yen(k.net)}</div>
     <div class="s">${p==='D'?'現状渡し・整備なし・保証なし・登録はお買い上げ側':'ベース ＋'+yen(k.cash-kb.cash)+(k.disc?'・値引 '+yen(k.disc):'')}${k.trade?'・下取 −'+yen(k.trade):''}</div>${k.loan?`<div class="s">月々 ${yen(k.loan.later)}（${k.loan.n}回・${k.loan.rate}%）</div>`:''}
     <ul>${p==='D'?'<li>車両のみ（リサイクル預託金込み）</li>':k.inPlan.map(x=>`<li>${esc(x.n)}</li>`).join('')||'<li>オプションなし</li>'}${p!=='D'&&planWar(k.tier)?`<li>保証 ${esc(planWar(k.tier))}</li>`:''}</ul>${extra||''}</div>`;
 }
@@ -1102,7 +1116,7 @@ function planCard(p, k, kb, sel, rec, extra, no){
 function baseCard(car, kb){
   return `<div class="q-plan base">
     <div class="q-eno">No. ${esc(estNo(car,'base'))}</div><div><span class="q-pb base">基本見積</span> <span class="q-cls in" style="margin-left:2px">提案しない</span></div>
-    <div style="margin-top:4px"><span class="q-tier" style="margin-left:0">納車前点検のみ・保証 ${esc(warText(car.base))}</span></div><div class="am">${yen(kb.net)}</div>
+    <div style="margin-top:4px"><span class="q-tier" style="margin-left:0">${esc(tierOf('L').name)}のみ・保証 ${esc(warText(car.base))}</span></div><div class="am">${yen(kb.net)}</div>
     <div class="s">掲載の支払総額・素の状態</div>
     <ul><li>オプションなし</li></ul>
     <div style="margin-top:8px;display:flex;gap:6px"><button class="q-btn sm" onclick="event.stopPropagation();S.ui.docBase=true;openDocs('quote')">${I('printer','🖨',13)} 見積書</button></div></div>`;
@@ -1132,9 +1146,9 @@ function stepStd(car){ let RW;
   const kb = calc(baseCtx(car)), rec = car.std.rec || S.set.packs.rec, items = stdItems(car), dis = !!car.order, tiers = stdTiers(car), ps = plansOf(car.std.showD);
   let h = (car.order ? `<div class="q-note ok">${I('lock','🔒',14)} この車は売約済み（${esc(orderNo(car))}）なので、プラン見積は直せません（見るだけ）。直す時は ④売約 で売約を取り消します。</div>` : '') + `<div class="q-plans">${baseCard(car, kb)}${ps.map(p=>planCard(p, calc(stdCtx(car,p)), kb, S.ui.plan===p, rec===p, `<div style="margin-top:8px;display:flex;gap:6px"><button class="q-btn sm" onclick="event.stopPropagation();S.ui.plan='${p}';openDocs('quote')">${I('printer','🖨',13)} 見積書</button></div>`, estNo(car,p))).join('')}</div>`;
   h += `<div class="q-grid"><div>
-    <div class="q-card"><h3>メンテナンスパック <span class="r">プランごとに選ぶ（基本はこの車の納車前点検 ${yen(seibiOf(car.base))}・保証 ${esc(warText(car.base))}）</span></h3><div class="bd">
-      ${PLANS.map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(tiers[p], `tierPick('std','${car.id}','','${p}','$v')`, dis)}${car.std.tier&&car.std.tier[p]?' <span class="q-cls k">この車だけ</span>':''}</span>${tierXUI('std', car, null, p, tiers[p], dis)}</div>`).join('')}
-      <div class="q-why" style="margin-top:6px">${S.set.seibi.tiers.map(x=>`<b>${esc(x.name)}</b> ${x.k==='L'?'車両価格に含む（既定 '+yen(x.price)+'円）':'＋'+yen(x.add)+'円'}${x.tbd?'（仮）':''}・保証 ${esc(x.war||'')}：${esc(x.note)}`).join('<br>')}</div></div></div>
+    <div class="q-card"><h3>メンテナンスパック <span class="r">${PACK_HOLD ? 'いまは選べません（暫定）' : `プランごとに選ぶ（基本はこの車の${esc(tierOf('L').name)} ${yen(seibiOf(car.base))}・保証 ${esc(warText(car.base))}）`}</span></h3><div class="bd">
+      ${packHold(`${PLANS.map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(PACK_HOLD ? 'L' : tiers[p], `tierPick('std','${car.id}','','${p}','$v')`, dis || PACK_HOLD)}${!PACK_HOLD&&car.std.tier&&car.std.tier[p]?' <span class="q-cls k">この車だけ</span>':''}</span>${PACK_HOLD ? '' : tierXUI('std', car, null, p, tiers[p], dis)}</div>`).join('')}
+      <div class="q-why" style="margin-top:6px">${tierNotes()}</div>`, car)}</div></div>
     <div class="q-card"><h3>この車のプランの中身 <span class="r">ふだんは触らない（店のパックのまま）・必要な時だけ金額や並びを直す</span></h3><div class="bd">
     <div class="q-csz"><span class="k">ボディサイズ<br>（コーティング）${car.std.csize?'':'<span class="q-pill warn" style="display:block;margin-top:2px;text-align:center">未選択</span>'}</span>${SIZE_CLS.map(s=>`<button class="${car.std.csize===s?'on':''}" title="${esc(SIZE_EX[s]||'')}" onclick="stdCsize('${car.id}','${s}')" ${dis?'disabled':''}><b>${s}</b><small>${esc(SIZE_EX[s]||'')}</small></button>`).join('')}</div>
     ${(RW = want => items.map((x,i)=>stdUp(car, x)!==want ? '' : `<div class="q-it op ${want?'':'off'} ${want&&!dis?'dg':''}" data-dk="${esc(x.key)}" data-dkind="std" ${want&&!dis?dragAttrs(`'std','${car.id}'`):''}><span class="mv grip" title="ドラッグで並べ替え">⋮⋮</span>
@@ -1185,9 +1199,9 @@ function stepCust(car){
   h += `<div class="q-plans">${custPlans(u).map(p=>planCard(p, calc(custCtx(car,u,p)), kb, plan===p, u.rec===p, '', estNo(car,p,u))).join('')}</div>`;
   /* 🗣 2026-10-02「納車整備とオプション、これを選択しない見積の ABC は抜けるように」＝この見積で選んだ A/B/C だけ */
   const opP = custPlans(u).filter(p=>PLANS.includes(p)), tp = opP.includes(plan) ? plan : opP[0];
-  if (opP.length) h += `<div class="q-card"><h3>メンテナンスパック <span class="r">プランごとに選ぶ（保証もパックで決まる）</span></h3><div class="bd">
-    ${opP.map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(u.tiers[p], `tierPick('cust','${car.id}','${u.id}','${p}','$v')`, dis)}</span>${tierXUI('cust', car, u, p, u.tiers[p], dis)}</div>`).join('')}
-    <div class="q-why" style="margin-top:6px">${S.set.seibi.tiers.map(x=>`<b>${esc(x.name)}</b> ${x.k==='L'?'車両価格に含む（既定 '+yen(x.price)+'円）':'＋'+yen(x.add)+'円'}${x.tbd?'（仮）':''}・保証 ${esc(x.war||'')}：${esc(x.note)}`).join('<br>')}</div></div></div>`;
+  if (opP.length) h += `<div class="q-card"><h3>メンテナンスパック <span class="r">${PACK_HOLD ? 'いまは選べません（暫定）' : 'プランごとに選ぶ（保証もパックで決まる）'}</span></h3><div class="bd">
+    ${packHold(`${opP.map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(PACK_HOLD ? 'L' : u.tiers[p], `tierPick('cust','${car.id}','${u.id}','${p}','$v')`, dis || PACK_HOLD)}</span>${PACK_HOLD ? '' : tierXUI('cust', car, u, p, u.tiers[p], dis)}</div>`).join('')}
+    <div class="q-why" style="margin-top:6px">${tierNotes()}</div>`, car, u)}</div></div>`;
   h += `<div class="q-card"><h3><span class="q-kb o">☆</span> オプション <span class="r">${opP.length?'押したプランだけに入る（連動／非連動をここで選ぶ）':'基本見積・業販だけなのでオプションは付きません'}</span></h3><div class="bd">${opP.length?`
     ${(RW = want => u.items.map((x,i)=> (opP.some(p=>x.in[p])||!!x.keep)!==want ? '' : `<div class="q-it cu ${want?'':'off'} ${want&&!dis?'dg':''}" data-dk="${i}" data-dkind="cust" ${want&&!dis?dragAttrs(`'cust','${car.id}','${u.id}'`):''}><span class="grip" title="ドラッグで並べ替え">⋮⋮</span><span><input id="u-in-${i}" class="q-in" value="${esc(x.n)}" placeholder="品名を入れる" onchange="custItem('${car.id}','${u.id}',${i},'n',this.value)" ${dis?'disabled':''}></span>
       <span class="am">${u.cond.wish && /希望ナンバー/.test(x.n||'') ? '<span class="q-why" style="margin:0">詳細にて（この方の条件の希望ナンバー）</span>' : money('u-ia-'+i, x.a, `custItem('${car.id}','${u.id}',${i},'a',parseYen(this.value))`, dis)}${x.laborL!=null?`<small class="q-why" style="margin:0">${optLines(x).map(([n,a])=>esc(n.replace('　└ ',''))+' '+yen(a)).join('＋')}</small>`:''}</span>
@@ -1551,7 +1565,7 @@ function docCompare(d){
   <table class="cmp"><tr><th></th><th class="base">ベース（オプションなし）<br><span style="font-weight:400;font-size:9.5px">掲載の支払総額</span></th>${ps.map(p=>`<th class="${p===rec?'rec':''}">${p}・${esc(planName(p))}${p===rec?'<span class="recb">おすすめ</span>':''}</th>`).join('')}</tr>
    <tr><td>車両価格（税込）</td><td class="v">${yen(base.bodyIn)}</td>${ks.map((k,i)=>`<td class="v ${cls(i)}">${k.ws?yen(k.bodyIn)+'<span class="mo">業販価格</span>':'共通'}</td>`).join('')}</tr>
    <tr><td>諸費用・税・保険（★）</td><td class="v">${yen(base.cash-base.bodyIn)}</td>${ks.map((k,i)=>`<td class="v ${cls(i)}">${k.ws?yen(k.nonTax)+'<span class="mo">リサイクルのみ</span>':'共通'}</td>`).join('')}</tr>
-   ${row('メンテナンスパック', ks.map(k=>k.ws?'<span class="no">なし</span>':k.tier!=='L'?esc(tierOf(k.tier).name.replace('メンテナンスパック',''))+`<span class="mo">＋${yen(packAdd(k.tier))}</span>`:'<span class="no">なし（点検のみ）</span>'))}
+   ${PACK_HOLD ? '' : row('メンテナンスパック', ks.map(k=>k.ws?'<span class="no">なし</span>':k.tier!=='L'?esc(tierOf(k.tier).name.replace('メンテナンスパック',''))+`<span class="mo">＋${yen(packAdd(k.tier))}</span>`:'<span class="no">なし（点検のみ）</span>'))}
    ${row('保証', ks.map(k=>k.ws?'<span class="no">なし</span>':esc(planWar(k.tier)||warText(u ? u.baseSnap : car.base))))}
    ${items.map(x=>row(esc(x.n), ps.map(p=>p!=='D'&&x.in[p]?`<span class="ok">✓</span> ${yen(x.a)}`:'<span class="no">—</span>'))).join('')}
    ${ks.some(k=>k.disc)?row('値引き', ks.map(k=>k.disc?'▲'+yen(k.disc):'<span class="no">—</span>')):''}
@@ -2537,16 +2551,19 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
       <div style="font-weight:800;margin:12px 0 4px">ローンの標準</div>
       <div class="q-f"><div><label class="k">実質年率（%）</label><input id="st-lr" class="q-in num" inputmode="decimal" value="${s.loan.rate}" onchange="S.set.loan.rate=numIn(this.value)||0;save()"></div><div><label class="k">回数</label><input id="st-lc" class="q-in num" value="${s.loan.count}" onchange="S.set.loan.count=Math.round(numIn(this.value))||60;save()"></div></div>`;
   } else if (setTab==='seibi'){
-    b = `<div class="q-why">基本（裸の見積）は納車前点検だけを車両価格に含めます（既定の金額・車ごとに変えられる）。その上はメンテナンスパックとして ☆ オプションの行で売ります。保証はプランのパックで決まります。公取協：整備は車両価格に含め「定期点検整備付」と表示。</div>
-      ${s.seibi.tiers.map((x,i)=>`<div class="q-card" style="margin:8px 0"><div class="bd"><div class="q-f three">
+    const tierCard = (x,i)=>`<div class="q-card" style="margin:8px 0"><div class="bd"><div class="q-f three">
         <div><label class="k">${i===0?'基本（車両価格に含む）':'パック'}・名前</label><input id="st-tn-${i}" class="q-in" value="${esc(x.name)}" onchange="S.set.seibi.tiers[${i}].name=this.value;save();render();openSettings()"></div>
         <div><label class="k">${i===0?'既定の金額（税抜・車ごとに変えられる）':'パックの金額（税抜・＋）'}</label>${i===0 ? money('st-tp-'+i, x.price, `S.set.seibi.tiers[${i}].price=parseYen(this.value);save();render()`) : money('st-ta-'+i, x.add, `S.set.seibi.tiers[${i}].add=parseYen(this.value);save();render()`)}</div>
         <div><label class="k">保証</label><input id="st-tw-${i}" class="q-in" value="${esc(x.war||'')}" onchange="S.set.seibi.tiers[${i}].war=this.value;save();render()"></div>
         <div><label class="k">決まり具合</label><div>${seg(x.tbd?'tbd':'ok',[['ok','確定'],['tbd','仮（未確定）']],`S.set.seibi.tiers[${i}].tbd=('$v'==='tbd');save();render();openSettings()`)}</div></div>
-        <div style="grid-column:2/-1"><label class="k">内容（見積書・注文書に文章で出す）</label><textarea id="st-tt-${i}" class="q-in" onchange="S.set.seibi.tiers[${i}].note=this.value;save();render()">${esc(x.note)}</textarea></div></div></div></div>`).join('')}
+        <div style="grid-column:2/-1"><label class="k">内容（見積書・注文書に文章で出す）</label><textarea id="st-tt-${i}" class="q-in" onchange="S.set.seibi.tiers[${i}].note=this.value;save();render()">${esc(x.note)}</textarea></div></div></div></div>`;
+    b = `<div class="q-why">基本（裸の見積）は${esc(s.seibi.tiers[0].name)}を車両価格に含めます（既定の金額・車ごとに変えられる）。${PACK_HOLD ? '' : 'その上はメンテナンスパックとして ☆ オプションの行で売ります。保証はプランのパックで決まります。'}公取協：整備は車両価格に含め「定期点検整備付」と表示。</div>
+      ${tierCard(s.seibi.tiers[0], 0)}
+      <div style="font-weight:800;margin:12px 0 4px">メンテナンスパック${PACK_HOLD ? '（いまは使いません・暫定）' : ''}</div>
+      ${packHold(`${s.seibi.tiers.slice(1).map((x,j)=>tierCard(x, j+1)).join('')}
       <div style="font-weight:800;margin:12px 0 4px">プランごとの標準</div>
-      ${['A','B','C'].map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(s.packs.tier[p], `S.set.packs.tier.${p}='$v';save();render();openSettings()`)}</span></div>`).join('')}
-      <div class="q-why" style="margin-top:6px">プランごとの段階は、車ごと（プラン見積）・お客様ごと（個別見積）にも変えられます。</div>`;
+      ${['A','B','C'].map(p=>`<div class="q-tierrow"><span>${pb(p)}</span><span>${tierSeg(s.packs.tier[p], `S.set.packs.tier.${p}='$v';save();render();openSettings()`, PACK_HOLD)}</span></div>`).join('')}
+      <div class="q-why" style="margin-top:6px">プランごとの段階は、車ごと（プラン見積）・お客様ごと（個別見積）にも変えられます。</div>`)}`;
   } else if (setTab==='tables'){
     const jt = (t, key) => [12,13,24,25,36,37].map(m=>`<td class="v">${yen(t[key][m])}</td>`).join('');
     b = `<div class="q-why">表ごとに「始まる日」を持つ（改定の時は新しい表を足す）。見積では、自賠責＝保険の始まる日、自動車税＝登録日、重量税・手数料＝車検・登録の日で表を選ぶ。（2026/9/30 に公的資料で確認）</div>

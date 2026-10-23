@@ -1646,3 +1646,11 @@ img.car-ph{width:100%;height:100%;object-fit:cover;display:block}
 .q-sugg .o .bd{font-size:12px;color:var(--text);margin-top:2px}
 .q-sugg .o .bd small{color:var(--text3);font-size:10.5px}
 .q-btn.sm:disabled{opacity:.45;cursor:default}
+
+/* 暫定の枠（v4.3.0・メンテナンスパックを止めている間）：中身は灰色で押せない・上に枠（quote.js packHold） */
+.q-held{position:relative;min-height:120px}
+.q-held .under{opacity:.28;filter:grayscale(1);pointer-events:none;user-select:none}
+.q-heldnote{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(90%,440px);background:var(--bg2);border:2px solid var(--orange);border-radius:10px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:12.5px;line-height:1.7;color:var(--text2);z-index:2}
+.q-heldnote .t{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--text);font-size:13px;margin-bottom:4px}
+.q-heldnote b{color:var(--text)}
+.q-heldnote small{color:var(--text3);font-size:11.5px}
