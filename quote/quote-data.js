@@ -287,7 +287,10 @@
       real: true, key: m.key, cardName: m.car, y: m.y, g: m.g, how: m.how, col: m.col, km: m.km, built: META && META.built,
       now: Math.round(R.rt), series, aa, m: months(),
       stock: Math.round(R.stk || (Y.stock && Y.stock.p) || R.rt), total: Math.round((Y.stock && Y.stock.tot) || R.rt), days: (Y.stock && Y.stock.z) || z, old90: Y.stock && Y.stock.old90 != null ? Y.stock.old90 : '—', nStock: n.stock || 0,
-      fresh: Math.round(R.frs || R.rt), sold1y: Math.round(R.rt1y || R.rt), sold3m: Math.round(R.rt), aaNow: Math.round(R.aa || 0), aa1m: Math.round(R.aa1 || R.aa || 0), asnet: Math.round((Y.asnet && Y.asnet.p) || 0),
+      /* 🔴 v4.0.12 前は sold1y に R.rt1y（＝1年後の見込み）・sold3m にいまの値・aa1m に R.aa1（＝1か月後の見込み）を入れていた＝表の名前と違った。
+         いまは相場カードの実績＝その年式の全グレードの生の真ん中（成約 1年 p12・直近3か月 p3／AA 13か月 p13・直近2か月 p1）。この車の条件に当てた値ではない */
+      fresh: Math.round(R.frs || R.rt), rawSold12: (Y.sold && Y.sold.p12) || null, rawSold3: (Y.sold && Y.sold.p3) || null,
+      aaNow: Math.round(R.aa || 0), rawAA13: (Y.aa && Y.aa.p13) || null, rawAA2: (Y.aa && Y.aa.p1) || null, asnet: Math.round((Y.asnet && Y.asnet.p) || 0),
       in4rt: Math.round(R.rt4 || R.rt), in4aa: Math.round(R.aa4 || R.aa || 0), slope: slopeOf(series), slopeAA: slopeOf(aa),
       trust: cr.grade || '—', pct: cr.pct, nSold: n.sold || cr.n || 0, nAA: n.aa || 0, up: R.up, speed: sp, sellDays: z
     };

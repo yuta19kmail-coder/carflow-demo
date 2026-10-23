@@ -475,7 +475,7 @@ function carStatus(car){ const ph = phaseOf(car);
 
 /* ---------- 相場＝相場ビューと同じ相場カード（Storage soba/v1/）・同じ当て方（soba/stock.js）・同じ計算（soba-calc.js quoteMix）
    quote-data.js の QData.soba(car) が裏で出して car._sb に持つ（出たら描き直す）。金額は千円・小売は税込・AA は税抜
-   返す形：now（小売 成約の車両価格・税込）・series/aa（13か月・この車の条件に合わせて伸縮）・stock/fresh/sold1y・aaNow/aa1m/asnet・in4rt/in4aa・
+   返す形：now（小売 成約の車両価格・税込）・series/aa（13か月・この車の条件に合わせて伸縮）・stock/fresh・rawSold12/rawSold3（全グレードの生の真ん中）・aaNow・rawAA13/rawAA2・asnet・in4rt/in4aa・
            days（在庫日数）・old90・nStock・nSold・nAA・trust（信頼度 A〜F）・pct（外れの目安 ±%）・speed（値付けと売れるまでの日数の目安）・cardName/y/g/built ---------- */
 function sobaOf(car){ return window.QData ? QData.soba(car) : null; }
 const sobaWait = car => car && car._sbState === 'loading';
@@ -904,8 +904,10 @@ function sobaPanel(car,k){
     <table class="q-tbl" style="margin-top:8px"><tr><th>相場カードの数字（万円・税抜。小売は本体に直した値）</th><th class="v">真ん中</th><th>件数など</th></tr>
       <tr><td>小売 掲載中（本体）</td><td class="v">${mk(ex(sb.stock))}</td><td>在庫 ${sb.days}日・90日超 ${sb.old90}%・${sb.nStock}台</td></tr>
       <tr><td>小売 新着（20日以内・本体）</td><td class="v">${mk(ex(sb.fresh))}</td><td></td></tr>
-      <tr><td>小売 成約 1年／3か月／いま（本体）</td><td class="v">${mk(ex(sb.sold1y))}／${mk(ex(sb.sold3m))}／<b>${mk(ex(sb.now))}</b></td><td>${sb.nSold}台</td></tr>
-      <tr><td>AA 落札 1か月／いま・ASNET 4週</td><td class="v">${mk(sb.aa1m)}／<b>${mk(sb.aaNow)}</b>・${mk(sb.asnet)}</td><td>${sb.nAA}台</td></tr>
+      <tr><td>小売 成約・この車の条件（本体）</td><td class="v"><b>${mk(ex(sb.now))}</b></td><td>年式・グレード・走行・色で当てた値</td></tr>
+      <tr><td>　生の真ん中 1年／直近3か月（本体）</td><td class="v">${sb.rawSold12?mk(ex(sb.rawSold12)):'—'}／${sb.rawSold3?mk(ex(sb.rawSold3)):'—'}</td><td>${sb.y}年式の全グレード・${sb.nSold}台</td></tr>
+      <tr><td>AA 落札・この車の条件</td><td class="v"><b>${mk(sb.aaNow)}</b></td><td>評価点4・内装Bとして</td></tr>
+      <tr><td>　生の真ん中 13か月／直近2か月・ASNET 4週</td><td class="v">${sb.rawAA13?mk(sb.rawAA13):'—'}／${sb.rawAA2?mk(sb.rawAA2):'—'}・${sb.asnet?mk(sb.asnet):'—'}</td><td>${sb.y}年式の全グレード・${sb.nAA}台</td></tr>
       <tr><td>4か月後の見込み 小売（本体）／AA</td><td class="v">${mk(ex(sb.in4rt))}／${mk(sb.in4aa)}</td><td>今の動きが続いたら</td></tr></table>
     <div class="q-why" style="margin-top:6px">相場ビューと同じ相場カード（相場DB の受け渡し）を、この車の条件（年式・グレード・走行・色）で出した値。グラフはこの条件の今の値に合わせて伸縮。売れるまでの日数は、相場カードの「売れるまでの日数」をもとにした目安。</div>`;
 }
