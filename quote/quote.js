@@ -127,7 +127,7 @@ let S = (function(){
   const s = { v:40, set: B.set || defaultSettings(), cars: B.cars || [],
     ui: Object.assign({ view:'list', carId:null, step:'base', custId:null, plan:'B', filter:'all', q:'', sort:'fresh', doc:null, rtab:'soba' }, (loc && loc.ui) || {}),
     pending: (loc && loc.pending) || null };
-  s.ui.app = ['cost','set','cgset'].includes(B.app) ? B.app : 'quote';   /* set・cgset＝CarFlow の設定 ▸ 見積／原価 の中に開いた時（v4.4.0） */
+  s.ui.app = ['cost','set','cgset','hist'].includes(B.app) ? B.app : 'quote';   /* hist＝カード詳細の［価格履歴］（v4.5.0・?car=車のID） */   /* set・cgset＝CarFlow の設定 ▸ 見積／原価 の中に開いた時（v4.4.0） */
   if (!B.set){ const co = window.QData ? QData.company() : {};   /* 見積の設定がまだ無い時＝会社の欄は CarFlow の会社情報から */
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
   const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
@@ -540,7 +540,9 @@ function pickSel(key, v){ S.ui.pk = S.ui.pk || {}; if (v === '__o'){ S.ui.pk[key
 function seg(cur, opts, on, dis){ return `<span class="q-seg">${opts.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="${on.replace(/\$v/g,v)}" ${dis?'disabled':''}>${l}</button>`).join('')}</span>`; }
 function pb(p){ return `<span class="q-pb ${p}">${p==='base'?'基本見積':p+'・'+esc(planName(p))}</span>`; }
 /* 車の写真（本物の CarFlow はカードの写真。モックは NAS のグーネット掲載写真を3台分だけ＝build.py の photos_js）。無い車は絵 */
-const carPh = (car, slot) => car.photo || '';   /* 車の写真＝CarFlow のカードの写真（1枚）。無い車は車の絵（carSvg）。置き場で選ばない */
+/* 🖼 v4.5.0 帳票の置き場 → カード詳細の［写真］タブの角度（🗣 2026-10-23「どのアングルか指定してほしい」）。その角度の写真が無い時は1番（＝car.photo・サムネ） */
+const PH_ANG = { hero:'外装 前', side:'外装 横', rear:'外装 後ろ', back:'外装 後ろ', dash:'運転席まわり', nav:'ナビ・カメラ', seat:'前の席', seat2:'後ろの席', lug:'荷室', meter:'メーター', wheel:'タイヤ' };
+const carPh = (car, slot) => { const a = slot && PH_ANG[slot], L = car.photos || [], hit = a ? L.find(x=>x && x.angle===a && x.url) : null; return hit ? hit.url : (car.photo || (L[0] && L[0].url) || ''); };
 function carSvg(car, label){
   if (carPh(car)) return `<img class="car-ph" src="${carPh(car)}" alt="">`;
   const col = COLORS[car.color] || '#ccc', dark = ['ブラック','ブルー','レッド','グレー'].includes(car.color);
@@ -2226,7 +2228,7 @@ function openDetail(cid, tab){ CDX.id = cid; if (tab) CDX.tab = tab;
   o.hidden = false; cdxDraw(); }
 function closeDetail(){ const o = document.getElementById('cdx-ov'); if (o) o.hidden = true; CDX.id = null; }
 function cdxTab(k){ CDX.tab = k; cdxDraw(); }
-function cdxDraw(){ const o = document.getElementById('cdx-ov'), car = CDX.id && carOf(CDX.id); if (!o || !car) return;
+function cdxDraw(){ if (S.ui.app==='hist'){ render(); return; } const o = document.getElementById('cdx-ov'), car = CDX.id && carOf(CDX.id); if (!o || !car) return;
   const days = daysBetween(car.buyDate, TODAY), [st, stl] = carStatus(car), k = car.base ? calc(baseCtx(car)) : null, rx = rxOf(car);
   const spec = (l, v) => `<div><div class="k">${l}</div><div class="v">${v}</div></div>`;
   const tabs = [['task', car.order ? '🚗 売約後タスク' : '🔧 展示前タスク'], ['eq','📋 装備詳細'], ['price','📄 価格履歴'], ['soba','📶 相場'], ['rx','📣 反響']];
@@ -2268,9 +2270,21 @@ function genRx(car, seed, dm, cv){
   return { goo, cs, gooFirst:first, csFirst, kmGoo:true, kmCs:true };
 }
 const RX_SAMPLE = {};
-const rxOf = car => { if (!car || !car.base || !RX_PROF[car.id]) return null;
-  if (!RX_SAMPLE[car.id]){ const p = RX_PROF[car.id]; RX_SAMPLE[car.id] = genRx(car, 1000 + parseInt(car.id.slice(1),10), p[0], p[1]); }
-  return RX_SAMPLE[car.id]; };
+/* 📣 v4.5.0 反響＝本物（companies/{会社}/carReactions/{車}＝設定 ▸ データ の「反響の取り込み」・週1回）。前の見本の数字（genRx・RX_PROF）は使わない
+   形は前と同じ：goo＝[日, 一覧で見られた, 写真を開いた, 問い合わせ（['見積',件数]か0）, 検討中]／cs＝[日, 詳細閲覧（1日あたり）, 問い合わせ, お気に入り]
+   カーセンサーは累計の控え＝控えどうしの差を日数で割って毎日に（最初の控えは掲載日数で割る） */
+const RX_MEMO = {};
+const rxOf = car => { if (!car) return null; const d = window.QData && QData.rx ? QData.rx(car.id) : null; if (!d) return null;
+  const sig = JSON.stringify([d.goo ? Object.keys(d.goo).length : 0, d.cs ? Object.keys(d.cs).length : 0, d.updatedAt && d.updatedAt.seconds]);
+  if (RX_MEMO[car.id] && RX_MEMO[car.id].sig === sig) return RX_MEMO[car.id].v;
+  const goo = Object.keys(d.goo || {}).sort().map(k=>{ const v = d.goo[k] || []; return [k, +v[0]||0, +v[1]||0, (+v[2]||0) ? ['見積', +v[2]] : 0, +v[3]||0]; });
+  const cs = [], snaps = Object.keys(d.cs || {}).sort();
+  snaps.forEach((at, i)=>{ const v = d.cs[at] || [], pv = i ? d.cs[snaps[i-1]] || [] : null;
+    const days = pv ? Math.max(1, daysBetween(snaps[i-1], at)) : Math.max(1, Math.min(120, +v[0] || 1));
+    const dv = Math.max(0, (+v[1]||0) - (pv ? +pv[1]||0 : 0)), di = Math.max(0, (+v[2]||0) + (+v[3]||0) - (pv ? (+pv[2]||0) + (+pv[3]||0) : 0)), df = Math.max(0, (+v[5]||0) - (pv ? +pv[5]||0 : 0));
+    for (let j = days - 1; j >= 0; j--){ const day = dPlus(at, -j); cs.push([day, dv/days, j===0 && di ? ['問い合わせ', di] : 0, j===0 ? df : 0]); } });
+  const v = (goo.length || cs.length) ? { goo, cs, gooFirst: goo.length ? goo[0][0] : '', csFirst: cs.length ? cs[0][0] : '', kmGoo: !!goo.length, kmCs: !!cs.length, real: true } : null;
+  RX_MEMO[car.id] = { sig, v }; return v; };
 
 /* =====================================================================
    反響の点数（車としてのパワー）
@@ -2347,7 +2361,7 @@ function cdxRows(car){ const rx = rxOf(car);
 /* ---- ［価格履歴］＝生の数字：値段の推移・相場・反響を同じ時間の軸で（点数は入れない） ----
    🗣 2026-10-17「価格履歴にはいれない。こっちはあくまで生データと値段推移と相場との相関関係を時間軸でみるって感じで」 */
 function cdxPrice(car){
-  if (!car.base) return `<div class="cdx-ghost">まだ基本価格がありません。見積の「① 基本価格」で値付けすると、ここに価格履歴が出ます。<br><button class="q-btn sm" style="margin-top:8px" onclick="closeDetail();openCar('${car.id}')">見積を開く</button></div>`;
+  if (!car.base) return `<div class="cdx-ghost">まだ基本価格がありません。見積の「① 基本価格」で値付けすると、ここに価格履歴が出ます。<br><button class="q-btn sm" style="margin-top:8px" onclick="${S.ui.app==='hist' ? `try{window.parent.CarQuote.openFor('${car.id}')}catch(e){}` : `closeDetail();openCar('${car.id}')`}">見積を開く</button></div>`;
   const b = car.base, k = calc(baseCtx(car)), rx = rxOf(car), R = cdxRows(car), sb = sobaOf(car);
   const lastBody = priceEvents(car).filter(e=>e.kind==='body').pop();
   const r = sb ? k.bodyIn/1000/sb.now : null, gap = sb ? b.price - Math.round(mktEx(car, sb.now)*1000) : null;
@@ -2356,12 +2370,12 @@ function cdxPrice(car){
   let h = `<div class="cdx-stats">${st('車両本体（税抜）', yen(b.price))}${st('支払総額（税込）', yen(k.cash))}
     ${st('相場比', r?Math.round(r*100)+'%':'—', sb?'相場 本体 '+mk(mktEx(car, sb.now))+'万（税抜）・'+(gap>0?'＋':'▲')+yen(Math.abs(gap)):'相場なし')}${st('最後の調整', lastBody?jd(lastBody.date).slice(5):'—', lastBody?daysBetween(lastBody.date, TODAY)+'日前・値下げ '+Math.max(0,R.length-1)+'回':'')}
     ${st('問い合わせ', rx?inqAll+'件':'—', rx?'掲載から・両媒体':'反響の数字なし')}</div>`;
-  h += `<div class="cdx-sec">値段・相場と反響（生の数字）${rx?'<span class="cdx-sample">反響は見本の数字</span>':''}<span class="sp"></span>${rx?`<span class="cdx-seg">${[['w','週ごと'],['d','日ごと']].map(([u,l])=>`<button class="${CDX.unit===u?'on':''}" onclick="CDX.unit='${u}';cdxDraw()">${l}</button>`).join('')}</span>`:''}</div>
+  h += `<div class="cdx-sec">値段・相場と反響（生の数字）${rx?'<span class="cdx-sample" style="background:var(--bg3);color:var(--text2)">反響＝グー・カーセンサー（週1回の点検で取り込み）</span>':''}<span class="sp"></span>${rx?`<span class="cdx-seg">${[['w','週ごと'],['d','日ごと']].map(([u,l])=>`<button class="${CDX.unit===u?'on':''}" onclick="CDX.unit='${u}';cdxDraw()">${l}</button>`).join('')}</span>`:''}</div>
     <div class="cdx-chart">${cdxChart(car, R)}<div class="cdx-leg"><span><b style="color:#0ea5e9">━</b> 自社の車両本体</span><span><b style="color:#22c55e">━</b> 小売相場（本体に直した値・月ごと）</span><span>単位：税抜</span>${rx?`<span><i style="background:#f0a43a"></i>グー 一覧で見られた（1日あたり）</span><span><i style="background:#5aa9f0"></i>カーセンサー 詳細を見た（1日あたり）</span><span><b style="color:var(--green)">●</b> 問い合わせ</span>`:''}<span><b style="color:#0ea5e9">┆</b> 値付けを変えた日</span></div></div>`;
   h += `<div class="cdx-sec">値付けごと（生の数字）</div>${cdxPeriodTable(R, !!rx)}`;
-  if (!rx) h += `<div class="cdx-ghost" style="margin-top:10px">この車は反響の数字がまだありません（このモックでは、展示中で基本価格のある車に見本の数字が入っています）。</div>`;
+  if (!rx) h += `<div class="cdx-ghost" style="margin-top:10px">この車は反響の数字がまだありません（週1回のポータル点検で、設定 ▸ データ ▸ 反響の取り込み から入ります）。</div>`;
   h += `<div class="cdx-sec">値付けの履歴<span class="sp"></span><button class="q-btn sm" onclick="openCut('${car.id}')">${I('down','↓',13)} 本体価格を調整する</button></div>${priceHistHtml(car)}
-    <div class="cdx-foot">・価格は見積の値付けの履歴が正（本体価格の調整・セール・月次の諸費用の自動の行）。値下げすると、ここにすぐ出る<br>・反響は週1回の点検で上げる生の数字。点数（車としての強さ）は［反響］タブ。お客様の名前・問い合わせの中身は入れない</div>`;
+    <div class="cdx-foot">・価格は見積の値付けの履歴が正（本体価格の調整・セール・月次の諸費用の自動の行）。値下げすると、ここにすぐ出る<br>・反響は週1回の点検で取り込む生の数字（グー＝日ごと／カーセンサー＝控えどうしの差を日数で割った値）。点数は作らない。お客様の名前・問い合わせの中身は入れない</div>`;
   return h;
 }
 function cdxPeriodTable(R, withRx){
@@ -2377,7 +2391,7 @@ function cdxPeriodTable(R, withRx){
     + `</tbody></table></div>`;
 }
 function cdxChart(car, R){
-  const rx = rxOf(car), wk = CDX.unit==='w', start = R[0].from, span = Math.max(1, daysBetween(start, TODAY)+1);
+  const rx = rxOf(car), wk = CDX.unit==='w', start = [R[0].from, rx && rx.gooFirst, rx && rx.csFirst].filter(Boolean).sort()[0], span = Math.max(1, daysBetween(start, TODAY)+1);
   const W = 1040, L = 46, Rr = 70, T = 10, H1 = rx ? 120 : 190, G = rx ? 16 : 0, H2 = rx ? 140 : 0, B = 22, H = T+H1+G+H2+B;
   const x = d => L + (W-L-Rr)*daysBetween(start, d)/span;
   /* 相場（月ごと）＝その月の1日〜月末 */
@@ -2423,7 +2437,7 @@ function cdxAlerts(car){ const A = [], rx = rxOf(car); if (!rx || !car.base) ret
 function scoreBadge(s, big){ if (!s) return ''; return `<span class="rxs-badge ${gradeCls(s.total)} ${big?'big':''}"><b>${s.total}</b><small>P</small><i>${gradeOf(s.total)}</i></span>`; }
 function cdxRx(car){
   const rx = rxOf(car), s = rxScore(car);
-  if (!rx || !s) return `<div class="cdx-ghost">この車は反響の数字がまだありません（このモックでは、展示中で基本価格のある車に見本の数字が入っています）。<br><button class="q-btn sm" style="margin-top:8px" onclick="openDetail('k0442','rx')">KM-0442 で見る</button></div>`;
+  if (!rx || !s) return `<div class="cdx-ghost">この車は反響の数字がまだありません（週1回のポータル点検で、設定 ▸ データ ▸ 反響の取り込み から入ります）。<br><button class="q-btn sm" style="margin-top:8px" onclick="openDetail('k0442','rx')">KM-0442 で見る</button></div>`;
   const s0 = rxScore(car, dPlus(TODAY, -RX_WIN)), dlt = s0 ? s.total - s0.total : null, rd = rxRead(s), r = s.raw, A = cdxAlerts(car);
   const bar = (lb, v, sub) => `<div class="rxs-axis"><div class="rxs-al"><b>${lb}</b><span class="rxs-g ${gradeCls(v)}">${gradeOf(v)}</span><span class="rxs-v">${v}</span></div><div class="rxs-bar"><i style="width:${v}%" class="${gradeCls(v)}"></i><span style="left:50%"></span></div><div class="rxs-sub">${sub}</div></div>`;
   let h = `<div class="rxs-hero">
@@ -3805,7 +3819,9 @@ function goApp(a){ if (a==='soba'){ try { window.parent.showPanel('soba', window
 function svFromQuote(id){ openCarSoba(id); }
 
 function render(){ const r = $('q-root'); const keep = r.scrollTop, kl = $('q-colL') ? $('q-colL').scrollTop : 0, kr = $('q-colR') ? $('q-colR').scrollTop : 0;
-  if (!['cost','set','cgset'].includes(S.ui.app)) S.ui.app = 'quote';   /* v4.0.0：この画面は見積と原価管理だけ（相場ビュー・ダッシュボードは CarFlow 本体・帳票サンプルはモックだけ） */
+  if (!['cost','set','cgset','hist'].includes(S.ui.app)) S.ui.app = 'quote';   /* v4.0.0：この画面は見積と原価管理だけ（相場ビュー・ダッシュボードは CarFlow 本体・帳票サンプルはモックだけ） */
+  if (S.ui.app==='hist'){ const id = new URLSearchParams(location.search).get('car'), car = id && carOf(id); $('soba-panel').hidden = true; r.hidden = false;
+    r.innerHTML = `<div class="q-wrap cdx-page">${car ? cdxPrice(car) : '<div class="cdx-ghost">この車は見積の一覧にありません（月次で締めた車など）</div>'}</div>`; r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
   if (S.ui.app==='set' || S.ui.app==='cgset'){ $('soba-panel').hidden = true; r.hidden = false; if (S.ui.app==='set') openSettings(); else { S.ui.cgView = 'link'; renderCost(); } r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
   try { const pd = window.parent.document; if (pd.getElementById('panel-quote').classList.contains('open')) ['quote','qcost'].forEach(a=>{ const e = pd.getElementById('si-'+a); if (e) e.classList.toggle('active', (a==='qcost'?'cost':'quote')===S.ui.app); }); } catch(e){}
   $('soba-panel').hidden = true; r.hidden = false;

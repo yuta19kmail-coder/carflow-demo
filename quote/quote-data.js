@@ -80,7 +80,7 @@
     const v = q.veh || {}, y = yearOfFacts(f);
     const car = {
       id: f.id, num: f.num || '（番号なし）', maker: f.maker, model: f.model, grade: f.grade, color: f.color, km: f.km,
-      buyDate: (f.purchaseDate || '').slice(0, 10) || window.Q_TODAY, photo: f.photo, cfSize: f.size,
+      buyDate: (f.purchaseDate || '').slice(0, 10) || window.Q_TODAY, photo: f.photo, photos: f.photos || [], cfSize: f.size,
       status: f.col === 'purchase' ? 'purchase' : f.col === 'regen' ? 'regen' : 'exhibit',
       _f: f, _sold: f.sold, _col: f.col,
       fmodel: v.fmodel || '', firstReg: v.firstReg || (y ? y + '-01' : ''), _firstRegGuess: !v.firstReg,
@@ -218,7 +218,7 @@
         const car = S.cars.find(c => c.id === f.id);
         if (!car) { const m = merge(f, D.quotes[f.id]); S.cars.push(m); D.empty[f.id] = jsonOf(m); if (D.quotes[f.id]) D.written[f.id] = jsonOf(m); return; }
         const m = merge(f, null);
-        ['num', 'maker', 'model', 'grade', 'color', 'km', 'buyDate', 'photo', 'cfSize', 'status', '_f', '_sold', '_col', 'cfPrice'].forEach(k => { car[k] = m[k]; });
+        ['num', 'maker', 'model', 'grade', 'color', 'km', 'buyDate', 'photo', 'photos', 'cfSize', 'status', '_f', '_sold', '_col', 'cfPrice'].forEach(k => { car[k] = m[k]; });
         if (car.keiQ == null) car.kei = m.kei;
         car._sb = undefined; car._sbKey = undefined;
       });
@@ -389,11 +389,19 @@
     }).catch(e => console.warn('[quote] stockPriceItems', e));
   }
 
+  /* ---------- 📣 反響（carReactions）。カード詳細の［価格履歴］に生の数字を重ねる（読むだけ・v4.5.0） ---------- */
+  let RX = {};
+  function loadRx() {
+    if (DEMO) return;
+    coll('carReactions').get().then(qs => { const o = {}; qs.forEach(d => { o[d.id] = d.data() || {}; }); RX = o; if (window.QApi) QApi.refreshSoon(); })
+      .catch(e => console.warn('[quote] carReactions', e));
+  }
+
   /* ---------- 起動 ---------- */
   window.QData = {
     demo: DEMO, me: () => CQ.me(), canEdit: () => CQ.canEdit(), canSet: () => CQ.can('canEditSettings'), staff: () => CQ.staff(), company: () => CQ.company(),
     ver: () => CQ.ver(), log: (id, a) => CQ.log(id, a), toastTop: (m, c) => CQ.toast(m, c), openCar: id => CQ.openCar(id),
-    schedule, flush, soba,
+    schedule, flush, soba, rx: id => RX[id] || null,
     /* 見張り用：いま保存すると書きに行く車（書かずに見るだけ） */
     _pending: () => { const S = window.QApi && QApi.state(); if (!S) return []; return S.cars.filter(car => { const c0 = (S.edit && S.edit.carId === car.id) ? JSON.parse(S.edit.orig) : car; const j = jsonOf(c0, car); return j !== D.written[car.id] && !(D.written[car.id] === undefined && j === D.empty[car.id]); }).map(c => c.num); }, ensureKata, kata: () => KATA, sf: () => SF, sobaMeta: () => META, pickKey,
     get savedSet() { return D.set; }
@@ -403,7 +411,7 @@
       boot('見積を読み込み中…（車・見積・設定）');
       await loadAll();
       ensureSoba().catch(e => console.warn('[quote] soba base', e));
-      ensureKata(); loadSF();
+      ensureKata(); loadSF(); loadRx();
       D.empty = {};
       window.QBOOT = {
         set: D.set, cars: CQ.cars().map(f => merge(f, D.quotes[f.id])),

@@ -44,7 +44,7 @@
 (function (w) {
   'use strict';
 
-  var VERSION = '4';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した／3＝v3.18.0 国産輸入・軽の4列・メーカーをメーカー表のまとめる先に・表 carflow.メーカー表 */
+  var VERSION = '5';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した／3＝v3.18.0 国産輸入・軽の4列・メーカーをメーカー表のまとめる先に・表 carflow.メーカー表 */
 
   function s(v){ return v == null ? '' : String(v); }
   function t(v){ return s(v).trim(); }
@@ -326,7 +326,9 @@
     ['国産輸入', '国産／輸入。ふだんはメーカー表で読む（車に書いていない）。手で直した車だけ車の origin。空＝メーカー表に無いメーカー（まだだれも答えていない）'],
     ['国産輸入の出どころ', 'メーカー表／手で直した。空＝分からない'],
     ['軽', '軽／普通。手で直した車だけ車の keiHand。それ以外はボディ（「軽」を含む名前なら軽）。空＝ボディも無い'],
-    ['軽の出どころ', '手で直した／ボディ（あとで排気量・型式・車検証が入る予定）。空＝分からない']
+    ['軽の出どころ', '手で直した／ボディ（あとで排気量・型式・車検証が入る予定）。空＝分からない'],
+    /* ↓ 版5（v4.5.0）で末尾に足した列 */
+    ['写真の枚数', 'カード詳細の［写真］タブの枚数（0〜10。［写真］タブを使う前の車は写真があれば 1・写真そのもの・住所は出さない）。正式削除は空']
   ];
 
   /* ================================================================
@@ -339,7 +341,9 @@
       /* v3.18.0 メーカー表の会社で足した行（国産／輸入の答え）。🔴 車の数え方にも効く（メーカーのまとめ方）ので CORE_SOURCES にも入れる */
       'companies/{cid}/carMakers',
       /* v4.0.0 見積（1台1枚。基本価格・プラン見積・個別見積・見積の上の売約の札・原価）。CORE_SOURCES には入れない（車の数え方に効かない） */
-      'companies/{cid}/carQuotes'],
+      'companies/{cid}/carQuotes',
+      /* v4.5.0 反響（グー・カーセンサーの車ごとの生の数字・週1回の取り込み）。CORE_SOURCES には入れない */
+      'companies/{cid}/carReactions'],
     docs: ['companies/{cid}/settings/main']
   };
   /* 車の数え方だけに要る入れ物（サーバーの car-month.js＝LINE の月の数字はこれだけ読めば足りる。操作ログは何万件にもなる） */
@@ -399,6 +403,9 @@
     /* v4.0.0 見積（carQuotes）＝表 carflow.見積 の元。読めなかった時は null */
     var qt = pick(C, SOURCES.cols[9]);
     EXTRA.quotes = Array.isArray(qt) ? qt.filter(function (x) { return x && typeof x === 'object'; }) : null;
+    /* v4.5.0 反響（carReactions）＝表 carflow.反響グー・carflow.反響カーセンサー の元 */
+    var rx = pick(C, SOURCES.cols[10]);
+    EXTRA.reactions = Array.isArray(rx) ? rx.filter(function (x) { return x && typeof x === 'object'; }) : null;
     var n = 0; [C].forEach(function (o) { for (var k in o) if (Array.isArray(o[k])) n += o[k].length; });
     return n;
   }
@@ -563,7 +570,7 @@
         del ? '' : mask(c.workMemo, c),
         del ? '' : mask(c.backofficeMemo, c),
         del ? '' : memoN
-      ].concat(classOf(c));
+      ].concat(classOf(c), [del ? '' : (Array.isArray(c.photos) ? c.photos.filter(function (x) { return x && x.url; }).length : (t(c.photo) ? 1 : 0))]);   /* ↓ 版5（v4.5.0）写真の枚数 */
     });
 
     var head = COLS_DEF.map(function (x) { return x[0]; });
@@ -1027,11 +1034,35 @@
     return { name: 'carflow.見積', csv: toCsv(head, rows), dict: dictOf('carflow.見積', today, opt, lines, QT_COLS), count: { 行: rows.length }, _rows: rows, _head: head };
   }
 
+  /* ================================================================
+     📣 v4.5.0 carflow.反響グー／carflow.反響カーセンサー（companies/{cid}/carReactions）
+     設定 ▸ データ の「反響の取り込み」（週1回のポータル点検）で入れた生の数字。点数は作らない
+     ================================================================ */
+  var RXG_COLS = [['アプリ', '常に carflow'], ['ID', '車のID（表 carflow の ID）'], ['書き出した日', 'この表を作った日'], ['管理番号', '取り込んだ時の管理番号'], ['日', 'グーの数字の日'],
+    ['一覧で見られた', 'グー 正面画像表示回数（その日）'], ['写真を開いた', 'グー 複数画像表示回数（その日）'], ['見積依頼', 'グー 見積依頼件数（その日）'], ['検討中に入れた', 'グー 検討中リスト追加数（その日）'],
+    ['店舗詳細', 'グー 店舗詳細閲覧回数（その日）'], ['MAP', 'グー MAP閲覧回数（その日）'], ['レビュー', 'グー ユーザーレビュー閲覧回数（その日）']];
+  var RXC_COLS = [['アプリ', '常に carflow'], ['ID', '車のID（表 carflow の ID）'], ['書き出した日', 'この表を作った日'], ['管理番号', '取り込んだ時の管理番号'], ['控えの日', 'カーセンサーの登録物件一覧を書き出した日'],
+    ['総掲載日数', 'その日までの累計'], ['詳細閲覧', 'その日までの累計'], ['メール問合せ', 'その日までの累計'], ['電話問合せ', 'その日までの累計'], ['MAP', 'その日までの累計'], ['お気に入り', 'その日までの累計']];
+  function rxTable(today, opt, kind){
+    var cols = kind === 'goo' ? RXG_COLS : RXC_COLS, head = heads(cols), rows = [];
+    (EXTRA.reactions || []).forEach(function (r) {
+      var m = (kind === 'goo' ? r.goo : r.cs) || {}, id = t(r.carId || r.id || r._docId);
+      Object.keys(m).sort().forEach(function (d) { var v = Array.isArray(m[d]) ? m[d] : []; rows.push(['carflow', id, today, t(r.num), d].concat(cols.slice(5).map(function (x, i) { var n = Number(v[i]); return isFinite(n) ? n : ''; }))); });
+    });
+    var name = kind === 'goo' ? 'carflow.反響グー' : 'carflow.反響カーセンサー';
+    var lines = [
+      kind === 'goo' ? '- 1行＝車1台×1日（グー MOTORGATE 効果分析 ▸ 在庫・日ごと）。週1回のポータル点検で 設定 ▸ データ ▸ 反響の取り込み から入れた分だけ。' : '- 1行＝車1台×控えの日（カーセンサー C-MATCH 登録物件一覧の累計）。週の数字は控えどうしの差で出す。',
+      EXTRA.reactions ? '- 行数：' + rows.length + '。' : '- ⚠ 今回は反響（carReactions）を読めなかった。',
+      '- 🔴 点数ではなく生の数字。反響の点数は答え合わせ中（反響DB の決まり）＝在庫を動かす根拠にしない。'
+    ];
+    return { name: name, csv: toCsv(head, rows), dict: dictOf(name, today, opt, lines, cols), count: { 行: rows.length }, _rows: rows, _head: head };
+  }
+
   function allTables(opt){
     opt = opt || {};
     var T = build(opt);
     var out = [{ name: 'carflow', csv: T.csv, dict: T.dict, count: T.count }];
-    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt), makerTable(T.today, opt), quoteTable(T.today, opt)]
+    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt), makerTable(T.today, opt), quoteTable(T.today, opt), rxTable(T.today, opt, 'goo'), rxTable(T.today, opt, 'cs')]
       .forEach(function (x) { out.push({ name: x.name, csv: x.csv, dict: x.dict, count: x.count }); });
     return out;
   }
@@ -1047,6 +1078,6 @@
     fill: fill,
     tables: allTables,
     _build: build,   /* 見張り用（列と行をそのまま見る） */
-    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable, maker: makerTable, quote: quoteTable }   /* 見張り用 */
+    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable, maker: makerTable, quote: quoteTable, rx: rxTable }   /* 見張り用 */
   };
 })(window);

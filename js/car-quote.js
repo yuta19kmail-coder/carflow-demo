@@ -30,6 +30,11 @@
     var p = c && c.photo;
     return (typeof p === 'string' && /^(https:|data:image\/)/.test(p)) ? p : '';
   }
+  /* 🖼 v4.5.0 ［写真］タブの写真（角度つき・10枚まで）。見積の帳票は角度で拾う（quote.js carPh） */
+  function photosOf(c) {
+    var L = (window.CarPhotos ? CarPhotos.list(c) : (c && c.photo ? [{ url: c.photo, angle: '外装 前' }] : []));
+    return L.filter(function (x) { return x && typeof x.url === 'string' && /^(https:|data:image\/)/.test(x.url); }).map(function (x) { return { url: x.url, angle: x.angle || '' }; });
+  }
   /* 装備品チェックで「あり」の装備の名前（印刷シートと同じ判定。セレクトは「名前（値）」・「なし」は出さない・コメントは出さない）。
      getEquipmentState は空の箱を作るので使わず、読むだけで取る */
   function equipList(c) {
@@ -61,7 +66,7 @@
       purchaseDate: c.purchaseDate || '', col: c.col || '', isOrder: !!c.isOrder,
       sold: c.contract === 1 || c.contract === true || c.contract === '1', contractDate: c.contractDate || '', deliveryDate: c.deliveryDate || '',
       bodyIncl: incl(c.price, 'body'), totalIncl: incl(c.totalPrice, 'total'),
-      origin: c.origin || '', keiHand: c.keiHand || '', photo: photoOf(c),
+      origin: c.origin || '', keiHand: c.keiHand || '', photo: photoOf(c), photos: photosOf(c),
       equip: equipList(c)
     };
   }
@@ -70,7 +75,7 @@
   /* 車の一覧が変わったかの目印（iframe が数秒おきに見る） */
   function sig() {
     return list().map(function (c) {
-      return [c.id, c.num, c.maker, c.model, c.grade, c.year, c.km, c.color, c.col, c.contract, c.price, c.totalPrice, (c.photo || '').length, c.purchaseDate].join('|');
+      return [c.id, c.num, c.maker, c.model, c.grade, c.year, c.km, c.color, c.col, c.contract, c.price, c.totalPrice, (c.photo || '').length, (Array.isArray(c.photos) ? c.photos.map(function (x) { return (x.angle || '') + (x.url || '').length; }).join(',') : ''), c.purchaseDate].join('|');
     }).join('\n');
   }
   function me() {
@@ -122,6 +127,11 @@
 
   /* 🗣 2026-10-23「見積と原価にそれぞれ右上に設定があるけど、モックじゃないから素直に CarFlow の設定に見積・原価を足して正式な設定に」
      ＝設定 ▸ 見積（app＝set）／設定 ▸ 原価（app＝cgset）。中身は見積と同じ quote/index.html を、設定の欄の中の iframe で開く（js/settings.js の selectSettingsSection から呼ぶ） */
+  /* 📄 v4.5.0 カード詳細の［価格履歴］＝見積の値付けの履歴・相場・反響（quote/ を app＝hist で）。
+     🗣 2026-10-23「価格履歴の PDF のアップロードは見積もりと統合されたから要らない。見積もりの値段推移みたいな相場と合わせつつ、値下げの履歴をみれる奴をそのまま表示」 */
+  function histPanel(c) {
+    return '<iframe class="cd3-soba-f cd3-hist-f" data-car="' + String(c.id).replace(/[^\w-]/g, '') + '" title="この車の価格履歴" src="' + SRC('hist') + '&car=' + encodeURIComponent(c.id) + '"></iframe>';
+  }
   var SET_FRAMES = { 'quote-set': ['quote-set-frame', 'set'], 'cost-set': ['cost-set-frame', 'cgset'] };
   function mountSet(sec) {
     var m = SET_FRAMES[sec]; if (!m) return; var f = document.getElementById(m[0]); if (!f) return;
@@ -134,7 +144,7 @@
   window.CarQuote = {
     cars: carsList, car: function (id) { var c = find(id); return c ? facts(c) : null; }, sig: sig,
     me: me, can: can, canEdit: canEdit, staff: staffNames, company: company,
-    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, mountSet: mountSet, setChanged: setChanged,
+    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, mountSet: mountSet, setChanged: setChanged, histPanel: histPanel,
     demo: function () { return window.__DEMO_MODE === true; }
   };
 })();

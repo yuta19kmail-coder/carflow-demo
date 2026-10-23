@@ -384,12 +384,13 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
     const NINE_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
     let deleted = 0;
     archivedCars.forEach(c => {
-      if (!c || !c.photo) return;
+      if (!c || !(c.photo || (Array.isArray(c.photos) && c.photos.length))) return;
       if (!c._archivedAt) return;
       const t = new Date(c._archivedAt).getTime();
       if (isNaN(t)) return;
       if (now - t < NINE_DAYS_MS) return;
-      c.photo = null;
+      const gone = Array.isArray(c.photos) ? c.photos : [];   /* 🖼 v4.5.0 ［写真］タブの写真も */
+      c.photo = null; c.photos = [];
       deleted++;
       /* 🔴 v3.16.1（棚卸し S-08 と同じ根・S-30）写真の欄だけを消して、記録も同じ書き込みで足す。
          前は締めた車の中身を丸ごと保存（saveArchivedCar）＝ほかの人のメモ・付箋を古い写しで戻し得た。記録は保存の後で、フローに残らなかった */
@@ -397,11 +398,12 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
         addLog(c.id, 'archive後3ヶ月経過のため写真を自動削除');
       }
       if (window.dbArchive && window.dbArchive.saveArchivedCarPaths) {
-        window.dbArchive.saveArchivedCarPaths(c.id, [{ path: ['photo'], value: null }, { path: ['logs'], value: c.logs }])
+        window.dbArchive.saveArchivedCarPaths(c.id, [{ path: ['photo'], value: null }, { path: ['photos'], value: [] }, { path: ['logs'], value: c.logs }])
           .catch(e => console.error('[backoffice] cleanup save failed', e));
       }
       if (window.dbStorage && window.dbStorage.deleteCarPhoto) {
         window.dbStorage.deleteCarPhoto(c.id).catch(e => console.error('[backoffice] cleanup delete photo failed', e));
+        if (window.dbStorage.deleteByPath) gone.forEach(p => { if (p && p.path) window.dbStorage.deleteByPath(p.path); });
       }
     });
     if (deleted > 0) console.log('[backoffice] cleanup: deleted', deleted, 'expired archived photo(s)');

@@ -216,3 +216,34 @@ body.mobile .cd3-to-v3{display:none}
 /* v3.10.0 ［相場］タブ＝相場ビュー（soba/）の iframe。右の中身いっぱいに出し、スクロールは iframe の中で */
 .cd3-col .cv-body.cd3-sobab{padding:0;overflow:hidden;display:flex}
 .cd3-col .cd3-soba-f{flex:1;width:100%;height:100%;min-height:0;border:0;display:block;background:var(--bg)}
+
+/* 🖼 v4.5.0 ［写真］タブ（js/car-photos.js）：10枚・角度・ドラッグで並べ替え・1番＝サムネ */
+.cph-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cph-sub{font-size:11.5px;color:var(--text3)}
+.cph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.cph-slot{border:1px solid var(--border);border-radius:10px;background:var(--bg);overflow:hidden;position:relative}
+.cph-slot.first{border:2px solid var(--orange)}
+.cph-slot.drag{opacity:.35}
+.cph-slot.over{outline:2px dashed var(--blue);outline-offset:2px}
+.cph-img{aspect-ratio:4/3;position:relative;cursor:zoom-in;background:var(--bg3)}
+.cph-slot[draggable="true"] .cph-img{cursor:grab}
+.cph-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cph-no{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.65);color:#fff;font-weight:800;font-size:11px;border-radius:6px;padding:0 7px;z-index:2}
+.cph-slot.first .cph-no{background:var(--orange);color:#111}
+.cph-x{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;z-index:2;font-size:12px}
+.cph-add{position:absolute;inset:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text3);font-size:11.5px;border:2px dashed var(--border);border-radius:8px;cursor:pointer}
+.cph-add:hover{border-color:var(--blue);color:var(--text)}
+.cph-add b{font-size:20px;line-height:1}
+.cph-add.off{cursor:default}
+.cph-ft{padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.cph-ft select{flex:1;min-width:0;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font:inherit;font-size:12px}
+.cph-mv{display:inline-flex;gap:2px}
+.cph-mv button{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:5px;font-size:10px;padding:2px 6px;cursor:pointer}
+.cph-mv button:disabled{opacity:.35;cursor:default}
+.cph-use{width:100%;font-size:10.5px;color:var(--text3);min-height:16px;line-height:1.4}
+.cph-slot.first .cph-use{color:var(--orange)}
+.cph-use .dup{color:var(--orange)}
+.cph-drop{border:2px dashed var(--border);border-radius:10px;padding:10px;text-align:center;color:var(--text3);font-size:12px;margin-top:12px}
+.cph-drop.over{border-color:var(--blue);color:var(--text)}
+.cph-note{background:var(--bg3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);margin-top:12px;line-height:1.8}
+.cph-note b{color:var(--text)}

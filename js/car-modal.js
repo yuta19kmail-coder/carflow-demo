@@ -648,6 +648,13 @@ async function _saveCarModalBody(initialCol) {
     _logEditChanges(editId, base, next, changed, moved);
 
     const entries = changed.map(k => ({ path: [k], value: (next[k] === undefined) ? null : _cloneVal(next[k]) }));
+    /* 🖼 v4.5.0 写真（＝サムネ）を変えた時は、カード詳細の［写真］タブの1番も同じにする（消した時は2番が1番＝サムネに） */
+    if (changed.indexOf('photo') >= 0 && Array.isArray(car.photos) && car.photos.length) {
+      const ph = car.photos.slice();
+      if (next.photo) ph[0] = Object.assign({}, ph[0], { url: next.photo, path: '' }); else ph.shift();
+      car.photos = ph; entries.push({ path: ['photos'], value: ph });
+      if (!next.photo && ph[0]) { car.photo = ph[0].url; entries.forEach(e => { if (e.path[0] === 'photo') e.value = ph[0].url; }); }
+    }
     entries.push({ path: ['logs'], value: car.logs });   /* フローは足すだけ（db-cars.js が控えの行だけ送る） */
     /* 🔴 2026-08-05 修正：保存の結果を待たずに「更新しました」と出していた。
        → **サーバーに届いたか確かめてから**メッセージを出す。 */

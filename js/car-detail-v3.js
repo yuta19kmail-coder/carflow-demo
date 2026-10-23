@@ -103,17 +103,18 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
     return '<div class="cd3-price">' + h + ((del || chip) ? '<div class="cd3-sub">' + del + chip + '</div>' : '') + '</div>';
   }
   function band(car) {
-    var photo = '<div class="detail-photo' + (car.photo ? ' cd3-zoom' : '') + '"' + (car.photo ? ' onclick="CarDetailV3.zoom()" title="クリックで大きく表示"' : '') + '>'
+    /* 🖼 v4.5.0 左上のサムネ＝［写真］タブの1番を出すだけ（🗣「サムネは写真1番として、今の左上のサムネから変更できないように」）。押すと［写真］タブ */
+    var nPh = window.CarPhotos ? CarPhotos.count(car) : (car.photo ? 1 : 0);
+    var photo = '<div class="detail-photo cd3-zoom" onclick="CarDetailV3.tab(\'ph\')" title="［写真］タブを開く（サムネ＝1番の写真）">'
       + (car.photo ? '<img src="' + esc(car.photo) + '" alt="">' : carEmoji(car.size))
-      + '<div class="detail-photo-edit" onclick="event.stopPropagation();document.getElementById(\'dp-inp\').click()">' + I('camera', '📷', 16) + ' 写真を変更</div></div>'
-      + '<input type="file" id="dp-inp" accept="image/*" capture="environment" style="display:none" onchange="onDetailPhoto(this)">';
+      + '<div class="detail-photo-edit">' + I('image', '🖼', 15) + ' 写真 ' + nPh + '/10</div></div>';
     var yr = (typeof fmtYearDisplay === 'function') ? fmtYearDisplay((typeof parseYearInput === 'function' ? parseYearInput(car.year) : null) || car.year) : (car.year || '');
     var sp = [['管理番号', car.num || '—'], ['年式', yr || '—'], ['車体色', car.color || '—'], ['走行距離', Number(car.km || 0).toLocaleString() + 'km']];
     return '<div class="cd3-band">' + photo
       + '<div class="cd3-mid"><div class="cd3-title"><span class="mk">' + esc(car.maker || '') + '</span><span class="md">' + esc(car.model || '') + '</span>'
       + (car.grade ? '<span class="gr">' + esc(car.grade) + '</span>' : '') + '</div>'
       + '<div class="cd3-spec">' + sp.map(function (x) { return '<div><div class="k">' + x[0] + '</div><div class="v" title="' + esc(x[1]) + '">' + esc(x[1]) + '</div></div>'; }).join('')
-      + (window.CarEstimates ? CarEstimates.bandCell(car) : '') + '</div></div>'   /* v3.5.0 走行距離の横＝最新の見積もりPDF */
+      + '</div></div>'   /* v4.5.0 走行距離の横の「最新の見積もりPDF」は外した（価格履歴は見積の値付けの履歴に） */
       + '<div class="cd3-right">' + dayBlock(car) + priceBlock(car) + '</div></div>';
   }
   function header(car) {
@@ -331,8 +332,10 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
     }
     if (car.col !== 'other') t.push({ k: 'now', ic: isD ? 'car' : 'wrench', fb: isD ? '🚗' : '🔧', lb: isD ? '売約後タスク' : '展示前タスク', c: calcProg(car) });
     if (eqOn()) t.push({ k: 'eq', ic: 'clipboard', fb: '📋', lb: '装備詳細' });
-    /* v3.5.0 価格履歴＝見積もりPDF（js/car-estimates.js） */
-    if (window.CarEstimates) t.push({ k: 'est', ic: 'estimate', fb: '📄', lb: '価格履歴', n: CarEstimates.count(car) });
+    /* 🖼 v4.5.0 写真（10枚・角度つき・1番＝サムネ。js/car-photos.js） */
+    if (window.CarPhotos) t.push({ k: 'ph', ic: 'image', fb: '🖼', lb: '写真', n: CarPhotos.count(car) + '/10' });
+    /* v4.5.0 価格履歴＝見積の値付けの履歴・相場・反響（quote/ を iframe で＝js/car-quote.js histPanel）。前の見積もりPDF（car-estimates.js）は外した（🗣「見積もりと統合されたから要らない」） */
+    if (window.CarQuote && CarQuote.histPanel) t.push({ k: 'hist', ic: 'estimate', fb: '📄', lb: '価格履歴' });
     /* v3.10.0 相場＝相場ビューをこの車の条件で（js/car-soba.js・soba/embed.js） */
     if (window.CarSoba && (car.model || car.maker)) t.push({ k: 'soba', ic: 'signal', fb: '📶', lb: '相場' });
     if (isD) {
@@ -361,7 +364,10 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
     /* 　車の名前・年式・走行・色・価格が変わった時（data-sig が違う時）は読み直す */
     var sobaF = same && k === 'soba' ? body.querySelector('.cd3-col.r iframe.cd3-soba-f') : null;
     var keepSoba = !!sobaF && sobaF.getAttribute('data-car') === String(car.id) && sobaF.getAttribute('data-sig') === CarSoba.sig(car);
-    var P = keepSoba ? '' : k === 'eq' ? eqPanel(car) : k === 'est' ? CarEstimates.panel(car) : k === 'soba' ? CarSoba.panel(car) : (k ? tasksPanel(car, k) : '');
+    /* 価格履歴（iframe）も、同じ車を開いている間は読み直さない（中で見積の保存を受け取って描き直す） */
+    var histF = same && k === 'hist' ? body.querySelector('.cd3-col.r iframe.cd3-hist-f') : null;
+    if (histF && histF.getAttribute('data-car') === String(car.id)) keepSoba = true;
+    var P = keepSoba ? '' : k === 'eq' ? eqPanel(car) : k === 'ph' ? CarPhotos.panel(car) : k === 'hist' ? CarQuote.histPanel(car) : k === 'soba' ? CarSoba.panel(car) : (k ? tasksPanel(car, k) : '');
 
     var lk = leftTab[car.id] || 'memo';
     var nn = carNotes(car).length;
@@ -386,7 +392,7 @@ if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == nul
       + '<div class="cd3-body"' + (lw ? ' style="--lw:' + lw + 'px"' : '') + '>'
       + '<div class="cd3-col l">' + lbar + '<div class="cv-body">' + LP + '</div></div>'
       + '<div class="cd3-split" title="ドラッグで幅を変える（ダブルクリックで元に戻す）" onpointerdown="CarDetailV3.splitDown(event)" ondblclick="CarDetailV3.splitReset()"></div>'
-      + '<div class="cd3-col r">' + rbar + '<div class="cv-body' + (k === 'soba' ? ' cd3-sobab' : '') + '">' + P + '</div></div></div>';
+      + '<div class="cd3-col r">' + rbar + '<div class="cv-body' + (k === 'soba' || k === 'hist' ? ' cd3-sobab' : '') + '">' + P + '</div></div></div>';
     if (same) {
       var nl = body.querySelector('.cd3-col.l .cv-body'), nr = body.querySelector('.cd3-col.r .cv-body');
       if (nl) nl.scrollTop = sl; if (nr) nr.scrollTop = sr;

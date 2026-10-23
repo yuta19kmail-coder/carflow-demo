@@ -11,6 +11,7 @@
 //   uploadCarPhoto(carId, fileOrBlob)      : 車両メイン写真（最大1600px）
 //   uploadProfilePhoto(uid, fileOrBlob)    : プロフィールアイコン（最大256px）
 //   deleteCarPhoto(carId)                  : 車両写真を削除
+//   uploadCarPhotoN(carId, file)           : 写真タブの1枚（v4.5.0・{url, path}）／deleteByPath(path)
 //   _resizeImageBlob(file, max, quality)   : リサイズして Blob 返す
 //   _dataUrlToBlob(dataUrl)                : 旧 data:URL → Blob 変換（移行用）
 //
@@ -98,6 +99,21 @@
       console.error('[db-storage] uploadCarPhoto:', err);
       throw err;
     }
+  }
+
+  /* 🖼 v4.5.0 カード詳細の［写真］タブ（10枚まで）。1枚ずつ別の名前（cars/{車}/p_{時刻}.jpg）＝並べ替え・外すで上書きしない
+     返す物＝{ url（鍵の無い住所）, path（あとで消す時の置き場）} */
+  async function uploadCarPhotoN(carId, fileOrBlob) {
+    const root = _companyRoot();
+    if (!root || !carId || !fileOrBlob) return null;
+    const blob = (fileOrBlob instanceof File) ? await _resizeImageBlob(fileOrBlob, 1600, 0.85) : fileOrBlob;
+    const ref = root.child('cars/' + carId + '/p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + '.jpg');
+    await ref.put(blob, { contentType: 'image/jpeg' });
+    return { url: await _plainUrl(ref), path: ref.fullPath };
+  }
+  async function deleteByPath(path) {
+    try { if (path) await _bucket().ref(path).delete(); }
+    catch (err) { console.warn('[db-storage] deleteByPath:', err); }
   }
 
   // プロフィールアイコンをアップロード
@@ -224,6 +240,8 @@
 
   window.dbStorage = {
     uploadCarPhoto,
+    uploadCarPhotoN,         // v4.5.0 写真タブ
+    deleteByPath,            // v4.5.0
     uploadProfilePhoto,
     deleteCarPhoto,
     deleteProfilePhoto,

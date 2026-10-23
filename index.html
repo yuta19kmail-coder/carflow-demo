@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="4.4.2"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="4.5.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -58,7 +58,7 @@
 <link rel="stylesheet" href="css/pit-embed.css?v=4"><!-- v2.33.0 整備依頼業務（PitFlow の車販作業の写し） -->
 <link rel="stylesheet" href="css/steps.css?v=3"><!-- v3.0.0 中タスク（大タスクと小タスクの間の段） -->
 <link rel="stylesheet" href="css/pit-hover.css?v=373"><!-- v2.34.0 カードのマウスオーバー詳細（PitFlow card-hover.css の写し） -->
-<link rel="stylesheet" href="css/car-detail-v3.css?v=9"><!-- 🔴 v3.0.0 カード詳細（PC・タブレット＝全画面に近い・上に帯・左右のタブ）。#modal-detail.cd3-on の時だけ効く -->
+<link rel="stylesheet" href="css/car-detail-v3.css?v=450"><!-- 🔴 v3.0.0 カード詳細（PC・タブレット＝全画面に近い・上に帯・左右のタブ）。#modal-detail.cd3-on の時だけ効く -->
 
 <!-- ========== Firebase SDK (v1.5.10〜) ========== -->
 <!-- compat 版を使用（既存のグローバル window.firebase 経由でアクセス） -->
@@ -130,7 +130,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v4.4.2</div>
+    <div class="login-ver">v4.5.0</div>
   </div>
 </div>
 
@@ -141,7 +141,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v4.4.2</span>
+    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v4.5.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -909,7 +909,7 @@
               <!-- 💾 データ -->
               <section class="settings-section" data-section="data">
                 <h2 class="settings-section-title"><i data-ic="save" data-s="16">💾</i> データ管理</h2>
-                <p class="settings-section-desc">バックアップ・体験版</p>
+                <p class="settings-section-desc">バックアップ・反響の取り込み・体験版</p>
 
                 <!-- v1.8.21: 完全バックアップ（JSON） -->
                 <div class="settings-card" data-perm="canEditSettings">
@@ -925,6 +925,20 @@
                   </div>
                 </div>
 
+                <!-- 📣 v4.5.0 反響の取り込み（週1回のポータル点検で・js/car-reactions.js） -->
+                <div class="settings-card" data-perm="canEditSettings">
+                  <h3 class="settings-card-title"><i data-ic="signal" data-s="16">📣</i> 反響の取り込み（グー・カーセンサー）</h3>
+                  <p class="settings-card-desc">
+                    週1回のポータル点検で落とした CSV をまとめて選ぶと、車ごとの反響が CarFlow に入ります（カード詳細の［価格履歴］に出ます）。<br>
+                    <strong>グー</strong>：MOTORGATE の 効果分析 ▸ 在庫（集計単位＝日ごと・1か月分ずつ。今月と先月の2つ）／<strong>カーセンサー</strong>：C-MATCH の 登録物件一覧 ▸ ダウンロード（その日の累計の控え）<br>
+                    車は管理番号で合わせます（空の時は見積に入れた車台番号）。同じ日の数字は新しい取り込みで上書き。点数は作りません（生の数字だけ）
+                  </p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button class="btn-sm" onclick="CarReactions.pick()"><i data-ic="download" data-s="16">📥</i> CSV を選んで取り込む</button>
+                    <input type="file" id="rx-imp-inp" accept=".csv,text/csv" multiple style="display:none" onchange="CarReactions.importFiles(this.files)">
+                    <span id="rx-imp-st" style="font-size:12px;color:var(--text3)"></span>
+                  </div>
+                </div>
                 <!-- 🗑 v4.4.2（2026-10-23・ゆうた「写真のストレージ移行と一括編集とかはもういらないよね？」→「両方外して」）「車両一括編集（Excel）」は外した（取り込んだ記録が全416台で0件・まとめて書き換える道具で間違えた時の影響が大きい） -->
                 <!-- 🗑 v3.16.7（棚卸し A-36・ゆうた 2026-10-15「B＝無くす」）「全データを消去」のカードは外した（使っていない・元に戻せない） -->
 
@@ -1959,7 +1973,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 0f. role-guard（v1.5.10〜） -->
 <script src="js/role-guard.js?v=285"></script>
 <!-- 0g. Storage wrapper（v1.5.10〜） -->
-<script src="js/db-storage.js?v=286"></script>
+<script src="js/db-storage.js?v=450"></script>
 <!-- 0h. data:URL → Storage 一括移行（v1.5.12〜） -->
 <!-- 🗑 v4.4.2（2026-10-23・ゆうた「写真のストレージ移行と一括編集とかはもういらないよね？」→「両方外して」） js/migrate-data-urls.js（写真の Storage 移行）は外した -->
 <!-- 0i. 付箋ボード DB wrapper（v1.7.0〜） -->
@@ -1996,22 +2010,24 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=3755ec56"></script>
 <script src="js/auth.js?v=383"></script>
-<script src="js/navigation.js?v=4.0.0"></script>
+<script src="js/navigation.js?v=4.5.0"></script>
 <script src="js/archive.js?v=379"></script>
 <script src="js/settings.js?v=442"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=378"></script>
-<script src="js/announcements.js?v=4.4.0"></script>
+<script src="js/announcements.js?v=4.5.0"></script>
 <script src="js/members.js?v=378"></script>
 <script src="js/kanban.js?v=382"></script>
-<script src="js/car-detail.js?v=382"></script>
-<script src="js/car-estimates.js?v=9"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
+<script src="js/car-detail.js?v=450"></script>
+<!-- 🗑 v4.5.0 js/car-estimates.js（価格履歴＝見積もりPDF）は読み込まない（価格履歴は見積の値付けの履歴に・🗣「見積もりと統合されたから要らない」。PDF は1枚も入っていなかった） -->
+<script src="js/car-photos.js?v=4.5.0"></script><!-- 🖼 v4.5.0 カード詳細の［写真］タブ（10枚・角度・1番＝サムネ）。car-detail-v3.js より前 -->
+<script src="js/car-reactions.js?v=4.5.0"></script><!-- 📣 v4.5.0 反響の取り込み（設定 ▸ データ） -->
 <script src="js/car-soba.js?v=2"></script><!-- 📶 v3.10.0 車両詳細の［相場］タブ（相場ビューをこの車の条件で）。car-detail-v3.js より前 -->
 <script src="js/soba-quick.js?v=1"></script><!-- 📶 v3.11.0 全体一覧の「相場との差」。car-soba.js より後・views.js より前 -->
-<script src="js/car-quote.js?v=4.4.0"></script><!-- 🧾 v4.0.0 見積・原価管理（quote/ の iframe に車・ログイン・記録を渡す窓口＝CarQuote）。car-detail-v3.js より前 -->
-<script src="js/car-detail-v3.js?v=8"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
-<script src="js/car-modal.js?v=382"></script>
+<script src="js/car-quote.js?v=450"></script><!-- 🧾 v4.0.0 見積・原価管理（quote/ の iframe に車・ログイン・記録を渡す窓口＝CarQuote）。car-detail-v3.js より前 -->
+<script src="js/car-detail-v3.js?v=450"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
+<script src="js/car-modal.js?v=450"></script>
 <script src="js/car-class-ui.js?v=1"></script><!-- 🚗 v3.18.0 車両登録・編集の国産／輸入・軽と、表に無いメーカーの聞き方。db-makers.js より後 -->
 <script src="js/worksheet.js?v=331"></script>
 <!-- v1.8.27: 装備詳細 閲覧ビュー（カタログ風）。worksheet.js / checklist-templates.js より後 -->
@@ -2023,7 +2039,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/calendar.js?v=357"></script>
 <script src="js/views.js?v=3112"></script>
 <!-- v2.1.0: バックオフィスビュー本体 -->
-<script src="js/backoffice.js?v=14"></script>
+<script src="js/backoffice.js?v=450"></script>
 <!-- v2.2.0/v2.2.1: タスク個別メモ -->
 <script src="js/task-memo.js?v=8"></script>
 <!-- v2.2.1: タスク個別メモ「種別設定」モーダル -->
@@ -2062,7 +2078,7 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <script src="js/auto-update.js?v=5fec4b3d"></script>
   <script src="js/coreflow-power.js?v=672ecd85"></script><!-- ⏻ 電源ボタン（全アプリ共通・_shared が本体） -->
   <script src="js/coreflow-a11y.js?v=b7ec2bbb"></script><!-- 👓 見やすさ（全アプリ共通・_shared から配布）。電源の後 -->
-  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=407f16b0"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
+  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=2f71c2c2"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
 
 <!-- 過去データ補完（メーカー/車種/グレード/車体色） -->
 <script src="js/autocomplete.js?v=2"></script>

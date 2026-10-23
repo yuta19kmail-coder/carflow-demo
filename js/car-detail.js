@@ -964,19 +964,21 @@ async function onDetailPhoto(inp) {
   }
   /* 🔴 v3.16.8 車への保存の結果を待ってから「写真を更新しました」。前は待たずに出していた（保存できなくても成功に見えた）。
      保存できなかったら画面の写真も元に戻して、番号つきで知らせる */
-  const before = car.photo;
+  const before = car.photo, beforePh = car.photos;
   car.photo = newPhoto;
+  /* 🖼 v4.5.0 ［写真］タブの1番（＝サムネ）も同じにする */
+  if (Array.isArray(car.photos) && car.photos.length) car.photos = [Object.assign({}, car.photos[0], { url: newPhoto, path: '' })].concat(car.photos.slice(1));
   // v3.0.0 下ごしらえ：写真の欄だけを送る（📝 v3.16.4 記録も同じ1回で＝前は何も残らなかった）
   addLog(car.id, '写真を変更（カード詳細）');
   try {
     if (window.dbCars && window.dbCars.saveCarPaths) {
-      await window.dbCars.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
+      await window.dbCars.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }].concat(Array.isArray(car.photos) ? [{ path: ['photos'], value: car.photos }] : [], [{ path: ['logs'], value: car.logs }]));
     } else if (window.saveCarPaths) {
       await window.saveCarPaths(car.id, [{ path: ['photo'], value: car.photo }, { path: ['logs'], value: car.logs }]);
     }
   } catch (err) {
     console.error('[car-detail] photo save failed:', err);
-    car.photo = before;
+    car.photo = before; car.photos = beforePh;
     renderDetailBody(car);
     renderAll();
     showToast('写真を保存できませんでした（通信または権限を確認してください）', 'CF-1029');
