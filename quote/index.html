@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>見積</title>
+<!--
+  CarFlow ▸ セールス ▸ 見積・原価管理（v4.0.0・2026-10-23）
+  CarFlow の index.html の panel-quote の iframe で開く。単体で開いてもログイン情報が無いので何も出ない。
+  画面と計算＝quote.js（見積モック v4.83.0 を本物に移した物）／見た目＝quote.css（色は CarFlow のトークンだけ）
+  データ＝quote-data.js（車は親の CarFlow から・見積は Firestore companies/{会社}/carQuotes/{車のID}・設定は settings/quote・
+          相場は相場ビューと同じ Storage soba/v1/ を soba-calc.js で）
+  🔴 このフォルダに相場データ・社内の写真を置かない。Hosting に乗る＝誰でも落とせる
+-->
+<link rel="stylesheet" href="../css/base.css?v=4.0.0">
+<link rel="stylesheet" href="../css/layout.css?v=4.0.0">
+<link rel="stylesheet" href="../css/components.css?v=4.0.0">
+<link rel="stylesheet" href="../css/panels.css?v=4.0.0">
+<link rel="stylesheet" href="../css/modal.css?v=4.0.0">
+<link rel="stylesheet" href="../css/coreflow-ui.css?v=4.0.0">
+<link rel="stylesheet" href="quote.css?v=4.0.0">
+<style id="q-page">@page{size:A4 portrait;margin:0}</style>
+<style>
+/* iframe の中＝サイドバーと上の帯は CarFlow 本体の物。ここは中身だけ */
+html,body{height:100%}
+body{overflow:hidden;background:var(--bg)}
+#app{height:100%}
+#app .views{flex:1;display:flex;min-height:0;min-width:0}
+.q-boot{margin:40px auto;max-width:520px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);line-height:1.8;color:var(--text2)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="views"><div class="q-root" id="q-root"><div class="q-boot" id="q-boot">見積を読み込み中…</div></div><div class="soba-panel" id="soba-panel" hidden></div></div>
+</div>
+<div class="q-ov" id="q-ov" hidden></div>
+<div class="q-docov" id="q-docov" hidden></div>
+<div class="q-toast" id="q-toast" hidden><span id="q-toast-msg"></span><button id="q-toast-undo">元に戻す</button></div>
+<span id="q-saved" hidden></span>
+<script src="../js/coreflow-icons.js?v=4.0.0"></script>
+<script src="../js/car-class.js?v=4.0.0"></script>
+<script src="quote-data.js?v=4.0.0"></script>
+<!-- 🌐 英語表示。この画面はログインを持たないので、親（CarFlow 本体）の英語の切り替えに付いて行く（相場ビューと同じ）。
+     辞書は親が読み込んだ物を借りる（無ければ自分で読む）。お客様に出す帳票（見積書）は訳さない（data-cf-noen） -->
+<script src="../js/coreflow-en.js?v=2fa30ac1" data-dict="../js/coreflow-en-dict.js?v=11aad217"></script>
+<script>
+(function(){
+ var P=(function(){try{return window.parent!==window?window.parent:null}catch(e){return null}})();
+ var D=document.getElementById('q-docov'); if(D) D.setAttribute('data-cf-noen','');
+ if(!P||!window.CFEn) return;
+ function sync(){try{
+  var pe=P.CFEn; if(!pe) return;
+  if(P.CF_EN_DICT && !window.CF_EN_DICT) window.CF_EN_DICT=P.CF_EN_DICT;
+  if(window.CFEn.flag()!==pe.flag()) window.CFEn._flag(pe.flag());
+  if(pe.flag() && window.CFEn.on()!==pe.on()) window.CFEn.toggle();
+ }catch(e){}}
+ sync();
+ try{new P.MutationObserver(sync).observe(P.document.documentElement,{attributes:true,attributeFilter:['class']})}catch(e){}
+ setTimeout(sync,1500);
+})();
+</script>
+</body>
+</html>

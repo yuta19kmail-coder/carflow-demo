@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <!-- v2.10.2: Google プロフィール画像(lh3.googleusercontent.com)がリファラー付きだと403で既定画像(水色人型)に化けることがあるため、画像取得時にリファラーを送らない -->
 <meta name="referrer" content="no-referrer">
-<meta name="app-version" content="3.20.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
+<meta name="app-version" content="4.0.0"><!-- 自動更新の基準（auto-update.js が参照）。リリース毎に上げる -->
 <title>CarFlow - 販売車両管理システム</title>
 
 <!-- ========== ファビコン（v2.17.2：リング型に統一・CoreFlow/StockFlowと揃え） ========== -->
@@ -130,7 +130,7 @@
       </svg>
       <span class="pl-label">Google でログイン</span>
     </button>
-    <div class="login-ver">v3.20.0</div>
+    <div class="login-ver">v4.0.0</div>
   </div>
 </div>
 
@@ -141,7 +141,7 @@
     <!-- v1.5.10: サイドバー折りたたみトグル -->
     <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i data-ic="menu" data-s="18">☰</i></button>
     <div class="topbar-logo"><img class="tb-appicon" src="apple-touch-icon.png" alt=""><img class="tb-logo-img logo-dark" src="images/carflow-logo-dark.png" alt="CarFlow"><img class="tb-logo-img logo-light" src="images/carflow-logo-light.png" alt="CarFlow"></div>
-    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v3.20.0</span>
+    <span data-cf-ver style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:8px">v4.0.0</span>
     <!-- v2.5.8: 現場モード TOP のダーク/ライト切替トグル（body.mobile でだけ表示） -->
     <button class="tb-theme-toggle" id="tb-theme-toggle" onclick="toggleTheme()" aria-label="テーマ切替" title="テーマ切替"><i data-ic="moon" data-s="16">🌙</i></button>
     <button class="tb-btn" onclick="showPanel('archive',document.getElementById('si-archive'))"><i data-ic="chart" data-s="15">📈</i> 販売実績</button>
@@ -178,6 +178,9 @@
         <!-- v3.8.0: セールス（2026-10-10）。作業と実績の間。いまは相場ビューだけ（見積・原価処理は後で並ぶ＝モック _見積モック_src と同じ並び） -->
         <div class="sb-sec">セールス</div>
         <div class="sb-item" id="si-soba" onclick="showPanel('soba',this)"><span class="sb-icon"><i data-ic="signal" data-s="15">📶</i></span>相場ビュー</div>
+        <!-- v4.0.0: 見積・原価管理（2026-10-23）。中身は quote/ を iframe で（同じ iframe を2つの入口で開く）。見積のデータは Firestore carQuotes -->
+        <div class="sb-item" id="si-quote" onclick="CarQuote.open('quote',this)"><span class="sb-icon"><i data-ic="estimate" data-s="16">🧾</i></span>見積</div>
+        <div class="sb-item" id="si-qcost" onclick="CarQuote.open('cost',this)"><span class="sb-icon"><i data-ic="calculator" data-s="16">🧮</i></span>原価管理</div>
         <div class="sb-div"></div>
         <div class="sb-sec">実績</div>
         <div class="sb-item" id="si-archive" onclick="showPanel('archive',this)"><span class="sb-icon"><i data-ic="chart" data-s="15">📈</i></span>販売実績</div>
@@ -971,6 +974,8 @@
         <div id="panel-numlist" class="side-panel"></div>
         <!-- v3.8.0: 相場ビュー（中身は soba/ を iframe で。初めて開いた時に読み込む。相場データは Storage soba/v1/ から＝Hosting に置かない） -->
         <div id="panel-soba" class="side-panel" style="padding:0"><iframe id="soba-frame" title="相場ビュー" style="flex:1;width:100%;min-height:0;border:0;display:block;background:var(--bg)"></iframe></div>
+        <!-- v4.0.0: 見積・原価管理（中身は quote/ を iframe で。初めて開いた時に読み込む。車は親の cars・見積は Firestore carQuotes・相場は Storage soba/v1/） -->
+        <div id="panel-quote" class="side-panel" style="padding:0"><iframe id="quote-frame" title="見積" style="flex:1;width:100%;min-height:0;border:0;display:block;background:var(--bg)"></iframe></div>
 
 
         <!-- v1.6.0: ChecklistTemplate 編集パネル -->
@@ -1925,7 +1930,7 @@
 <meta name="app-key" content="carflow">
 <script src="js/coreflow-icons.js?v=9ae48aea"></script><!-- 線画アイコン ic()/icoE()（全アプリ共通・_shared から配布）。?v= は sync-shared.ps1 が中身から自動で書き換える -->
 <script src="js/coreflow-errcode.js?v=8d7c4b2d"></script><!-- 🔢 エラー番号の出し方（全アプリ共通・_shared から配布）。台帳より前に読む -->
-<script src="js/errcode-cf.js?v=11"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
+<script src="js/errcode-cf.js?v=12"></script><!-- 🔢 CarFlow のエラー番号の台帳 -->
 <script src="js/ui-dialog.js?v=7ee165b6"></script><!-- アプリ内ダイアログ UI.confirm/prompt/alert（全アプリ共通・_shared から配布） -->
 <script>
 /* 上の coreflow-icons.js が読めなかった時の保険＝絵文字のまま出す（画面が空にならないように） */
@@ -1997,19 +2002,20 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 <!-- 5. 認証・ナビ・コア -->
 <script src="js/holidays.js?v=3755ec56"></script>
 <script src="js/auth.js?v=383"></script>
-<script src="js/navigation.js?v=3.20.0"></script>
+<script src="js/navigation.js?v=4.0.0"></script>
 <script src="js/archive.js?v=379"></script>
 <script src="js/settings.js?v=370"></script>
 
 <!-- 6. ダッシュボード・各ビュー -->
 <script src="js/dashboard.js?v=378"></script>
-<script src="js/announcements.js?v=3.20.0"></script>
+<script src="js/announcements.js?v=4.0.0"></script>
 <script src="js/members.js?v=378"></script>
 <script src="js/kanban.js?v=382"></script>
 <script src="js/car-detail.js?v=382"></script>
 <script src="js/car-estimates.js?v=9"></script><!-- 📄 v3.5.0 見積もりPDF（価格履歴）。car-detail-v3.js より前 -->
 <script src="js/car-soba.js?v=2"></script><!-- 📶 v3.10.0 車両詳細の［相場］タブ（相場ビューをこの車の条件で）。car-detail-v3.js より前 -->
 <script src="js/soba-quick.js?v=1"></script><!-- 📶 v3.11.0 全体一覧の「相場との差」。car-soba.js より後・views.js より前 -->
+<script src="js/car-quote.js?v=4.0.0"></script><!-- 🧾 v4.0.0 見積・原価管理（quote/ の iframe に車・ログイン・記録を渡す窓口＝CarQuote）。car-detail-v3.js より前 -->
 <script src="js/car-detail-v3.js?v=8"></script><!-- 🔴 v3.0.0 カード詳細（PC・タブレット）。car-detail.js より【後ろ】（_detailTaskItemsHtml を使う） -->
 <script src="js/car-modal.js?v=382"></script>
 <script src="js/car-class-ui.js?v=1"></script><!-- 🚗 v3.18.0 車両登録・編集の国産／輸入・軽と、表に無いメーカーの聞き方。db-makers.js より後 -->
@@ -2057,12 +2063,12 @@ if(typeof window.icHydrate!=='function'){ window.icHydrate=function(){}; }
 
 <!-- CoreFlow アプリランチャー（共通） -->
 <!-- 🟠 デモ版では読まない（CoreFlowダッシュボードへ配信しない）：app-summary.js --><!-- 📡 CoreFlowダッシュボードへ概況配信（v2.30.0）。🔴 v2.64.0 売上ボード（calcLanding を借りる＝dashboard.js より【後ろ】に置く） -->
-<script src="js/analytics-car.js?v=5"></script><!-- 📊 v3.7.0 分析用の書き出し（v3.16.10 表7枚＝操作ログ・目標・装備・仮登録・手入力番号・削除台帳を足した）（毎晩サーバーがこのファイルを読み込む・画面は何もしない）。state / helpers / progress / db-settings / db-templates より【後ろ】 -->
+<script src="js/analytics-car.js?v=6"></script><!-- 📊 v3.7.0 分析用の書き出し（v3.16.10 表7枚＝操作ログ・目標・装備・仮登録・手入力番号・削除台帳を足した）（毎晩サーバーがこのファイルを読み込む・画面は何もしない）。state / helpers / progress / db-settings / db-templates より【後ろ】 -->
 <script src="js/launcher.js?v=34b8456a"></script>
 <script src="js/auto-update.js?v=5fec4b3d"></script>
   <script src="js/coreflow-power.js?v=672ecd85"></script><!-- ⏻ 電源ボタン（全アプリ共通・_shared が本体） -->
   <script src="js/coreflow-a11y.js?v=b7ec2bbb"></script><!-- 👓 見やすさ（全アプリ共通・_shared から配布）。電源の後 -->
-  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=49060ab1"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
+  <script src="js/coreflow-en.js?v=2fa30ac1" data-dict="js/coreflow-en-dict.js?v=11aad217"></script><!-- 🌐 2026-10-12 英語表示（メンバー管理の「英語表示」の人だけ。バージョンのバッジ／F2 で英語）。見やすさの後 -->
 
 <!-- 過去データ補完（メーカー/車種/グレード/車体色） -->
 <script src="js/autocomplete.js?v=2"></script>

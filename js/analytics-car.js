@@ -44,7 +44,7 @@
 (function (w) {
   'use strict';
 
-  var VERSION = '3';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した／3＝v3.18.0 国産輸入・軽の4列・メーカーをメーカー表のまとめる先に・表 carflow.メーカー表 */
+  var VERSION = '4';   /* 🔴 列を足す・意味を変えたら上げる（辞書の頭に出る）。2＝v3.16.10 表を5つ・carflow に列を8つ・納車日の説明を直した／3＝v3.18.0 国産輸入・軽の4列・メーカーをメーカー表のまとめる先に・表 carflow.メーカー表 */
 
   function s(v){ return v == null ? '' : String(v); }
   function t(v){ return s(v).trim(); }
@@ -337,7 +337,9 @@
       /* v3.16.10 足した（A-70）：操作ログ・名簿（番号と姓だけ使う）・仮登録・手入力の番号 */
       'companies/{cid}/auditLogs', 'companies/{cid}/portalMembers', 'companies/{cid}/tentativeCars', 'companies/{cid}/manualNumbers',
       /* v3.18.0 メーカー表の会社で足した行（国産／輸入の答え）。🔴 車の数え方にも効く（メーカーのまとめ方）ので CORE_SOURCES にも入れる */
-      'companies/{cid}/carMakers'],
+      'companies/{cid}/carMakers',
+      /* v4.0.0 見積（1台1枚。基本価格・プラン見積・個別見積・見積の上の売約の札・原価）。CORE_SOURCES には入れない（車の数え方に効かない） */
+      'companies/{cid}/carQuotes'],
     docs: ['companies/{cid}/settings/main']
   };
   /* 車の数え方だけに要る入れ物（サーバーの car-month.js＝LINE の月の数字はこれだけ読めば足りる。操作ログは何万件にもなる） */
@@ -394,6 +396,9 @@
     var mk = pick(C, SOURCES.cols[8]);
     EXTRA.makersLoaded = Array.isArray(mk);
     if (w.CFMaker) w.CFMaker.setExtra(Array.isArray(mk) ? mk.filter(function (x) { return x && typeof x === 'object'; }) : []);
+    /* v4.0.0 見積（carQuotes）＝表 carflow.見積 の元。読めなかった時は null */
+    var qt = pick(C, SOURCES.cols[9]);
+    EXTRA.quotes = Array.isArray(qt) ? qt.filter(function (x) { return x && typeof x === 'object'; }) : null;
     var n = 0; [C].forEach(function (o) { for (var k in o) if (Array.isArray(o[k])) n += o[k].length; });
     return n;
   }
@@ -970,11 +975,62 @@
     return { name: 'carflow.メーカー表', csv: toCsv(head, rows), dict: dictOf('carflow.メーカー表', today, opt, lines, MK_COLS), count: { 行: rows.length }, _rows: rows, _head: head };
   }
 
+  /* ================================================================
+     🧾 v4.0.0 carflow.見積（companies/{cid}/carQuotes）＝1行＝見積のある車1台
+     金額は見積の画面と同じ物差し：本体＝車両本体価格（税抜・納車整備を除く）・原価は税抜。支払総額は計算が要るので出さない（見積の画面だけが出す）
+     ================================================================ */
+  var QT_COLS = [
+    ['アプリ', '常に carflow'],
+    ['ID', '車のID（cars の文書の名前と同じ＝表 carflow の ID とつなげる）'],
+    ['書き出した日', 'この表を作った日'],
+    ['管理番号', '保存した時の管理番号'],
+    ['本体（税抜）', '基本価格の車両本体価格（税抜・納車整備を除く・円）。基本価格が無い車は空'],
+    ['納車整備（税抜）', 'その車の納車前点検の金額（円）。空＝設定の既定の値'],
+    ['登録の種類', '中古新規／継続移転／移転継続／移転／予備検'],
+    ['仕入価格', '車両原価の仕入価格（落札・買取・円・税抜）'],
+    ['AA手数料', '車両原価の AA 手数料・落札料（円・税抜）'],
+    ['陸送', '車両原価の陸送（円）'],
+    ['自動車税月割', '車両原価の自動車税の月割（円）。無い時は空'],
+    ['車両原価計', '仕入価格＋AA手数料＋陸送＋自動車税月割（円）'],
+    ['粗利（本体−原価）', '本体（税抜）− 車両原価計（円）。納車整備・オプション・原価管理の部品や外注は入っていない'],
+    ['値付けの回数', '基本価格の値付けの履歴の件数（初回を含む）'],
+    ['最後の値付け日', '値付けの履歴の最後の日'],
+    ['最後の値付けの理由', '値付けの履歴の最後の理由'],
+    ['個別見積の数', 'お客様ごとの見積の件数'],
+    ['売約（見積）', '見積の上の売約の札が付いているか（1＝付いている）。🔴 CarFlow の売約（cars の contract）とは別物'],
+    ['売約日（見積）', '見積の上の売約の日'],
+    ['売約のプラン', 'A／B／C／D（業販）'],
+    ['原価管理の確定日', '原価管理で原価を確定した日。まだなら空'],
+    ['更新日', '見積を最後に保存した日（日本時間）'],
+    ['更新した人', '最後に保存した人（姓まで）']
+  ];
+  function quoteTable(today, opt){
+    var head = heads(QT_COLS);
+    var list = EXTRA.quotes || [];
+    var num = function (v) { var n = Number(v); return isFinite(n) && v !== '' && v != null ? Math.round(n) : ''; };
+    var rows = list.map(function (q) {
+      var b = q.base || null, c = (b && b.cost) || {}, h = (b && Array.isArray(b.hist)) ? b.hist : [], last = h.length ? h[h.length - 1] : null;
+      var costSum = b ? (Number(c.buy) || 0) + (Number(c.aa) || 0) + (Number(c.move) || 0) + (Number(c.tax) || 0) : '';
+      var o = q.order || null, g = q.cogs || {};
+      return ['carflow', t(q.carId || q.id || q._docId), today, t(q.carNum), b ? num(b.price) : '', b && b.seibi != null ? num(b.seibi) : '', b ? t(b.regType) : '',
+        b ? num(c.buy) : '', b ? num(c.aa) : '', b ? num(c.move) : '', b && c.tax != null ? num(c.tax) : '', costSum, b ? num(b.price) - costSum : '',
+        h.length || '', last ? t(last.date) : '', last ? t(last.why) : '', Array.isArray(q.custs) ? q.custs.length : 0,
+        o ? 1 : 0, o ? t(o.date) : '', o ? t(o.plan) : '', t(g.done), day(q.updatedAt), t(q.updatedByName).split(/[\s　]+/)[0] || ''];
+    });
+    var lines = [
+      '- 1行＝見積のある車1台（CarFlow v4.0.0 から。セールス ▸ 見積で作った物）。見積の無い車は出ない。',
+      EXTRA.quotes ? '- 行数：' + rows.length + '。' : '- ⚠ 今回は見積（carQuotes）を読めなかった。',
+      '- 🔴 「売約（見積）」は見積の上の札だけ。車が売れたかは表 carflow（CarFlow の売約・納車）で数える。',
+      '- 粗利（本体−原価）は車両本体と車両原価だけの差。オプション・諸費用・原価管理の部品や外注は入っていない。'
+    ];
+    return { name: 'carflow.見積', csv: toCsv(head, rows), dict: dictOf('carflow.見積', today, opt, lines, QT_COLS), count: { 行: rows.length }, _rows: rows, _head: head };
+  }
+
   function allTables(opt){
     opt = opt || {};
     var T = build(opt);
     var out = [{ name: 'carflow', csv: T.csv, dict: T.dict, count: T.count }];
-    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt), makerTable(T.today, opt)]
+    [auditTable(T.today, opt), goalTable(T.today, opt, T.source), equipTable(T, opt), tentTable(T.today, opt), manualTable(T.today, opt), delTable(T.today, opt), makerTable(T.today, opt), quoteTable(T.today, opt)]
       .forEach(function (x) { out.push({ name: x.name, csv: x.csv, dict: x.dict, count: x.count }); });
     return out;
   }
@@ -990,6 +1046,6 @@
     fill: fill,
     tables: allTables,
     _build: build,   /* 見張り用（列と行をそのまま見る） */
-    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable, maker: makerTable }   /* 見張り用 */
+    _sub: { audit: auditTable, goal: goalTable, equip: equipTable, tent: tentTable, manual: manualTable, del: delTable, maker: makerTable, quote: quoteTable }   /* 見張り用 */
   };
 })(window);
