@@ -10,7 +10,8 @@
    ============================================================ */
 (function () {
   'use strict';
-  var ANG = ['外装 前', '外装 横', '外装 後ろ', '運転席まわり', 'ナビ・カメラ', '前の席', '後ろの席', '荷室', 'メーター', 'タイヤ'];
+  /* 並び＝訴求力のある順（🗣 2026-10-23「訴求力のある写真の並びを調査して」→ 1 頭（斜め前）・2 運転席まわり（コックピットは2番目に見たい写真という調査）・3 後ろ・4 横・5 前の席・6 後ろの席・7 荷室・8 メーター・9 ナビ・10 タイヤ。新しく入れた写真の角度はこの順に付く） */
+  var ANG = ['外装 前', '運転席まわり', '外装 後ろ', '外装 横', '前の席', '後ろの席', '荷室', 'メーター', 'ナビ・カメラ', 'タイヤ'];
   var MAX = 10;
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function I(n, fb, px) { return (typeof ic === 'function') ? ic(n, fb, px || 15) : fb; }
@@ -77,6 +78,17 @@
     var ok = await save(car, next, '写真を入れた（' + added.map(function (p, j) { return nm(cur.length + j, p); }).join('・') + '）' + (cur.length === 0 ? '＝1番をサムネに' : ''));
     if (ok && typeof showToast === 'function') showToast('写真を ' + added.length + '枚入れました');
   }
+  /* 🗣 2026-10-23「Alrit の 車販 ▸ グーネット車両写真 から対応した KM 番号の物をいれて」＝選んだ写真で丸ごと入れ替える（角度は files の順に ANG の順）。
+     今の写真のファイルは消さない（記録から戻せる）。車両詳細を開いていなくても使える（carId で） */
+  async function replaceFor(carId, files, note) {
+    var car = (typeof cars !== 'undefined' ? cars : []).find(function (c) { return c.id === carId; }); if (!car || busy || !guard()) return false;
+    files = Array.prototype.filter.call(files || [], function (f) { return /^image\//.test(f.type); }).slice(0, MAX); if (!files.length) return false;
+    busy = true; var added = [], before = list(car).length;
+    try { for (var i = 0; i < files.length; i++) { var r = await window.dbStorage.uploadCarPhotoN(car.id, files[i]); if (!r) throw new Error('upload'); added.push({ url: r.url, path: r.path, angle: ANG[i] || ANG[0], at: today() }); } }
+    catch (err) { console.error('[car-photos] replaceFor', err); busy = false; if (typeof showToast === 'function') showToast('写真のアップロードに失敗しました（' + (car.num || '') + '）', 'CF-1026'); return false; }
+    busy = false;
+    return await save(car, added, '写真を入れ替えた（' + before + '枚 → ' + added.length + '枚' + (note ? '・' + note : '') + '）＝1番 ' + added[0].angle + ' をサムネに');
+  }
   async function remove(i) {
     var car = curCar(); if (!car || !guard()) return; var cur = list(car); if (!cur[i]) return;
     var ok = (typeof cfAsk === 'function') ? await cfAsk((i + 1) + '番の写真（' + (cur[i].angle || '') + '）を外しますか？' + (i === 0 ? '\n1番を外すと、2番の写真がサムネになります。' : ''), { ok: '外す' }) : true;
@@ -135,6 +147,6 @@
       + '<b>1番</b>は、カードのサムネ・一覧・見積の表紙。1番を変える時は、ほかの写真を1番の枠へ（左上のサムネでは変えられません）。</div></div>';
   }
 
-  window.CarPhotos = { ANG: ANG, list: list, count: count, panel: panel, pick: pick, addFiles: addFiles, remove: remove, move: move, angle: angle,
+  window.CarPhotos = { ANG: ANG, list: list, count: count, panel: panel, pick: pick, addFiles: addFiles, replaceFor: replaceFor, remove: remove, move: move, angle: angle,
     dStart: dStart, dEnd: dEnd, dOver: dOver, dLeave: dLeave, dDrop: dDrop, zoom: zoom };
 })();
