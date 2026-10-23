@@ -531,10 +531,15 @@ function carSvg(car, label){
 function listRow(car){
   const days = daysBetween(car.buyDate, TODAY), [st, stl] = carStatus(car), sb = sobaOf(car);   // sb＝null は相場カードなし
   const k = car.base ? calc(baseCtx(car)) : null;
-  const ratio = k && sb ? k.bodyIn/1000/sb.now : null, lab = ratio ? ratioLabel(ratio) : null;
+  /* 🗣 2026-10-23「どっちも欲しい。店で区切った総額の比較と、裸の車両価格を全部で比較した2本」
+     ①全部の店の小売の成約の相場と車両価格（税込）で（ratio・前からの相場比）／②保証・整備付きの店（C1）の掲載と支払総額で（c1）。
+     見積（基本価格）が無い車は CarFlow の掲載の値（本体・総額）で比べる（src＝'cf'） */
+  const f = car._f || {}, src = k ? 'q' : 'cf', myBody = k ? k.bodyIn : (f.bodyIncl||0), myTotal = k ? k.cash : (f.totalIncl||0);
+  const ratio = sb && myBody ? myBody/1000/sb.now : null, lab = ratio ? ratioLabel(ratio) : null;
+  const c1 = sb && sb.c1 && myTotal ? c1Judge(myTotal/1000, sb.c1) : null;
   const pend = car.base && car.base.changed && ['goo','cs'].some(s=>(car.base.portalDone[s]||'')<car.base.changed);
   const noPortal = car.base && !car.base.portalDone.goo;
-  return { car, days, st, stl, sb, k, ratio, lab, pend: pend||noPortal };
+  return { car, days, st, stl, sb, k, ratio, lab, c1, src, pend: pend||noPortal };
 }
 
 /* ---------- 一覧：価格履歴（🗣 2026-10-01「一括印刷の横に価格履歴ボタン。どれも直近の値動きを表示。工程や見積ボタン等、車両情報以外は出さなくてOK」
@@ -564,7 +569,7 @@ function renderList(){
   if (u.q){ const q = u.q.toLowerCase(); list = list.filter(r=>(r.car.num+r.car.maker+r.car.model+r.car.grade).toLowerCase().includes(q)); }
   const lastChg = c => c.base && c.base.hist.length ? c.base.hist[c.base.hist.length-1].date : '9999';   // 最後に価格を変えた日（基本価格なしは最後）
   const byNum = (a,b)=>b.car.num.localeCompare(a.car.num);
-  const sorters = { fresh:(a,b)=>(!!a.car.base - !!b.car.base) || byNum(a,b), num:byNum, ratio:(a,b)=>(b.ratio||0)-(a.ratio||0),
+  const sorters = { fresh:(a,b)=>(!!a.car.base - !!b.car.base) || byNum(a,b), num:byNum, ratio:(a,b)=>(b.ratio||0)-(a.ratio||0), c1:(a,b)=>((b.c1&&b.c1.pct)||0)-((a.c1&&a.c1.pct)||0),
     days:(a,b)=>(b.days-a.days) || byNum(a,b),
     stale:(a,b)=>lastChg(a.car).localeCompare(lastChg(b.car)) || byNum(a,b), total:(a,b)=>((b.k&&b.k.cash)||0)-((a.k&&a.k.cash)||0) };
   if (!sorters[u.sort]) u.sort = 'fresh';
@@ -575,11 +580,11 @@ function renderList(){
     ${S.pending && carOf(S.pending.carId) ? (()=>{ const pc = carOf(S.pending.carId); return `<div class="q-pend">${I('info','ℹ',15)} 途中の見積：<b>${esc(pc.num)} ${esc(pc.model)}</b>（${STEP_L[S.pending.step]}・${esc(S.pending.at)}）<span class="sp"></span><button class="q-btn sm" onclick="pendingDrop()">破棄</button><button class="q-btn pri sm" onclick="pendingResume()">続きから</button></div>`; })() : ''}
     <div class="q-phase">${PHASES.map(([id,l])=>`<button class="${u.phase===id?'on':''}" onclick="S.ui.phase='${id}';_hideSold=false;save();render()">${l}<b>${cnt(id)}</b></button>`).join('')}</div>
     <div class="q-tools"><input id="q-search" class="q-in" style="max-width:280px" placeholder="管理番号・車名で探す" value="${esc(u.q)}" oninput="if(event.isComposing)return;S.ui.q=this.value;renderKeep()" oncompositionend="S.ui.q=this.value;renderKeep()">
-      <span style="font-size:12px;color:var(--text3)">並び</span>${seg(u.sort,[['fresh','新規'],['num','管理番号'],['days','在庫日数'],['ratio','相場比'],['stale','価格据置'],['total','支払総額']],"S.ui.sort='$v';save();render()")}<label class="q-chk" style="margin-left:6px;flex:0 0 auto;width:auto;white-space:nowrap" title="売約済みの車を一覧から外す（「売約済み」のタブでは出る）"><input type="checkbox" ${_hideSold?'checked':''} onchange="_hideSold=this.checked;render()">売約車を非表示</label>
+      <span style="font-size:12px;color:var(--text3)">並び</span>${seg(u.sort,[['fresh','新規'],['num','管理番号'],['days','在庫日数'],['c1','C1比'],['ratio','相場比'],['stale','価格据置'],['total','支払総額']],"S.ui.sort='$v';save();render()")}<label class="q-chk" style="margin-left:6px;flex:0 0 auto;width:auto;white-space:nowrap" title="売約済みの車を一覧から外す（「売約済み」のタブでは出る）"><input type="checkbox" ${_hideSold?'checked':''} onchange="_hideSold=this.checked;render()">売約車を非表示</label>
       <span class="sp" style="flex:1"></span>${u.bulkMode
         ? `<span style="font-size:12.5px;color:var(--text2)">印刷する車にチェック：<b style="color:var(--blue)">${selN} 台</b></span><button class="q-btn pri" ${selN?'':'disabled'} onclick="openBulk()">${I('printer','🖨',15)} 選んだ車を印刷へ</button><button class="q-btn" onclick="S.ui.bulkMode=false;S.ui.sel={};save();render()">やめる</button>`
         : `<button class="q-btn ${u.histMode?'pri':''}" onclick="S.ui.histMode=!S.ui.histMode;save();render()">${I('down','↓',15)} 価格履歴${u.histMode?'を閉じる':''}</button>${u.histMode?'':`<button class="q-btn" onclick="S.ui.bulkMode=true;save();render()">${I('printer','🖨',15)} 一括印刷</button>`}`}</div>
-    <div class="q-list"><table><thead><tr>${u.bulkMode?`<th class="ck"><input type="checkbox" title="表示中を全部選ぶ" ${list.length&&list.every(r=>sel[r.car.id])?'checked':''} onclick="event.stopPropagation();selAll(this.checked)"></th>`:''}<th></th><th>車</th><th>${u.sort==='days'?'在庫日数':u.sort==='stale'?'据置日数':'工程'}</th><th class="v">本体（税抜）</th><th class="v">支払総額（掲載・税込）</th><th>相場</th><th style="text-align:right"></th></tr></thead><tbody>`;
+    <div class="q-list"><table><thead><tr>${u.bulkMode?`<th class="ck"><input type="checkbox" title="表示中を全部選ぶ" ${list.length&&list.every(r=>sel[r.car.id])?'checked':''} onclick="event.stopPropagation();selAll(this.checked)"></th>`:''}<th></th><th>車</th><th>${u.sort==='days'?'在庫日数':u.sort==='stale'?'据置日数':'工程'}</th><th class="v">本体（税抜）</th><th class="v">支払総額（掲載・税込）</th><th title="保証あり＋法定整備付の一般店（C1）の掲載の支払総額と比べる">保証・整備付きの店と<small style="display:block;font-weight:400;color:var(--text3)">支払総額</small></th><th title="格安・現状販売も含む全部の店の小売の成約の相場と、車両価格（税込）で比べる">全部の店と<small style="display:block;font-weight:400;color:var(--text3)">車両価格</small></th><th style="text-align:right"></th></tr></thead><tbody>`;
   S.ui.listIds = list.map(r=>r.car.id);
   if (!u.histMode) list.forEach(r=>{ const c = r.car;
     h += `<tr class="row ${u.bulkMode&&sel[c.id]?'sel':''}" onclick="${u.bulkMode?(c.base?`selOne('${c.id}',${sel[c.id]?'false':'true'})`:`toast('基本価格が無い車は刷れません')`):`openRowMenu('${c.id}')`}">${u.bulkMode?`<td class="ck" onclick="event.stopPropagation()"><input type="checkbox" ${sel[c.id]?'checked':''} ${c.base?'':'disabled'} onclick="selOne('${c.id}',this.checked)"></td>`:''}<td><div class="ph">${carSvg(c)}</div></td>
@@ -587,9 +592,10 @@ function renderList(){
       <td>${u.sort==='days' ? `<b class="q-dnum">${r.days}</b>日` : u.sort==='stale' ? (c.base&&c.base.hist.length ? `<b class="q-dnum">${daysBetween(lastChg(c), TODAY)}</b>日<small class="q-dsub">${jd(lastChg(c)).slice(5)} から</small>` : '<span class="q-empty">—</span>') : `<span class="q-pill ${r.st}">${esc(r.stl)}</span>${r.k&&(r.k.bc.wtMiss||r.k.bc.wtStale)?`<span class="q-pill warn" style="margin-left:4px" title="基本価格の「国交省で照会」で重量税を入れる">${r.k.bc.wtMiss?'重量税 未照会':'重量税 照会し直し'}</span>`:''}`}</td>
       <td class="v">${r.k?yen(c.base.price):`<span class="q-empty">基本価格なし</span>`}</td>
       <td class="v"><b>${r.k?yen(r.k.cash):'—'}</b></td>
-      <td>${r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:r.sb?'<span class="q-pill none">—</span>':'<span class="q-pill none">相場なし</span>'}</td>
+      <td>${r.c1?`<span class="q-pill ${r.c1.cls}" title="${r.c1.lab}">${r.c1.short} ${r.c1.pct}%</span>`:r.sb?(r.sb.c1?'<span class="q-pill none">価格まだ</span>':'<span class="q-pill none">C1 なし</span>'):sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}${r.c1&&r.src==='cf'?'<small class="q-dsub">掲載の値</small>':''}</td>
+      <td>${r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:r.sb?'<span class="q-pill none">価格まだ</span>':sobaWait(r.car)?'<span class="q-pill none">読み込み中</span>':'<span class="q-pill none">相場なし</span>'}${r.lab&&r.src==='cf'?'<small class="q-dsub">掲載の値</small>':''}</td>
       <td onclick="event.stopPropagation()">${c.base?`<div class="qd"><button class="b0" title="カード詳細を開く" onclick="QData.openCar('${c.id}')">${I('car','🚗',13)} 詳細</button><button class="b0" title="値付けの履歴と相場の状況を見る" onclick="openPriceView('${c.id}')">${I('down','↓',13)} 価格履歴</button><button class="b0" title="見積書の閲覧画面を開く（中で 基本・A・B・C を切り替え）" onclick="quickDoc('${c.id}','base')">${I('estimate','🧾',13)} 見積</button><button class="b0" title="基本・A・B・C・装備品一覧から選んで印刷" onclick="openPick('${c.id}')">${I('printer','🖨',13)} 選択印刷</button></div>`:'<span class="q-empty" style="float:right">基本価格なし</span>'}</td></tr>`; });
-  if (!list.length) h += `<tr><td colspan="${u.bulkMode?8:7}" class="q-placeholder">当てはまる車がありません</td></tr>`;
+  if (!list.length) h += `<tr><td colspan="${u.bulkMode?9:8}" class="q-placeholder">当てはまる車がありません</td></tr>`;
   h += `</tbody></table></div></div>`;
   if (u.histMode) h = h.slice(0, h.indexOf('<div class="q-list">')) + histTable(list) + '</div>';
   $('q-root').innerHTML = h;
@@ -876,6 +882,9 @@ function infoPanel(car){
 /* 🗣 2026-10-23「小売りの方は保証有の店から合わせていかないと」「車両価格としてがっつり組ませて高いか安いかを見たい」→「とりあえずやってみて」
    ＝保証・整備付きの店（ライバル店DB の C1＝うちと同じ層）の掲載と、支払総額どうしで比べる（よその店は整備・保証を本体に入れ、うちは諸費用・パックに入れる＝総額なら差が消える）。
    車両価格どうしは参考。値は quote-data.js c1Of（相場ビューと同じ計算）。金額は千円・税込 */
+/* C1 の中のどこにいるか（my・c は千円・税込の総額）。cls＝札の色・lab＝札・short＝一覧の短い札・pct＝C1 の真ん中に対する% */
+function c1Judge(my, c){ const [cls, lab, short] = my < c.p25 ? ['great','C1 の安い方（下位25%より安い）','安い方'] : my <= c.total ? ['good','C1 の中で安め','安め'] : my <= c.p75 ? ['fair','C1 の中で高め','高め'] : ['high','C1 の高い方（上位25%より高い）','高い方'];
+  return { cls, lab, short, pct: Math.round(my/c.total*100) }; }
 function c1Block(car, k, sb){ const c = sb.c1;
   if (!c) return `<div class="q-note warn" style="margin:6px 0">${I('warn','⚠',14)} 保証・整備付きの店（C1）の値がありません（ライバル店DB にこの車種が無い）。下の全部の店の相場で見てください。</div>`;
   const man = v => (Math.round(v)/10).toFixed(1)+'万';   /* 千円 → 万 */
@@ -914,7 +923,7 @@ function sobaPanel(car,k){
     return `<div class="o" onclick="${car.base?`setFromSoba('${car.id}',${ex})`:`$('nb-price').value=yen(${ex});toast('車両本体価格（税抜）に入れました。「基本価格を作る」で確定')`}"><div class="s">${l}（相場${d>0?'+':''}${d}%）</div><b>${mk(ex/1000)}万</b><div class="s">本体・税抜（税込 ${mk(ex/1000*1.1)}万）</div><div class="s">約${sobaDays(sb,d)}日・粗利 ${yen(g)}</div></div>`; }).join('');
   return `<button class="q-btn sm" style="float:right;margin-left:8px" onclick="svFromQuote('${car.id}')" title="カード詳細の［相場］タブと同じ画面（相場カードの選び直しもここで）">${I('signal','📶',13)} 相場ビューで見る</button><div class="q-why">相場カード：${esc(sb.cardName)} ${sb.y}年・${sb.g!=null?esc(sb.g):'グレード指定なし'}${sb.col?'・'+esc(sb.col):''}${sb.km!=null?'・'+(sb.km/10).toFixed(1)+'万km':''}・データ ${esc(sb.built||'—')}・信頼度 ${esc(sb.trust)}${sb.pct!=null?'（外れの目安 ±'+sb.pct+'%）':''}${car._firstRegGuess?'　<span class="q-pill warn">年式は CarFlow の年式から（初度登録を入れると正確に）</span>':''}</div>
     ${c1Block(car, k, sb)}
-    <div style="font-weight:800;font-size:12.5px;margin:12px 0 4px">参考：小売の成約の相場（格安・現状販売も含む全部の店）</div>
+    <div style="font-weight:800;font-size:12.5px;margin:12px 0 4px">全部の店の相場と車両価格で比べて <span class="q-why" style="display:inline">格安・現状販売も含む小売の成約</span></div>
     <div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} この段の金額は全部 <b>車両本体（税抜）</b>。小売の相場は、成約の車両価格（税込）÷1.1 から納車前点検 ${mk(sK)}万を引いて本体に直した値。AA は落札額（税抜）のまま。</div>
     ${!k.bodyIn?`<div class="q-note info" style="margin:6px 0">${I('info','ℹ',14)} まだ価格がありません。下の「売れそうな金額」を押すと、車両本体価格（税抜）に入ります。</div>`:`    <div class="q-pos"><span class="q-pill ${lab[0]}" style="font-size:12px">${lab[1]}</span><span>自社 本体 <b>${mk(myEx)}万</b>（税抜）／相場（小売成約の「いま」）本体 <b>${mk(ex(sb.now))}万</b>（税抜） → 相場比 <b>${Math.round(ratio*100)}%</b></span></div>
     <div class="q-why" style="margin:-2px 0 6px">税込にすると 自社 本体 ${mk(myEx*1.1)}万／相場 本体 ${mk(ex(sb.now)*1.1)}万</div>
