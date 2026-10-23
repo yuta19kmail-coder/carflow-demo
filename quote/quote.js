@@ -457,7 +457,7 @@ const PHASES = [['all','全て'],['purchase','仕入れ'],['regen','展示準備
 /* 売約＝見積の売約の札（car.order）か、CarFlow で売約・納車準備・納車完了の車（_sold・_col） */
 function phaseOf(car){ return (car.order || car._sold || car._col==='delivery' || car._col==='done') ? 'delivery' : (car.status==='purchase' || car.status==='regen') ? car.status : 'exhibit'; }
 function carStatus(car){ const ph = phaseOf(car);
-  if (ph==='delivery') return car.order ? ['sold','売約済み（見積・'+jd(car.order.date).slice(5)+'）'] : ['sold','売約済み（CarFlow）'];
+  if (ph==='delivery') return car.order ? ['sold','売約済み（見積・'+jd(car.order.date).slice(5)+'）'] : ['sold','売約済み（カンバン）'];
   if (ph==='purchase') return ['purchase','仕入れ'];
   if (ph==='regen') return ['regen','展示準備中'];
   return car.custs.length ? ['deal','展示中・商談中'] : ['exhibit','展示中']; }
@@ -560,7 +560,7 @@ function renderList(){
   list.sort(sorters[u.sort]);
   const sel = u.sel = u.sel || {}; Object.keys(sel).forEach(id=>{ if (!carOf(id)) delete sel[id]; });
   const selN = Object.keys(sel).filter(id=>sel[id]).length;
-  let h = `<div class="q-wrap"><div class="q-top"><div><div class="t">${I('estimate','🧾',18)} 見積</div><div class="s">CarFlow の在庫車 ${S.cars.length}台。基本価格 → プラン見積 → 個別見積 → 売約（売約は見積の上の札だけ。CarFlow の売約・納車のタスクには触れません）</div></div><span class="sp"></span>${roNote()}<button class="q-btn" onclick="openSettings()" title="プランの中身・諸費用・税の表・帳票の会社の欄">${I('settings','⚙️',15)} 見積の設定</button></div>
+  let h = `<div class="q-wrap"><div class="q-top"><div><div class="t">${I('estimate','🧾',18)} 見積</div><div class="s">在庫車 ${S.cars.length}台。基本価格 → プラン見積 → 個別見積 → 売約（売約は見積の上の札だけ。カンバンの売約・納車のタスクには触れません）</div></div><span class="sp"></span>${roNote()}<button class="q-btn" onclick="openSettings()" title="プランの中身・諸費用・税の表・帳票の会社の欄">${I('settings','⚙️',15)} 見積の設定</button></div>
     ${S.pending && carOf(S.pending.carId) ? (()=>{ const pc = carOf(S.pending.carId); return `<div class="q-pend">${I('info','ℹ',15)} 途中の見積：<b>${esc(pc.num)} ${esc(pc.model)}</b>（${STEP_L[S.pending.step]}・${esc(S.pending.at)}）<span class="sp"></span><button class="q-btn sm" onclick="pendingDrop()">破棄</button><button class="q-btn pri sm" onclick="pendingResume()">続きから</button></div>`; })() : ''}
     <div class="q-phase">${PHASES.map(([id,l])=>`<button class="${u.phase===id?'on':''}" onclick="S.ui.phase='${id}';_hideSold=false;save();render()">${l}<b>${cnt(id)}</b></button>`).join('')}</div>
     <div class="q-tools"><input id="q-search" class="q-in" style="max-width:280px" placeholder="管理番号・車名で探す" value="${esc(u.q)}" oninput="if(event.isComposing)return;S.ui.q=this.value;renderKeep()" oncompositionend="S.ui.q=this.value;renderKeep()">
@@ -577,7 +577,7 @@ function renderList(){
       <td class="v">${r.k?yen(c.base.price):`<span class="q-empty">基本価格なし</span>`}</td>
       <td class="v"><b>${r.k?yen(r.k.cash):'—'}</b></td>
       <td>${r.lab?`<span class="q-pill ${r.lab[0]}">${r.lab[1]} ${Math.round(r.ratio*100)}%</span>`:r.sb?'<span class="q-pill none">—</span>':'<span class="q-pill none">相場なし</span>'}</td>
-      <td onclick="event.stopPropagation()">${c.base?`<div class="qd"><button class="b0" title="CarFlow のカード詳細を開く" onclick="QData.openCar('${c.id}')">${I('car','🚗',13)} 詳細</button><button class="b0" title="値付けの履歴と相場の状況を見る" onclick="openPriceView('${c.id}')">${I('down','↓',13)} 価格履歴</button><button class="b0" title="見積書の閲覧画面を開く（中で 基本・A・B・C を切り替え）" onclick="quickDoc('${c.id}','base')">${I('estimate','🧾',13)} 見積</button><button class="b0" title="基本・A・B・C・装備品一覧から選んで印刷" onclick="openPick('${c.id}')">${I('printer','🖨',13)} 選択印刷</button></div>`:'<span class="q-empty" style="float:right">基本価格なし</span>'}</td></tr>`; });
+      <td onclick="event.stopPropagation()">${c.base?`<div class="qd"><button class="b0" title="カード詳細を開く" onclick="QData.openCar('${c.id}')">${I('car','🚗',13)} 詳細</button><button class="b0" title="値付けの履歴と相場の状況を見る" onclick="openPriceView('${c.id}')">${I('down','↓',13)} 価格履歴</button><button class="b0" title="見積書の閲覧画面を開く（中で 基本・A・B・C を切り替え）" onclick="quickDoc('${c.id}','base')">${I('estimate','🧾',13)} 見積</button><button class="b0" title="基本・A・B・C・装備品一覧から選んで印刷" onclick="openPick('${c.id}')">${I('printer','🖨',13)} 選択印刷</button></div>`:'<span class="q-empty" style="float:right">基本価格なし</span>'}</td></tr>`; });
   if (!list.length) h += `<tr><td colspan="${u.bulkMode?8:7}" class="q-placeholder">当てはまる車がありません</td></tr>`;
   h += `</tbody></table></div></div>`;
   if (u.histMode) h = h.slice(0, h.indexOf('<div class="q-list">')) + histTable(list) + '</div>';
@@ -615,7 +615,7 @@ function renderCar(){
 }
 function noBase(car){
   const L = leftCompact(car) + `<div class="q-card lead"><h3>${I('info','ℹ',15)} この車はまだ基本価格がありません</h3><div class="bd">
-    <div class="q-why" style="font-size:12.5px">今は車両カードで入れた金額（<b>${yen(car.cfPrice||0)}円</b>）が CarFlow とポータルに出ています。基本価格を作ると、以後の金額は全部ここから出ます。</div>
+    <div class="q-why" style="font-size:12.5px">今は車両カードで入れた金額（<b>${yen(car.cfPrice||0)}円</b>）が カードとポータルに出ています。基本価格を作ると、以後の金額は全部ここから出ます。</div>
     <div class="q-f" style="margin-top:8px"><div><label class="k">車両本体価格（税抜・納車整備を除く）</label>${money('nb-price', !car.cfPrice && sobaOf(car) ? Math.round(sobaOf(car).now*1000/1.1/1000)*1000 - lightPrice() : Math.round((car.cfPrice||0)/1.1/1000)*1000 - lightPrice(), '')}</div>
       <div><label class="k">リサイクル預託金相当額</label>${money('nb-rec', car.kei?9500:12000, '')}</div></div>
     <div style="margin-top:12px;display:flex;gap:8px"><button class="q-btn pri" onclick="makeBase('${car.id}')">${I('plus','＋',14)} 基本価格を作る</button><span class="q-why" style="margin:6px 0 0">登録の種類などは標準の値で作られます（あとで直せる）</span></div></div></div>`;
@@ -665,7 +665,7 @@ const AUTO_K = ['cc','weight','kei','fuel'];
 /* CarFlow の車の欄（読むだけ）。見積からは書かない＝直すのは CarFlow の車両情報（カード詳細）で。v4.0.0 */
 const REAL_K = ['maker','model','grade','km','color','buyDate'];
 const realVal = (car, k) => k==='km' ? (car.km ? Number(car.km).toLocaleString()+' km' : '—') : k==='buyDate' ? (car.buyDate ? jd(car.buyDate) : '—') : (car[k] || '—');
-const realRO = (car, k) => `<span class="vv">${esc(realVal(car, k))}</span> <button type="button" class="q-btn sm" style="margin-left:6px" onclick="QData.openCar('${car.id}')" title="CarFlow のカード詳細を開く（車両情報はそちらで直す）">CarFlow で直す</button>`;
+const realRO = (car, k) => `<span class="vv">${esc(realVal(car, k))}</span> <button type="button" class="q-btn sm" style="margin-left:6px" onclick="QData.openCar('${car.id}')" title="カード詳細を開く（車両情報はそちらで直す）">カードで直す</button>`;
 /* 車体色：色と区分の2つの選択（🗣 2026-10-01「車体色は色と区分も選べる形の方がいい」） */
 const COLOR_LIST = ['パールホワイト','ホワイト','パール','ブラック','シルバー','グレー','ガンメタ','レッド','ブルー','ネイビー','グリーン','ミントグリーン','ベージュ','ブラウン','イエロー','オレンジ','パープル','ゴールド','ツートン'];
 function colorPick(car, chgCls, dis){
@@ -721,7 +721,7 @@ function leftCompact(car){
     + cpRow(lab('gradeSub','グレードの詳細'), txt('gradeSub','パッケージ・限定車'))
     + cpRow(lab('km','走行距離'), `<div class="km-in">${num('km','km')}</div>`)
     + cpRow(lab('color','車体色'), realRO(car, 'color'))
-    + `<div class="sub">型式DB で入る所（違っていたら直す。メーカー・車名は CarFlow の車両情報）</div>`
+    + `<div class="sub">型式DB で入る所（違っていたら直す。メーカー・車名はカードの車両情報）</div>`
     + cpRow(lab('maker','メーカー'), txt('maker'))
     + cpRow(lab('model','車名'), txt('model'))
     + cpRow(lab('cc','排気量'), `<div class="km-in">${num('cc','cc')}</div>`)
@@ -854,19 +854,19 @@ function infoPanel(car){
     ['新車価格', sp&&sp.price?yen(sp.price)+'円':'—', car.base&&sp&&sp.price?'いまの車両価格は新車の '+Math.round(calc(baseCtx(car)).bodyIn/sp.price*100)+'%':'', J(0,1)],
   ];
   const ng = rows.filter(r=>r[3].includes('ngc')).length;
-  return `<div class="q-why" style="margin-bottom:6px">型式DB（グーのカタログ）と、左の車両情報（＝CarFlow のカード）を並べています。⚠ は食い違い。カード作成のときの入れ間違いを、ここで目で確かめます。</div>
+  return `<div class="q-why" style="margin-bottom:6px">型式DB（グーのカタログ）と、左の車両情報（＝車のカード）を並べています。⚠ は食い違い。カード作成のときの入れ間違いを、ここで目で確かめます。</div>
     ${ng?`<div class="q-note warn" style="margin-bottom:8px">${I('warn','⚠',14)} 食い違いが ${ng} か所あります。左の車両情報を確かめてください。</div>`:`<div class="q-note ok" style="margin-bottom:8px">${I('check','✓',14)} 確かめられる項目は、カタログと合っています。</div>`}
     ${w?`<div class="nc-warn" style="margin-bottom:6px">⚠ ${w}</div>`:''}
     <table class="q-chk"><tr><th>項目</th><th>カタログ（型式DB）</th><th>入れた値</th><th></th></tr>
     ${rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td>${r[3]}</tr>`).join('')}</table>
     ${sp?'':`<div class="q-sec">このモデルのグレード（${car.firstReg?car.firstReg.replace('-','/')+' までに発売':'全部'}）</div><div class="nc-chips">${G.list.map(x=>`<button type="button" class="nc-chip" onclick="setCar('grade','${jsq(x.g)}')">${esc(x.g)}<small>${esc(x.drive)}・${x.price?mk(Math.round(x.price/1000))+'万':''}</small></button>`).join('')}</div>`}
     <div class="q-sec">標準装備</div>
-    <div class="q-why">カタログの標準装備はまだ取っていません（グーのグレード詳細ページから取る予定）。取れたら、CarFlow の装備品チェックの結果と並べて「標準なのにチェックが無い」所を出します。</div>`;
+    <div class="q-why">カタログの標準装備はまだ取っていません（グーのグレード詳細ページから取る予定）。取れたら、カードの装備品チェックの結果と並べて「標準なのにチェックが無い」所を出します。</div>`;
 }
 function sobaPanel(car,k){
   if (!sobaOf(car) && sobaWait(car)) return `<div class="q-note info">${I('info','ℹ',15)} 相場を読み込み中…（相場ビューと同じ相場カードから、この車の条件で出しています）</div>`;
   if (!sobaOf(car)){ const L = katLookup(car.fmodel, car.firstReg), nm = L.state==='ok' ? (L.names.find(n=>n.car===car.model) || L.names[0]) : null, G = nm ? katGrades(nm, L.y, car.firstReg).list.find(x=>x.g===car.grade) : null;
-    return `<div class="q-note warn">${I('warn','⚠',15)} <b>相場なし</b>：${esc(car._sbWhy||'この車種は相場カードがまだありません')}。<br><span class="q-why">CarFlow の車種・グレード・年式（初度登録）の名前で相場DB の車種を探しています。違う時は「相場ビューで見る」で相場カードを選び直すと、ここにも出ます（このブラウザに覚えます）。</span></div>
+    return `<div class="q-note warn">${I('warn','⚠',15)} <b>相場なし</b>：${esc(car._sbWhy||'この車種は相場カードがまだありません')}。<br><span class="q-why">カードの車種・グレード・年式（初度登録）の名前で相場DB の車種を探しています。違う時は「相場ビューで見る」で相場カードを選び直すと、ここにも出ます（このブラウザに覚えます）。</span></div>
       <button class="q-btn sm" style="margin:0 0 8px" onclick="svFromQuote('${car.id}')">${I('signal','📶',13)} 相場ビューで見る</button>
       <table class="q-tbl"><tr><th>型式DB（グーのカタログ）</th><th></th></tr>
       <tr><td>車名</td><td>${nm?esc(nm.mk+' '+nm.car):'見つかりません'}</td></tr><tr><td>発売</td><td>${nm?esc(nm.first)+'〜'+esc(nm.last):'—'}</td></tr>
@@ -923,7 +923,7 @@ function chart(car, sb, my, ex){
 function syncPanel(car,k){
   const b = car.base, rows = [['車両価格（税込）', k.bodyIn],['諸費用', k.cash-k.bodyIn],['支払総額', k.cash]];
   const done = s => !b.changed ? !!b.portalDone[s] : (b.portalDone[s]||'') >= b.changed;
-  return `<div style="font-weight:800;margin-bottom:6px">CarFlow の金額表示 <span class="q-pill good">自動</span></div>
+  return `<div style="font-weight:800;margin-bottom:6px">カードの金額表示 <span class="q-pill good">自動</span></div>
     <div class="q-copy"><span>総額（税込）</span><span class="v">${yen(k.cash)}</span><span></span><span>本体（税込）</span><span class="v">${yen(k.bodyIn)}</span><span></span></div>
     <div class="q-why" style="margin-top:4px">カンバンのカード・展示・商談ビュー・FlowDesk・FlowGo の金額はここから（車両カードの金額入力は廃止の想定）</div>
     ${[['goo','グーネット（MOTOR GATE）'],['cs','カーセンサー（C-MATCH）']].map(([id,nm])=>`<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
@@ -1017,7 +1017,7 @@ function stepStd(car){ let RW;
     <label class="q-tog" style="margin-top:10px"><input type="checkbox" ${car.std.showD?'checked':''} onchange="stdShowD('${car.id}',this.checked)" ${dis?'disabled':''}><span><b>業販（D）も出す</b>　業者向けの現状渡し（納車整備・保証・登録なし）</span><span class="v">${yen(calc(stdCtx(car,'D')).cash)}</span></label></div></div>
     <div class="q-card"><h3>印刷</h3><div class="bd">
       <div class="q-prow">${['base'].concat(ps).map(p=>`<button class="q-btn" onclick="stdPrint('${p}')">${I('printer','🖨',14)} ${p==='base'?'基本':p==='D'?'業販':p+'（'+esc(planName(p))+'）'}を印刷</button>`).join('')}</div>
-      <div class="q-prow" style="margin-top:8px">${eqDone(car)?`<button class="q-btn" onclick="S.ui.docBase=true;save();openDocs('equip')">${I('printer','🖨',14)} 装備品一覧を印刷</button>`:`<button class="q-btn" disabled title="装備品チェックが終わっていません（CarFlow の装備品チェックで入力）">${I('printer','🖨',14)} 装備品一覧を印刷（チェック前）</button>`}</div>
+      <div class="q-prow" style="margin-top:8px">${eqDone(car)?`<button class="q-btn" onclick="S.ui.docBase=true;save();openDocs('equip')">${I('printer','🖨',14)} 装備品一覧を印刷</button>`:`<button class="q-btn" disabled title="装備品チェックが終わっていません（カードの装備品チェックで入力）">${I('printer','🖨',14)} 装備品一覧を印刷（チェック前）</button>`}</div>
       <div class="q-prow" style="margin-top:8px"><button class="q-btn" onclick="openPick('${car.id}')">${I('printer','🖨',14)} まとめて印刷（選んで）</button><button class="q-btn" onclick="openDocs('compare')">${I('table','▦',14)} プラン比較</button><button class="q-btn" onclick="openDocs('board')">プライスボード</button></div></div></div></div></div>`;
   return h;
 }
@@ -1115,7 +1115,7 @@ const p_lab = p => p==='base' ? '基本見積' : p==='D' ? '業販' : p+'（'+pl
 function stepOrder(car){
   const o = car.order, u = custOf(car, o.cust), k = calc(custCtx(car,u,o.plan));
   return `<div class="q-grid"><div>
-    <div class="q-note info" style="margin-bottom:10px">${I('info','ℹ',15)} <b>売約は見積の上の札だけです</b>（v4.0）。CarFlow の売約・納車準備・大タスクには、まだつないでいません。車を売約に進める時は、いままでどおり CarFlow のカンバンで。</div>
+    <div class="q-note info" style="margin-bottom:10px">${I('info','ℹ',15)} <b>売約は見積の上の札だけです</b>（v4.0）。カンバンの売約・納車準備・大タスクには、まだつないでいません。車を売約に進める時は、いままでどおり カンバンで。</div>
     <div class="q-card lead"><h3>${I('check','✓',15)} 売約 ${esc(car.num)}${o.ver>1?'-版'+o.ver:''} <span class="q-pill sold">売約</span><span class="r">${esc(u.name)} 様・${o.plan}・${esc(planName(o.plan))}</span></h3>
       <div class="q-total"><span>ご注文金額（税込）<br><span class="s">${k.loan?`頭金 ${yen(k.loan.down)}・${k.loan.n}回・実質年率 ${k.loan.rate}%・割賦販売価格 ${yen(k.loan.hanbai)}`:'現金'}</span></span><b>${yen(k.net)} 円</b></div></div>
     <div class="q-card"><h3>売約の控え</h3><div class="bd"><div class="q-f">
@@ -1158,7 +1158,7 @@ function docList(kind){ return [['quote','見積書']]; }
 let _docNew = false;   // 帳票の「新車・中古車」の丸
 let diffOnly = false;
 /* 見積書・注文書・3案くらべ・納品書は「装備品一覧」を2枚目に付けて一緒に刷れる（🗣 ゆうた 2026-10-01「装備のチェック一覧は見積から無くして、
-   CarFlow の装備品チェック印刷をブラッシュアップして見積と一緒に印刷」）。付けるかどうかは帳票ごとに覚える */
+   カードの装備品チェック印刷をブラッシュアップして見積と一緒に印刷」）。付けるかどうかは帳票ごとに覚える */
 /* 🗣 2026-10-12「セットで装備品一覧が印刷されちゃう。これは切り分けたい」→ 一緒に刷る仕組みは止める（装備品一覧は単独で刷る） */
 const EQ_WITH_OK = [];
 function eqWith(doc){ S.ui.eqWith = S.ui.eqWith || { quote:true, compare:true, order:true, orderH:false, delivery:true }; return EQ_WITH_OK.includes(doc) && !!S.ui.eqWith[doc]; }
@@ -1334,7 +1334,7 @@ function priceBox(k){ const sm = (k.bc.seibiIn>0);   // 納車整備（いちば
     <div class="pr fin"><span class="k">差引お支払総額 ⑨〜⑪</span><span class="v">${yen(k.net)}</span></div></div></div>`; }
 function carBox(car, b, k, small){
   const shk = shakenText(b, k);
-  return `<div class="bx hb car"><div class="vt">販売車輌明細</div><div class="in"><div class="ph"${small?' style="height:56px"':''}>${carSvg(car,'車両写真（CarFlow の写真）')}</div>
+  return `<div class="bx hb car"><div class="vt">販売車輌明細</div><div class="in"><div class="ph"${small?' style="height:56px"':''}>${carSvg(car,'車両写真（カードの写真）')}</div>
     <div class="kv"><span class="k">車名</span><span>${esc(car.maker)} ${esc(car.model)}</span><span class="k">年式</span><span>${wareki(car.firstReg)}</span><span class="k">グレード</span><span>${esc(car.grade)}</span><span class="k">色</span><span>${esc(car.color)}</span>
     <span class="k">走行距離</span><span>${kmText(car,b)}</span><span class="k">排気量</span><span>${ccU(car)}</span><span class="k">型式</span><span>${esc(car.fmodel)}</span><span class="k">管理番号</span><span>${esc(car.num)}</span>
     <span class="k">修復歴</span><span>${esc(b.repair)}</span><span class="k">記録簿</span><span>あり</span><span class="k">車検</span><span style="grid-column:span 3">${shk}</span><span class="k">保証</span><span style="grid-column:span 3">${k.ws?'なし（現状渡し）':warNone(b)?'なし':'保証付　'+esc(warText(b))}</span></div>
@@ -1530,7 +1530,7 @@ function brdSave(cid){ const car = carOf(cid); snap(); car.board = Object.assign
   car.eqx = Object.assign({}, car.eqx, { tm:$('bp-tm').value.trim(), plate3:$('bp-pl').value.trim(), rec:$('bp-rec').value.trim(), use:$('bp-use').value.trim() });
   save(); closeOv(); S.ui.doc = 'board'; if ($('q-docov').hidden) openDocs('board'); else renderDocs(); }
 
-/* ---------- 装備品一覧（CarFlow の装備品チェック tpl_equipment と同じ並び。値は KM-0480 の実データを元に車ごとに少し変えた見本） ----------
+/* ---------- 装備品一覧（カードの装備品チェック tpl_equipment と同じ並び。値は KM-0480 の実データを元に車ごとに少し変えた見本） ----------
    本物：equipment-view.js の _buildPrintSheetHtml を作り直す。直す所
    ・縦1列 → 3段組で A4 縦1枚に収める（今は2枚以上になる）
    ・見積書と同じ紙（青・会社・管理番号・見積No）にして「2枚目」として一緒に刷れる
@@ -1549,7 +1549,7 @@ const EQ_TPL = [
   { t:'タイヤ', i:'🛞', cond:true, items:[['tfr','タイヤ溝右前','select'],['tfl','タイヤ溝左前','select'],['trr','タイヤ溝右後','select'],['trl','タイヤ溝左後','select'],['tsf','タイヤサイズ前','select'],['tsr','タイヤサイズ後','select']] },
 ];
 const EQ_BASE = { nav:'on',navm:'SSD/メモリ',tv:'フルセグ',bt:'on',bcam:'on',fcam:'off',scam:'off',acam:'off',rmon:'off',cd:'on',dvd:'on',mp:'off', ac:'on',wac:'off',cc:'off',acc:'off',sh:'off',scool:'off',lea:'off',psea:'off',bench:'off',row3:'on',walk:'on',flat:'off', skey:'on',kless:'off',push:'on',rstart:'off',spare:'off',pw:'on',psd:'両側',pgate:'off',etc:'on',wel:'off', head:'LED',ahb:'on', abs:'on',ab:'on',sab:'off',esc:'on',body:'on',aeb:'on',lane:'on',apark:'off',passist:'off',csens:'off',immo:'on', alu:'on',aero:'off',sun:'off',uv:'on',low:'off',idle:'on', own1:'off',nosmoke:'off',manual:'on',warr:'off', acq:'よく効く',acc2:'なし',belt:'off',room:'ok',mirror:'ok',sparek:'ng',memo:'なし', tfr:'7mm',tfl:'7mm',trr:'7mm',trl:'7mm',tsf:'205/60R16',tsr:'205/60R16' };
-/* 装備品チェックが終わっているか（🗣 2026-10-02「終わってない場合はグレーアウト」）。本番は CarFlow の装備品チェックの入力済みの印。
+/* 装備品チェックが終わっているか（🗣 2026-10-02「終わってない場合はグレーアウト」）。本番は カードの装備品チェックの入力済みの印。
    モック：仕入れ・展示準備中の車はまだ（car.eqDone で上書きできる） */
 const eqDone = car => car.eqDone != null ? !!car.eqDone : !['purchase','regen'].includes(car.status);
 function eqStateOf(car){
@@ -1564,7 +1564,7 @@ function eqStateOf(car){
   return s;
 }
 const eqPos = (it, v) => it[2]==='tri' ? v==='on' : it[2]==='status' ? v==='ok' : !!(v && String(v).trim());
-function eqPicks(car){ if (car._f) return (car._f.equip || []).slice();   /* v4.0.0 本物＝CarFlow の装備品チェックで「あり」の物（car-quote.js equipList） */
+function eqPicks(car){ if (car._f) return (car._f.equip || []).slice();   /* v4.0.0 本物＝カードの装備品チェックで「あり」の物（car-quote.js equipList） */
   const s = eqStateOf(car), out = []; EQ_TPL.filter(c=>!c.cond).forEach(c=>c.items.forEach(it=>{ if (eqPos(it, s[it[0]])) out.push(it[2]==='select' && s[it[0]] ? it[1]+'（'+s[it[0]]+'）' : it[1]); })); return out; }
 function docEquip(d, k, second){
   const car = d.car, s = eqStateOf(car), b = d.ctx.b, c = C(), u = d.who;
@@ -1574,7 +1574,7 @@ function docEquip(d, k, second){
   const no = d.kind==='order' && car.order ? esc(car.order.no || estNo(car, car.order.plan, u)) : esc(estNo(car, d.ctx.plan || 'base', u));
   return `${second?`<div class="p-top"><div class="p-kind">別紙</div><div class="p-date">${d.kind==='order'?'注文書':'御見積書'} No：${no} の別紙</div></div>`:`<div class="p-top"><div class="p-kind">${kindMark()}</div><div class="p-date">発行日：${jd(TODAY)}</div></div>`}
   <div class="p-title" style="font-size:24px">装 備 品 一 覧</div>
-  <div class="eq-head"><div class="ph">${carSvg(car,'車両写真（CarFlow の写真）')}</div><div>
+  <div class="eq-head"><div class="ph">${carSvg(car,'車両写真（カードの写真）')}</div><div>
     <div class="nm">${esc(car.maker)} ${esc(car.model)}<small>${esc(car.grade)}</small></div>
     <div class="eq-spec"><div><b>年式</b>${wareki(car.firstReg)}</div><div><b>走行</b>${kmText(car,b)}</div><div><b>色</b>${esc(car.color)}</div>
       <div><b>排気量</b>${ccU(car)}</div><div><b>車検</b>${regOf(b.regType).insp?'2年付':b.shakenEnd.replace('-','年')+'月'}</div><div><b>修復歴</b>${esc(b.repair)}</div>
@@ -1715,7 +1715,7 @@ function drawNewCar(){
         <div class="fg"><label>走行距離 (km)</label><input type="text" id="nc-km" inputmode="numeric" value="${NC.km?Number(NC.km).toLocaleString():''}" placeholder="例：35000" onchange="ncSet('km',parseYen(this.value))"></div>
         <div class="fg"><label>ボディサイズ</label><select id="nc-size" onchange="NC.sizeAuto=false;ncSet('size',this.value)">${BODY_SIZES.map(s=>`<option ${NC.size===s?'selected':''}>${s}</option>`).join('')}</select></div>
       </div>
-      <div class="nc-price">${I('estimate','🧾',14)} 本体価格・総額はここでは入れません。登録したあと、<b>見積タブの「基本価格」</b>で相場を見ながら決めます（それが CarFlow の表示・ポータルの値になります）。</div>
+      <div class="nc-price">${I('estimate','🧾',14)} 本体価格・総額はここでは入れません。登録したあと、<b>見積タブの「基本価格」</b>で相場を見ながら決めます（それが カードの表示・ポータルの値になります）。</div>
       <div class="fsec">販売情報</div>
       <div class="sell-block"><div class="sell-switch-row"><div><div style="font-size:13px;font-weight:600;margin-bottom:2px">売約スイッチ</div><div style="font-size:11px;color:var(--text3)">OFF：未成約（売約は見積タブの「売約」から）</div></div><div class="sell-switch"><div class="sell-switch-knob"></div></div></div></div>
       <div class="fsec">メモ</div>
@@ -2268,7 +2268,7 @@ function cdxRx(car){
     <tr><td>決め手（両媒体）</td><td class="v" colspan="2">（問い合わせ×10＋検討中×3＋お気に入り×2）÷ 見た回数 ×100</td><td class="v">${(s.rate/s.avgRate).toFixed(2)}倍 → <b>${s.win}</b></td><td class="v">${(s.rate*100).toFixed(2)}<small>店の平均 ${(s.avgRate*100).toFixed(2)}</small></td></tr></tbody></table>`;
   const k = calc(baseCtx(car)), pd = car.base.portalDone || {};
   h += `<div class="cdx-sec">媒体ごと</div><table class="cdx-t"><thead><tr><th></th><th>掲載</th><th>管理番号</th><th class="v">支払総額</th><th>価格を合わせた日</th><th class="v">掲載から</th><th class="v">問い合わせ（掲載から）</th></tr></thead><tbody>
-    <tr><td style="color:var(--text3)">見積（CarFlow）</td><td>${esc(carStatus(car)[1])}</td><td>${esc(car.num)}</td><td class="v"><b>${yen(k.cash)}</b></td><td>${car.base.changed?jd(car.base.changed).slice(5)+' に変更':'—'}</td><td></td><td></td></tr>
+    <tr><td style="color:var(--text3)">自社（見積）</td><td>${esc(carStatus(car)[1])}</td><td>${esc(car.num)}</td><td class="v"><b>${yen(k.cash)}</b></td><td>${car.base.changed?jd(car.base.changed).slice(5)+' に変更':'—'}</td><td></td><td></td></tr>
     <tr><td><span class="cdx-chip">グー</span></td><td><span class="cdx-st on">掲載中</span><small>${jd(rx.gooFirst).slice(5)}〜</small></td><td>${rx.kmGoo?'✓':'<b style="color:var(--red)">空</b>'}</td><td class="v">${yen(k.cash)}</td><td>${pd.goo?jd(pd.goo).slice(5):'<b style="color:var(--red)">まだ</b>'}</td><td class="v">${daysBetween(rx.gooFirst, TODAY)+1}日</td><td class="v">${sumI(rx.goo,3)}件</td></tr>
     <tr><td><span class="cdx-chip cs">CS</span></td><td><span class="cdx-st on">掲載中</span><small>${jd(rx.csFirst).slice(5)}〜</small></td><td>${rx.kmCs?'✓':'<b style="color:var(--red)">空</b>'}</td><td class="v">${yen(k.cash)}</td><td>${pd.cs?jd(pd.cs).slice(5):'<b style="color:var(--red)">まだ</b>'}</td><td class="v">${daysBetween(rx.csFirst, TODAY)+1}日</td><td class="v">${sumI(rx.cs,2)}件</td></tr></tbody></table>
     <div class="cdx-foot"><b>点数の出し方</b>（前の「戦闘力＝ビュー数÷在庫日数」が当てにならなかった所をつぶした）<br>
@@ -2333,7 +2333,7 @@ function doCut(cid){ const car = carOf(cid), v = cutBody(cid), sel = $('cut-why'
     if (car.base.sale){ toast('もうセールが入っています。先に今のセールをやめてください'); return; }
     snap(); car.base.sale = { from:sl.from, to, price:v, prev:car.base.price, why:'セール：'+why, on:false }; saleTick(); closeOv(); save(); render();
     toast(`${jd(sl.from)}〜${jd(to)} のセール：本体 ${yen(v)}。${jd(dPlus(to,1))} に自動で元の価格へ戻ります`, true); return; }
-  snap(); const from = car.base.price; car.base.price = v; car.base.hist.push({ date:TODAY, from, to:v, why, soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; closeOv(); save(); render(); toast(`${yen(from)} → ${yen(v)} に${v<from?'値下げ':'変更'}（${why}）。プラン見積と CarFlow の表示にそろえました`, true); }
+  snap(); const from = car.base.price; car.base.price = v; car.base.hist.push({ date:TODAY, from, to:v, why, soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; closeOv(); save(); render(); toast(`${yen(from)} → ${yen(v)} に${v<from?'値下げ':'変更'}（${why}）。プラン見積とカードの表示にそろえました`, true); }
 function openClose(cid, uid, p){ const car = carOf(cid), u = custOf(car,uid); p = p || S.ui.plan; const d = { car, ctx:custCtx(car,u,p), who:u, kind:'cust' }, k = calc(d.ctx); _docNew = !!u.baseSnap.newCar;
   ov(`<div class="hd">${I('check','✍',16)} 売約にする　<span style="font-weight:600;font-size:13px;color:var(--text2)">${esc(u.name||'（お名前未入力）')} 様・${esc(p_lab(p))}</span><button class="x" onclick="closeOv()">✕</button></div><div class="bd cl-bd">
     <div class="cl-prev" onclick="this.parentNode.classList.toggle('max')" title="押すと最大化／もう一度押すと戻る"><span class="cl-max">⤢ 押すと最大化</span><div class="cl-sc">${quotePapers(d,k)}</div></div>
@@ -2343,7 +2343,7 @@ function openClose(cid, uid, p){ const car = carOf(cid), u = custOf(car,uid); p 
       ${k.loan?`<div class="q-why" style="margin:-4px 0 10px">ローン：頭金 ${yen(k.loan.down)}・${k.loan.n}回・月々 ${yen(k.loan.later)}</div>`:''}
       <div class="q-f" style="grid-template-columns:1fr"><div><label class="k">注文日</label><input id="cl-date" type="date" class="q-in" value="${TODAY}"></div><div><label class="k">納車予定日</label><input id="cl-del" type="date" class="q-in" value="${addDays(TODAY,21)}"></div>
       <div><label class="k">お約束事項（納車までに行うこと）</label><textarea id="cl-prom" class="q-in" rows="4" placeholder="例：ドラレコ取付／右リアバンパーのキズ補修"></textarea></div></div>
-      <div class="q-note info" style="margin-top:12px">左の見積書の内容で売約の札が付きます。同じ車のほかのお客様の見積は「他で売約」になり止まります。<b>CarFlow の売約・納車準備・大タスクは動きません</b>（見積の上の札だけ。車を売約に進める時は CarFlow のカンバンで）。</div></div></div>
+      <div class="q-note info" style="margin-top:12px">左の見積書の内容で売約の札が付きます。同じ車のほかのお客様の見積は「他で売約」になり止まります。<b>カンバンの売約・納車準備・大タスクは動きません</b>（見積の上の札だけ。車を売約に進める時は カンバンで）。</div></div></div>
     <div class="ft"><button class="q-btn" onclick="closeOv()">やめる</button><button class="q-btn ok" onclick="doClose('${cid}','${uid}','${p}')">売約にする</button></div>`);
   $('q-ov').firstElementChild.classList.add('wide');
 }
@@ -2419,7 +2419,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
       <div><label class="k">見積の有効日数</label><input id="st-c-valid" class="q-in num" value="${c.valid}" onchange="S.set.company.valid=Math.round(numIn(this.value))||30;save()"></div>
       <div><label class="k">担当者（, 区切り）</label><input id="st-staff" class="q-in" value="${esc(s.staff.join(','))}" onchange="S.set.staff=this.value.split(',').map(x=>x.trim()).filter(Boolean);save()"></div></div>`;
   }
-  ov(`<div class="hd">${I('settings','⚙',16)} 見積の設定<button class="x" onclick="closeOv()">✕</button></div><div class="bd">${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（CarFlow の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>${b}</div><div class="ft"><button class="q-btn pri" onclick="closeOv()">閉じる</button></div>`);
+  ov(`<div class="hd">${I('settings','⚙',16)} 見積の設定<button class="x" onclick="closeOv()">✕</button></div><div class="bd">${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（会社の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>${b}</div><div class="ft"><button class="q-btn pri" onclick="closeOv()">閉じる</button></div>`);
 }
 
 /* =====================================================================
@@ -2518,7 +2518,7 @@ function sfItem(id){ if (window.QData && QData.sf().length !== SF_PRICE.length) 
   return b || null; }
 const sfLabel = it => [it.maker && !it.name.includes(it.maker) ? it.maker : '', it.name, it.code].filter(Boolean).join(' ');
 const cgLinks = k => { const L = S.set.cgLink && S.set.cgLink[k]; return (L || CG_LINK0[k] || []).filter(id=>sfItem(id)); };
-const sfOpen = id => { const it = sfItem(id); toast(`StockFlow の料金表の「${it ? it.no+' '+sfLabel(it) : id}」。値段は StockFlow で直します（CarFlow からは読むだけ）`); };
+const sfOpen = id => { const it = sfItem(id); toast(`StockFlow の料金表の「${it ? it.no+' '+sfLabel(it) : id}」。値段は StockFlow で直します（見積からは読むだけ）`); };
 function cgOf(car){ const g = car.cogs = car.cogs || {};
   if (!g.parts){ g.parts = CG_PARTS.map(p=>({ k:p.k, on:p.on?1:0, br:p.br ? CG_BR[p.br][0][0] : '', unit:p.unit || (p.br ? CG_BR[p.br][0][1] : 0), qty:p.qty || 1 }));
     g.out = CG_OUT.map((n,i)=>({ id:'o'+i, n, a:0, on:0, st:'est' }));
@@ -2605,7 +2605,7 @@ function cgLinkPage(){
     <div class="cg-lk-side">
       <div class="q-card"><h3>実際の動き <span class="r">本番のイメージ</span></h3><div class="bd"><ol class="cg-flow">
         <li><b>StockFlow で値段を直す</b><span>仕入値が変わった時・WAKO'S の改定など。料金表に履歴が残る。日付を決めた切り替えの予約もできる</span></li>
-        <li><b>CarFlow が読む</b><span>原価管理を開くと、つないだ品のいまの仕切を読む（読むだけ。CarFlow からは値段を直さない）</span></li>
+        <li><b>見積が読む</b><span>原価管理を開くと、つないだ品のいまの仕切を読む（読むだけ。見積からは値段を直さない）</span></li>
         <li><b>確定前の車は新しい値段に</b><span>行に「↑ 前の値段 → いまの値段（理由）」が出る。一覧にも「値段が変わった車」</span></li>
         <li><b>原価を確定＝その日の値段で止める</b><span>確定した日の値段を車に写す。あとで StockFlow の値段が変わっても、その車の粗利は動かない</span></li>
         <li><b>分析DB へ</b><span>確定した原価は毎晩の書き出しに入る（部品ごとの原価の推移も見られる）</span></li></ol></div></div>
@@ -2613,7 +2613,7 @@ function cgLinkPage(){
         <li>品番ではなく StockFlow の<b>品の ID</b>でつなぐ。品番を直しても、つながったまま</li>
         <li>1つの部品に品を<b>何個でも</b>（＝銘柄の選択肢）。どれを使ったかは車ごとに選ぶ</li>
         <li>単位は StockFlow の<b>売る単位</b>（L・本・g・回）。オイルの L 単価はドラムの値段 ÷ 量で StockFlow が出す</li>
-        <li>値段の正は<b>いつも StockFlow</b>。CarFlow に写すのは原価を確定した時だけ</li>
+        <li>値段の正は<b>いつも StockFlow</b>。見積に写すのは原価を確定した時だけ</li>
         <li>StockFlow で品を消したら、その行に「つなぎが切れた」と出して手入力に戻す</li>
         <li>その車だけ違う値段の時は「その他（手で入れる）」</li></ul></div></div>
     </div></div></div>`; }
@@ -2716,7 +2716,7 @@ function cgDetail(car){
       <div class="q-card cg-sum"><h3>${R.sold?'粗利':'見込みの粗利'} <span class="r">税抜</span></h3><div class="bd">${sumHtml}</div></div>
       <div class="q-card"><h3>原価処理 <span class="r">バックオフィス</span></h3><div class="bd">
         ${!R.sold ? '<div class="q-why">売約してから確定します。いまは見込みで入れておけます。</div>'
-          : g.done ? `<div class="q-why" style="margin-bottom:8px">${jd(g.done)} に確定。（CarFlow のバックオフィス「原価処理」とはまだつないでいません）になる想定。</div><button class="q-btn" onclick="cgDone(false)">${I('undo','↺',13)} 確定を取り消す</button>`
+          : g.done ? `<div class="q-why" style="margin-bottom:8px">${jd(g.done)} に確定。（バックオフィスの「原価処理」とはまだつないでいません）になる想定。</div><button class="q-btn" onclick="cgDone(false)">${I('undo','↺',13)} 確定を取り消す</button>`
           : `${R.outEst||R.partMiss?`<div class="q-note warn" style="margin-bottom:8px">${[R.partMiss?`単価がまだの部品 ${R.partMiss}件`:'', R.outEst?`外注費に見込みの行 ${yen(R.outEst)}`:''].filter(Boolean).join('・')}</div>`:''}<button class="q-btn ok" onclick="cgDone(true)">${I('check','✓',13)} 原価を確定する</button><div class="q-why" style="margin-top:6px">確定すると入力が止まり、バックオフィスの「原価処理」が完了になる（本物）</div>`}
       </div></div>
     </div></div></div>`; }
@@ -3394,7 +3394,7 @@ function qvPage2(q, v){ return v.p2(Object.assign({}, q, { foldNote: v.p2left ? 
    EQ_DICT＝[ 見出し, 説明, ※の注意, 別の呼び方（装備品チェックの項目名・メーカーごとの名前） ]。分類ごと。
    いまの装備品チェック（CarFlow equipment-def.js）の項目は全部入れた。それ以外（★）はこれから項目が増えた時の先回り。
    引き方：装備品チェックの項目名（プルダウンの値つき「ヘッドライト（LED）」を先に）→ 見出し・別の呼び方。辞書にない装備は名前だけ出す（画面に「辞書にない」と出る・印刷はされない）
-   本物では：辞書は _shared に1つ置き、CarFlow の装備品チェックの印刷・見積の帳票から引く想定（まだ決めていない） ---------- */
+   本物では：辞書は _shared に1つ置き、カードの装備品チェックの印刷・見積の帳票から引く想定（まだ決めていない） ---------- */
 const EQ_DICT = [
  { t:'オーディオ・ナビ', items:[
   ['カーナビ','画面に地図を出して、目的地までの道順を声と画面で案内する装置です。','地図は年数がたつと古くなります。更新は機種によって有料です。',['ナビ']],
@@ -3759,11 +3759,11 @@ function setWs(cid, on){ const b = carOf(cid).base; snap(); b.wsOn = on ? 1 : 0;
 function setBase(k, v, hard){ const car = curCar(); if (hard) snap(); car.base[k] = v; car.base.changed = TODAY; if (hard){ save(); render(); } else renderKeep(); }
 function setCostTax(cid, v){ const car = carOf(cid); snap(); if (v==='on') car.base.cost.tax = 0; else delete car.base.cost.tax; save(); render(); if (v==='on') setTimeout(()=>{ const e = $('b-c-tax'); if (e){ e.focus(); e.select(); } }, 30); }
 function setCost(k, v){ curCar().base.cost[k] = v; renderKeep(); }
-function setCar(k, v){ const car = curCar(); if (REAL_K.includes(k)){ if (String(v??'') !== String(car[k]??'')) toast('メーカー・車名・グレード・走行・色・仕入日は CarFlow の車両情報で直します（見積からは書きません）'); return; }
+function setCar(k, v){ const car = curCar(); if (REAL_K.includes(k)){ if (String(v??'') !== String(car[k]??'')) toast('メーカー・車名・グレード・走行・色・仕入日は カードの車両情報で直します（見積からは書きません）'); return; }
   snap(); car[k] = typeof v==='string' ? v.trim() : v; if (k==='kei') car.keiQ = !!v; if (k==='firstReg') car._firstRegGuess = false; if (car.base) car.base.changed = TODAY; save(); render(); toast('車両情報（見積の側）を直しました', true); }
 function setPower(v){ const car = curCar(); snap(); car.hybrid = v==='hv'; car.fuel = v==='diesel' ? 'diesel' : 'gas'; if (car.base) car.base.changed = TODAY; save(); render(); }
 function vehRevert(cid){ const car = carOf(cid); snap(); VEH_FIELDS.filter(k=>!REAL_K.includes(k)).forEach(k=>car[k]=car.cf[k]); save(); render(); toast('車両情報を最初の値に戻しました', true); }
-function setFromSoba(cid, ex){ const car = carOf(cid); snap(); const from = car.base.price; car.base.price = ex; car.base.hist.push({ date:TODAY, from, to:ex, why:'相場から', soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; save(); render(); toast(`車両本体（税抜）を ${yen(ex)} にしました。プラン見積と CarFlow・ポータルの値がそろいます`, true); }
+function setFromSoba(cid, ex){ const car = carOf(cid); snap(); const from = car.base.price; car.base.price = ex; car.base.hist.push({ date:TODAY, from, to:ex, why:'相場から', soba: sobaOf(car) ? sobaOf(car).now : null }); car.base.changed = TODAY; save(); render(); toast(`車両本体（税抜）を ${yen(ex)} にしました。プラン見積とカード・ポータルの値がそろいます`, true); }
 function makeBase(cid){ const car = carOf(cid); snap(); car.base = mkBase({ price:parseYen($('nb-price').value), recycle:parseYen($('nb-rec').value), jibaiM:25, hist:[{date:TODAY,from:0,to:parseYen($('nb-price').value),why:'基本価格を作成（車両カードの金額から）'}], changed:TODAY }); save(); render(); toast('基本価格を作りました。以後の金額はここがもとになります', true); }
 function portalDone(cid, site){ const car = carOf(cid); snap(); car.base.portalDone[site] = TODAY; save(); render(); toast((site==='goo'?'グーネット':'カーセンサー')+' に入れたと記録しました', true); }
 function copyText(t){ try { navigator.clipboard.writeText(String(t)).then(()=>toast('「'+yen(t)+'」を写しました')).catch(()=>toast('写せませんでした（手で選んでコピー）')); } catch(e){ toast('写せませんでした'); } }
