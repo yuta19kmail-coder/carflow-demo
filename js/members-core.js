@@ -190,8 +190,8 @@
          付箋の「👥 車販メンバー」ボタンは state.js の memberGroups の“名前”で照合するので、
          ここに同じ名前を入れておけば、ボタンは無改修でそのまま効く。 */
       group: dv.sales ? GROUP_SALES : GROUP_OTHER,
-      /* 🧾 v4.5.18 メンバー管理（CoreFlow）の「セールス」＝名簿の sales。見積の担当者の選択肢（car-quote.js staffNames） */
-      sales: !!(pm && pm.sales),
+      /* 🧾 v4.5.19 CarFlow のメンバー画面の「セールス」＝名簿の carflow.sales（並び順の carflow.sortOrder と同じ置き場）。見積の担当者の選択肢（car-quote.js staffNames） */
+      sales: !!cf.sales,
       sortOrder: (typeof cf.sortOrder === 'number') ? cf.sortOrder : undefined,
       name: disp, dept: dv.names[0] || '', title: (pm && pm.title) || '',
 

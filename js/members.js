@@ -2,6 +2,8 @@
 //  CarFlow メンバー画面（js/members.js）
 // ----------------------------------------
 //  🔴🔴 **この画面は閲覧専用。操作ボタンは1つも出ない。**
+//  🧾 v4.5.19 例外：「セールス」のチェック（管理者）＝見積の担当の選択肢に出る人（portalMembers の carflow.sales）。
+//     🗣 2026-10-24「CoreFlow じゃなくて CarFlow のメンバー画面。PitFlow にも似た機能がある」＝PitFlow のメンバーの「フロント・受付・メカ」と同じ考え
 /* 🔐 2026-10-22 外部監査 SEC-07：jsq（本体は helpers.js）を、このファイルだけ読まれた時（試験など）も使えるように */
 if (typeof jsq !== 'function') { var jsq = function (s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; }
       const isAdmin = false;             // 🔴 固定。人と権限は CoreFlow が唯一の正なので、ここからは触らせない
@@ -69,7 +71,7 @@ async function renderMembers() {
     const banner = '<div style="background:rgba(55,138,221,.10);border:1px solid rgba(55,138,221,.4);color:var(--text);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.7;margin-bottom:10px">'
       + ''+ic('link','🔗',15)+' <b>メンバーの追加・削除・編集・権限・グループは CoreFlow で一括管理</b>します。<br>'
       + '<a href="https://coreflow.kobayashi-motors.com/" target="_blank" style="color:#fff;background:#378ADD;padding:3px 10px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:5px;font-weight:600">CoreFlow メンバー管理を開く →</a>'
-      + '<span style="color:var(--text3);margin-left:8px">この画面は閲覧専用です</span>'
+      + '<span style="color:var(--text3);margin-left:8px">この画面は閲覧専用です（「セールス」のチェックと並び替えだけ、管理者がここで直せます）</span>'
       + '<div style="color:var(--text3);margin-top:6px;font-size:11px">名簿は CoreMembers（社員名簿）が元です。'
       + '<b>ここには社員全員が出ます</b>。CarFlow に入れる人には「CarFlow」の印が付きます。'
       + '呼び名・部署（車販かどうか）も CoreMembers の内容がそのまま出ます。</div>'
@@ -127,7 +129,11 @@ async function renderMembers() {
           : '<span class="pill pill-green">有効</span>') + ' ' + usePill;
 
         // 操作ボタンは出さない。出すのは「有効／無効」の札だけ（v2.58.0 で 編集／有効無効／削除 を外した）
-        const actionsHtml = `<div style="margin-left:auto">${statusPill}</div>`;
+        /* 🧾 v4.5.19 セールス＝チェックの人だけ、見積の担当の選択肢に出る。直せるのは管理者・CoreFlow の名簿に居る人だけ（書く先が portalMembers のため） */
+        const salesHtml = s._pmDocId
+          ? `<label class="m-sales" title="チェックの人だけ、見積の「担当」の選択肢に出ます"><input type="checkbox" ${s.sales ? 'checked' : ''} ${canSort ? '' : 'disabled'} onchange="setMemberSales('${jsq(s.uid)}', this.checked)"> セールス</label>`
+          : '';
+        const actionsHtml = `<div style="margin-left:auto;display:flex;align-items:center;gap:10px">${salesHtml}<span>${statusPill}</span></div>`;
 
         return `<div class="member-row" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
           ${arrowsHtml}
@@ -146,6 +152,25 @@ async function renderMembers() {
     list.innerHTML = '<div style="font-size:12px;color:var(--red)">読み込みエラー</div>';
   }
 
+}
+
+// ========================================
+// 🧾 v4.5.19 セールス（管理者）。見積の担当の選択肢に出る人
+// ========================================
+async function setMemberSales(uid, on) {
+  const s = (_membersCache || []).find(x => x.uid === uid);
+  if (!_isAdmin() || !s || !s._pmDocId) { renderMembers(); return; }
+  const name = (typeof resolveStaffDisplayName === 'function') ? resolveStaffDisplayName(s, null) : (s.customDisplayName || s.displayName || '');
+  try {
+    await window.fb.db.collection('companies').doc(window.fb.currentCompanyId).collection('portalMembers').doc(s._pmDocId)
+      .set({ carflow: { sales: !!on }, updatedAt: window.fb.serverTimestamp() }, { merge: true });
+    if (typeof addAuditLog === 'function') addAuditLog('メンバー：' + name + ' を' + (on ? 'セールスにした（見積の担当に出る）' : 'セールスから外した'), '');
+    showToast(name + ' を' + (on ? 'セールスにしました（見積の担当に出ます）' : 'セールスから外しました'));
+  } catch (err) {
+    console.error('[members] setMemberSales:', err);
+    showToast('セールスの設定を保存できませんでした', 'CF-8023');
+  }
+  renderMembers();
 }
 
 // ========================================

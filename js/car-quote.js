@@ -87,7 +87,7 @@
   function canEdit() { return can('canEditCarInfo'); }
   function staffNames() {
     try {
-      /* 🗣 2026-10-24「メンバー欄にセールスのチェックBOXをだして、チェックが入ってる人間だけ見積の担当者として選択肢が出るように」＝セールスの人だけ（CarFlow を使える人の中で） */
+      /* 🗣 2026-10-24「メンバー欄にセールスのチェックBOXをだして、チェックが入ってる人間だけ見積の担当者として選択肢が出るように」＝CarFlow のメンバー画面で「セールス」にチェックの人だけ（CarFlow を使える人の中で） */
       if (window.CFMembers && CFMembers.ready()) return CFMembers.usable().filter(function (r) { return r.sales; }).map(function (r) { return r.displayName || r.name || ''; }).filter(Boolean);
     } catch (e) {}
     var m = me(); return m.name ? [m.name] : [];

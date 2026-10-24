@@ -1673,3 +1673,7 @@ body.mobile .task-item-mv-stack .task-item-variant-sel { max-width: 120px; font-
 .bn-labels-editor-row:last-child{border-bottom:none}
 .bn-labels-editor-swatch{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex-shrink:0}
 .bn-labels-editor-row input{flex:1;min-width:0;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px}
+/* v4.5.19 メンバー画面の「セールス」（管理者だけ押せる） */
+.m-sales{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap}
+.m-sales input{margin:0;cursor:pointer}
+.m-sales input:disabled{cursor:default}
