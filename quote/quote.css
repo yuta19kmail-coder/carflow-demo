@@ -1665,3 +1665,5 @@ html[data-embed] .q-card{border-radius:10px}
 html[data-embed] .q-ov{top:var(--vt,0px);bottom:auto;height:var(--vh,100vh)}
 html[data-embed] .q-toast{bottom:auto;top:calc(var(--vt,0px) + var(--vh,100vh) - 64px)}
 .q-top[hidden]{display:none}
+html[data-embed] .q-win{max-height:calc(var(--vh,100vh) - 40px)}
+html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
