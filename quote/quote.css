@@ -1654,3 +1654,6 @@ img.car-ph{width:100%;height:100%;object-fit:cover;display:block}
 .q-heldnote .t{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--text);font-size:13px;margin-bottom:4px}
 .q-heldnote b{color:var(--text)}
 .q-heldnote small{color:var(--text3);font-size:11.5px}
+/* v4.5.9 設定 ▸ 見積：StockFlow とつながった品は名前と「StockFlow連動」だけ */
+.q-tpln{font-weight:700;color:var(--text);padding:6px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-sflink{display:inline-block;font-size:11px;font-weight:700;color:var(--blue,#3b82f6);border:1px solid currentColor;border-radius:999px;padding:1px 9px;white-space:nowrap}

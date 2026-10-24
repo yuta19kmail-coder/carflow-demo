@@ -303,6 +303,7 @@ window.CF_EN_DICT = {
 "SDKが読み込まれていません":"SDK not loaded",
 "SUVや高級ミニバンに多い":"Common on SUVs and luxury minivans",
 "StockFlow で確かめてください":"Check in StockFlow",
+"StockFlow連動":"Linked to StockFlow",
 "Sスーパーフォ":"S-Super Four",
 "Sセーフ":"S-Safe",
 "Sセーフティ":"S-Safety",
