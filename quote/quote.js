@@ -2957,7 +2957,7 @@ function qvData(d, k){
   const nz = L => L.filter(r=>+r[1]);   // 0円の行は出さない（ナンバー代が要らない登録・継続移転で0の自動車税 など）
   const feesK = nz(k.feeK.map(f=>[f[0], f[1]]).concat(k.bc.unexpTax?[['自動車税 未経過相当額', k.bc.unexpTax]]:[], k.bc.unexpJb?[['自賠責 未経過相当額', k.bc.unexpJb]]:[], k.condRows.filter(r=>r[2]==='k').map(r=>[r[0], r[1]])));
   const feesT = nz(k.legal.map(f=>[f[0], f[1]]).concat(k.condRows.filter(r=>r[2]==='t').map(r=>[r[0], r[1]])));
-  const taxes = nz([[k.bc.kei ? '軽自動車税（種別割）' : `自動車税（種別割）${k.bc.months?' '+ym(k.bc.rd).m+'月登録にて':''}`   /* v4.5.22 🗣 2026-10-24「〇ヵ月分ではなく、予定している登録月で。自動車税（種別割）11月登録にて とかに」 */, k.bc.carTax], ['自動車重量税', k.bc.weight], ['自賠責保険料', k.bc.jibai]]);
+  const taxes = nz([[k.bc.kei ? '軽自動車税（種別割）' : `自動車税（種別割）${k.bc.months?' '+ym(k.bc.rd).m+'月登録にて':''}`   /* v4.5.22 🗣 2026-10-24「〇ヵ月分ではなく、予定している登録月で。自動車税（種別割）11月登録にて とかに」 */, k.bc.carTax], ['自動車重量税', k.bc.weight], ['自賠責保険料'+(k.bc.R.insp && +k.bc.jibaiM===25 ? ' 25か月' : ''), k.bc.jibai]]);   /* v4.5.26 🗣「自賠責が25か月の物に限り『自賠責保険料 25か月』と表示」 */
   const opts = k.inPlan.flatMap(x=>optLines(x).map(([n,a,tbd])=>({ n, a: tbd ? null : (+a||0), tbd, sub: /^\s*└/.test(n) })));
   const vehIn = Math.floor(k.vehicle*1.1), fr = car.firstReg || '';
   const hasPh = !!carPh(car);
