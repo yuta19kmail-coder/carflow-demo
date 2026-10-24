@@ -102,7 +102,9 @@
       coll('carQuotes').get().catch(e => { console.error('[quote] carQuotes', e); D.readErr = e; return null; }),
       coll('settings').doc('quote').get().catch(e => { console.error('[quote] settings/quote', e); D.readErr = D.readErr || e; return null; })]);
     if (qs) qs.forEach(d => { const x = d.data() || {}; D.quotes[d.id] = x; D.revs[d.id] = x.rev || 0; });
-    D.set = st && st.exists ? (st.data() || {}).set || null : null;
+    /* v4.5.17 設定は JSON の文字で持つ（json）。前の形（set）も読む */
+    const sd = st && st.exists ? (st.data() || {}) : null;
+    D.set = sd ? (sd.json ? (() => { try { return JSON.parse(sd.json); } catch (e) { console.error('[quote] settings json', e); return null; } })() : sd.set || null) : null;
     if (D.readErr) CQ.toast('見積の保存場所を読めませんでした（' + (D.readErr.code || D.readErr.message || '') + '）', 'CF-1032');
   }
 
@@ -157,7 +159,10 @@
   async function writeSet() {
     if (!CQ.can('canEditSettings')) return;
     const json = D.setJSON, me = ME();
-    const doc = pobj({ set: JSON.parse(json), updatedBy: me.uid, updatedByName: me.name });
+    /* 🗣 2026-10-24「設定で見積もりの部分で CF-9020」＝設定の中に「表の中の表」（サイズごとの値段 vo・機種 bo・よく足す品 quick）があり、
+       Firestore は配列の中の配列を保存できない（Nested arrays are not supported）＝今まで一度も保存できていなかった。
+       → v4.5.17 設定は JSON の文字で1つの欄（json）に入れる。直す前の中身も prevJson に残す（記録から戻せる） */
+    const doc = pobj({ json, prevJson: D.setWritten || null, updatedBy: me.uid, updatedByName: me.name });
     doc.updatedAt = TS();
     await coll('settings').doc('quote').set(doc);
     D.setWritten = json;
