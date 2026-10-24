@@ -58,9 +58,11 @@ const PACK_ITEMS = () => [
      金額＝社内料金表（カーケア料金表 2021.04.13／コーティング料金表 2022.10.24・社外秘）の税抜。大きさはこっちで決める（自動選択なし・car.std.csize）
      ルームクリーニングは S・M・L の3段＝ボディサイズ S・SM→S、M・L→M、MH・LH→L で読む（仮の読み替え）。ジーゾックスは「通常価格」・輸入車は voImp。LH は料金表に無い＝要相談 */
   { id:'cl_dl',   n:'納車クリーニング（GYEON 洗車＋室内清掃）', a:15000, in:{A:1,B:0,C:0} },
-  { id:'ct_3m',   n:'ボディコーティング KeePer 3m（ポリマー）', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',7500],['SM',8000],['M',8500],['L',9000],['MH',12000],['LH',14000]], in:{A:0,B:0,C:0} },
-  { id:'ct_1y',   n:'ボディコーティング KeePer 1y（ガラス）', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',19400],['SM',21600],['M',23900],['L',26100],['MH',30300],['LH',34600]], in:{A:0,B:1,C:0} },
-  { id:'ct_gz',   n:'ボディコーティング G\'ZOX リアルガラスコート', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',82600],['SM',92600],['M',97600],['L',123600],['MH',137600],['LH',null]], voImp:[['S',null],['SM',97600],['M',117600],['L',137600],['MH',167600],['LH',null]], in:{A:0,B:0,C:1} },
+  /* v4.5.8 🗣 2026-10-24「コーティングの値段は StockFlow から参照する形に。設定からいじれなくてOK」＝sfCoat＝StockFlow の料金表（作業・コーティング）の組の名前（imp＝輸入車の組）。
+     段ごとの値段は StockFlow の「…・Mサイズ」の定価（税抜）。読めない時（デモ・通信）は下の vo（2026-10-24 時点の StockFlow と同じ値）を使う */
+  { id:'ct_3m',   n:'ボディコーティング KeePer 3m（ポリマー）', a:0, sfCoat:{ v:'KeePer 3m Coating 基本料金' }, vt:'size', vl:'ボディサイズ', vo:[['S',7500],['SM',8000],['M',8500],['L',9000],['MH',12000],['LH',14000]], in:{A:0,B:0,C:0} },
+  { id:'ct_1y',   n:'ボディコーティング KeePer 1y（ガラス）', a:0, sfCoat:{ v:'KeePer 1y Coating（ガラス）' }, vt:'size', vl:'ボディサイズ', vo:[['S',19400],['SM',21600],['M',23900],['L',26100],['MH',30300],['LH',34600]], in:{A:0,B:1,C:0} },
+  { id:'ct_gz',   n:'ボディコーティング G\'ZOX リアルガラスコート', a:0, sfCoat:{ v:'国産 通常価格', imp:'輸入車 通常価格' }, vt:'size', vl:'ボディサイズ', vo:[['S',82600],['SM',92600],['M',97600],['L',123600],['MH',137600],['LH',null]], voImp:[['S',null],['SM',97600],['M',117600],['L',137600],['MH',167600],['LH',null]], in:{A:0,B:0,C:1} },
   { id:'rc_ume',  n:'ルームクリーニング 梅', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',3300],['SM',3300],['M',4600],['L',4600],['MH',5700],['LH',5700]], in:{A:0,B:1,C:0} },
   { id:'rc_take', n:'ルームクリーニング 竹', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',5600],['SM',5600],['M',6600],['L',6600],['MH',7800],['LH',7800]], in:{A:0,B:0,C:1} },
   { id:'rc_matsu',n:'ルームクリーニング 松', a:0, vt:'size', vl:'ボディサイズ', vo:[['S',28000],['SM',28000],['M',30000],['L',30000],['MH',32000],['LH',32000]], in:{A:0,B:0,C:0} },
@@ -136,6 +138,7 @@ let S = (function(){
   /* 🗣 2026-10-23 スマートカーディーラーからの移行：基本（L）を 納車整備 5.5万・保証 3年または30,000km に（前の設定の 納車前点検 1.5万 を1回だけ置き換え。読み込んだ直後の形なので、見ただけでは書かない） */
   /* 🗣 2026-10-23 ドラレコを社内料金表の工賃・StockFlow の本体に（品の id dr_tw73 は同じ＝車ごとの選びはそのまま） */
   if (s.set.packs && !s.set.packs.v10){ const d = (s.set.packs.items||[]).find(x=>x.id==='dr_tw73'); if (d) Object.assign(d, { n:'ドライブレコーダー', a:27000, sfCat:'ドライブレコーダー', bo:DR_BO(), vo:DR_VO(), voImp:DR_VO_IMP() }); s.set.packs.v10 = 1; }
+  if (s.set.packs && !s.set.packs.v11){ const SFC0 = { ct_3m:{ v:'KeePer 3m Coating 基本料金' }, ct_1y:{ v:'KeePer 1y Coating（ガラス）' }, ct_gz:{ v:'国産 通常価格', imp:'輸入車 通常価格' } }; (s.set.packs.items||[]).forEach(x=>{ if (SFC0[x.id] && !x.sfCoat) x.sfCoat = SFC0[x.id]; }); s.set.packs.v11 = 1; }   // v4.5.8 コーティングは StockFlow から
   if (s.set.seibi && !s.set.seibi.v3){ const L = (s.set.seibi.tiers||[]).find(x=>x.k==='L'), N = SEIBI_TIERS()[0]; if (L && L.price===15000 && L.name==='納車前点検') Object.assign(L, { name:N.name, price:N.price, war:N.war, note:N.note }); s.set.seibi.v3 = 1; }
   if (s.pending && !s.cars.some(c=>c.id===s.pending.carId)) s.pending = null;
   /* 🗣 2026-10-23「サイドバーから見積もりをクリックしたときに一覧に戻るように」＝開いた時はいつも一覧から（前に開いていた車・原価管理の車は覚えない） */
@@ -348,11 +351,14 @@ function loanCalc(net, down, rate, n){
 function sfBo(p){ if (!p.sfCat || !window.QData || !QData.sf) return null; const L = QData.sf().filter(x=>x.cat===p.sfCat && (x.shop || x.list)); if (!L.length) return null;
   const nm = x => [x.maker && !String(x.name||'').includes(x.maker) ? x.maker : '', x.name, x.code].filter(Boolean).join(' '), at = x => { const i = (p.bo||[]).findIndex(o=>sfN(o[0]).endsWith(sfN(x.code||x.name))); return i < 0 ? 99 : i; };
   return L.slice().sort((a,b)=>at(a)-at(b) || String(a.no).localeCompare(String(b.no))).map(x=>[nm(x), x.shop || x.list]); }
+/* コーティングの段ごとの値段を StockFlow の料金表から（p.sfCoat）。[[S,値],[SM,値]…]。料金表に無い段・「〜」の値段は null（＝料金表になし）。読めない時は null */
+function sfSize(p, imp){ if (!p.sfCoat || !window.QData || !QData.sfCoat) return null; const cat = imp && p.sfCoat.imp ? p.sfCoat.imp : p.sfCoat.v, L = QData.sfCoat().filter(x=>x.cat===cat); if (!L.length) return null;
+  return SIZE_CLS.map(z=>{ const h = L.find(x=>String(x.name||'').endsWith('・'+z+'サイズ')); return [z, h && h.list!=null ? h.list : null]; }); }
 function stdItemsOf(s, car){
   /* 🗣 2026-10-03「ドラレコはプランによって変える可能性があるから何回も入れられるように」→ 同じテンプレの品を car.std.dups[品] に足した分だけ並べる（キーは 品~番号） */
   const set = s.set, st = car.std, ov = st.ov || {}, amt = st.amt || {}, vs = st.vsel || {}, dups = st.dups || {};
   const imp = isImport(car);
-  const tpl = set.packs.items.flatMap(p0=>{ const p = p0.voImp && imp ? Object.assign({}, p0, { vo:p0.voImp }) : p0, pkey = p.id || p.n;
+  const tpl = set.packs.items.flatMap(p0=>{ const sv = sfSize(p0, imp), p = sv ? Object.assign({}, p0, { vo:sv }) : p0.voImp && imp ? Object.assign({}, p0, { vo:p0.voImp }) : p0, pkey = p.id || p.n;
     return [pkey].concat((dups[pkey]||[]).map(d=>pkey+'~'+d)).map((key, n)=>{ const dup = n > 0;
       let vi = null, vlab = '', noSize = false;
       let ask = false;
@@ -2559,7 +2565,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
         <button class="q-del" onclick="S.set.packs.items.splice(${i},1);save();render();openSettings()">✕</button></div>
         <div class="q-tplv"><label class="k">種類</label>${seg(x.labor?'labor':(x.vt||'none'),[['none','金額1つ'],['size','ボディサイズで変わる'],['pick','選んで変わる'],['labor','本体＋取付工賃']],`tplVt(${i},'$v')`)}
           ${x.labor && sfBo(x) ? `<div class="q-tplo"><span class="k">機種（本体）</span><span class="q-why" style="margin:0">StockFlow の料金表の「${esc(x.sfCat)}」から読む（値段は店頭、無ければ定価・税抜。直す時は StockFlow で）：${sfBo(x).map(o=>esc(o[0])+' '+yen(o[1])).join('／')}</span></div>${x.voImp?`<div class="q-tplo"><span class="k">輸入車の工賃</span><span class="q-why" style="margin:0">${x.voImp.map(o=>esc(o[0])+' '+yen(o[1])).join('／')}</span></div>`:''}` : x.labor?`<div class="q-tplo"><span class="k">機種（本体）</span>${(x.bo||[[x.bn||x.n, x.a||0]]).map((o,j)=>`<span class="op1"><input class="q-in" style="width:230px" value="${esc(o[0])}" placeholder="見積書に出す本体の名前" onchange="tplBo(${i},${j},0,this.value)">${money(`st-bo-${i}-${j}`, o[1], `tplBo(${i},${j},1,parseYen(this.value))`)}${(x.bo||[]).length>1?`<button class="q-del" onclick="S.set.packs.items[${i}].bo.splice(${j},1);save();render();openSettings()">✕</button>`:''}</span>`).join('')}<button class="q-btn sm" onclick="tplBo(${i},${(x.bo||[]).length||1},0,'新しい機種')">＋ 機種</button><span class="q-why" style="margin:0;width:100%">プラン見積で機種を選ぶ。見積書では「機種の名前 本体」と「└ 取付工賃」の2行</span></div>`:''}
-          ${x.vt?`<div class="q-tplo">${x.vt==='pick'?`<input class="q-in" style="width:110px" value="${esc(x.vl||'')}" placeholder="選ぶ物の名前" onchange="S.set.packs.items[${i}].vl=this.value;save();openSettings()">`:`<span class="k">${SIZE_CLS.join('・')}</span>`}
+          ${x.sfCoat && sfSize(x, false) ? `<div class="q-tplo"><span class="k">${SIZE_CLS.join('・')}</span><span class="q-why" style="margin:0">StockFlow の料金表の「${esc(x.sfCoat.v)}」から読む（定価・税抜。直す時は StockFlow で）：${sfSize(x, false).map(o=>esc(o[0])+' '+(o[1]!=null?yen(o[1]):'料金表になし')).join('／')}</span></div>${x.sfCoat.imp && sfSize(x, true) ? `<div class="q-tplo"><span class="k">輸入車</span><span class="q-why" style="margin:0">「${esc(x.sfCoat.imp)}」：${sfSize(x, true).map(o=>esc(o[0])+' '+(o[1]!=null?yen(o[1]):'料金表になし')).join('／')}</span></div>` : ''}` : x.vt?`<div class="q-tplo">${x.vt==='pick'?`<input class="q-in" style="width:110px" value="${esc(x.vl||'')}" placeholder="選ぶ物の名前" onchange="S.set.packs.items[${i}].vl=this.value;save();openSettings()">`:`<span class="k">${SIZE_CLS.join('・')}</span>`}
             ${x.vo.map((o,j)=>`<span class="op1">${x.vt==='pick'?`<input class="q-in" style="width:130px" value="${esc(o[0])}" onchange="S.set.packs.items[${i}].vo[${j}][0]=this.value;save();openSettings()">`:`<b>${esc(o[0])}</b>`}${money(`st-pv-${i}-${j}`, o[1], `S.set.packs.items[${i}].vo[${j}][1]=parseYen(this.value);save();render()`)}${x.labor?`<label class="k" style="white-space:nowrap"><input type="checkbox" ${o[2]?'checked':''} onchange="S.set.packs.items[${i}].vo[${j}][2]=this.checked?1:0;save();render()"> 本体なし</label>`:''}${x.vt==='pick'&&x.vo.length>1?`<button class="q-del" onclick="S.set.packs.items[${i}].vo.splice(${j},1);save();render();openSettings()">✕</button>`:''}</span>`).join('')}
             ${x.vt==='pick'?`<button class="q-btn sm" onclick="S.set.packs.items[${i}].vo.push(['新しい種類',0]);save();openSettings()">＋ 種類</button>`:''}
             <span class="q-why" style="margin:0">金額＝上の金額（本体など）＋ここで選んだ金額</span></div>`:''}</div></div>`).join('')}

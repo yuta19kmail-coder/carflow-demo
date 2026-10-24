@@ -372,20 +372,22 @@
   }
 
   /* ---------- StockFlow の料金表（部品・油脂）。原価管理の部品の単価に使う（読むだけ） ---------- */
-  let SF = [];
+  let SF = [], SFC = [];
   const ymd = t => { try { const d = t && t.toDate ? t.toDate() : t ? new Date(t) : null; return d && !isNaN(d) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') : ''; } catch (e) { return ''; } };
   function loadSF() {
     if (DEMO) return;
     coll('stockPriceItems').get().then(qs => {
-      const out = [];
+      const out = [], coat = [];
       qs.forEach(d => {
-        const x = d.data() || {}; if (x.typ === 'labor' || x.deleted || x.trash) return;
+        const x = d.data() || {}; if (x.deleted || x.trash) return;
+        /* v4.5.8 🗣 2026-10-24「コーティングの値段は StockFlow から参照する形に」＝作業（labor）の「コーティング」の品も読む（cat＝料金の組・name＝「…・Mサイズ」・list＝税抜。「¥33,000〜」のような文字は null） */
+        if (x.typ === 'labor') { if (x.kind === 'コーティング') coat.push({ cat: x.cat || '', name: x.name || '', list: (typeof x.list === 'number' || /^\d+$/.test(String(x.list || ''))) ? +x.list : null }); return; }
         const no = typeof x.no === 'number' ? 'P' + String(x.no).padStart(4, '0') : String(x.no || '');
         /* cat・list（定価）・shop（店頭）＝見積の品の本体（ドラレコなど sfCat の品）の機種と値段に使う（2026-10-23） */
         out.push({ id: d.id, no, kind: x.kind || '', cat: x.cat || '', maker: x.maker || '', name: x.name || '', code: x.code || '', sup: x.sup || '', unit: x.unit || '', cost: +x.cost || 0, list: +x.list || 0, shop: +x.shop || 0, at: ymd(x.updatedAt) });
       });
       out.sort((a, b) => String(a.no).localeCompare(String(b.no)));
-      SF = out; if (window.QApi) QApi.refreshSoon();
+      SF = out; SFC = coat; if (window.QApi) QApi.refreshSoon();
     }).catch(e => console.warn('[quote] stockPriceItems', e));
   }
 
@@ -405,7 +407,7 @@
     printEquip: id => !!(CQ.printEquip && CQ.printEquip(id)), equipDone: id => { const f = CQ.car(id); return !!(f && f.equip && f.equip.length); },
     schedule, flush, soba, rx: id => RX[id] || null,
     /* 見張り用：いま保存すると書きに行く車（書かずに見るだけ） */
-    _pending: () => { const S = window.QApi && QApi.state(); if (!S) return []; return S.cars.filter(car => { const c0 = (S.edit && S.edit.carId === car.id) ? JSON.parse(S.edit.orig) : car; const j = jsonOf(c0, car); return j !== D.written[car.id] && !(D.written[car.id] === undefined && j === D.empty[car.id]); }).map(c => c.num); }, ensureKata, kata: () => KATA, sf: () => SF, sobaMeta: () => META, pickKey,
+    _pending: () => { const S = window.QApi && QApi.state(); if (!S) return []; return S.cars.filter(car => { const c0 = (S.edit && S.edit.carId === car.id) ? JSON.parse(S.edit.orig) : car; const j = jsonOf(c0, car); return j !== D.written[car.id] && !(D.written[car.id] === undefined && j === D.empty[car.id]); }).map(c => c.num); }, ensureKata, kata: () => KATA, sf: () => SF, sfCoat: () => SFC, sobaMeta: () => META, pickKey,
     get savedSet() { return D.set; }
   };
   (async () => {
