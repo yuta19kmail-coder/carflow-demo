@@ -10659,6 +10659,7 @@ window.CF_EN_DICT = {
 "見積内容更新":"Estimate updated",
 "見積提示済":"Estimate presented",
 "見積書":"Quote",
+"見積書も一緒に刷る":"Print the quote with it",
 "見積書（売約したプラン）":"Quote (sold plan)",
 "見積相談":"Estimate consult",
 "見積金額":"Estimate amount",

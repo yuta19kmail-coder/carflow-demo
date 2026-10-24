@@ -1278,7 +1278,7 @@ function printCust(cid, uid){ saveOnPrint(); _reprint = () => printCust(cid, uid
   const dc = { car, ctx:custCtx(car,u,ps[0]), who:u, kind:'cust' };
   if (cmpAll(dc).length >= 2 || (cmpAll(dc).length >= 1 && ps.includes('base'))) papers += `<div class="paper qvp">${cmpShow(dc)}</div>`;
   const nP = (papers.match(/class="paper/g)||[]).length;
-  $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${esc(car.num)} ${esc(car.model)} ／ ${esc(u.name||'（お名前未入力）')} 様・${nP} 枚</span><span class="sp"></span>${zoomBar()}<button onclick="window.print()">${I('printer','🖨',14)} 印刷（${nP}枚）</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
+  $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${esc(car.num)} ${esc(car.model)} ／ ${esc(u.name||'（お名前未入力）')} 様・${nP} 枚</span><span class="sp"></span>${zoomBar()}<button onclick="docPrint()">${I('printer','🖨',14)} 印刷（${nP}枚）</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers">${papers}</div></div></div>`;
   $('q-docov').hidden = false; $('q-page').textContent = '@page{size:A4 portrait;margin:0}@page a3{size:A3 landscape;margin:0}';   // A4 と A3 を1回の印刷で（紙の大きさは1枚ごと）
   const _b = typeof set==='object' && set && set.board, W = _b ? 1587 : 794, st = $('q-stage'), box = $('q-papers'), s = zoomOf(st, W, _b ? 1123 : 1123);
@@ -1363,6 +1363,7 @@ function renderDocs(){ _reprint = null;
     ${list.map(([k,l])=>`<button class="${doc===k?'on':''}" onclick="${k==='board'?`if(!carOf('${d.car.id}').board){openBrdPick('${d.car.id}')}else{S.ui.doc='board';renderDocs()}`:`S.ui.doc='${k}';renderDocs()`}">${l}</button>`).join('')}${plans}
     ${doc==='board'?`<span style="color:#fffa;font-size:12px;margin-left:10px">季節</span><select style="font:inherit;padding:3px 6px;border-radius:6px" onchange="brdSetSeason('${d.car.id}',this.value);renderDocs()">${brdSeasons().map(x=>`<option ${x===brdSeason(d.car)?'selected':''}>${x}</option>`).join('')}</select><button onclick="openBrdPick('${d.car.id}')">装備を選ぶ</button>`:''}
     
+    ${doc==='order1'?`<label style="margin-left:10px"><input type="checkbox" ${S.ui.ordSet!==false?'checked':''} onchange="S.ui.ordSet=this.checked;save();renderDocs()"> 見積書も一緒に刷る</label>`:''}
     ${EQ_WITH_OK.includes(doc)?`<label style="margin-left:10px"><input type="checkbox" ${eqWith(doc)?'checked':''} onchange="S.ui.eqWith['${doc}']=this.checked;save();renderDocs()"> 装備品一覧も一緒に刷る</label>`:''}
     <span class="sp"></span>${zoomBar()}<button onclick="docPrint()">${I('printer','🖨',14)} 印刷${eqWith(doc)?'（2枚）':''}</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers"><div class="paper" id="q-paper"></div><div class="paper" id="q-paper2" hidden></div></div></div></div>`;
@@ -1376,6 +1377,8 @@ function renderDocs(){ _reprint = null;
   $('q-paper').classList.toggle('qvp', ['quote','compare','equip','order1'].includes(doc)); $('q-paper2').classList.remove('qvp');
   if (doc==='quote'){ const v = QV[0], q = qvFold(qvData(Object.assign({ tradeModel: (d.who && d.who.tradeModel) || '' }, d), k), v);
     $('q-paper').innerHTML = v.render(q); if (q.fold){ $('q-paper2').hidden = false; $('q-paper2').classList.add('qvp'); $('q-paper2').innerHTML = qvPage2(q, v); } }
+  /* v4.5.38 注文書は同じ No の見積書と2枚1組（窓の「見積書も一緒に刷る」で外せる） */
+  if (doc==='order1' && S.ui.ordSet!==false){ $('q-paper2').insertAdjacentHTML('afterend', quotePapers(d, k)); const n = $('q-papers').querySelectorAll('.paper:not([hidden])').length, pb = $('q-docov').querySelector('.q-docbar button[onclick="docPrint()"]'); if (pb) pb.innerHTML = `${I('printer','🖨',14)} 印刷（${n}枚）`; }
   fitPaper(); if (doc==='board') brdFit();
 }
 /* 帳票の拡大縮小（🗣 2026-10-05「ヘッダーに100％表示・拡大縮小が欲しい。いま全体を見れない」）。S.ui.docZoom＝'fit'（全体＝紙1枚がまるごと見える）／数字（1＝100%） */
@@ -1446,37 +1449,39 @@ function docTerms(){
 
 const ordOf = d => d.kind==='order' && d.car.order ? d.car.order : { plan: d.ctx.plan || 'base', date: TODAY, delivery: '', promise: '', pre: true };
 
-/* v4.5.35 🗣 2026-10-24「このテイスト（横の注文書）は取っておいて、もうちょいシンプルに1枚でまとまる形ないかな。車種と見積番号で整合性を出して、
-   下とか右半分で注意書き、どこかにサイン欄。今の金のテイストを継承してるやつ」
-   ＝見積書（ショールーム・金の線）と同じ字・色の縦1枚。見積番号は見積書と同じ No。左に内訳・右にお引渡しと注意書き・下にご署名 */
+/* v4.5.35 🗣 2026-10-24「このテイスト（横の注文書）は取っておいて、もうちょいシンプルに1枚でまとまる形。車種と見積番号で整合性、注意書き、サイン欄。金のテイスト」
+   v4.5.38 🗣「あくまで見積とセットって考え方で KM0000-0-0B に準ずる、みたいな省略じゃだめなの？ 総額はまだしも詳細はいらない。だったら支払方法とかを大きく」
+   ＝内訳は載せず「お見積書 No.〇〇 に準ずる」＋総額。お支払い方法・お引渡し・下取車・お約束事項を大きく。同じ No の見積書と2枚1組で刷る */
 function docOrder1(d, k){
   const q = qvData(Object.assign({ tradeModel: (d.who && d.who.tradeModel) || '' }, d), k), o = ordOf(d), u = d.who, L = k.loan, P = u ? qPayOf(u, o.plan, k) : null, c = q.c;
-  const qq = q.opts.filter(x=>!x.sub).length > (q.tr ? 8 : 10) ?   /* オプションが多い時は1行にまとめ、明細は見積書へ（下取りがある時は内訳が3行増えるので早めに） */ Object.assign({}, q, { opts1: [{ n: `付属品・オプション ${q.nOpt}点`, a: k.optSum, fold: true }], foldNote: `明細はお見積書 No.${q.no} のとおり` }) : q;
+  const no = o.no || q.no, W = w => qLine(w);
   const kv = arr => arr.map(x=>`<div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
-  const pay = L ? kv([['お支払い方法', 'オートローン（信販会社：'+qLine(90)+'）'], ['頭金', yen(L.down)+' 円'], ['月々', `${yen(L.later)} 円 × ${L.n-1}回（初回 ${yen(L.first)} 円）`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円']])
-    : kv([['お支払い方法', '現金'+(P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : '')]].concat(P && P.down ? [['頭金', yen(P.down)+' 円'], ['残金'+(P.when?'（'+esc(P.when)+'）':''), yen(P.rest)+' 円']] : [['お支払い期日', qLine(110)]], [['お振込先', esc(c.bank)]]));
-  const notes = [`この注文書にご署名いただいた時に、売買契約が成立します${L?'（ローンの場合は、信販会社の承認をもって確定します）':''}。`,
+  const pay = L
+    ? `<div class="pm1">オートローン</div>` + kv([['信販会社', W(170)], ['頭金', yen(L.down)+' 円'], ['お借入れ（割賦元金）', yen(L.P)+' 円'], ['お支払い回数', L.n+' 回'], ['初回', yen(L.first)+' 円'], ['2回目以降（月々）', `<em>${yen(L.later)}</em> 円 × ${L.n-1}回`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円'], ['申込金（代金の一部に充てます）', W(110)+' 円']])
+    : `<div class="pm1">現金${P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : ''}</div>` + kv((P && P.down ? [['頭金', `<em>${yen(P.down)}</em> 円`], ['残金', `<em>${yen(P.rest)}</em> 円`]] : [['お支払い金額', `<em>${yen(k.net)}</em> 円`]]).concat([['申込金（代金の一部に充てます）', W(110)+' 円'], ['お支払い期日', P && P.when ? esc(P.when) : '　　年　　月　　日'], ['お振込先', esc(c.bank)]]));
+  const deliv = kv([['納車予定日', o.delivery ? jd(o.delivery)+' ごろ' : '　　年　　月　　日 ごろ'], ['納車場所', qDeliv(q)], ['登録', esc(regOf(q.b.regType).l)], ['納車整備', esc(qSeibiNm(q))], ['保証', esc(k.ws ? 'なし（現状渡し）' : warText(q.b))]]);
+  const trade = q.tr ? kv([['車名', q.tradeModel ? esc(q.tradeModel) : W(150)], ['下取価格', yen(k.trade)+' 円'], ['残債（当店で精算）', k.tradeLoan ? yen(k.tradeLoan)+' 円' : W(90)+' 円'], ['車台番号', W(150)], ['車検満了日', '　　年　　月　　日'], ['所有者', W(150)]]) : '';
+  const notes = [`ご注文の内容（内訳・付属品・オプション・諸費用）は、お見積書 No.${no} のとおりです。同じ No のお見積書と一緒にお渡しします。`,
+    `この注文書にご署名いただいた時に、売買契約が成立します${L?'（ローンの場合は、信販会社の承認をもって確定します）':''}。`,
     '自動車の売買には、クーリング・オフ（無条件で取り消せる制度）はありません。',
     '契約の成立後に取り消す場合は、販売店の同意が要り、それまでに実際にかかった費用（登録の手続き・陸送・ご注文の部品や用品・着手した整備など）をご負担いただきます。',
     q.cond, `登録に必要な書類：${qDocs(q).join('・')}`, '詳しい決まりは、別紙「自動車売買約款」のとおりです。'];
   return `<div class="qv og">
   <div class="hd"><div class="co">${esc(c.name)}</div><div class="tt"><small>ORDER</small><h1>ご注文書</h1></div>
-    <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(q.no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
-  <div class="car">${qI(q,'hero')}<div class="nm"><small>${esc(q.car.maker)}</small><h2>${esc(q.car.model)}</h2><p>${esc(q.car.grade)}</p>
-      <div class="ref">お見積書 No.${esc(q.no)}（${esc(q.plan)}）の内容で注文します</div></div>
+    <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
+  <div class="car">${qI(q,'hero')}<div class="nm"><small>${esc(q.car.maker)}</small><h2>${esc(q.car.model)}</h2><p>${esc(q.car.grade)}</p></div>
     <div class="fx">${[['年式', q.yearW], ['走行距離', q.km], ['車体色', q.car.color], ['修復歴', q.b.repair], ['車検', shakenText(q.b,k).replace(/（.*$/,'')], ['管理番号', q.car.num]].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1]||'—')}</b></div>`).join('')}</div></div>
-  <div class="row"><div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div></div>
-    <div class="pay">${pay}</div></div>
-  <div class="body"><div class="l"><h3>ご注文の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(qq,{note:1})}</div>
-    <div class="r"><h3>お引渡し</h3>${kv([['納車予定日', o.delivery ? jd(o.delivery)+' ごろ' : '　　年　　月　　日 ごろ'], ['納車場所', qDeliv(q)], ['納車整備', esc(qSeibiNm(q))], ['保証', esc(k.ws ? 'なし（現状渡し）' : warText(q.b))]])}
-      <h3>お約束事項</h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div>
-      <h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div></div>
+  <div class="ref"><div class="rl"><small>ご注文の内容</small><b>お見積書 No.${esc(no)}</b><span>${esc(q.plan)} に準ずる</span></div>
+    <div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div></div></div>
+  <div class="body"><div class="bx pay"><h3>お支払い方法</h3>${pay}</div>
+    <div class="bx"><h3>お引渡し</h3>${deliv}${q.tr ? `<h3>下取車</h3>${trade}` : ''}</div></div>
+  <div class="bx pmx"><h3>お約束事項 <small>納車までに行うこと・口頭でお約束したことは、すべてここに書きます</small></h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div></div>
+  <div class="bx"><h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div>
   <div class="sg"><div class="by"><div class="h">ご購入者</div>
-      <div class="ck"><div>☐ 上記の内容と別紙の約款を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
+      <div class="ck"><div>☐ 上記の内容・お見積書・別紙の約款を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
       <div class="ln"><small>ご署名${u && u.name ? `（${esc(u.name)} 様）` : ''}</small><span></span></div>
       <div class="ln2"><div><small>ご住所</small><span>${u && u.addr ? esc(u.addr) : ''}</span></div><div><small>電話</small><span>${u && u.tel ? esc(u.tel) : ''}</span></div></div></div>
-    <div class="sl"><div class="h">販売店</div><b>${esc(c.name)}</b><div class="ad">${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div><div class="st"><small>担当</small><span>${esc(q.staff)}</span></div><span class="in">印</span></div></div>
-  <div class="ft">課税10%対象 ${yen(k.taxable)}（消費税 ${yen(k.ctax)}）・非課税 ${yen(k.nonTax)}・不課税（立替） ${yen(k.tate)}</div></div>`;
+    <div class="sl"><div class="h">販売店</div><b>${esc(c.name)}</b><div class="ad">${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div><div class="st"><small>担当</small><span>${esc(q.staff)}</span></div><span class="in">印</span></div></div></div>`;
 }
 
 /* 注文書（横）… SCD の横型注文書（2026-10-01 に実物を PDF で確認）の並びを下敷きにして、税の区分を正しく直したもの
@@ -3944,10 +3949,21 @@ const pLetter = p => p==='base' || !p ? 'E' : p;
 const majorOf = car => car.base ? priceEvents(car).length + (car.base.editVer||0) : 0;
 const minorOf = car => (car.std && car.std.ver) || 1;
 const custNoOf = (car, u) => u.no || (car.custs.indexOf(u) + 1);
-function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${u.minor||1}-${custNoOf(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}-0${pLetter(p)}`; }
+/* v4.5.38 🗣 2026-10-24「A1B とかにする？ A が顧客・Z まで、1 がバージョン、B がプラン」「KM000-0-A0B ね」
+   ＝個別見積は 車-基本価格の版-お客様の字（A〜Z・27人目から AA）＋見積の版＋プラン。プラン見積（お客様なし）は今のまま */
+const custLetter = n => { let s = ''; n = Math.max(1, n|0); while (n > 0){ n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s; };
+/* 見積の版：刷った紙と中身が変わったら、次に刷る時に上がる（u.qv＝刷った版・u.qvSig＝刷った時の中身の印）。刷る前の画面では「次に刷ると上がる版」を出す */
+const _sigC = new Map();
+function custSig(car, u){ if (_sigC.has(u)) return _sigC.get(u);
+  const s = JSON.stringify(custPlans(u).map(p=>{ const ctx = custCtx(car,u,p), k = calc(ctx); return [p, k.net, k.cash, k.disc||0, k.trade||0, k.tradeLoan||0, k.tier||'', warText(ctx.b), k.loan ? [k.loan.n, k.loan.rate, k.loan.down] : 0, k.inPlan.map(x=>[x.n, x.a])]; }));
+  let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  const r = (h >>> 0).toString(36); if (!_sigC.size) queueMicrotask(()=>_sigC.clear()); _sigC.set(u, r); return r; }
+const custVer = (car, u) => (u.qv || 1) + (u.qvSig && u.qvSig !== custSig(car, u) ? 1 : 0);
+function custVerCommit(car, u){ const sg = custSig(car, u); if (u.qvSig === sg) return false; u.qv = u.qvSig ? (u.qv || 1) + 1 : (u.qv || 1); u.qvSig = sg; return true; }
+function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${custLetter(custNoOf(car,u))}${custVer(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}-0${pLetter(p)}`; }
 /* 車ごとの最新の番号（🗣 2026-10-03「各車両カードとかにも最新のバージョンの表記」）＝メジャー-マイナー-いちばん新しい個別見積の番号（無ければ0） */
 const latestPatch = car => car.custs.length ? Math.max(...car.custs.map(u=>custNoOf(car,u))) : 0;
-const verShort = car => car.base ? `${majorOf(car)}-${minorOf(car)}-${latestPatch(car)}` : '';
+const verShort = car => car.base ? `${majorOf(car)}-${minorOf(car)}-${latestPatch(car) ? custLetter(latestPatch(car)) : 0}` : '';
 /* 売約した車は「注文 〇-〇-〇字」（🗣 2026-10-03「売約に関しては決まってるわけだから、注文 5-1-1B とかの表記にしちゃっていい」） */
 const orderNo = car => car.order ? (car.order.no || estNo(car, car.order.plan, custOf(car, car.order.cust))) : '';
 const verLabel = car => car.order ? '注文 ' + orderNo(car).replace(/^[^-]+-/, '') : '見積 ' + verShort(car);
@@ -4008,7 +4024,10 @@ function saveOnly(){ const car = curCar(); editCommit(); save(); render(); toast
    ＝直している途中（未保存の変更あり）の見積は、印刷の画面を開く時と、印刷を押した時に保存する。売約済み（直せない）は何もしない */
 function saveOnPrint(){ if (S.ui.view!=='car' || !S.edit || !isDirty()) return false; const car = curCar(); if (!car || car.order) return false;
   if (S.ui.step==='std') car.reached = Math.max(reachedOf(car), 2); editCommit(); save(); toast('印刷の前に保存しました'); return true; }
-async function docPrint(){ saveOnPrint(); try { if (window.QData && QData.flush) await QData.flush(); } catch (e) {} window.print(); }
+/* v4.5.38 個別見積を刷った時：中身が前に刷った時と違えば版を上げて保存（売約済み・見るだけの人は何もしない） */
+function verOnPrint(){ if (S.ui.view!=='car' || S.ui.step!=='cust' || !S.ui.custId) return; const car = curCar(); if (!car || car.order || !QData.canEdit()) return;
+  const u = custOf(car, S.ui.custId); if (!u || !custVerCommit(car, u)) return; if (S.edit) editCommit(); save(); }
+async function docPrint(){ saveOnPrint(); verOnPrint(); try { if (window.QData && QData.flush) await QData.flush(); } catch (e) {} window.print(); }
 /* 戻る・タブ：直したままなら聞く */
 function moveTo(s){
   if (s===S.ui.step) return;
