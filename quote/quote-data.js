@@ -199,7 +199,9 @@
      ＝帳票は保存した設定（店舗情報＝帳票・会社）をその都度読む作り。ただ、開いていた見積の画面は開いた時の設定のままだった（別の PC・別のタブ・設定を直す前に開いた画面）。
      → 見積の設定が保存されたら、開いている画面にもすぐ入れる。この画面で設定を直している途中（まだ保存していない）の時だけは触らない */
   function listenSet() {
+    let first = true;   // v4.5.25 最初の1回＝起動の時に読んだのと同じ中身。入れ替えると、起動の時に整えた値（新しい欄の最初の値など）が消えるので見送る
     coll('settings').doc('quote').onSnapshot(d => {
+      if (first) { first = false; return; }
       const x = (d && d.data && d.data()) || {}; if (!x.json || x.json === D.setWritten) return;
       const S = window.QApi && QApi.state(); if (!S) return;
       if (JSON.stringify(S.set) !== D.setWritten) return;   // この画面で設定を直している途中
