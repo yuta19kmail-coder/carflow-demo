@@ -2622,7 +2622,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
   }
   const head = `${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（会社の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>`;
   /* v4.4.0 CarFlow の設定 ▸ 見積 の中（app＝set）は画面として出す。前の「見積の設定」の窓は、見積の画面の右上から外した */
-  if (S.ui.app==='set'){ const r = $('q-root'), keep = r.scrollTop; r.innerHTML = `<div class="q-wrap q-setpage">${head}${b}</div>`; r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
+  if (S.ui.app==='set'){ const r = $('q-root'), keep = r.scrollTop; r.innerHTML = `<div class="q-wrap q-setpage">${head}<div class="q-setcard">${b}</div></div>`;   /* v4.5.10 中身はほかの設定と同じカードに */ r.scrollTop = keep; if (typeof icHydrate==='function') icHydrate(r); return; }
   ov(`<div class="hd">${I('settings','⚙',16)} 見積の設定<button class="x" onclick="closeOv()">✕</button></div><div class="bd">${head}${b}</div><div class="ft"><button class="q-btn pri" onclick="closeOv()">閉じる</button></div>`);
 }
 
@@ -2801,7 +2801,8 @@ function cgLinkPage(){
           <span class="ops">${j?`<button title="前へ（選択肢の並び）" onclick="cgLinkMove('${d.k}','${id}',-1)">‹</button>`:''}<button title="つなぎを外す" onclick="cgLinkToggle('${d.k}','${id}',false)">✕</button></span></span>`; }).join('') : '<span class="cg-nolink">つなぎ無し＝毎回手で入れる</span>'}
         ${d.k==='texa' && sfItem(CG_TEXA_OIL)?`<div class="cg-nt" style="margin-top:3px">＋ A/C オイル（${sfItem(CG_TEXA_OIL).no} ${yen(sfItem(CG_TEXA_OIL).cost)}/回）を1回分たす＝原価表の「ガス量×3円＋75円」と同じ形</div>`:''}</td>
       <td style="width:96px"><button class="q-btn sm" onclick="cgPick('${d.k}')">${I('plus','＋',12)} 品を選ぶ</button></td></tr>`; };
-  return `<div class="q-wrap"><div class="q-top">${S.ui.app==='cgset' ? '' : `<button class="q-btn sm" onclick="cgLinkView(false)">${I('left','←',13)} 原価管理</button>`}<div style="${S.ui.app==='cgset' ? '' : 'margin-left:10px'}"><div class="t">${I('link','🔗',18)} 部品と StockFlow のつなぎ</div>
+  /* v4.5.10 設定 ▸ 原価（cgset）では上の見出しを出さない（CarFlow の設定の見出し・説明と同じ中身＝二重になる） */
+  return `<div class="q-wrap"><div class="q-top"${S.ui.app==='cgset' ? ' hidden' : ''}>${S.ui.app==='cgset' ? '' : `<button class="q-btn sm" onclick="cgLinkView(false)">${I('left','←',13)} 原価管理</button>`}<div style="${S.ui.app==='cgset' ? '' : 'margin-left:10px'}"><div class="t">${I('link','🔗',18)} 部品と StockFlow のつなぎ</div>
       <div class="s">原価表の部品ごとに、StockFlow の料金表の品をつなぐ。つないだ品が原価管理の「銘柄」の選択肢になり、単価は StockFlow の仕切（税抜）を読む。先頭の品（太枠）が最初に選ばれる</div></div></div>${window.QData && !QData.demo && !QData.sf().length ? `<div class="q-note info" style="margin-bottom:10px">${I('info','ℹ',14)} StockFlow の料金表を読み込み中…（読み終わると、つないだ品が出ます）</div>` : ''}
     <div class="cg-lk-grid"><div class="q-card"><h3>原価表の部品 → StockFlow の品 <span class="r">${CG_PARTS.filter(d=>cgLinks(d.k).length).length} / ${CG_PARTS.length} 部品をつないだ</span></h3><div class="bd">
       <table class="cg-tb cg-lk"><thead><tr><th style="width:150px">部品（原価表）</th><th>つないだ StockFlow の品（＝銘柄の選択肢）</th><th></th></tr></thead><tbody>${CG_PARTS.map(row).join('')}</tbody></table>
