@@ -134,6 +134,7 @@ let S = (function(){
   if (!B.set){ const co = window.QData ? QData.company() : {};   /* 見積の設定がまだ無い時＝会社の欄は CarFlow の会社情報から */
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
   /* v4.5.20 🗣 2026-10-24「店舗情報の FAX 入らない、逆に LINE を入れたい」＝LINE（友だち追加の URL・帳票に QR）。最初は小林モータース【公式】@150irnnj */
+  if (s.set.regCut == null) s.set.regCut = 23;   // v4.5.24 月の切り替え日（毎月◯日）
   if (s.set.company && s.set.company.line == null) s.set.company.line = 'https://line.me/R/ti/p/@150irnnj';
   if (window.QData) s.set.staff = QData.staff();   /* 担当＝CarFlow のメンバー画面で「セールス」にチェックの人（v4.5.18・設定からは外した） */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
@@ -185,8 +186,15 @@ function frPick(car, chgCls, dis){
 }
 const wareki = s => { const {y} = ym(s); return y>=2019 ? '令和'+(y===2019?'元':y-2018)+'年' : '平成'+(y-1988)+'年'; };
 let _asOf = null;   // 履歴用：この日の時点で計算する（ふだんは null＝TODAY）
-function nextMonth(){ const d = new Date(_asOf || TODAY); d.setDate(1); d.setMonth(d.getMonth()+1); return d.toISOString().slice(0,7); }
-function regDateOf(b){ return (b.regAuto ? nextMonth() : b.regMonth) + '-15'; }
+/* v4.5.24 🗣 2026-10-24「月跨ぎの見積の一斉変更の日付を設定画面に。月の切り替え日は今月と来月、これを任意の日に。今だと23日」
+   ＝登録予定月が「自動」の車は、毎月の切り替え日（S.set.regCut・1〜28日・最初は23日）の前日までは今月登録、切り替え日からは来月登録で計算する。
+   登録日は 15日（今月登録で今日が16日以降なら今日）。継続移転・移転継続の自賠責は今まで通り決めた月数（25か月）で固定 */
+const regCut = () => Math.min(28, Math.max(1, Math.round(+((S.set && S.set.regCut) || 23)) || 23));
+function autoRegDate(){ const t = String(_asOf || TODAY); let y = +t.slice(0,4), m = +t.slice(5,7); const d = +t.slice(8,10) || 1;
+  if (d >= regCut()){ m++; if (m > 12){ m = 1; y++; } return `${y}-${String(m).padStart(2,'0')}-15`; }
+  return `${y}-${String(m).padStart(2,'0')}-${String(Math.max(15, d)).padStart(2,'0')}`; }
+const autoRegMonth = () => autoRegDate().slice(0,7);
+function regDateOf(b){ return b.regAuto ? autoRegDate() : b.regMonth + '-15'; }
 function monthsToMarch(s){ const {m} = ym(s); return m>=4 ? (12-m)+3 : 3-m; }
 function jibaiTable(d){ return [...JIBAI].reverse().find(t=>d>=t.from); }
 const carOf = id => S.cars.find(c=>c.id===id);
@@ -802,7 +810,7 @@ function leftCompact(car){
   const jbIn = [12,13,24,25,36,37].includes(+b.jibaiM);
   h += cpSec('reg', true, `${I('clipboard','📋',14)} 登録・保証`, `${b.newCar?'新車':'中古車'}・${esc(R.l)}${car.kei?'':'・'+plateClsOf(car,b)+'ナンバー'}${R.xfer?'（ナンバー'+(b.plate==='change'?'変更':'そのまま')+'）':''}・${ym(bc.rd).y}年${ym(bc.rd).m}月登録${b.regAuto?'（自動）':''}・${R.insp?'自賠責 '+bc.jibaiM+'か月':'車検 '+b.shakenEnd.replace('-','/')+'まで'}・保証 ${esc(warText(b))}・修復歴 ${esc(b.repair)}`, bc.wtMiss?'<span class="q-pill warn">重量税 未照会</span>':bc.wtStale?'<span class="q-pill warn">重量税 照会し直し</span>':'',
     cpRow('新車／中古車', seg(b.newCar?'new':'used',[['used','中古車'],['new','新車']],`setBase('newCar','$v'==='new',1)`))
-    + cpRow('登録予定月', `${seg(b.regAuto?'auto':'fix',[['auto','来月（自動）'],['fix','月を決める']],`setBase('regAuto','$v'==='auto',1)`)}${b.regAuto?`<div class="q-why">いま＝${nextMonth().replace('-','年')}月（月が変わると自動で次の月）</div>`:`<input id="b-regm" type="month" class="q-in" style="margin-top:5px;max-width:180px" value="${b.regMonth}" onchange="setBase('regMonth',this.value,1)">`}`)
+    + cpRow('登録予定月', `${seg(b.regAuto?'auto':'fix',[['auto','自動'],['fix','月を決める']],`setBase('regAuto','$v'==='auto',1)`)}${b.regAuto?`<div class="q-why">いま＝${autoRegMonth().replace('-','年')}月登録（毎月 ${regCut()}日 から次の月・設定 ▸ 見積 ▸ 税・保険・手数料）</div>`:`<input id="b-regm" type="month" class="q-in" style="margin-top:5px;max-width:180px" value="${b.regMonth}" onchange="setBase('regMonth',this.value,1)">`}`)
     + cpRow('登録の種類', `${seg(b.regType, REG_TYPES.map(r=>[r.k,r.l]), `setBase('regType','$v',1)`)}<div class="q-why">${esc(R.d)}</div>`)
     + (car.kei ? '' : cpRow('ナンバー', `${seg(plateClsOf(car,b), [['5','5ナンバー'],['3','3ナンバー']], `setBase('plateCls','$v',1)`)}<div class="q-why">${R.l}の検査・登録手数料 ${yen(bc.regFee)}（陸運局へ持込）${b.plateCls?'':'・排気量から仮に選択'}</div>`))
     + (R.xfer ? cpRow('ナンバー', seg(b.plate,[['keep','変更なし'],['change','変更あり']],`setBase('plate','$v',1)`)) : '')
@@ -861,7 +869,7 @@ function confPanel(car, k){
   const K = ['k','課税'], T = ['t','立替'], H = ['h','非課税'];
   return `<div class="q-sec">この車の前提</div>
     <div class="q-copy" style="grid-template-columns:1fr auto"><span>区分・登録の種類</span><span class="v">${b.newCar?'新車':'中古車'}・${esc(R.l)}${R.xfer?'（ナンバー'+(b.plate==='change'?'変更あり':'変更なし')+'）':''}</span>
-      <span>登録予定月</span><span class="v">${ym(bc.rd).y}年${ym(bc.rd).m}月${b.regAuto?'（来月・自動）':''}</span>
+      <span>登録予定月</span><span class="v">${ym(bc.rd).y}年${ym(bc.rd).m}月${b.regAuto?'（自動）':''}</span>
       <span>車検・自賠責</span><span class="v">${R.insp?(R.buyerReg?'予備検':'2年')+'・自賠責 '+bc.jibaiM+'か月':'車検残 '+b.shakenEnd.replace('-','年')+'月まで'}</span>
       <span>納車整備・保証</span><span class="v">${esc(L0.name)}（車両価格に含む）・${esc(warText(b))}</span></div>
     <div class="q-sec">車両</div>
@@ -2034,9 +2042,10 @@ function priceEvents(car){
   const hs = car.base.hist.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0), ev = hs.map(h=>({...h, kind:'body'}));
   if (!hs.length) return ev;
   const priceOn = d => { let p = 0; hs.forEach(h=>{ if (h.date<=d) p = h.to; }); return p; };
-  let {y, m} = ym(hs[0].date.slice(0,7));
-  for (;;){ m++; if (m>12){ m = 1; y++; } const d1 = `${y}-${String(m).padStart(2,'0')}-01`; if (d1 > TODAY) break;
-    const pm = m===1 ? 12 : m-1, py = m===1 ? y-1 : y, prev = `${py}-${String(pm).padStart(2,'0')}-${new Date(py, pm, 0).getDate()}`;   // 前の月の末日（addDays は時差で1日ずれるので使わない）
+  let {y, m} = ym(hs[0].date.slice(0,7)); m--; if (m < 1){ m = 12; y--; }
+  const cut = regCut();   // v4.5.24 切り替え日（毎月◯日）に一斉に変わる
+  for (;;){ m++; if (m>12){ m = 1; y++; } const d1 = `${y}-${String(m).padStart(2,'0')}-${String(cut).padStart(2,'0')}`; if (d1 > TODAY) break; if (d1 <= hs[0].date) continue;
+    const pm = m===1 ? 12 : m-1, py = m===1 ? y-1 : y, prev = cut > 1 ? `${y}-${String(m).padStart(2,'0')}-${String(cut-1).padStart(2,'0')}` : `${py}-${String(pm).padStart(2,'0')}-${new Date(py, pm, 0).getDate()}`;   // 切り替え日の前日（addDays は時差で1日ずれるので使わない）
     const p = priceOn(prev), a = cashAt(car, p, prev), b = cashAt(car, p, d1, prev);   // 月の切り替わりは税・保険の月割だけを見る（諸費用の直しは下の feeLog で別の行）
     if (a.cash !== b.cash) ev.push({ date:d1, from:p, to:p, kind:'fee', why:'月次プライス改定（諸費用）', detail:feeWhy(a.bc, b.bc, true) }); }
   (car.base.feeLog||[]).forEach(L=>{ if (L.date<=TODAY) ev.push({ date:L.date, from:priceOn(L.date), to:priceOn(L.date), kind:'fee', why:'販売諸費用の変更', detail:'販売諸費用 '+L.detail }); });
@@ -2608,7 +2617,9 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
       <div class="q-why" style="margin-top:6px">プランごとの段階は、車ごと（プラン見積）・お客様ごと（個別見積）にも変えられます。</div>`)}`;
   } else if (setTab==='tables'){
     const jt = (t, key) => [12,13,24,25,36,37].map(m=>`<td class="v">${yen(t[key][m])}</td>`).join('');
-    b = `<div class="q-why">表ごとに「始まる日」を持つ（改定の時は新しい表を足す）。見積では、自賠責＝保険の始まる日、自動車税＝登録日、重量税・手数料＝車検・登録の日で表を選ぶ。（2026/9/30 に公的資料で確認）</div>
+    b = `<div style="font-weight:800;margin:0 0 4px">月の切り替え日</div><div class="q-prow" style="align-items:center;gap:6px;margin-bottom:4px">毎月 <input id="st-regcut" class="q-in num" style="width:64px" inputmode="numeric" value="${regCut()}" onchange="S.set.regCut=Math.min(28,Math.max(1,Math.round(numIn(this.value))||23));save();render();openSettings()"> 日</div>
+      <div class="q-why" style="margin-bottom:12px">登録予定月が「自動」の車は、この日の前日までは<b>今月登録</b>、この日からは<b>来月登録</b>で、自動車税の月割・未経過相当額などを出します（いま＝${autoRegMonth().replace('-','年')}月登録）。この日に見積の支払総額が一斉に変わり、価格履歴に「自動」の行で残ります。1〜28日</div>`
+      + `<div class="q-why">表ごとに「始まる日」を持つ（改定の時は新しい表を足す）。見積では、自賠責＝保険の始まる日、自動車税＝登録日、重量税・手数料＝車検・登録の日で表を選ぶ。（2026/9/30 に公的資料で確認）</div>
       <div style="font-weight:800;margin:10px 0 4px">自賠責（本土）</div><div style="overflow:auto"><table class="q-tbl"><tr><th>始まる日</th><th>区分</th>${[12,13,24,25,36,37].map(m=>`<th class="v">${m}か月</th>`).join('')}</tr>
       ${JIBAI.map(t=>`<tr><td>${jd(t.from)}〜</td><td>普通車</td>${jt(t,'car')}</tr><tr><td></td><td>軽</td>${jt(t,'kei')}</tr>`).join('')}</table></div>
       <div style="font-weight:800;margin:10px 0 4px">自動車税（普通・自家用・年額・千葉県 令和8年度）</div><div style="overflow:auto"><table class="q-tbl"><tr><th>排気量</th><th class="v">2019/10以後</th><th class="v">以前</th><th class="v">以前の重課</th></tr>${TAX_CAR.map(r=>`<tr><td>${r[0]>=99999?'6L超':(r[0]/1000)+'L以下'}</td><td class="v">${yen(r[1])}</td><td class="v">${yen(r[2])}</td><td class="v">${yen(f100(r[2]*1.15))}</td></tr>`).join('')}</table></div>

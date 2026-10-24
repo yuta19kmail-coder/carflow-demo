@@ -8617,6 +8617,7 @@ window.CF_EN_DICT = {
 "月のクォーター実績":"Quarter Results for month",
 "月の入庫台数":"Monthly Arrival count",
 "月の入庫数":"Arrivals in month",
+"月の切り替え日":"Month switch day",
 "月の動き":"Monthly movement",
 "月の合計は変わりません":"Month total does not change",
 "月の売上が":"This month's sales",

@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="../css/panels.css?v=4.0.0">
 <link rel="stylesheet" href="../css/modal.css?v=4.0.0">
 <link rel="stylesheet" href="../css/coreflow-ui.css?v=4.0.0">
-<link rel="stylesheet" href="quote.css?v=4.5.23">
+<link rel="stylesheet" href="quote.css?v=4.5.24">
 <style id="q-page">@page{size:A4 portrait;margin:0}</style>
 <style>
 /* iframe の中＝サイドバーと上の帯は CarFlow 本体の物。ここは中身だけ */
@@ -28,7 +28,7 @@ body{overflow:hidden;background:var(--bg)}
 #app{height:100%}
 #app .views{flex:1;display:flex;min-height:0;min-width:0}
 .q-boot{margin:40px auto;max-width:520px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);line-height:1.8;color:var(--text2)}
-/* v4.5.23 🗣 2026-10-24「設定の見積もりと原価が枠の中に枠があって本体みたいになっている。ちゃんと作り直して」
+/* v4.5.24 🗣 2026-10-24「設定の見積もりと原価が枠の中に枠があって本体みたいになっている。ちゃんと作り直して」
    ＝CarFlow の設定 ▸ 見積・原価（app＝set・cgset）は枠を見せない：背景なし・中でスクロールしない・高さは中身に合わせて親の iframe を伸ばす（下の script） */
 html[data-embed],html[data-embed] body{height:auto;overflow:hidden;background:transparent}
 html[data-embed] #app{height:auto}
@@ -44,7 +44,7 @@ html[data-embed] #app{height:auto}
 <div class="q-docov" id="q-docov" hidden></div>
 <div class="q-toast" id="q-toast" hidden><span id="q-toast-msg"></span><button id="q-toast-undo">元に戻す</button></div>
 <span id="q-saved" hidden></span>
-<script>/* v4.5.23 設定の中（q-embed）：①親の iframe の高さを中身に合わせる ②窓（q-ov）とお知らせ（q-toast）を、親の画面で見えている所に出す（iframe が縦に長いので）
+<script>/* v4.5.24 設定の中（q-embed）：①親の iframe の高さを中身に合わせる ②窓（q-ov）とお知らせ（q-toast）を、親の画面で見えている所に出す（iframe が縦に長いので）
    見えている所＝--vt（iframe の上からの位置）・--vh（高さ）を親のスクロールのたびに入れ直す */
 (function(){
   if (!document.documentElement.hasAttribute('data-embed')) return;
@@ -62,14 +62,14 @@ html[data-embed] #app{height:auto}
 </script>
 <script src="../js/coreflow-icons.js?v=4.0.0"></script>
 <script src="../js/car-class.js?v=4.0.0"></script>
-<script src="vendor/qrcode-generator-2.0.4.js"></script><!-- v4.5.23 帳票の LINE の QR（MIT・Kazuhiko Arase） -->
-<script src="quote-data.js?v=4.5.23"></script>
+<script src="vendor/qrcode-generator-2.0.4.js"></script><!-- v4.5.24 帳票の LINE の QR（MIT・Kazuhiko Arase） -->
+<script src="quote-data.js?v=4.5.24"></script>
 <!-- 🔐 写真（車のカードの写真）は鍵つきの住所では開けない（2026-10-20 セキュリティの直し）＝CarFlow 本体と同じ CFFile が、ログインの合札で取ってきて blob: に差し替える（読み込むと自動で見張る）。
      🗣 2026-10-23「サムネの画像が表示されない」。⚠ ?v= は sync-shared.ps1 が直さない（本体の index.html と同じ番号に手で） -->
 <script src="../js/coreflow-file.js?v=d877de25"></script>
 <!-- 🌐 英語表示。この画面はログインを持たないので、親（CarFlow 本体）の英語の切り替えに付いて行く（相場ビューと同じ）。
      辞書は親が読み込んだ物を借りる（無ければ自分で読む）。お客様に出す帳票（見積書）は訳さない（data-cf-noen） -->
-<script src="../js/coreflow-en.js?v=2fa30ac1" data-dict="../js/coreflow-en-dict.js?v=a72f29bd"></script>
+<script src="../js/coreflow-en.js?v=2fa30ac1" data-dict="../js/coreflow-en-dict.js?v=6e69e1b1"></script>
 <script>
 (function(){
  var P=(function(){try{return window.parent!==window?window.parent:null}catch(e){return null}})();
