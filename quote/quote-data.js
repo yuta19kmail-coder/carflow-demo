@@ -402,7 +402,7 @@
   /* ---------- 起動 ---------- */
   window.QData = {
     demo: DEMO, me: () => CQ.me(), canEdit: () => CQ.canEdit(), canSet: () => CQ.can('canEditSettings'), staff: () => CQ.staff(), company: () => CQ.company(),
-    ver: () => CQ.ver(), log: (id, a) => CQ.log(id, a), toastTop: (m, c) => CQ.toast(m, c), openCar: id => CQ.openCar(id),
+    ver: () => CQ.ver(), log: (id, a) => CQ.log(id, a), toastTop: (m, c) => CQ.toast(m, c), openCar: id => CQ.openCar(id), route: r => { try { if (CQ.route) CQ.route(r); } catch (e) {} },   /* v4.5.14 見積の画面の住所（親の戻る・進む） */
     /* 装備品一覧＝カードの装備品チェックの印刷（親の画面で開く）。入力があるかは開くたびに親から読む（車の一覧の目印に装備は入っていない） */
     printEquip: id => !!(CQ.printEquip && CQ.printEquip(id)), equipDone: id => { const f = CQ.car(id); return !!(f && f.equip && f.equip.length); },
     schedule, flush, soba, rx: id => RX[id] || null,

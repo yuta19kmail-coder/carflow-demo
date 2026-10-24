@@ -3843,7 +3843,8 @@ function render(){ const r = $('q-root'); const keep = r.scrollTop, kl = $('q-co
   const split = !!$('q-colL'); r.classList.toggle('split', split);
   if (split) splitSetup();
   r.scrollTop = keep; if (split){ $('q-colL').scrollTop = kl; $('q-colR').scrollTop = kr; }
-  if (typeof icHydrate==='function') icHydrate(r); }
+  if (typeof icHydrate==='function') icHydrate(r);
+  if (window.QData && QData.route) QData.route(routeOf()); }
 function renderKeep(){ // 入力中：描き直してもカーソルを戻す
   const a = document.activeElement, id = a && a.id, raw = a && a.value, pos = a && a.selectionStart;
   render(); if (id && $(id)){ const e = $(id); e.focus(); if (raw!=null && (e.dataset.money!==undefined || e.dataset.raw!==undefined || e.id==='q-search')) e.value = raw;   /* data-raw＝小数など、打った文字のまま戻す（🗣 2026-10-19「金利で小数点が打てない」） */ try{ e.setSelectionRange(pos,pos); }catch(x){} }
@@ -3965,6 +3966,30 @@ function pendingResume(){ const p = S.pending; closeOv(); if (!p) return; const 
   editBegin(S.cars[i]); S.cars[i] = JSON.parse(p.data); fixGarage(S.cars[i]); fixWish(S.cars[i]);   // orig は保存済みの中身・車は途中の中身＝未保存の変更ありの状態で再開
   S.ui.view = 'car'; S.ui.carId = p.carId; S.ui.step = p.step; S.ui.custId = p.custId || null; S.pending = null; save(); render(); $('q-root').scrollTop = 0; toast('途中から再開しました。保存するまでは反映されません'); }
 function pendingDrop(){ S.pending = null; closeOv(); save(); render(); toast('途中の見積を破棄しました'); }
+/* 🔗 v4.5.14 🗣 2026-10-24「見積は一覧→詳細→ABC→顧客って全部個別のURLに。戻るで戻りたい」＝画面ごとの住所（親の CarFlow が #… に入れる・js/car-quote.js）
+   quote＝一覧／quote/{車ID}/base＝① 基本価格／…/plan＝② プラン見積（ABC）／…/cust/{お客様ID}＝③ 顧客見積／…/order＝④ 売約／cost＝原価管理／cost/{車ID} */
+const ROUTE_STEP = { base:'base', std:'plan', cust:'cust', order:'order' };
+function routeOf(){
+  if (S.ui.app==='cost') return S.ui.cgCar ? 'cost/'+S.ui.cgCar : 'cost';
+  if (S.ui.view!=='car' || !S.ui.carId || !carOf(S.ui.carId)) return 'quote';
+  const st = ROUTE_STEP[S.ui.step] || 'base';
+  return 'quote/'+S.ui.carId+'/'+st+(st==='cust' && S.ui.custId ? '/'+S.ui.custId : '');
+}
+/* 戻る・進む・再読み込みで、住所の画面を開く。保存していない変更がある時は、いつもの確かめの窓が出る（やめたら今の画面のまま＝住所も今の画面に戻る） */
+function routeGo(r){
+  const a = String(r||'').split('/');
+  if (a[0]==='cost'){ if (S.ui.app!=='cost') goApp('cost'); if (a[1] && carOf(a[1])) cgGo(a[1]); else if (S.ui.cgCar) cgGo(null); return; }
+  if (S.ui.app!=='quote'){ S.ui.app = 'quote'; save(); }
+  const id = a[1];
+  if (!id){ if (S.ui.view==='car') goList(); else render(); return; }
+  const car = carOf(id); if (!car){ toast('この車は見積の一覧にありません（月次で締めた車など）'); if (S.ui.view==='car') goList(); else render(); return; }
+  if (S.ui.view!=='car' || S.ui.carId!==id){ openCar(id); if (S.ui.view!=='car' || S.ui.carId!==id) return; }   // 途中の見積の確かめが出た時は、ここまで
+  const st = Object.keys(ROUTE_STEP).find(k=>ROUTE_STEP[k]===a[2]) || 'base';
+  if (st!=='base' && !car.base){ render(); return; }   // 基本価格がまだ無い車はプラン・顧客へ進めない
+  if (st==='cust'){ const uid = a[3] && custOf(car, a[3]) ? a[3] : null; if (S.ui.step==='cust'){ S.ui.custId = uid; save(); render(); return; } S.ui.custId = uid; }
+  if (st===S.ui.step){ render(); return; }
+  moveTo(st);
+}
 function goList(){ const kept = stashPending(); S.ui.view = 'list'; save(); render(); if (kept) toast('保存していない変更は反映していません（次に開く時に続きからできます）'); }
 function openCar(id){ _hideSold = false; if (S.pending && S.pending.carId===id){ pendingAsk(); return; } S.ui.view = 'car'; S.ui.carId = id; const car = carOf(id); if (!car.base) S.ui.cp = {}; S.ui.pk = {}; S.ui.step = car.order ? 'order' : car.custs.length ? 'cust' : 'base'; S.ui.custId = null; render(); editBegin(carOf(id)); save(); $('q-root').scrollTop = 0; }
 function goStep(s){ moveTo(s); }
@@ -4184,5 +4209,5 @@ function refreshSoon(){ clearTimeout(_rfT); _rfT = setTimeout(()=>{ const a = do
   render(); if (!$('q-docov').hidden) renderDocs(); }, 250); }
 window.QApi = { cogsBlank: () => JSON.stringify(cgOf({})),   /* 原価表の空の形（画面を開いただけで作られる物＝保存しない物の見分けに使う） */
   state: () => S, refresh: () => { render(); if (!$('q-docov').hidden) renderDocs(); }, refreshSoon, toast: m => toast(m), costSum: costOf };
-window.QApp = { ready: () => true, go: a => goApp(a), openCar: id => { if (S.ui.app!=='quote') goApp('quote'); if (carOf(id)) openCar(id); else toast('この車は見積の一覧にありません（月次で締めた車など）'); } };
+window.QApp = { ready: () => true, go: a => goApp(a), route: r => routeGo(r), openCar: id => { if (S.ui.app!=='quote') goApp('quote'); if (carOf(id)) openCar(id); else toast('この車は見積の一覧にありません（月次で締めた車など）'); } };
 const _qb = document.getElementById('q-boot'); if (_qb) _qb.remove();

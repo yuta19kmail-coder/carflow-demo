@@ -117,6 +117,37 @@
     if (!f.getAttribute('src') || dirty['quote-frame']) { dirty['quote-frame'] = false; f.setAttribute('src', SRC(app || 'quote') + '&r=' + Date.now()); return; }
     try { if (f.contentWindow && f.contentWindow.QApp) f.contentWindow.QApp.go(app || 'quote'); } catch (e) {}
   }
+  /* 🔗 v4.5.14 🗣 2026-10-24「見積は一覧→詳細→ABC→顧客って全部個別のURLにできる？戻るで戻りたい」
+     ＝見積の画面ごとに住所：#quote（一覧）／#quote/{車ID}/base・plan・cust/{お客様ID}・order／#cost（原価管理）・#cost/{車ID}。
+     iframe の画面が変わるたびに route() で足跡を残し、戻る・進む（popstate）で iframe をその画面へ（QApp.route）。
+     住所は「#/」で始めない＝共通部品 coreflow-nav.js（#/kanban などのタブ）とぶつからない（あちらは #/ 以外を見ない） */
+  var applying = false, pendingRoute = null;
+  function isQ(h) { return /^#(quote|cost)(\/|$)/.test(h || ''); }
+  function panelOpen() { var p = document.getElementById('panel-quote'); return !!(p && p.classList.contains('open')); }
+  function route(r) {
+    if (!r || pendingRoute || !panelOpen()) return;   // 住所の画面を開いている途中・ほかの画面を見ている間（裏で描き直した時）は残さない
+    var h = '#' + r; if (location.hash === h) return;
+    try { history[applying ? 'replaceState' : 'pushState']({ cfq: r }, '', location.pathname + (location.search || '') + h); } catch (e) {}
+  }
+  function goRoute(r) {
+    var app = /^cost/.test(r) ? 'cost' : 'quote', el = document.getElementById(app === 'cost' ? 'si-qcost' : 'si-quote'), f = document.getElementById('quote-frame'); if (!f) return;
+    var ready = function () { try { return !!(f.contentWindow && f.contentWindow.QApp && f.contentWindow.QApp.ready() && f.contentWindow.QApp.route); } catch (e) { return false; } };
+    var apply = function () { pendingRoute = null; applying = true; try { f.contentWindow.QApp.route(r); } catch (e) {} applying = false; };
+    if (!panelOpen() && typeof showPanel === 'function') showPanel('quote', el);
+    if (ready() && f.getAttribute('src') && !dirty['quote-frame']) { apply(); return; }
+    pendingRoute = r; open(app, el);
+    var n = 0, t = setInterval(function () { if (ready()) { clearInterval(t); apply(); } else if (++n > 80) { clearInterval(t); pendingRoute = null; } }, 250);
+  }
+  window.addEventListener('popstate', function () { if (isQ(location.hash)) goRoute(location.hash.slice(1)); });
+  /* 再読み込み・送ってもらった住所：ログインと車の読み込みが済んでから開く */
+  if (isQ(location.hash)) {
+    var r0 = location.hash.slice(1), n0 = 0;
+    var t0 = setInterval(function () {
+      var ok = document.body && document.body.classList.contains('app-active') && window.fb && fb.currentStaff && list().length;
+      if (ok) { clearInterval(t0); goRoute(r0); } else if (++n0 > 400) clearInterval(t0);
+    }, 300);
+  }
+
   /* 車両詳細などから「この車の見積を開く」 */
   function openFor(carId) {
     var el = document.getElementById('si-quote');
@@ -146,7 +177,7 @@
   window.CarQuote = {
     cars: carsList, car: function (id) { var c = find(id); return c ? facts(c) : null; }, sig: sig,
     me: me, can: can, canEdit: canEdit, staff: staffNames, company: company,
-    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, ver: ver, printEquip: printEquip, mountSet: mountSet, setChanged: setChanged, histPanel: histPanel,
+    log: log, toast: toast, openCar: openCar, open: open, openFor: openFor, route: route, ver: ver, printEquip: printEquip, mountSet: mountSet, setChanged: setChanged, histPanel: histPanel,
     demo: function () { return window.__DEMO_MODE === true; }
   };
 })();
