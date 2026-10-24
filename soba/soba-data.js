@@ -43,7 +43,20 @@
     }
     if (r.status === 404) { const e = new Error('相場データが見つかりません：' + path); e.notFound = true; throw e; }
     if (!r.ok) throw new Error('相場データを読めませんでした（' + r.status + '）：' + path);
-    return kind === 'text' ? r.text() : r.json();
+    return kind === 'text' ? r.text() : r.json().then(safeStrings);
+  }
+
+  /* 🔐 2026-10-24 外部監査 R4-16（SEC-07）：view.js は相場の文字を記号を逃がさずに画面へ入れる（約1,400か所）。
+     読み込んだ時に、文字の中の < > " だけを全角（＜ ＞ ”）にする＝札にも属性の外にも出られない。
+     ・データの鍵（書類の名前）は触らない（値だけ）。< > " は鍵に使われていない（第20回で確認）＝探す処理は変わらない
+     ・' と & は鍵に使われている（G's・AS&G）ので触らない。' は onclick に値を入れる所で逃がす（view.js の jsq）
+     ・ついでに「ZL<エクスクルーシブ>」のようなグレード名が札と見なされて消えていたのが「ZL＜エクスクルーシブ＞」で見える */
+  const FW = { '<': '＜', '>': '＞', '"': '”' };
+  function safeStrings(x) {
+    if (typeof x === 'string') return /[<>"]/.test(x) ? x.replace(/[<>"]/g, c => FW[c]) : x;
+    if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) x[i] = safeStrings(x[i]); return x; }
+    if (x && typeof x === 'object') { for (const k in x) if (Object.prototype.hasOwnProperty.call(x, k)) x[k] = safeStrings(x[k]); return x; }
+    return x;
   }
 
   function addScript(src, text) {
@@ -99,9 +112,10 @@
       // gens（世代名・第2回から）は kn.gens に入れる＝一覧の名前と検索がビューアと同じになる
       window.SOBA_INDEX = idx.map(e => Object.assign({}, e, { years: Object.fromEntries((e.years || []).map(y => [String(y), 1])) }, e.gens ? { kn: { gens: e.gens } } : {}));
       if (rival) await addScript(null, rival + '\n//# sourceURL=rival.js');
+      if (window.RIVAL) safeStrings(window.RIVAL);   // 🔐 R4-16 ライバル店の文字（よその店のページから取った物）も同じ守り。sample.js は相場DB が太字（<b>）を入れて作る物なので触らない
       if (sample) await addScript(null, sample + '\n//# sourceURL=sample.js');
       if (!EMBED) document.getElementById('main').innerHTML = '<p class="muted">左の一覧から車種を選ぶか、上の欄でさがす。' + (window.SAMPLE ? '見かたは一番上の「サンプル・見かた」で練習できる。' : '') + '</p>';
-      await addScript('view.js?v=4.5.4');
+      await addScript('view.js?v=4.5.5');
       if (EMBED) { await addScript('stock.js?v=3.16.11'); await addScript('embed.js?v=3.19.5'); }
     } catch (e) { fail(e); return; }
     // カタログの装備・色（1.4〜2.4MB）は後から。来たら今の車を描き直す

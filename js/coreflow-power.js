@@ -287,7 +287,7 @@
      ============================================================ */
   var _pick = false, _members = null, _memLoading = false, _memQ = '', _pickScope = 'all';
 
-  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }   /* 🔐 2026-10-24 SEC-07：5記号に */
   /* ⚠ 全角＠・全角英数・大文字小文字・前後の空白を揃えてから比べる（名簿の打ち込みは揺れる） */
   function normMail(v) { try { return String(v || '').normalize('NFKC').toLowerCase().trim(); } catch (e) { return String(v || '').toLowerCase().trim(); } }
   function meMail() { try { return normMail((w.fb && w.fb.currentUser && w.fb.currentUser.email) || ''); } catch (e) { return ''; } }

@@ -78,7 +78,7 @@
     document.body.appendChild(ROOT);
     return ROOT;
   }
-  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }   /* 🔐 2026-10-24 外部監査 SEC-07：' も逃がす（5記号にそろえる） */
 
   function cancel(){ if(!CUR)return; close(CUR.opts.kind==='prompt'?null:false); }
   function close(val){

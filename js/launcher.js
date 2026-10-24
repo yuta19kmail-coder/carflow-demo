@@ -41,7 +41,7 @@
     { key:'moneyflow',  url:'',                                               icon:'💴', name:'MoneyFlow',  color:'#e0a92b', dx:234, dy:-25  },
   ];
 
-  function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+  function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }   /* 🔐 2026-10-24 SEC-07：前は " だけ＝5記号に（いまは固定の一覧だけ通る） */
 
   /* v2.3：画像用の指定だけをここで注入（launcher.css は各アプリ配布物なので触らない） */
   function injectCSS(){
