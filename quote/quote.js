@@ -1455,7 +1455,7 @@ function docOrderH(d,k){
   const tRows = k.legal.map(f=>[f[0], f[1]]).concat(k.condRows.filter(r=>r[2]==='t').map(r=>[r[0]+'<span class="tag c">◎</span>', r[1]]));
   const taxRows = [[k.bc.kei?'軽自動車税（新たな課税なし）':'自動車税（種別割）'+(k.bc.carTax?'（'+ym(k.bc.rd).m+'月登録にて）':''), k.bc.carTax],['自動車重量税', k.bc.weight],['自賠責保険料'+(k.bc.R.insp && +k.bc.jibaiM===25 ? '（25か月）' : ''), k.bc.jibai]];   // v4.5.33 見積書と同じ書き方
   const v = n => n ? yen(n) : '';
-  const down = L ? L.down : 0, remain = k.net - down;
+  const down = L ? L.down : (u && (qPayOf(u, o.plan, k) || {}).down) || 0, remain = k.net - down;   // v4.5.34 現金でも頭金を入れた時は ⑩ に出す（支払いのイメージと同じ）
   const opts = rows(k.inPlan.flatMap(x=>optLines(x).map(([n,a,tbd])=>[esc(n), tbd?OPT_TBD:+a?yen(a):'サービス'])), 9);   // 納車整備の段階アップもここに出る
   return `<div class="oh-top">
     <div class="oh-seller"><div class="ov">売主</div><div class="in"><div class="nm">${esc(c.name)}</div><div class="seal">小林<br>モーター<br>ス之印</div>${esc(c.zip)}<br>${esc(c.addr)}<br>TEL ${esc(c.tel)}<br>登録番号 ${esc(c.inv)}　古物商 ${esc(c.kobutsu)}<div style="text-align:right">御中</div></div></div>
