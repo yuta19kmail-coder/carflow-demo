@@ -1682,8 +1682,9 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .q1 .row1.one{grid-template-columns:286px;justify-content:end}
 
 /* v4.5.29 個別見積の「お支払いのイメージ」 */
-.qpay{font-size:10px;line-height:1.5;border:1px solid #d6cfc4;border-radius:6px;padding:6px 9px;background:#faf8f5}
+.qpay{font-size:9.6px;line-height:1.4;border:1px solid #d6cfc4;border-radius:6px;padding:4px 9px;background:#faf8f5}
+.q1 h3.qpay-h{margin-top:10px}
 .qpay .pr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}
 .qpay .pr b{font-variant-numeric:tabular-nums}
 .qpay .pr.last{border-top:1px solid #a8894f;margin-top:3px;padding-top:3px;font-weight:700;font-size:11px}
-.qpay .ln{margin-top:4px;font-size:9.5px;color:#57534e}.qpay .ln b{font-size:13px;color:#1c1917}
+.qpay .ln{margin-top:2px;font-size:9.4px;color:#57534e}.qpay .ln b{font-size:12px;color:#1c1917}

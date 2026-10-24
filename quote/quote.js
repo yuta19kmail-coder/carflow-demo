@@ -2989,9 +2989,9 @@ function qPayOf(u, plan, k){ const q = ppOf(u, plan || 'base'), down = q.downOn 
   if (!m && !down) return null;
   return { down, m, L, rest: L ? L.P : Math.max(0, k.net - down), when: u.restWhen==='del' ? '納車時' : (u.restWhen==='date' && u.restDate ? jd(u.restDate) : '') }; }
 const qPayBox = q => { const P = q.pay; if (!P) return ''; const L = P.L;
-  return `<h3>お支払いのイメージ</h3><div class="qpay"><div class="pr"><span>${q.headLb}</span><b>${yen(q.k.net)}</b></div>${P.down ? `<div class="pr"><span>頭金</span><b>▲${yen(P.down)}</b></div>` : ''}
+  return `<h3 class="qpay-h">お支払いのイメージ</h3><div class="qpay"><div class="pr"><span>${q.headLb}</span><b>${yen(q.k.net)}</b></div>${P.down ? `<div class="pr"><span>頭金</span><b>▲${yen(P.down)}</b></div>` : ''}
     <div class="pr last"><span>${L ? 'オートローン（お借入れ）' : '残金' + (P.m ? '（' + esc(P.m) + (P.when ? '・' + esc(P.when) : '') + '）' : '')}</span><b>${yen(P.rest)}</b></div>
-    ${L ? `<div class="ln">月々 <b>${yen(L.later)}円</b> × ${L.n-1}回（初回 ${yen(L.first)}円）<br>${L.n}回払い・実質年率 ${L.rate}%・分割手数料 ${yen(L.fee)}円・割賦販売価格 ${yen(L.hanbai)}円</div>` : ''}</div>`; };
+    ${L ? `<div class="ln">月々 <b>${yen(L.later)}円</b> × ${L.n-1}回（初回 ${yen(L.first)}円）・実質年率 ${L.rate}%</div>` : ''}</div>`; };
 const qContact = q => { const l = q.c.line, qr = qQR(l);
   /* v4.5.21 🗣「ラインの ID の記載は要らない。QR の真ん中に LINE ってあるようなやつに」＝ID の行を外し、QR の真ん中に LINE の印（誤り訂正 H で真ん中を隠しても読める） */
   return `<span class="q-cta">${qr ? `<span class="qr">${qr}<span class="ln">LINE</span></span>` : ''}<span class="t"><small>${qr ? 'LINE・お電話でお気軽にご相談ください' : 'お電話でお気軽にご相談ください'}</small><b>TEL ${esc(q.c.tel)}</b></span></span>`; };
@@ -3066,8 +3066,8 @@ const QV = [
    <div class="facts">${[['年式', q.yearW, q.yearA], ['走行距離', q.car.km.toLocaleString()+' km', '実走行'], ['修復歴', q.b.repair, ''], ['車検', shakenText(q.b,k).replace(/（.*$/,''), ''], ['保証', k.ws?'なし':warText(q.b), '']].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1])}</b>${f[2]?`<i>${esc(f[2])}</i>`:''}</div>`).join('')}</div>
    <div class="body"><div class="l"><h3>お車</h3>${q.spec.filter(s=>!/車名|年式|走行|修復|保証|車検/.test(s[0])).map(s=>`<div class="sp"><span>${s[0]}</span><b>${esc(s[1])}</b></div>`).join('')}
        <h3>主な装備</h3><div class="eqs">${q.equip.map(e=>`<span>${esc(e)}</span>`).join('')}</div>
-       <h3>納車整備</h3><div class="tx"><b>${esc(q.seibi.name)}</b>　${esc(q.seibi.note)}</div>${qPayBox(q)}</div>
-     <div class="r"><h3>お見積の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(q,{note:1})}</div></div>
+       <h3>納車整備</h3><div class="tx"><b>${esc(q.seibi.name)}</b>　${esc(q.seibi.note)}</div></div>
+     <div class="r"><h3>お見積の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(q,{note:1})}${qPayBox(q)}</div></div>
    <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</div></div>
      <div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div></div>
    <div class="notes">${qNotes(q).map(n=>`<span>※ ${esc(n)}</span>`).join('')}</div></div>`; } },
