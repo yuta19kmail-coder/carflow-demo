@@ -2968,10 +2968,10 @@ const qY = v => '¥' + yen(v);
 const qyz = v => v ? yen(v) : '—';
 const qOptAmt = o => o.tbd ? OPT_TBD : o.a ? yen(o.a) : 'サービス';
 /* 🗣 2026-10-24「プラン見積などでは＿＿＿様を無くして、LINE と電話を大きめに。LINE は QR」＝お客様の名前が無い時は、LINE の QR（quote/vendor/qrcode-generator）と電話 */
-const qLineId = u => (String(u||'').match(/@[0-9a-z_.-]+/i) || [''])[0];
-const qQR = u => { try { if (!u || typeof qrcode !== 'function') return ''; const g = qrcode(0, 'M'); g.addData(String(u)); g.make(); return g.createSvgTag({ cellSize:4, margin:0, scalable:true }); } catch (e) { return ''; } };
-const qContact = q => { const l = q.c.line, qr = qQR(l), id = qLineId(l);
-  return `<span class="q-cta">${qr ? `<span class="qr">${qr}</span>` : ''}<span class="t"><small>${qr ? 'LINE・お電話でお気軽にご相談ください' : 'お電話でお気軽にご相談ください'}</small><b>TEL ${esc(q.c.tel)}</b>${qr && id ? `<i>LINE ${esc(id)}</i>` : ''}</span></span>`; };
+const qQR = u => { try { if (!u || typeof qrcode !== 'function') return ''; const g = qrcode(0, 'H'); g.addData(String(u)); g.make(); return g.createSvgTag({ cellSize:4, margin:0, scalable:true }); } catch (e) { return ''; } };
+const qContact = q => { const l = q.c.line, qr = qQR(l);
+  /* v4.5.21 🗣「ラインの ID の記載は要らない。QR の真ん中に LINE ってあるようなやつに」＝ID の行を外し、QR の真ん中に LINE の印（誤り訂正 H で真ん中を隠しても読める） */
+  return `<span class="q-cta">${qr ? `<span class="qr">${qr}<span class="ln">LINE</span></span>` : ''}<span class="t"><small>${qr ? 'LINE・お電話でお気軽にご相談ください' : 'お電話でお気軽にご相談ください'}</small><b>TEL ${esc(q.c.tel)}</b></span></span>`; };
 const qCustLine = q => q.cust ? esc(q.cust)+' <small>様</small>' : qContact(q);
 const qPay = q => q.loan ? `ローン：頭金 ${yen(q.loan.down)}・${q.loan.n}回（初回 ${yen(q.loan.first)}／2回目以降 ${yen(q.loan.later)}）・実質年率 ${q.loan.rate}%・分割手数料 ${yen(q.loan.fee)}・割賦販売価格 ${yen(q.loan.hanbai)}` : '現金（お振込）';
 /* 下取・ローンの1行（総額のそばに置く） */

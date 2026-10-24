@@ -1670,7 +1670,8 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 
 /* v4.5.20 お客様の名前が無い帳票（プラン見積など）＝「＿＿＿様」の代わりに LINE の QR と電話 */
 .q-cta{display:inline-flex;align-items:center;gap:10px;vertical-align:middle;font-weight:600;color:#1c1917}
-.q-cta .qr{width:64px;height:64px;flex:none;display:block;background:#fff}
+.q-cta .qr{width:64px;height:64px;flex:none;display:block;background:#fff;position:relative}
+.q-cta .qr .ln{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#06c755;color:#fff;font:900 7.5px/1 Arial,Helvetica,sans-serif;letter-spacing:.02em;padding:4px 3px;border-radius:4px;box-shadow:0 0 0 2px #fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .q-cta .qr svg{width:100%;height:100%;display:block}
 .q-cta .t{display:flex;flex-direction:column;line-height:1.3;text-align:left}
 .q-cta .t small{display:block;font-size:9px;font-weight:400;color:#57534e;letter-spacing:0}
