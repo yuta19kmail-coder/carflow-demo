@@ -1271,6 +1271,8 @@ function stepCust(car){
 function custPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('quote'); }
 /* v4.5.33 🗣 2026-10-24「売約ボタンを押す前に注文書にサインはもらいたい」「個別見積で詰めて、その流れでサインさせる」
    ＝売約のカードでプランを選んだら［注文書を刷る］。注文書は今の個別見積の中身で刷り、サインをもらってから［◯で売約する］ */
+/* v4.5.42 🗣「支払い期限や約束事項、納車予定日などはタイプで打てるようにしたい」＝売約の前は個別見積に持つ（u.od）。売約の時にそのまま引き継ぐ */
+function ordDraft(cid, uid, k, v){ const u = custOf(carOf(cid), uid); u.od = Object.assign({}, u.od || {}, { [k]: v }); save(); }
 function ordPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('order1'); }   // v4.5.35 1枚の注文書（横は窓のタブで選べる）
 function printCust(cid, uid){ saveOnPrint(); _reprint = () => printCust(cid, uid); const car = carOf(cid), u = custOf(car, uid), ps = custPlans(u); _docNew = !!u.baseSnap.newCar;
   let papers = ps.map(p=>{ const d = { car, ctx:custCtx(car,u,p), who:u, kind:'cust' }; return quotePapers(d, calc(d.ctx)); }).join('');
@@ -1298,6 +1300,10 @@ function ordCard(car, u){
   if (!open) return `<div class="q-card q-ord"><h3>${I('check','✍',15)} 売約</h3><div class="bd"><button class="q-btn ok" style="width:100%;justify-content:center;padding:12px" onclick="S.ui.ordOpen='${u.id}';S.ui.ordPlan=null;save();render()">${I('check','✍',15)} 売約にする ▸</button><div class="q-why" style="margin:6px 0 0;text-align:center">押すと、どのプランで売約するかを選ぶ</div></div></div>`;
   return `<div class="q-card q-ord"><h3>${I('check','✍',15)} 売約 <span class="r">どのプランでいく？</span></h3><div class="bd"><div class="q-ordpick">
     ${ps.map(p=>{ const k = calc(custCtx(car,u,p)), q = ppOf(u,p); return `<button class="nc-pc ${p===sel?'on':''}" onclick="S.ui.ordPlan='${p}';save();render()"><span>${pb(p)}${p===u.rec?' <span class="q-pb rec" style="position:static">おすすめ</span>':''}</span><b>${yen(k.net)}</b><small>${k.loan ? 'ローン 月々 '+yen(k.loan.later) : esc(q.restMethod||'支払方法 未選択')}${q.tradeIn?'・下取':''}</small></button>`; }).join('')}</div>
+    ${sel ? (od => `<div class="q-f" style="margin-top:10px"><div><label class="k">納車予定日</label><input id="od-del" type="date" class="q-in" value="${esc(od.delivery||'')}" onchange="ordDraft('${car.id}','${u.id}','delivery',this.value)"></div>
+      <div><label class="k">お支払い期日</label><input id="od-due" type="date" class="q-in" value="${esc(od.payDue||'')}" onchange="ordDraft('${car.id}','${u.id}','payDue',this.value)"></div>
+      <div style="grid-column:1/-1"><label class="k">お約束事項</label><textarea id="od-prom" class="q-in" rows="3" placeholder="例：ドラレコ取付／右リアバンパーのキズ補修" onchange="ordDraft('${car.id}','${u.id}','promise',this.value)">${esc(od.promise||'')}</textarea></div></div>
+      <div class="q-why" style="margin:4px 0 0">注文書に入ります（空なら手書きの欄のまま）</div>`)(u.od || {}) : ''}
     <div style="display:flex;align-items:center;gap:8px;margin-top:10px"><button class="q-btn sm" onclick="S.ui.ordOpen=null;S.ui.ordPlan=null;save();render()">閉じる</button><span class="sp" style="flex:1"></span>${sel ? `<button class="q-btn" style="padding:10px 14px" onclick="ordPrint('${sel}')">${I('printer','🖨',14)} 注文書を刷る</button><button class="q-btn ok" style="padding:10px 16px" onclick="openClose('${car.id}','${u.id}','${sel}')">${I('check','✍',14)} ${p_lab(sel)}で売約する</button>` : '<span class="q-why" style="margin:0">プランを選ぶと、注文書と売約のボタンが出ます</span>'}</div>
     ${sel ? '<div class="q-why" style="margin:6px 0 0;text-align:right">注文書を刷ってサインをもらってから、売約にします</div>' : ''}</div></div>`;
 }
@@ -1312,6 +1318,7 @@ function stepOrder(car){
     <div class="q-card"><h3>売約の控え</h3><div class="bd"><div class="q-f">
       <div><label class="k">注文日</label><input id="o-date" type="date" class="q-in" value="${o.date}" onchange="orderSet('${car.id}','date',this.value)"></div>
       <div><label class="k">納車予定日</label><input id="o-del" type="date" class="q-in" value="${o.delivery||''}" onchange="orderSet('${car.id}','delivery',this.value)"></div>
+      <div><label class="k">お支払い期日</label><input id="o-due" type="date" class="q-in" value="${o.payDue||''}" onchange="orderSet('${car.id}','payDue',this.value)"></div>
       <div style="grid-column:1/-1"><label class="k">お約束事項（納車までに行うこと）</label><textarea id="o-prom" class="q-in" onchange="orderSet('${car.id}','promise',this.value)">${esc(o.promise||'')}</textarea></div>
       ${k.loan?`<div style="grid-column:1/-1"><label class="k">信販会社の承諾前に登録・修理に着手</label>${seg(o.startBefore||'shinai',[['irai','依頼する'],['shinai','依頼しない']],`orderSet('${car.id}','startBefore','$v')`)}</div>`:''}
     </div></div></div>
@@ -1447,7 +1454,8 @@ function docTerms(){
   </div><div class="ct-s" style="margin-top:10px;border-top:1px solid #9aa6b8;padding-top:5px">${esc(c.name)}　（下書き v1・2026-10-03　※最終的な文言は弁護士・行政書士の確認を受けてから使用）</div></div>`;
 }
 
-const ordOf = d => d.kind==='order' && d.car.order ? d.car.order : { plan: d.ctx.plan || 'base', date: TODAY, delivery: '', promise: '', pre: true };
+const ordOf = d => { if (d.kind==='order' && d.car.order) return d.car.order; const od = (d.who && d.who.od) || {};   // v4.5.42 売約の前は個別見積に打った物（u.od）
+  return { plan: d.ctx.plan || 'base', date: TODAY, delivery: od.delivery || '', promise: od.promise || '', payDue: od.payDue || '', pre: true }; };
 
 /* v4.5.35 🗣 2026-10-24「このテイスト（横の注文書）は取っておいて、もうちょいシンプルに1枚でまとまる形。車種と見積番号で整合性、注意書き、サイン欄。金のテイスト」
    v4.5.38 🗣「あくまで見積とセットって考え方で KM0000-0-0B に準ずる、みたいな省略じゃだめなの？ 総額はまだしも詳細はいらない。だったら支払方法とかを大きく」
@@ -1457,15 +1465,21 @@ function docOrder1(d, k){
   const no = o.no || q.no, W = w => qLine(w);
   const kv = arr => arr.map(x=>`<div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
   const pay = L
-    ? `<div class="pm1">オートローン</div>` + kv([['信販会社', W(170)], ['頭金', yen(L.down)+' 円'], ['お借入れ（割賦元金）', yen(L.P)+' 円'], ['お支払い回数', L.n+' 回'], ['初回', yen(L.first)+' 円'], ['2回目以降（月々）', `<em>${yen(L.later)}</em> 円 × ${L.n-1}回`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円'], ['申込金（代金の一部に充てます）', W(110)+' 円']])
-    : `<div class="pm1">現金${P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : ''}</div>` + kv((P && P.down ? [['頭金', `<em>${yen(P.down)}</em> 円`], ['残金', `<em>${yen(P.rest)}</em> 円`]] : [['お支払い金額', `<em>${yen(k.net)}</em> 円`]]).concat([['申込金（代金の一部に充てます）', W(110)+' 円'], ['お支払い期日', P && P.when ? esc(P.when) : '　　年　　月　　日'], ['お振込先', esc(c.bank)]]));
+    ? `<div class="pm1">オートローン</div>` + kv([['信販会社', W(170)], ['頭金', yen(L.down)+' 円'], ['お借入れ（割賦元金）', yen(L.P)+' 円'], ['お支払い回数', L.n+' 回'], ['初回', yen(L.first)+' 円'], ['2回目以降（月々）', `<em>${yen(L.later)}</em> 円 × ${L.n-1}回`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円']])
+    : `<div class="pm1">現金${P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : ''}</div>` + kv((P && P.down ? [['頭金', `<em>${yen(P.down)}</em> 円`], ['残金', `<em>${yen(P.rest)}</em> 円`]] : [['お支払い金額', `<em>${yen(k.net)}</em> 円`]]).concat([['お支払い期日', o.payDue ? jd(o.payDue) : P && P.when ? esc(P.when) : '　　年　　月　　日'], ['お振込先', esc(c.bank)]]));
   const deliv = kv([['納車予定日', o.delivery ? jd(o.delivery)+' ごろ' : '　　年　　月　　日 ごろ'], ['納車場所', qDeliv(q)], ['登録', esc(regOf(q.b.regType).l)], ['納車整備', esc(qSeibiNm(q))], ['保証', esc(k.ws ? 'なし（現状渡し）' : warText(q.b))]]);
   const trade = q.tr ? kv([['車名', q.tradeModel ? esc(q.tradeModel) : W(150)], ['下取価格・残債', `${yen(k.trade)} 円・${k.tradeLoan ? yen(k.tradeLoan)+' 円' : W(70)+' 円'}`], ['車台番号', W(150)], ['車検満了日・所有者', '　　年　　月　　日・'+W(80)]]) : '';
+  /* v4.5.42 🗣「確認の 5・6・7 は要らない。約款を渡さない前提で、追加で文言あれば足して」＝約款（下書き v1）の要点をここに入れる */
   const notes = [`ご注文の内容（内訳・付属品・オプション・諸費用）は、お見積書 No.${no} のとおりです。同じ No のお見積書と一緒にお渡しします。`,
-    `この注文書にご署名いただいた時に、売買契約が成立します${L?'（ローンの場合は、信販会社の承認をもって確定します）':''}。`,
+    `この注文書にご署名いただいた時に、売買契約が成立します。${L?'ローンの場合は信販会社の承認をもって確定し、承認が得られなかった時は契約は成立しなかったものとして、お預かりした金銭をお返しします。':''}`,
     '自動車の売買には、クーリング・オフ（無条件で取り消せる制度）はありません。',
     '契約の成立後に取り消す場合は、販売店の同意が要り、それまでに実際にかかった費用（登録の手続き・陸送・ご注文の部品や用品・着手した整備など）をご負担いただきます。',
-    q.cond, `登録に必要な書類：${qDocs(q).join('・')}`, '詳しい決まりは、別紙「自動車売買約款」のとおりです。'];
+    `代金はお支払い期日までにお支払いください。お車の所有権は、代金の全額をお支払いいただいた時にお客様へ移ります${L?'（ローンの場合は信販会社との契約によります）':''}。`,
+    '登録に必要な書類は、当店がお伝えする期日までにご用意ください。遅れた場合、納車が遅れることがあります。',
+    'お車の状態（修復歴・走行距離など）は、説明を受けて確認したうえでのご購入です。お引渡し後の不具合は、保証の範囲・期間で対応します。',
+    'お引渡しの前に、天災・盗難など当店・お客様どちらの責任でもない事由でお車をお渡しできなくなった場合は、契約を解除し、お預かりした金銭をお返しします。'];
+  if (q.tr) notes.push('下取車の状態が申告と違う、またはお引渡しまでに変わった場合は、下取価格を改めてご相談します。');
+  notes.push('お預かりした個人情報は、ご契約の手続き・登録・保証やご案内など、必要な範囲で使います。');
   return `<div class="qv og${L || q.tr ? ' tight' : ''}">   <!-- ローンか下取りがある時は行を詰める -->
   <div class="hd"><div class="co">${esc(c.name)}</div><div class="tt"><small>ORDER</small><h1>ご注文書</h1></div>
     <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
@@ -1475,10 +1489,10 @@ function docOrder1(d, k){
     <div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div></div></div>
   <div class="body"><div class="ob pay"><h3>お支払い方法</h3>${pay}</div>
     <div class="ob"><h3>お引渡し</h3>${deliv}${q.tr ? `<h3>下取車</h3>${trade}` : ''}</div></div>
-  <div class="ob pmx"><h3>お約束事項 <small>納車までに行うこと・口頭でお約束したことは、すべてここに書きます</small></h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div></div>
+  <div class="ob pmx"><h3>お約束事項</h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div></div>
   <div class="ob"><h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div>
   <div class="sg"><div class="by"><div class="h">ご購入者</div>
-      <div class="ck"><div>☐ 上記の内容・お見積書・別紙の約款を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
+      <div class="ck"><div>☐ 上記の内容とお見積書を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
       <div class="ln"><small>ご署名${u && u.name ? `（${esc(u.name)} 様）` : ''}</small><span></span></div>
       <div class="ln2"><div><small>ご住所</small><span>${u && u.addr ? esc(u.addr) : ''}</span></div><div><small>電話</small><span>${u && u.tel ? esc(u.tel) : ''}</span></div></div></div>
     <div class="sl"><div class="h">販売店</div><b>${esc(c.name)}</b><div class="ad">${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div><div class="st"><small>担当</small><span>${esc(q.staff)}</span></div><span class="in">印</span></div></div></div>`;
@@ -2597,13 +2611,13 @@ function openClose(cid, uid, p){ const car = carOf(cid), u = custOf(car,uid); p 
       <div class="q-total" style="padding:0 0 10px"><span>ご注文金額（税込）</span><b>${yen(k.net)} 円</b></div>
       ${payMiss(u).length ? `<div class="q-note warn" style="margin-bottom:10px">${I('warn','⚠',14)} 下取・お支払いでまだ選んでいない所：<b>${payMiss(u, p).join('・')}</b>。このまま売約にもできます（納車の準備までに埋める）</div>` : ''}
       ${k.loan?`<div class="q-why" style="margin:-4px 0 10px">ローン：頭金 ${yen(k.loan.down)}・${k.loan.n}回・月々 ${yen(k.loan.later)}</div>`:''}
-      <div class="q-f" style="grid-template-columns:1fr"><div><label class="k">注文日</label><input id="cl-date" type="date" class="q-in" value="${TODAY}"></div><div><label class="k">納車予定日</label><input id="cl-del" type="date" class="q-in" value="${addDays(TODAY,21)}"></div>
-      <div><label class="k">お約束事項（納車までに行うこと）</label><textarea id="cl-prom" class="q-in" rows="4" placeholder="例：ドラレコ取付／右リアバンパーのキズ補修"></textarea></div></div>
+      <div class="q-f" style="grid-template-columns:1fr"><div><label class="k">注文日</label><input id="cl-date" type="date" class="q-in" value="${TODAY}"></div><div><label class="k">納車予定日</label><input id="cl-del" type="date" class="q-in" value="${esc((u.od||{}).delivery || addDays(TODAY,21))}"></div><div><label class="k">お支払い期日</label><input id="cl-due" type="date" class="q-in" value="${esc((u.od||{}).payDue||'')}"></div>
+      <div><label class="k">お約束事項（納車までに行うこと）</label><textarea id="cl-prom" class="q-in" rows="4" placeholder="例：ドラレコ取付／右リアバンパーのキズ補修">${esc((u.od||{}).promise||'')}</textarea></div></div>
       <div class="q-note info" style="margin-top:12px">左の見積書の内容で売約の札が付きます。同じ車のほかのお客様の見積は「他で売約」になり止まります。<b>カンバンの売約・納車準備・大タスクは動きません</b>（見積の上の札だけ。車を売約に進める時は カンバンで）。</div></div></div>
     <div class="ft"><button class="q-btn" onclick="closeOv()">やめる</button><button class="q-btn ok" onclick="doClose('${cid}','${uid}','${p}')">売約にする</button></div>`);
   $('q-ov').firstElementChild.classList.add('wide');
 }
-function doClose(cid, uid, p){ const car = carOf(cid); snap(); S.ui.plan = p || S.ui.plan; car.order = { no:estNo(car, S.ui.plan, custOf(car,uid)), cust:uid, plan:S.ui.plan, ver:1, date:$('cl-date').value||TODAY, delivery:$('cl-del').value, promise:$('cl-prom').value, startBefore:'shinai' }; closeOv(); S.ui.step = 'order'; car.reached = 3; editCommit(); save(); render(); toast(`${custOf(car,uid).name} 様で売約（見積の上の札）。中身を固定しました`, true); }
+function doClose(cid, uid, p){ const car = carOf(cid); snap(); S.ui.plan = p || S.ui.plan; car.order = { no:estNo(car, S.ui.plan, custOf(car,uid)), cust:uid, plan:S.ui.plan, ver:1, date:$('cl-date').value||TODAY, delivery:$('cl-del').value, payDue:$('cl-due').value, promise:$('cl-prom').value, startBefore:'shinai' }; closeOv(); S.ui.step = 'order'; car.reached = 3; editCommit(); save(); render(); toast(`${custOf(car,uid).name} 様で売約（見積の上の札）。中身を固定しました`, true); }
 
 let setTab = 'packs';
 function tplBo(i, j, f, v){ const x = S.set.packs.items[i]; if (!x.bo) x.bo = [[x.bn||x.n, x.a||0]]; if (!x.bo[j]) x.bo[j] = ['新しい機種', 0]; x.bo[j][f] = v; x.a = x.bo[0][1]; save(); render(); if (f===0 && v==='新しい機種') openSettings(); }
@@ -3960,10 +3974,10 @@ function custSig(car, u){ if (_sigC.has(u)) return _sigC.get(u);
   const r = (h >>> 0).toString(36); if (!_sigC.size) queueMicrotask(()=>_sigC.clear()); _sigC.set(u, r); return r; }
 const custVer = (car, u) => (u.qv || 1) + (u.qvSig && u.qvSig !== custSig(car, u) ? 1 : 0);
 function custVerCommit(car, u){ const sg = custSig(car, u); if (u.qvSig === sg) return false; u.qv = u.qvSig ? (u.qv || 1) + 1 : (u.qv || 1); u.qvSig = sg; return true; }
-function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${custLetter(custNoOf(car,u))}${custVer(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}-0${pLetter(p)}`; }
+function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${custLetter(custNoOf(car,u))}${custVer(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}${pLetter(p)}`; }   // v4.5.42 プラン見積も新しい形（車-基本価格の版-プランの版＋プラン）
 /* 車ごとの最新の番号（🗣 2026-10-03「各車両カードとかにも最新のバージョンの表記」）＝メジャー-マイナー-いちばん新しい個別見積の番号（無ければ0） */
 const latestPatch = car => car.custs.length ? Math.max(...car.custs.map(u=>custNoOf(car,u))) : 0;
-const verShort = car => car.base ? `${majorOf(car)}-${minorOf(car)}-${latestPatch(car) ? custLetter(latestPatch(car)) : 0}` : '';
+const verShort = car => car.base ? `${majorOf(car)}-${minorOf(car)}` : '';   // v4.5.42 新しい形
 /* 売約した車は「注文 〇-〇-〇字」（🗣 2026-10-03「売約に関しては決まってるわけだから、注文 5-1-1B とかの表記にしちゃっていい」） */
 const orderNo = car => car.order ? (car.order.no || estNo(car, car.order.plan, custOf(car, car.order.cust))) : '';
 const verLabel = car => car.order ? '注文 ' + orderNo(car).replace(/^[^-]+-/, '') : '見積 ' + verShort(car);
