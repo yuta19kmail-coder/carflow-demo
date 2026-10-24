@@ -195,6 +195,22 @@
   }
   function schedule() { clearTimeout(flushT); flushT = setTimeout(flush, 700); }
 
+  /* v4.5.23 🗣 2026-10-24「店舗情報が作成済みの見積に反映されない。電話番号が変わった時を考えると、既存の見積にも反映した方がいい」
+     ＝帳票は保存した設定（店舗情報＝帳票・会社）をその都度読む作り。ただ、開いていた見積の画面は開いた時の設定のままだった（別の PC・別のタブ・設定を直す前に開いた画面）。
+     → 見積の設定が保存されたら、開いている画面にもすぐ入れる。この画面で設定を直している途中（まだ保存していない）の時だけは触らない */
+  function listenSet() {
+    coll('settings').doc('quote').onSnapshot(d => {
+      const x = (d && d.data && d.data()) || {}; if (!x.json || x.json === D.setWritten) return;
+      const S = window.QApi && QApi.state(); if (!S) return;
+      if (JSON.stringify(S.set) !== D.setWritten) return;   // この画面で設定を直している途中
+      let s; try { s = JSON.parse(x.json); } catch (e) { return; }
+      s.staff = CQ.staff();   // 担当はいつもメンバー画面のセールスから（quote.js の起動と同じ）
+      const j = JSON.stringify(s); if (j === D.setWritten) return;
+      S.set = s; D.set = s; D.setJSON = D.setWritten = j;
+      QApi.refresh();
+    }, e => console.warn('[quote] settings/quote listen', e));
+  }
+
   /* ほかの人の保存を受け取る（いま直している車は触らない） */
   function listen() {
     coll('carQuotes').onSnapshot(snap => {
@@ -431,7 +447,7 @@
       /* 読み込んだ直後の形を「保存済み」とする（画面の決まりで整えただけの差は書かない） */
       S.cars.forEach(c => { const j = jsonOf(c); if (D.quotes[c.id]) D.written[c.id] = j; else D.empty[c.id] = j; });
       D.setJSON = D.setWritten = JSON.stringify(S.set);
-      listen();
+      listen(); listenSet();
     } catch (e) {
       console.error('[quote] boot', e);
       boot('⚠ 見積を読み込めませんでした：' + String((e && e.message) || e).replace(/</g, '&lt;') + '<br><small>CF-1032・開き直しても直らない時はチーフへ</small>');
