@@ -1733,3 +1733,4 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .og .sg .sl .st{margin-top:6px;width:60%}.og .sg .sl .st span{display:block;min-height:18px;border-bottom:1px solid #a8a29e;font-size:10px}
 .og .sg .sl .in{position:absolute;right:0;top:18px;width:46px;height:46px;border:1px dashed #b9a57a;border-radius:50%;color:#b9a57a;display:flex;align-items:center;justify-content:center;font-size:10px}
 .og.tight .kv,.og.tight .pay .kv{padding:2px 0}.og.tight .pm{min-height:69px}.og.tight .ob{margin-top:10px}.og.tight .body .ob{margin-top:0}
+.og.tight .car .qi{height:112px}.og.tight .car{margin-top:10px}.og.tight .ref{margin-top:12px}.og.tight .body{margin-top:12px}.og.tight .nt{font-size:8.9px;line-height:1.5}.og.tight .pm{min-height:46px}   /* v4.5.43 ローン＋下取りで注意書きが増えた分 */
