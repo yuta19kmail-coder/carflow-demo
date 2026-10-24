@@ -143,6 +143,15 @@
     /* 見積に入る前（住所なし＝ダッシュボード）まで戻った時。#/kanban などのタブは coreflow-nav.js が開く */
     if (panelOpen() && !/^#\//.test(location.hash || '') && typeof showPanel === 'function') showPanel('dashboard', document.getElementById('si-dashboard'));
   });
+  /* coreflow-nav.js は「最初のタブの切り替え」だけ足跡を置き換える（push しない）＝見積の画面からタブへ移ると、見積の足跡が消えて戻れなかった。
+     最初の1回だけ、見積の足跡を1つ複製してから渡す（置き換えられるのは複製の方）。index.html の CoreflowNav.wire より後で包む */
+  window.addEventListener('load', function () {
+    var inner = window.switchTab; if (typeof inner !== 'function') return; var first = !/^#\//.test(location.hash || '');   // #/… で開いた時は deeplink-car.js が先に1回切り替える
+    window.switchTab = function () {
+      if (first && isQ(location.hash)) { try { history.pushState(history.state, '', location.href); } catch (e) {} }
+      first = false; return inner.apply(this, arguments);
+    };
+  });
   /* 再読み込み・送ってもらった住所：ログインと車の読み込みが済んでから開く */
   if (isQ(location.hash)) {
     var r0 = location.hash.slice(1), n0 = 0;
