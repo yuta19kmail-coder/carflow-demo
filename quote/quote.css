@@ -1690,3 +1690,44 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .qpay .ln{margin-top:2px;font-size:9.4px;color:#57534e}.qpay .ln b{font-size:12px;color:#1c1917}
 /* v4.5.31 拡大して紙が枠より広くなった時も、左端までスクロールで見られるように（真ん中寄せで左が切れない） */
 .q-stage{justify-content:safe center}
+
+/* v4.5.35 1枚の注文書（見積書のショールーム・金の線を継ぐ） */
+.og{color:#1c1917;padding:30px 40px 18px}
+.og .hd{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;border-bottom:2px solid #a8894f;padding-bottom:8px}
+.og .hd .co{font-size:10.5px;font-weight:700;letter-spacing:.18em}
+.og .hd .tt{text-align:center}.og .hd .tt small{display:block;font-size:8.5px;letter-spacing:.5em;color:#a8894f}
+.og .hd .tt h1{font-family:"Noto Serif JP",serif;font-weight:600;font-size:28px;letter-spacing:.3em;line-height:1.15;margin-right:-.3em}
+.og .hd .m{justify-self:end;font-size:9.5px;line-height:1.55}.og .hd .m div{display:flex;gap:10px;justify-content:space-between}.og .hd .m span{color:#78716c}.og .hd .m b{font-weight:600;font-variant-numeric:tabular-nums}
+.og .car{display:grid;grid-template-columns:200px 1fr;grid-template-rows:auto auto;gap:0 18px;margin-top:14px}
+.og .car .qi{grid-row:1/3;height:132px;margin:0;overflow:hidden}.og .car .qi img,.og .car .qi svg{width:100%;height:100%;object-fit:cover;display:block}
+.og .car .nm small{font-size:10px;letter-spacing:.3em;color:#57534e}
+.og .car .nm h2{font-family:"Noto Serif JP",serif;font-weight:600;font-size:30px;line-height:1.15;letter-spacing:.05em}
+.og .car .nm p{font-size:12px;letter-spacing:.08em;color:#44403c}
+.og .car .ref{display:inline-block;margin-top:5px;font-size:9.5px;border:1px solid #a8894f;color:#7c6334;padding:1px 8px;border-radius:2px}
+.og .car .fx{display:grid;grid-template-columns:repeat(6,auto);align-self:end;border-top:1px solid #d6d3d1;border-bottom:1px solid #d6d3d1;margin-top:8px}
+.og .car .fx div{padding:4px 8px;border-left:1px solid #e7e5e4}.og .car .fx div:first-child{border-left:0;padding-left:0}
+.og .car .fx small{display:block;font-size:8.5px;color:#78716c;letter-spacing:.08em}.og .car .fx b{display:block;font-size:11px;font-weight:700;white-space:nowrap}
+.og .row{display:grid;grid-template-columns:300px 1fr;gap:18px;margin-top:14px}
+.og .tot{border-top:3px solid #a8894f;box-shadow:0 2px 0 #e7e1d6,0 6px 18px rgba(0,0,0,.12);padding:10px 16px 9px}
+.og .tot small{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.12em;color:#57534e}.og .tot small span{font-size:8.5px;letter-spacing:0}
+.og .tot>b{display:block;font-family:"Noto Serif JP",serif;font-weight:600;font-size:32px;line-height:1.15;margin:2px 0 3px}
+.og .tot .eq{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:9px;color:#57534e}.og .tot .eq .trl{flex-basis:100%;color:#1c1917;font-weight:600}
+.og .pay{align-self:center;font-size:10px}
+.og .kv{display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dotted #e7e5e4}.og .kv span{color:#78716c;white-space:nowrap}.og .kv b{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.og .body{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;margin-top:14px;flex:1;min-height:0}
+.og h3{font-family:"Noto Serif JP",serif;font-weight:600;font-size:12px;letter-spacing:.12em;border-bottom:1px solid #a8894f;padding-bottom:2px;margin:10px 0 5px;display:flex;justify-content:space-between;align-items:baseline}
+.og h3:first-child{margin-top:0}.og h3 small{font-family:"Noto Sans JP",sans-serif;font-size:8.5px;letter-spacing:0;color:#78716c;font-weight:400}
+.og .qb{font-size:9.6px;line-height:1.34}.og .qb .g{padding:2px 0}.og .qb .gt{border-top-color:#1c1917}.og .qb .gt.net{font-family:"Noto Serif JP",serif;color:#1c1917}
+.og .r{font-size:9.6px}
+.og .pm{min-height:44px;border:1px solid #d6cfc4;border-radius:4px;padding:4px 8px;background:repeating-linear-gradient(#fff 0 17px,#ece7df 17px 18px);font-size:9.6px;line-height:18px;white-space:pre-wrap}
+.og .nt{margin:0;padding-left:16px;font-size:8.8px;line-height:1.5;color:#44403c}.og .nt li{margin:1px 0}
+.og .sg{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;margin-top:12px;border-top:1px solid #1c1917;padding-top:9px}
+.og .sg .h{font-family:"Noto Serif JP",serif;font-weight:600;font-size:11px;letter-spacing:.2em;color:#7c6334;margin-bottom:3px}
+.og .sg .ck{font-size:9px;line-height:1.55}
+.og .sg .ln{margin-top:6px}.og .sg small{display:block;font-size:8.5px;color:#78716c}
+.og .sg .ln span{display:block;height:30px;border-bottom:1px solid #1c1917}
+.og .sg .ln2{display:grid;grid-template-columns:1.7fr 1fr;gap:12px;margin-top:5px}.og .sg .ln2 span{display:block;min-height:18px;border-bottom:1px solid #a8a29e;font-size:10px}
+.og .sg .sl{position:relative;font-size:9px;line-height:1.5;border-left:1px solid #e7e5e4;padding-left:16px}.og .sg .sl b{display:block;font-size:12.5px;letter-spacing:.1em}.og .sg .sl .ad{color:#57534e;font-size:8.6px;padding-right:58px}
+.og .sg .sl .st{margin-top:6px;width:60%}.og .sg .sl .st span{display:block;min-height:18px;border-bottom:1px solid #a8a29e;font-size:10px}
+.og .sg .sl .in{position:absolute;right:0;top:18px;width:46px;height:46px;border:1px dashed #b9a57a;border-radius:50%;color:#b9a57a;display:flex;align-items:center;justify-content:center;font-size:10px}
+.og .ft{margin-top:8px;font-size:8.3px;color:#78716c;text-align:right}

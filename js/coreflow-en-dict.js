@@ -9237,6 +9237,7 @@ window.CF_EN_DICT = {
 "注文書":"Order form",
 "注文書を刷ってサインをもらってから、売約にします":"Print the order form and get the signature, then mark as sold",
 "注文書を刷る":"Print order form",
+"注文書（横）":"Order form (landscape)",
 "洗い":"Wash",
 "洗い出しから外しているお客様":"Customers excluded from duplicate search",
 "洗い流し徹底":"Rinse thoroughly",

@@ -1271,7 +1271,7 @@ function stepCust(car){
 function custPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('quote'); }
 /* v4.5.33 🗣 2026-10-24「売約ボタンを押す前に注文書にサインはもらいたい」「個別見積で詰めて、その流れでサインさせる」
    ＝売約のカードでプランを選んだら［注文書を刷る］。注文書は今の個別見積の中身で刷り、サインをもらってから［◯で売約する］ */
-function ordPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('orderH'); }
+function ordPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('order1'); }   // v4.5.35 1枚の注文書（横は窓のタブで選べる）
 function printCust(cid, uid){ saveOnPrint(); _reprint = () => printCust(cid, uid); const car = carOf(cid), u = custOf(car, uid), ps = custPlans(u); _docNew = !!u.baseSnap.newCar;
   let papers = ps.map(p=>{ const d = { car, ctx:custCtx(car,u,p), who:u, kind:'cust' }; return quotePapers(d, calc(d.ctx)); }).join('');
   /* 🗣 2026-10-12「詳細から帳票の印刷でも、まとめてにプラン比較が入ってない」→ プランが2つ以上ならプラン比較も付ける */
@@ -1324,7 +1324,7 @@ function stepOrder(car){
       <div class="q-why" style="margin-top:6px">売約した時点の中身で固定。あとから基本価格や店のパックが変わってもここは変わりません。直す時は「版を上げて直す」。</div></div></div>
   </div><div>
     <div class="q-card"><h3>帳票</h3><div class="bd" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="q-btn" onclick="openDocs('quote')">${I('printer','🖨',14)} 見積書（売約したプラン）</button><button class="q-btn" onclick="openDocs('orderH')">${I('printer','🖨',14)} 注文書</button><button class="q-btn" onclick="openDocs('terms')">${I('printer','🖨',14)} 約款</button></div>
+      <button class="q-btn" onclick="openDocs('quote')">${I('printer','🖨',14)} 見積書（売約したプラン）</button><button class="q-btn" onclick="openDocs('order1')">${I('printer','🖨',14)} 注文書</button><button class="q-btn" onclick="openDocs('terms')">${I('printer','🖨',14)} 約款</button></div>
       <div class="q-why" style="padding:0 14px 12px">請求書などの帳票は、この後つくります。</div></div>
     <div class="q-card"><h3>売約の直し</h3><div class="bd">
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="q-btn" onclick="orderBump('${car.id}')" ${QData.canEdit()?'':'disabled'}>版を上げて直す</button><button class="q-btn dan" onclick="orderCancel('${car.id}')" ${QData.canEdit()?'':'disabled'}>売約を取り消す</button></div></div></div>
@@ -1346,7 +1346,7 @@ function closeDocs(){ $('q-docov').hidden = true; S.ui.docBase = false; if (S.ui
 /* 🗣 2026-10-23「見積は今の金色のやつを暫定的に決定として印刷できるように。これはこの後変更予定」＝v4.0 は見積書（ショールーム・金の線）だけ。
    注文書・プラン比較・装備品一覧・プライスボードなどはモック（資料\モック\_見積モック_src）に残して、決まったら足す */
 /* 🗣 2026-10-23「プラン比較のボタンも、ちゃんとプラン比較が出るように」→ v4.5.3 プラン比較（ショールーム＝QC[3]・金額は本物の計算）を足す */
-function docList(kind){ return kind==='cust' || kind==='order' ? [['quote','見積書'],['compare','プラン比較'],['orderH','注文書'],['terms','約款']] : [['quote','見積書'],['compare','プラン比較']]; }   // v4.5.33 注文書（横）・約款は個別見積と売約だけ
+function docList(kind){ return kind==='cust' || kind==='order' ? [['quote','見積書'],['compare','プラン比較'],['order1','注文書'],['orderH','注文書（横）'],['terms','約款']] : [['quote','見積書'],['compare','プラン比較']]; }   // v4.5.33 注文書（横）・約款は個別見積と売約だけ
 let _docNew = false;   // 帳票の「新車・中古車」の丸
 let diffOnly = false;
 /* 見積書・注文書・3案くらべ・納品書は「装備品一覧」を2枚目に付けて一緒に刷れる（🗣 ゆうた 2026-10-01「装備のチェック一覧は見積から無くして、
@@ -1358,7 +1358,7 @@ function renderDocs(){ _reprint = null;
   const d = docCtx(), list = docList(d.kind), doc = S.ui.doc;
   _docNew = !!d.ctx.b.newCar;
   const showD = d.who ? d.who.showD : d.car.std.showD, dps = d.who ? custPlans(d.who) : plansOf(showD);
-  const plans = (doc==='quote' || (doc==='orderH' && d.kind==='cust')) ? `<span style="color:#fffa;font-size:12px;margin-left:10px">プラン</span>${d.kind==='std'?`<button class="${S.ui.docBase?'on':''}" onclick="S.ui.docBase=true;renderDocs()">基本</button>`:''}${dps.map(p=>`<button class="${!S.ui.docBase&&S.ui.plan===p?'on':''}" onclick="S.ui.docBase=false;S.ui.plan='${p}';save();renderDocs();render()">${plab(p)}</button>`).join('')}` : '';
+  const plans = (doc==='quote' || (/^order[1H]$/.test(doc) && d.kind==='cust')) ? `<span style="color:#fffa;font-size:12px;margin-left:10px">プラン</span>${d.kind==='std'?`<button class="${S.ui.docBase?'on':''}" onclick="S.ui.docBase=true;renderDocs()">基本</button>`:''}${dps.map(p=>`<button class="${!S.ui.docBase&&S.ui.plan===p?'on':''}" onclick="S.ui.docBase=false;S.ui.plan='${p}';save();renderDocs();render()">${plab(p)}</button>`).join('')}` : '';
   $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${esc(d.car.num)} ${esc(d.car.model)}${d.who?' ／ '+esc(d.who.name)+' 様':d.kind==='std'?' ／ プラン見積（お客様名は空欄）':''}</span>
     ${list.map(([k,l])=>`<button class="${doc===k?'on':''}" onclick="${k==='board'?`if(!carOf('${d.car.id}').board){openBrdPick('${d.car.id}')}else{S.ui.doc='board';renderDocs()}`:`S.ui.doc='${k}';renderDocs()`}">${l}</button>`).join('')}${plans}
     ${doc==='board'?`<span style="color:#fffa;font-size:12px;margin-left:10px">季節</span><select style="font:inherit;padding:3px 6px;border-radius:6px" onchange="brdSetSeason('${d.car.id}',this.value);renderDocs()">${brdSeasons().map(x=>`<option ${x===brdSeason(d.car)?'selected':''}>${x}</option>`).join('')}</select><button onclick="openBrdPick('${d.car.id}')">装備を選ぶ</button>`:''}
@@ -1369,11 +1369,11 @@ function renderDocs(){ _reprint = null;
   const k = calc(d.ctx);
   const wb = k.bc.wtMiss ? '重量税が入っていません（基本価格の「国交省で照会」で入れる）' : k.bc.wtStale ? '重量税の照会し直しが要ります（税制の年度が変わる）' : '';
   if (wb) { const t = $('q-docov').querySelector('.q-docbar .t'); if (t) t.insertAdjacentHTML('afterend', `<span class="q-pill warn" style="margin-left:8px">⚠ ${wb}</span>`); }
-  const html = { quote:()=>'', compare:()=>cmpShow(d,k), board:()=>docBoard(d.car), order:()=>docOrder(d,k), orderH:()=>docOrderH(d,k), equip:()=>eqShow(d,k), contract:()=>docContract(d,k), terms:()=>docTerms(), cond:()=>docCond(d,k), invoice:()=>docInvoice(d,k), delivery:()=>docDelivery(d,k) }[doc]();
+  const html = { quote:()=>'', compare:()=>cmpShow(d,k), board:()=>docBoard(d.car), order:()=>docOrder(d,k), order1:()=>docOrder1(d,k), orderH:()=>docOrderH(d,k), equip:()=>eqShow(d,k), contract:()=>docContract(d,k), terms:()=>docTerms(), cond:()=>docCond(d,k), invoice:()=>docInvoice(d,k), delivery:()=>docDelivery(d,k) }[doc]();
   $('q-paper').innerHTML = html;
   if (doc==='compare' && !cmpBaseOn(d)) document.querySelectorAll('#q-paper table.cmp tr').forEach(tr=>{ if (tr.cells[1]) tr.cells[1].remove(); });   // ベースの列を外す
   const two = eqWith(doc); $('q-paper2').hidden = !two; if (two) $('q-paper2').innerHTML = docEquip(d,k,true);
-  $('q-paper').classList.toggle('qvp', ['quote','compare','equip'].includes(doc)); $('q-paper2').classList.remove('qvp');
+  $('q-paper').classList.toggle('qvp', ['quote','compare','equip','order1'].includes(doc)); $('q-paper2').classList.remove('qvp');
   if (doc==='quote'){ const v = QV[0], q = qvFold(qvData(Object.assign({ tradeModel: (d.who && d.who.tradeModel) || '' }, d), k), v);
     $('q-paper').innerHTML = v.render(q); if (q.fold){ $('q-paper2').hidden = false; $('q-paper2').classList.add('qvp'); $('q-paper2').innerHTML = qvPage2(q, v); } }
   fitPaper(); if (doc==='board') brdFit();
@@ -1444,12 +1444,47 @@ function docTerms(){
   </div><div class="ct-s" style="margin-top:10px;border-top:1px solid #9aa6b8;padding-top:5px">${esc(c.name)}　（下書き v1・2026-10-03　※最終的な文言は弁護士・行政書士の確認を受けてから使用）</div></div>`;
 }
 
+const ordOf = d => d.kind==='order' && d.car.order ? d.car.order : { plan: d.ctx.plan || 'base', date: TODAY, delivery: '', promise: '', pre: true };
+
+/* v4.5.35 🗣 2026-10-24「このテイスト（横の注文書）は取っておいて、もうちょいシンプルに1枚でまとまる形ないかな。車種と見積番号で整合性を出して、
+   下とか右半分で注意書き、どこかにサイン欄。今の金のテイストを継承してるやつ」
+   ＝見積書（ショールーム・金の線）と同じ字・色の縦1枚。見積番号は見積書と同じ No。左に内訳・右にお引渡しと注意書き・下にご署名 */
+function docOrder1(d, k){
+  const q = qvData(Object.assign({ tradeModel: (d.who && d.who.tradeModel) || '' }, d), k), o = ordOf(d), u = d.who, L = k.loan, P = u ? qPayOf(u, o.plan, k) : null, c = q.c;
+  const qq = q.opts.filter(x=>!x.sub).length > 10 ? Object.assign({}, q, { opts1: [{ n: `付属品・オプション ${q.nOpt}点`, a: k.optSum, fold: true }], foldNote: `明細はお見積書 No.${q.no} のとおり` }) : q;
+  const kv = arr => arr.map(x=>`<div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+  const pay = L ? kv([['お支払い方法', 'オートローン（信販会社：'+qLine(90)+'）'], ['頭金', yen(L.down)+' 円'], ['月々', `${yen(L.later)} 円 × ${L.n-1}回（初回 ${yen(L.first)} 円）`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円']])
+    : kv([['お支払い方法', '現金'+(P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : '')]].concat(P && P.down ? [['頭金', yen(P.down)+' 円'], ['残金'+(P.when?'（'+esc(P.when)+'）':''), yen(P.rest)+' 円']] : [['お支払い期日', qLine(110)]], [['お振込先', esc(c.bank)]]));
+  const notes = [`この注文書にご署名いただいた時に、売買契約が成立します${L?'（ローンの場合は、信販会社の承認をもって確定します）':''}。`,
+    '自動車の売買には、クーリング・オフ（無条件で取り消せる制度）はありません。',
+    '契約の成立後に取り消す場合は、販売店の同意が要り、それまでに実際にかかった費用（登録の手続き・陸送・ご注文の部品や用品・着手した整備など）をご負担いただきます。',
+    q.cond, `登録に必要な書類：${qDocs(q).join('・')}`, '詳しい決まりは、別紙「自動車売買約款」のとおりです。'];
+  return `<div class="qv og">
+  <div class="hd"><div class="co">${esc(c.name)}</div><div class="tt"><small>ORDER</small><h1>ご注文書</h1></div>
+    <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(q.no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
+  <div class="car">${qI(q,'hero')}<div class="nm"><small>${esc(q.car.maker)}</small><h2>${esc(q.car.model)}</h2><p>${esc(q.car.grade)}</p>
+      <div class="ref">お見積書 No.${esc(q.no)}（${esc(q.plan)}）の内容で注文します</div></div>
+    <div class="fx">${[['年式', q.yearW], ['走行距離', q.km], ['車体色', q.car.color], ['修復歴', q.b.repair], ['車検', shakenText(q.b,k).replace(/（.*$/,'')], ['管理番号', q.car.num]].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1]||'—')}</b></div>`).join('')}</div></div>
+  <div class="row"><div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div></div>
+    <div class="pay">${pay}</div></div>
+  <div class="body"><div class="l"><h3>ご注文の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(qq,{note:1})}</div>
+    <div class="r"><h3>お引渡し</h3>${kv([['納車予定日', o.delivery ? jd(o.delivery)+' ごろ' : '　　年　　月　　日 ごろ'], ['納車場所', qDeliv(q)], ['納車整備', esc(qSeibiNm(q))], ['保証', esc(k.ws ? 'なし（現状渡し）' : warText(q.b))]])}
+      <h3>お約束事項</h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div>
+      <h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div></div>
+  <div class="sg"><div class="by"><div class="h">ご購入者</div>
+      <div class="ck"><div>☐ 上記の内容と別紙の約款を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
+      <div class="ln"><small>ご署名${u && u.name ? `（${esc(u.name)} 様）` : ''}</small><span></span></div>
+      <div class="ln2"><div><small>ご住所</small><span>${u && u.addr ? esc(u.addr) : ''}</span></div><div><small>電話</small><span>${u && u.tel ? esc(u.tel) : ''}</span></div></div></div>
+    <div class="sl"><div class="h">販売店</div><b>${esc(c.name)}</b><div class="ad">${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div><div class="st"><small>担当</small><span>${esc(q.staff)}</span></div><span class="in">印</span></div></div>
+  <div class="ft">課税10%対象 ${yen(k.taxable)}（消費税 ${yen(k.ctax)}）・非課税 ${yen(k.nonTax)}・不課税（立替） ${yen(k.tate)}</div></div>`;
+}
+
 /* 注文書（横）… SCD の横型注文書（2026-10-01 に実物を PDF で確認）の並びを下敷きにして、税の区分を正しく直したもの
    SCD との違い：整備点検費用・代書費を課税の諸費用に置かない（車両価格に含む／置かない）／立替（不課税）を別に出す／環境性能割の欄を出さない */
 function docOrderH(d,k){
   /* v4.5.33 売約の前（個別見積）は、今の見積の中身で刷る。注文日＝今日・納車予定日は空き（手書き）・No は見積の No */
   const car = d.car, u = d.who, b = d.ctx.b, L = k.loan, c = C();
-  const o = d.kind==='order' && car.order ? car.order : { plan: d.ctx.plan || 'base', date: TODAY, delivery: '', promise: '', pre: true };
+  const o = ordOf(d);
   const rows = (arr, n) => { const out = arr.slice(); while (out.length < n) out.push(['','']); return out; };
   const kRows = k.feeK.map(f=>[f[0]+'<span class="tag k">課税</span>', f[1]]).concat(k.bc.unexpTax?[['自動車税 未経過相当額<span class="tag k">課税</span>', k.bc.unexpTax]]:[], k.bc.unexpJb?[['自賠責 未経過相当額<span class="tag k">課税</span>', k.bc.unexpJb]]:[], k.condRows.filter(r=>r[2]==='k').map(r=>[r[0]+'<span class="tag c">◎</span>', r[1]]));
   const tRows = k.legal.map(f=>[f[0], f[1]]).concat(k.condRows.filter(r=>r[2]==='t').map(r=>[r[0]+'<span class="tag c">◎</span>', r[1]]));
