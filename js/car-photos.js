@@ -169,7 +169,7 @@
     var S = slotsOf(car), s = S.s, ed = canEdit(), th = s.findIndex(function (p) { return !!p; });
     var slots = '';
     for (var i = 0; i < MAX; i++) {
-      var p = s[i], use = (i === th ? 'カード・一覧・見積の表紙・' : '') + '帳票の「' + esc(ANG[i]) + '」';
+      var p = s[i], use = i === th ? 'カード・一覧・見積の表紙' : '';   /* 🗣 2026-10-24「帳票のは要らない」＝枠の下の「帳票の「…」」は出さない */
       var dropAttr = ' ondragover="CarPhotos.dOver(event)" ondragleave="CarPhotos.dLeave(event)" ondrop="CarPhotos.dDrop(event,' + i + ')"';
       var head = '<span class="cph-no">' + (i + 1) + (i === th ? ' サムネ' : '') + '</span>';
       if (p) {
@@ -197,8 +197,7 @@
       + '<div class="cph-grid">' + slots + '</div>'
       + (extra ? '<div class="cph-extra"><div class="cph-sub">枠の外の写真（前の版で同じ角度に2枚入っていた物）。使うなら枠へドラッグ、要らなければ ✕</div><div class="cph-grid">' + extra + '</div></div>' : '')
       + (ed ? '<div class="cph-drop" ondragover="CarPhotos.dOver(event)" ondragleave="CarPhotos.dLeave(event)" ondrop="CarPhotos.dDrop(event,99)">ここに写真をまとめて落としても、空いている枠に入ります（パソコン）。決まった枠に入れる時は、その枠へ落とす。スマホは「まとめて入れる」か枠の＋</div>' : '')
-      + '<div class="cph-note"><b>見積の帳票の写真</b>：帳票の置き場（外装 前・横・後ろ・運転席まわり など）は、<b>同じ角度の枠の写真</b>を使います。その枠が空きの時は<b>サムネの写真</b>。<br>'
-      + '<b>サムネ</b>は1番（外装 前）の写真。カードのサムネ・一覧・見積の表紙に使います。1番が空きの時は、入っている中で一番若い枠の写真。左上のサムネでは変えられません。</div></div>';
+      + '<div class="cph-note"><b>サムネ</b>は1番（外装 前）の写真。カードのサムネ・一覧・見積の表紙に使います。1番が空きの時は、入っている中で一番若い枠の写真。左上のサムネでは変えられません。</div></div>';
   }
 
   window.CarPhotos = { ANG: ANG, list: list, count: count, panel: panel, pick: pick, addFiles: addFiles, replaceFor: replaceFor, sortByAngle: sortByAngle, remove: remove, removeExtra: removeExtra, move: move, moveExtra: moveExtra,
