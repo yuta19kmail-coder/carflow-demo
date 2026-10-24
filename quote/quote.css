@@ -1732,3 +1732,4 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .og .sg .sl{position:relative;font-size:9px;line-height:1.5;border-left:1px solid #e7e5e4;padding-left:16px}.og .sg .sl b{display:block;font-size:12.5px;letter-spacing:.1em}.og .sg .sl .ad{color:#57534e;font-size:8.6px;padding-right:58px}
 .og .sg .sl .st{margin-top:6px;width:60%}.og .sg .sl .st span{display:block;min-height:18px;border-bottom:1px solid #a8a29e;font-size:10px}
 .og .sg .sl .in{position:absolute;right:0;top:18px;width:46px;height:46px;border:1px dashed #b9a57a;border-radius:50%;color:#b9a57a;display:flex;align-items:center;justify-content:center;font-size:10px}
+.og.tight .kv,.og.tight .pay .kv{padding:2px 0}.og.tight .pm{min-height:69px}.og.tight .ob{margin-top:10px}.og.tight .body .ob{margin-top:0}

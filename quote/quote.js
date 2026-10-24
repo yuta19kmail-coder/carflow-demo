@@ -1460,13 +1460,13 @@ function docOrder1(d, k){
     ? `<div class="pm1">オートローン</div>` + kv([['信販会社', W(170)], ['頭金', yen(L.down)+' 円'], ['お借入れ（割賦元金）', yen(L.P)+' 円'], ['お支払い回数', L.n+' 回'], ['初回', yen(L.first)+' 円'], ['2回目以降（月々）', `<em>${yen(L.later)}</em> 円 × ${L.n-1}回`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円'], ['申込金（代金の一部に充てます）', W(110)+' 円']])
     : `<div class="pm1">現金${P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : ''}</div>` + kv((P && P.down ? [['頭金', `<em>${yen(P.down)}</em> 円`], ['残金', `<em>${yen(P.rest)}</em> 円`]] : [['お支払い金額', `<em>${yen(k.net)}</em> 円`]]).concat([['申込金（代金の一部に充てます）', W(110)+' 円'], ['お支払い期日', P && P.when ? esc(P.when) : '　　年　　月　　日'], ['お振込先', esc(c.bank)]]));
   const deliv = kv([['納車予定日', o.delivery ? jd(o.delivery)+' ごろ' : '　　年　　月　　日 ごろ'], ['納車場所', qDeliv(q)], ['登録', esc(regOf(q.b.regType).l)], ['納車整備', esc(qSeibiNm(q))], ['保証', esc(k.ws ? 'なし（現状渡し）' : warText(q.b))]]);
-  const trade = q.tr ? kv([['車名', q.tradeModel ? esc(q.tradeModel) : W(150)], ['下取価格', yen(k.trade)+' 円'], ['残債（当店で精算）', k.tradeLoan ? yen(k.tradeLoan)+' 円' : W(90)+' 円'], ['車台番号', W(150)], ['車検満了日', '　　年　　月　　日'], ['所有者', W(150)]]) : '';
+  const trade = q.tr ? kv([['車名', q.tradeModel ? esc(q.tradeModel) : W(150)], ['下取価格・残債', `${yen(k.trade)} 円・${k.tradeLoan ? yen(k.tradeLoan)+' 円' : W(70)+' 円'}`], ['車台番号', W(150)], ['車検満了日・所有者', '　　年　　月　　日・'+W(80)]]) : '';
   const notes = [`ご注文の内容（内訳・付属品・オプション・諸費用）は、お見積書 No.${no} のとおりです。同じ No のお見積書と一緒にお渡しします。`,
     `この注文書にご署名いただいた時に、売買契約が成立します${L?'（ローンの場合は、信販会社の承認をもって確定します）':''}。`,
     '自動車の売買には、クーリング・オフ（無条件で取り消せる制度）はありません。',
     '契約の成立後に取り消す場合は、販売店の同意が要り、それまでに実際にかかった費用（登録の手続き・陸送・ご注文の部品や用品・着手した整備など）をご負担いただきます。',
     q.cond, `登録に必要な書類：${qDocs(q).join('・')}`, '詳しい決まりは、別紙「自動車売買約款」のとおりです。'];
-  return `<div class="qv og">
+  return `<div class="qv og${L && q.tr ? ' tight' : ''}">   <!-- ローンと下取りが両方ある時は行を詰める -->
   <div class="hd"><div class="co">${esc(c.name)}</div><div class="tt"><small>ORDER</small><h1>ご注文書</h1></div>
     <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
   <div class="car">${qI(q,'hero')}<div class="nm"><small>${esc(q.car.maker)}</small><h2>${esc(q.car.model)}</h2><p>${esc(q.car.grade)}</p></div>
