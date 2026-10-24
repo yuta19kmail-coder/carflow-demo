@@ -138,7 +138,11 @@
     pendingRoute = r; open(app, el);
     var n = 0, t = setInterval(function () { if (ready()) { clearInterval(t); apply(); } else if (++n > 80) { clearInterval(t); pendingRoute = null; } }, 250);
   }
-  window.addEventListener('popstate', function () { if (isQ(location.hash)) goRoute(location.hash.slice(1)); });
+  window.addEventListener('popstate', function () {
+    if (isQ(location.hash)) { goRoute(location.hash.slice(1)); return; }
+    /* 見積に入る前（住所なし＝ダッシュボード）まで戻った時。#/kanban などのタブは coreflow-nav.js が開く */
+    if (panelOpen() && !/^#\//.test(location.hash || '') && typeof showPanel === 'function') showPanel('dashboard', document.getElementById('si-dashboard'));
+  });
   /* 再読み込み・送ってもらった住所：ログインと車の読み込みが済んでから開く */
   if (isQ(location.hash)) {
     var r0 = location.hash.slice(1), n0 = 0;
