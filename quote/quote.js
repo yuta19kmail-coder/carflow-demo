@@ -3964,7 +3964,8 @@ const majorOf = car => car.base ? priceEvents(car).length + (car.base.editVer||0
 const minorOf = car => (car.std && car.std.ver) || 1;
 const custNoOf = (car, u) => u.no || (car.custs.indexOf(u) + 1);
 /* v4.5.38 🗣 2026-10-24「A1B とかにする？ A が顧客・Z まで、1 がバージョン、B がプラン」「KM000-0-A0B ね」
-   ＝個別見積は 車-基本価格の版-お客様の字（A〜Z・27人目から AA）＋見積の版＋プラン。プラン見積（お客様なし）は今のまま */
+   ＝個別見積は 車-基本価格の版-お客様の字（A〜Z・27人目から AA）＋見積の版＋プラン。プラン見積（お客様なし）は今のまま
+   v4.5.44 🗣「（プラン見積の版も）わかった方がいいな。長くして」＝KM0562-2-4-A1B（車-基本価格の版-元にしたプラン見積の版-お客様の字＋見積の版＋プラン） */
 const custLetter = n => { let s = ''; n = Math.max(1, n|0); while (n > 0){ n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s; };
 /* 見積の版：刷った紙と中身が変わったら、次に刷る時に上がる（u.qv＝刷った版・u.qvSig＝刷った時の中身の印）。刷る前の画面では「次に刷ると上がる版」を出す */
 const _sigC = new Map();
@@ -3974,7 +3975,7 @@ function custSig(car, u){ if (_sigC.has(u)) return _sigC.get(u);
   const r = (h >>> 0).toString(36); if (!_sigC.size) queueMicrotask(()=>_sigC.clear()); _sigC.set(u, r); return r; }
 const custVer = (car, u) => (u.qv || 1) + (u.qvSig && u.qvSig !== custSig(car, u) ? 1 : 0);
 function custVerCommit(car, u){ const sg = custSig(car, u); if (u.qvSig === sg) return false; u.qv = u.qvSig ? (u.qv || 1) + 1 : (u.qv || 1); u.qvSig = sg; return true; }
-function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${custLetter(custNoOf(car,u))}${custVer(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}${pLetter(p)}`; }   // v4.5.42 プラン見積も新しい形（車-基本価格の版-プランの版＋プラン）
+function estNo(car, p, u){ return u ? `${kmNo(car)}-${u.major||1}-${u.minor||1}-${custLetter(custNoOf(car,u))}${custVer(car,u)}${pLetter(p)}` : `${kmNo(car)}-${majorOf(car)}-${minorOf(car)}${pLetter(p)}`; }   // v4.5.42 プラン見積も新しい形（車-基本価格の版-プランの版＋プラン）
 /* 車ごとの最新の番号（🗣 2026-10-03「各車両カードとかにも最新のバージョンの表記」）＝メジャー-マイナー-いちばん新しい個別見積の番号（無ければ0） */
 const latestPatch = car => car.custs.length ? Math.max(...car.custs.map(u=>custNoOf(car,u))) : 0;
 const verShort = car => car.base ? `${majorOf(car)}-${minorOf(car)}` : '';   // v4.5.42 新しい形
