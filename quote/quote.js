@@ -1377,11 +1377,12 @@ function renderDocs(){ _reprint = null;
 /* 帳票の拡大縮小（🗣 2026-10-05「ヘッダーに100％表示・拡大縮小が欲しい。いま全体を見れない」）。S.ui.docZoom＝'fit'（全体＝紙1枚がまるごと見える）／数字（1＝100%） */
 function zoomOf(st, W, H){ const z = S.ui.docZoom; return (!z || z==='fit') ? Math.min((st.clientWidth-36)/W, (st.clientHeight-36)/H) : z; }
 function zoomBar(){ const z = S.ui.docZoom, st = $('q-stage'), cur = z && z!=='fit' ? z : null;
-  return `<span class="q-zoom"><button class="${!cur?'on':''}" onclick="docZoom('fit')" title="紙1枚がまるごと見える大きさ">全体</button><button class="${cur===1?'on':''}" onclick="docZoom(1)">100%</button><button onclick="docZoom(-1)" title="縮小">－</button><span id="q-zoomv">${cur ? Math.round(cur*100)+'%' : ''}</span><button onclick="docZoom(+1)" title="拡大">＋</button></span>`; }
-function docZoom(v){ const steps = [0.25,0.33,0.5,0.67,0.75,0.9,1,1.25,1.5,2];
+  return `<span class="q-zoom"><button class="${!cur?'on':''}" onclick="docZoom('fit')" title="紙1枚がまるごと見える大きさ">全体</button><button class="${cur===1?'on':''}" onclick="docZoom(1)">100%</button><button onclick="docZoom('out')" title="縮小">－</button><span id="q-zoomv">${cur ? Math.round(cur*100)+'%' : ''}</span><button onclick="docZoom('in')" title="拡大">＋</button></span>`; }
+/* v4.5.31 🗣「帳票のプレビューで100％を超えて拡大できるように」＝前は［＋］が docZoom(+1)＝［100%］の docZoom(1) と同じ合図で、100% から先へ進めなかった。［＋］［－］は 'in'／'out' に（最大 300%） */
+function docZoom(v){ const steps = [0.25,0.33,0.5,0.67,0.75,0.9,1,1.25,1.5,2,2.5,3];
   if (v==='fit' || v===1) S.ui.docZoom = v;
   else { const st = $('q-stage'), cur = parseFloat(($('q-papers').style.transform.match(/scale\(([\d.]+)\)/)||[])[1]) || 1;
-    S.ui.docZoom = v>0 ? (steps.find(x=>x>cur+0.001) || 2) : ([...steps].reverse().find(x=>x<cur-0.001) || 0.25); }
+    S.ui.docZoom = v==='in' ? (steps.find(x=>x>cur+0.001) || 3) : ([...steps].reverse().find(x=>x<cur-0.001) || 0.25); }
   save(); if (_reprint) _reprint(); else renderDocs(); }
 let _reprint = null;   // 並べて見る（一括・選択・個別見積）の時は、その画面を描き直す
 function fitPaper(){ const st = $('q-stage'); if (!st || $('q-docov').hidden) return; const pap = $('q-paper'), box = $('q-papers'), sc = $('q-scaler'); const land = S.ui.doc==='orderH', a3 = S.ui.doc==='board'; pap.classList.toggle('land', land); pap.classList.toggle('a3', a3); $('q-paper2').classList.remove('land'); $('q-page').textContent = a3 ? '@page{size:A3 landscape;margin:0}' : land ? '@page{size:A4 landscape;margin:0}' : '@page{size:A4 portrait;margin:0}'; const W = a3 ? 1587 : land ? 1123 : 794, H = a3 ? 1123 : land ? 794 : 1123; const s = zoomOf(st, W, H); box.style.transform = `scale(${s})`; sc.style.width = W*s+'px'; sc.style.height = box.offsetHeight*s+'px'; }

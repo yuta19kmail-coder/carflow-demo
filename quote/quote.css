@@ -1688,3 +1688,5 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .qpay .pr b{font-variant-numeric:tabular-nums}
 .qpay .pr.last{border-top:1px solid #a8894f;margin-top:3px;padding-top:3px;font-weight:700;font-size:11px}
 .qpay .ln{margin-top:2px;font-size:9.4px;color:#57534e}.qpay .ln b{font-size:12px;color:#1c1917}
+/* v4.5.31 拡大して紙が枠より広くなった時も、左端までスクロールで見られるように（真ん中寄せで左が切れない） */
+.q-stage{justify-content:safe center}
