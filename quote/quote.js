@@ -133,7 +133,7 @@ let S = (function(){
   s.ui.app = ['cost','set','cgset','hist'].includes(B.app) ? B.app : 'quote';   /* hist＝カード詳細の［価格履歴］（v4.5.0・?car=車のID） */   /* set・cgset＝CarFlow の設定 ▸ 見積／原価 の中に開いた時（v4.4.0） */
   if (!B.set){ const co = window.QData ? QData.company() : {};   /* 見積の設定がまだ無い時＝会社の欄は CarFlow の会社情報から */
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
-  const st = window.QData ? QData.staff() : []; if (st.length && !(B.set && B.set.staffFixed)) s.set.staff = st;   /* 担当＝CarFlow を使える人 */
+  if (window.QData) s.set.staff = QData.staff();   /* 担当＝メンバー管理で「セールス」にチェックの人（v4.5.18・設定からは外した） */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
   /* 🗣 2026-10-23 スマートカーディーラーからの移行：基本（L）を 納車整備 5.5万・保証 3年または30,000km に（前の設定の 納車前点検 1.5万 を1回だけ置き換え。読み込んだ直後の形なので、見ただけでは書かない） */
   /* 🗣 2026-10-23 ドラレコを社内料金表の工賃・StockFlow の本体に（品の id dr_tw73 は同じ＝車ごとの選びはそのまま） */
@@ -1241,7 +1241,7 @@ function stepCust(car){
       <div><label class="k">お名前</label><input id="u-name" class="q-in" value="${esc(u.name)}" onchange="custSet('${car.id}','${u.id}','name',this.value,1)" ${dis?'disabled':''}></div>
       <div><label class="k">TEL</label><input id="u-tel" class="q-in" value="${esc(u.tel)}" onchange="custSet('${car.id}','${u.id}','tel',this.value,1)" ${dis?'disabled':''}></div>
       <div style="grid-column:1/-1"><label class="k">ご住所</label><input id="u-addr" class="q-in" value="${esc(u.addr)}" onchange="custSet('${car.id}','${u.id}','addr',this.value,1)" ${dis?'disabled':''}></div>
-      <div><label class="k">担当</label><select id="u-staff" class="q-in" onchange="custSet('${car.id}','${u.id}','staff',this.value,1)" ${dis?'disabled':''}><option value="" ${u.staff?'':'selected'}>（担当を選ぶ）</option>${[...new Set([u.staff].filter(Boolean).concat(S.set.staff))].map(n=>`<option ${n===u.staff?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+      <div><label class="k">担当</label><select id="u-staff" class="q-in" onchange="custSet('${car.id}','${u.id}','staff',this.value,1)" ${dis?'disabled':''}><option value="" ${u.staff?'':'selected'}>${S.set.staff.length ? '（担当を選ぶ）' : '（メンバー管理で「セールス」にチェックの人がいません）'}</option>${[...new Set([u.staff].filter(Boolean).concat(S.set.staff))].map(n=>`<option ${n===u.staff?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
       <div><label class="k">作成日</label><div style="padding:7px 0">${jd(u.made)}</div></div>
       <div style="grid-column:1/-1"><label class="k">商談メモ</label><textarea id="u-note" class="q-in" onchange="custSet('${car.id}','${u.id}','note',this.value,1)" ${dis?'disabled':''}>${esc(u.note)}</textarea></div></div></div></div>
 </div></div>
@@ -2618,7 +2618,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
     const c = s.company, f = (k2,l,full) => `<div${full?' style="grid-column:1/-1"':''}><label class="k">${l}</label><input id="st-c-${k2}" class="q-in" value="${esc(c[k2])}" onchange="S.set.company.${k2}=this.value;save()"></div>`;
     b = `<div class="q-f">${f('name','会社名')}${f('inv','インボイス登録番号')}${f('zip','〒')}${f('addr','住所')}${f('tel','TEL')}${f('fax','FAX')}${f('kobutsu','古物商許可番号')}${f('bank','振込先',1)}${f('area','支払総額の条件（登録地・納車）',1)}
       <div><label class="k">見積の有効日数</label><input id="st-c-valid" class="q-in num" value="${c.valid}" onchange="S.set.company.valid=Math.round(numIn(this.value))||30;save()"></div>
-      <div><label class="k">担当者（, 区切り）</label><input id="st-staff" class="q-in" value="${esc(s.staff.join(','))}" onchange="S.set.staff=this.value.split(',').map(x=>x.trim()).filter(Boolean);save()"></div></div>`;
+      <div><label class="k">担当者</label><div class="q-why" style="margin:6px 0 0">CoreFlow のメンバー管理で「セールス」にチェックの人（${s.staff.length ? s.staff.map(esc).join('・') : 'いまは誰もいません'}）</div></div></div>`;
   }
   const head = `${QData.canSet()?'<div class="q-why" style="margin:0 0 8px">ここで直した値は会社全体の見積に効きます（会社の全員・全部の PC）。</div>':'<div class="q-note warn" style="margin:0 0 8px">見るだけです。設定を直せるのは 管理者・マネージャー（直しても保存されません）。</div>'}<div class="q-wtabs">${tabs.map(([id,l])=>`<button class="${setTab===id?'on':''}" onclick="openSettings('${id}')">${l}</button>`).join('')}</div>`;
   /* v4.4.0 CarFlow の設定 ▸ 見積 の中（app＝set）は画面として出す。前の「見積の設定」の窓は、見積の画面の右上から外した */
