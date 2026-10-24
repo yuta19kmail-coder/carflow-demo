@@ -1677,3 +1677,6 @@ html[data-embed] .sf-pk-list{max-height:calc(var(--vh,100vh) * .5)}
 .q-cta .t small{display:block;font-size:9px;font-weight:400;color:#57534e;letter-spacing:0}
 .q-cta .t b{display:block;font-size:20px;font-weight:700;letter-spacing:.04em;color:#1c1917}
 .q-cta .t i{font-style:normal;font-size:10px;font-weight:600;color:#06c755}
+
+/* v4.5.27 写真が1枚の時の見積書＝下の4枚を出さず、総額のカードだけ右に */
+.q1 .row1.one{grid-template-columns:286px;justify-content:end}

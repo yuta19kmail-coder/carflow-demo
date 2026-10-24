@@ -2961,6 +2961,8 @@ function qvData(d, k){
   const opts = k.inPlan.flatMap(x=>optLines(x).map(([n,a,tbd])=>({ n, a: tbd ? null : (+a||0), tbd, sub: /^\s*└/.test(n) })));
   const vehIn = Math.floor(k.vehicle*1.1), fr = car.firstReg || '';
   const hasPh = !!carPh(car);
+  /* v4.5.27 🗣「写真が1枚しか入ってない時に、帳票が自動で1枚用（今だと下の4枚が無い物）に切り替わるように」＝写真タブの枚数（無ければカードの写真で1枚） */
+  const phN = (car.photos||[]).filter(x=>x && x.url).length || (car.photo ? 1 : 0);
   return { d, no: estNo(car, p ? (p==='D'?'D':p) : 'base', who), p: p || 'base', plan: p ? `プラン ${p}（${planName(p)}）` : '基本（オプションなし）', planS: p ? planName(p) : '基本',
     date: jd(TODAY), valid: jd(addDays(TODAY, c.valid)), cust: who && who.name ? who.name : '', staff: who ? (who.staff||'') : '',   /* 🗣 2026-10-23「プラン見積では担当欄自体を無くして」＝お客様の無い見積書は担当を出さない */ c, car, b, k,
     title: car.maker+' '+car.model, yearW: wareki(fr), yearA: fr ? `${fr.slice(0,4)}年${+fr.slice(5,7)}月` : '', km: kmText(car,b),
@@ -2973,7 +2975,7 @@ function qvData(d, k){
     headSub: (k.trade || k.tradeLoan) ? `お支払総額 ${yen(k.cash)} − 下取車 ${yen(k.trade)}${k.tradeLoan ? ' ＋ 残債 '+yen(k.tradeLoan) : ''}` : '',
     opts1: opts, fold: false, nOpt: opts.filter(o=>!o.sub).length,
     loanX: k.loan || (k.net > 0 ? loanCalc(k.net, 0, S.set.loan.rate, S.set.loan.count) : null), loanEx: !k.loan,
-    hasPh, ph: slot => hasPh ? (carPh(car, slot) || carPh(car)) : '' };
+    hasPh, phMany: phN > 1, ph: slot => hasPh ? (carPh(car, slot) || carPh(car)) : '' };
 }
 const qY = v => '¥' + yen(v);
 const qyz = v => v ? yen(v) : '—';
@@ -3049,7 +3051,7 @@ const QV = [
    <div class="hero">${qI(q,'hero')}<div class="shade"></div>
      <div class="top"><span class="co">${esc(q.c.name)}</span><span class="doc">お見積書　<small>${esc(q.no)}</small></span></div>
      <div class="name"><small>${esc(q.car.maker)}</small><h1>${esc(q.car.model)}</h1><p>${esc(q.car.grade)}</p></div></div>
-   <div class="row1"><div class="thumbs">${qI(q,'side')}${qI(q,'rear')}${qI(q,'dash')}${qI(q,'seat')}</div>
+   <div class="row1${q.phMany?'':' one'}">${q.phMany?`<div class="thumbs">${qI(q,'side')}${qI(q,'rear')}${qI(q,'dash')}${qI(q,'seat')}</div>`:''}
      <div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div>${q.loan?`<div class="ln"><b>月々 ${yen(q.loan.later)}円</b><span>× ${q.loan.n-1}回（初回 ${yen(q.loan.first)}円）・頭金 ${yen(q.loan.down)}円<br>実質年率 ${q.loan.rate}%・割賦販売価格 ${yen(q.loan.hanbai)}円</span></div>`:''}</div></div>
    <div class="facts">${[['年式', q.yearW, q.yearA], ['走行距離', q.car.km.toLocaleString()+' km', '実走行'], ['修復歴', q.b.repair, ''], ['車検', shakenText(q.b,k).replace(/（.*$/,''), ''], ['保証', k.ws?'なし':warText(q.b), '']].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1])}</b>${f[2]?`<i>${esc(f[2])}</i>`:''}</div>`).join('')}</div>
    <div class="body"><div class="l"><h3>お車</h3>${q.spec.filter(s=>!/車名|年式|走行|修復|保証|車検/.test(s[0])).map(s=>`<div class="sp"><span>${s[0]}</span><b>${esc(s[1])}</b></div>`).join('')}
@@ -3422,7 +3424,7 @@ const QC = [
        <div class="tt"><small>${q.headLb}（消費税込）</small><b>${qY(rec.k.net)}</b><span>ベースから ＋${yen(rec.k.net-base.k.net)}　・　ローン 月々 ${yen(L.later)}円（${L.n}回${rec.k.loan?'':'・例'}）</span></div>
        <div class="sb">${esc(rec.seibi.name)}・保証 ${esc(warText(q.b))}${rec.items.some(i=>/延長保証/.test(i.n))?'＋延長保証':''}</div></div>
      <div class="r"><h3>このプランに含まれるもの <small>${its.length}点</small></h3><div class="its">${shown.map(it=>`<span>${esc(it.n)}</span>`).join('')}${cut?`<span class="more">ほか ${its.length-15}点</span>`:''}</div></div></div>
-   <div class="th3">${qI(q,'dash','','運転席まわり')}${qI(q,'seat2','','後ろの席')}${qI(q,'lug','','荷室')}${qI(q,'nav','','ナビ・カメラ')}</div>
+   ${q.phMany?`<div class="th3">${qI(q,'dash','','運転席まわり')}${qI(q,'seat2','','後ろの席')}${qI(q,'lug','','荷室')}${qI(q,'nav','','ナビ・カメラ')}</div>`:''}
    <h3 class="ot">ほかのプラン</h3>
    <div class="others">${P.filter(x=>x!==rec).map(x=>{ const Lx = x.k.loan || loanCalc(x.k.net, 0, S.set.loan.rate, S.set.loan.count), d = x.k.net - rec.k.net;
      return `<div class="o"><div class="n"><b>${x.name}</b><small>${esc(x.sub)}・${esc(x.seibi.name)}</small></div><div class="i">${x.items.length ? x.items.slice(0,5).map(i=>esc(i.n)).join('・') + (x.items.length>5?` ほか${x.items.length-5}点`:'') : 'オプションなし（掲載の支払総額）'}</div>
