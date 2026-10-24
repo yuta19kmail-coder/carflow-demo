@@ -1466,7 +1466,7 @@ function docOrder1(d, k){
     '自動車の売買には、クーリング・オフ（無条件で取り消せる制度）はありません。',
     '契約の成立後に取り消す場合は、販売店の同意が要り、それまでに実際にかかった費用（登録の手続き・陸送・ご注文の部品や用品・着手した整備など）をご負担いただきます。',
     q.cond, `登録に必要な書類：${qDocs(q).join('・')}`, '詳しい決まりは、別紙「自動車売買約款」のとおりです。'];
-  return `<div class="qv og${L && q.tr ? ' tight' : ''}">   <!-- ローンと下取りが両方ある時は行を詰める -->
+  return `<div class="qv og${L || q.tr ? ' tight' : ''}">   <!-- ローンか下取りがある時は行を詰める -->
   <div class="hd"><div class="co">${esc(c.name)}</div><div class="tt"><small>ORDER</small><h1>ご注文書</h1></div>
     <div class="m"><div><span>注文日</span><b>${jd(o.date)}</b></div><div><span>見積番号</span><b>${esc(no)}</b></div><div><span>担当</span><b>${esc(q.staff)||'　'}</b></div></div></div>
   <div class="car">${qI(q,'hero')}<div class="nm"><small>${esc(q.car.maker)}</small><h2>${esc(q.car.model)}</h2><p>${esc(q.car.grade)}</p></div>
