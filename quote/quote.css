@@ -1658,10 +1658,10 @@ img.car-ph{width:100%;height:100%;object-fit:cover;display:block}
 .q-tpln{font-weight:700;color:var(--text);padding:6px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .q-sflink{display:inline-block;font-size:11px;font-weight:700;color:var(--blue,#3b82f6);border:1px solid currentColor;border-radius:999px;padding:1px 9px;white-space:nowrap}
 /* v4.5.10 CarFlow の設定 ▸ 見積・原価の中（html.q-embed）＝ほかの設定の欄と同じ見た目。枠・中のスクロールなし */
-.q-embed .q-root{overflow:visible;flex:none;width:100%}
-.q-embed .q-wrap{max-width:none;padding:0 2px 8px}
-.q-embed .q-setcard{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
-.q-embed .q-card{border-radius:10px}
-.q-embed .q-ov{top:var(--vt,0px);bottom:auto;height:var(--vh,100vh)}
-.q-embed .q-toast{bottom:auto;top:calc(var(--vt,0px) + var(--vh,100vh) - 64px)}
+html[data-embed] .q-root{overflow:visible;flex:none;width:100%}
+html[data-embed] .q-wrap{max-width:none;padding:0 2px 8px}
+html[data-embed] .q-setcard{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+html[data-embed] .q-card{border-radius:10px}
+html[data-embed] .q-ov{top:var(--vt,0px);bottom:auto;height:var(--vh,100vh)}
+html[data-embed] .q-toast{bottom:auto;top:calc(var(--vt,0px) + var(--vh,100vh) - 64px)}
 .q-top[hidden]{display:none}
