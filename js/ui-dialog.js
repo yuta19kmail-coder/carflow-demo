@@ -163,7 +163,9 @@
       '.uid-t.out{opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}',
       '.uid-t .uid-tm{flex:1 1 auto;min-width:0;white-space:pre-wrap;word-break:break-word;display:flex;flex-direction:column}',
       '.uid-t .uid-tm .cf-ec{align-self:flex-end;margin-top:2px;color:#9aa4b2}',
-      '.uid-t.err{border-left-color:#ef4444;cursor:pointer}',
+      /* 2026-10-24 🗣 ゆうた「エラーの線も各アプリのテーマ色にそろえて、全アプリに配って」＝エラーもふつうと同じアプリの色の線（前は赤 #ef4444）。
+         エラーかどうかは ×・番号・押すまで残る で見分ける（調査＝_記録\調査_エラー表示の色_2026-10.md） */
+      '.uid-t.err{cursor:pointer}',
       '.uid-t .uid-tx{flex:0 0 auto;border:0;background:transparent;color:#9aa4b2;font-size:15px;line-height:1;padding:2px 0 0;cursor:pointer;font-family:inherit}',
       '.uid-t .uid-tx:hover{color:#fff}',
       '.uid-t .uid-ta{flex:0 0 auto;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:7px;',

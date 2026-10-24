@@ -205,6 +205,7 @@ window.CF_EN_DICT = {
 "LINE通知連携":"LINE notification link",
 "LINE連携は残ります":"LINE link stays",
 "LINE連携設定を保存しました":"Saved LINE settings",
+"LINE（友だち追加の URL・帳票に QR で出す）":"LINE (add-friend URL, printed as a QR code on documents)",
 "LLC補充":"LLC refill",
 "Lステップ":"L Step",
 "Lステップを開く":"Open L Step",

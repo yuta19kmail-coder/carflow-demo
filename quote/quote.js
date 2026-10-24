@@ -103,7 +103,7 @@ function defaultSettings(){
     /* 検査・登録の手数料（立替）。🗣 2026-10-22「うちは認証」＝陸運局への持込検査の額（指定工場の 3,300 ではない）。car＝3ナンバー（普通）・sm＝5ナンバー（小型）
        根拠＝国交省「登録・検査手数料一覧表（令和8年4月1日現在）」：中古新規の登録 1,300＋新規検査 持込 普通 2,900／小型 2,800、継続検査 持込 普通 2,600／小型 2,500、移転 700。⚠ 予備検・軽は未確認の仮の値＝設定で直せる */
     reg:{ car:{ shinki:4200, keiten:3300, itenkei:3300, iten:700, yobi:1800 }, sm:{ shinki:4100, keiten:3200, itenkei:3200, iten:700, yobi:1800 }, kei:{ shinki:1800, keiten:1800, itenkei:1800, iten:0, yobi:1800 } },
-    company:{ name:'小林モータース株式会社', zip:'〒270-0000', addr:'千葉県松戸市○○ 2-3-2', tel:'047-000-0000', fax:'047-000-0000', inv:'T0000000000000', kobutsu:'第000000000000号', bank:'○○銀行 ○○支店（普）0000000 小林モータース株式会社', valid:30, area:'千葉県内登録（松戸）・店頭納車' },
+    company:{ name:'小林モータース株式会社', zip:'〒270-0000', addr:'千葉県松戸市○○ 2-3-2', tel:'047-000-0000', fax:'047-000-0000', line:'https://line.me/R/ti/p/@150irnnj', inv:'T0000000000000', kobutsu:'第000000000000号', bank:'○○銀行 ○○支店（普）0000000 小林モータース株式会社', valid:30, area:'千葉県内登録（松戸）・店頭納車' },
     loan:{ rate:9.3, count:60 },
     staff:['小林 裕太','山田 花子','専務'],
   };
@@ -133,6 +133,8 @@ let S = (function(){
   s.ui.app = ['cost','set','cgset','hist'].includes(B.app) ? B.app : 'quote';   /* hist＝カード詳細の［価格履歴］（v4.5.0・?car=車のID） */   /* set・cgset＝CarFlow の設定 ▸ 見積／原価 の中に開いた時（v4.4.0） */
   if (!B.set){ const co = window.QData ? QData.company() : {};   /* 見積の設定がまだ無い時＝会社の欄は CarFlow の会社情報から */
     if (co.name) s.set.company.name = co.name; if (co.address) s.set.company.addr = co.address; if (co.phone) s.set.company.tel = co.phone; }
+  /* v4.5.20 🗣 2026-10-24「店舗情報の FAX 入らない、逆に LINE を入れたい」＝LINE（友だち追加の URL・帳票に QR）。最初は小林モータース【公式】@150irnnj */
+  if (s.set.company && s.set.company.line == null) s.set.company.line = 'https://line.me/R/ti/p/@150irnnj';
   if (window.QData) s.set.staff = QData.staff();   /* 担当＝CarFlow のメンバー画面で「セールス」にチェックの人（v4.5.18・設定からは外した） */
   ['feeV2','feeV3','regV2'].forEach(k=>{ if (!s.set[k]) s.set[k] = 1; });
   /* 🗣 2026-10-23 スマートカーディーラーからの移行：基本（L）を 納車整備 5.5万・保証 3年または30,000km に（前の設定の 納車前点検 1.5万 を1回だけ置き換え。読み込んだ直後の形なので、見ただけでは書かない） */
@@ -1441,7 +1443,7 @@ function docOrderH(d,k){
   const down = L ? L.down : 0, remain = k.net - down;
   const opts = rows(k.inPlan.flatMap(x=>optLines(x).map(([n,a,tbd])=>[esc(n), tbd?OPT_TBD:+a?yen(a):'サービス'])), 9);   // 納車整備の段階アップもここに出る
   return `<div class="oh-top">
-    <div class="oh-seller"><div class="ov">売主</div><div class="in"><div class="nm">${esc(c.name)}</div><div class="seal">小林<br>モーター<br>ス之印</div>${esc(c.zip)}<br>${esc(c.addr)}<br>TEL ${esc(c.tel)} / FAX ${esc(c.fax)}<br>登録番号 ${esc(c.inv)}　古物商 ${esc(c.kobutsu)}<div style="text-align:right">御中</div></div></div>
+    <div class="oh-seller"><div class="ov">売主</div><div class="in"><div class="nm">${esc(c.name)}</div><div class="seal">小林<br>モーター<br>ス之印</div>${esc(c.zip)}<br>${esc(c.addr)}<br>TEL ${esc(c.tel)}<br>登録番号 ${esc(c.inv)}　古物商 ${esc(c.kobutsu)}<div style="text-align:right">御中</div></div></div>
     <div class="oh-title"><div class="t">注 文 書</div><div class="s">${_docNew?'（ <span style="border:1.5px solid #333;border-radius:50%;padding:0 3px">新車</span> ・ 中古車 ）':'（ 新車 ・ <span style="border:1.5px solid #333;border-radius:50%;padding:0 3px">中古車</span> ）'}</div><div class="s2">下記のとおり注文いたします。</div></div>
     <div><div class="oh-dates"><div class="ln"><span>注 文 日</span><span>${jd(o.date)}</span></div><div class="ln"><span>納車予定日</span><span>${jd(o.delivery)}</span></div><div class="ln"><span>No</span><span>${esc(car.num)}-版${o.ver}（プラン ${o.plan}）</span></div></div>
       <div class="oh-warn">この注文書および別添の契約条項（約款）をよく読んで十分納得したうえでご署名ください。ご署名をもって契約書となります。自動車の売買はクーリング・オフの適用がありません。</div></div></div>
@@ -1483,7 +1485,7 @@ const kindMark = () => _docNew ? '（ <span class="c">新車</span> ・ 中古�
 function head(title, dates, label){ return `<div class="p-top"><div class="p-kind">${kindMark()}</div><div class="p-date">${dates}</div></div><div class="p-title">${title}</div><div class="p-no">No：${label}</div>`; }
 function parties(who){ const c = C();
   return `<div class="bx hb cust"><div class="vt">お客様</div><div class="in"><div class="kv"><span class="k">お名前</span><span class="nm">${who&&who.name?esc(who.name):'　　　　　　'} 様</span><span class="k">ご住所</span><span>${who?esc(who.addr):''}</span><span class="k">TEL</span><span>${who?esc(who.tel):''}</span></div></div></div>
-    <div class="comp"><div class="nm">${esc(c.name)}</div><div class="seal">小林<br>モーター<br>ス之印</div>${esc(c.zip)} ${esc(c.addr)}<br>TEL ${esc(c.tel)} / FAX ${esc(c.fax)}<br>登録番号 ${esc(c.inv)}　古物商 ${esc(c.kobutsu)}<br><span style="color:var(--pb)">担当者：</span>${esc(who?who.staff:S.set.staff[0])}</div>`; }
+    <div class="comp"><div class="nm">${esc(c.name)}</div><div class="seal">小林<br>モーター<br>ス之印</div>${esc(c.zip)} ${esc(c.addr)}<br>TEL ${esc(c.tel)}<br>登録番号 ${esc(c.inv)}　古物商 ${esc(c.kobutsu)}<br><span style="color:var(--pb)">担当者：</span>${esc(who?who.staff:S.set.staff[0])}</div>`; }
 function condText(b, ws){ if (ws) return '業販価格（現状渡し）です。名義変更・登録・陸送はお買い上げ側でお願いします。納車整備・保証はありません。';
   const {y,m} = ym(regDateOf(b)), R = regOf(b.regType); return `支払総額は${y}年${m}月${R.buyerReg?'予備検査（登録はお客様側）':R.l+'の手続き'}、${esc(C().area)}の場合の費用です。お客様のご要望によるオプション等の費用は含みません。`; }
 const kmText = (car, b) => b && b.newCar ? '新車' : car.km.toLocaleString()+'km（実走）';
@@ -2616,7 +2618,7 @@ function openSettings(t){ if (t) setTab = t; const s = S.set;
       <div class="q-why" style="margin-top:8px">うちは認証工場＝陸運局へ<b>持込検査</b>の額（指定工場なら中古新規 3,300）。中古新規＝登録 1,300＋新規検査 5ナンバー 2,800／3ナンバー 2,900。継続移転・移転継続＝継続検査 2,500／2,600＋移転 700。移転だけ 700（2026/4/1 改定・国交省の一覧表）。予備検・軽は<b>未確認の仮の値</b>。環境性能割は 2026/3/31 廃止。</div>`;
   } else {
     const c = s.company, f = (k2,l,full) => `<div${full?' style="grid-column:1/-1"':''}><label class="k">${l}</label><input id="st-c-${k2}" class="q-in" value="${esc(c[k2])}" onchange="S.set.company.${k2}=this.value;save()"></div>`;
-    b = `<div class="q-f">${f('name','会社名')}${f('inv','インボイス登録番号')}${f('zip','〒')}${f('addr','住所')}${f('tel','TEL')}${f('fax','FAX')}${f('kobutsu','古物商許可番号')}${f('bank','振込先',1)}${f('area','支払総額の条件（登録地・納車）',1)}
+    b = `<div class="q-f">${f('name','会社名')}${f('inv','インボイス登録番号')}${f('zip','〒')}${f('addr','住所')}${f('tel','TEL')}${f('line','LINE（友だち追加の URL・帳票に QR で出す）')}${f('kobutsu','古物商許可番号')}${f('bank','振込先',1)}${f('area','支払総額の条件（登録地・納車）',1)}
       <div><label class="k">見積の有効日数</label><input id="st-c-valid" class="q-in num" value="${c.valid}" onchange="S.set.company.valid=Math.round(numIn(this.value))||30;save()"></div>
       <div><label class="k">担当者</label><div class="q-why" style="margin:6px 0 0">CarFlow のメンバー画面で「セールス」にチェックの人（${s.staff.length ? s.staff.map(esc).join('・') : 'いまは誰もいません'}）</div></div></div>`;
   }
@@ -2965,14 +2967,19 @@ function qvData(d, k){
 const qY = v => '¥' + yen(v);
 const qyz = v => v ? yen(v) : '—';
 const qOptAmt = o => o.tbd ? OPT_TBD : o.a ? yen(o.a) : 'サービス';
-const qCustLine = q => q.cust ? esc(q.cust)+' <small>様</small>' : '<span class="blank">　　　　　　　　　　</span> <small>様</small>';
+/* 🗣 2026-10-24「プラン見積などでは＿＿＿様を無くして、LINE と電話を大きめに。LINE は QR」＝お客様の名前が無い時は、LINE の QR（quote/vendor/qrcode-generator）と電話 */
+const qLineId = u => (String(u||'').match(/@[0-9a-z_.-]+/i) || [''])[0];
+const qQR = u => { try { if (!u || typeof qrcode !== 'function') return ''; const g = qrcode(0, 'M'); g.addData(String(u)); g.make(); return g.createSvgTag({ cellSize:4, margin:0, scalable:true }); } catch (e) { return ''; } };
+const qContact = q => { const l = q.c.line, qr = qQR(l), id = qLineId(l);
+  return `<span class="q-cta">${qr ? `<span class="qr">${qr}</span>` : ''}<span class="t"><small>${qr ? 'LINE・お電話でお気軽にご相談ください' : 'お電話でお気軽にご相談ください'}</small><b>TEL ${esc(q.c.tel)}</b>${qr && id ? `<i>LINE ${esc(id)}</i>` : ''}</span></span>`; };
+const qCustLine = q => q.cust ? esc(q.cust)+' <small>様</small>' : qContact(q);
 const qPay = q => q.loan ? `ローン：頭金 ${yen(q.loan.down)}・${q.loan.n}回（初回 ${yen(q.loan.first)}／2回目以降 ${yen(q.loan.later)}）・実質年率 ${q.loan.rate}%・分割手数料 ${yen(q.loan.fee)}・割賦販売価格 ${yen(q.loan.hanbai)}` : '現金（お振込）';
 /* 下取・ローンの1行（総額のそばに置く） */
 const qTrLine = q => q.tr ? `<span class="trl">${esc(q.headSub)}</span>` : '';
 const qLnLine = q => q.loan ? `<span class="lnl">ローン 月々 ${yen(q.loan.later)}円 × ${q.loan.n-1}回（初回 ${yen(q.loan.first)}円・頭金 ${yen(q.loan.down)}円・実質年率 ${q.loan.rate}%・割賦販売価格 ${yen(q.loan.hanbai)}円）</span>` : '';
 const qTrName = q => '下取車価格' + (q.tradeModel ? '（' + esc(q.tradeModel) + '）' : '');
 const qAddr = q => `${esc(q.c.zip)} ${esc(q.c.addr)}`;
-const qTel = q => `TEL ${esc(q.c.tel)}　FAX ${esc(q.c.fax)}`;
+const qTel = q => `TEL ${esc(q.c.tel)}`;   /* v4.5.20 FAX は出さない */
 const qReg = q => `適格請求書発行事業者 登録番号 ${esc(q.c.inv)}　古物商許可 ${esc(q.c.kobutsu)}`;
 /* 写真：無い置き場は主役の写真。写真の無い車は絵 */
 const qI = (q, slot, cls, cap) => `<figure class="qi ${cls||''}">${q.hasPh ? `<img src="${q.ph(slot)}" alt="">` : carSvg(q.car)}${cap?`<figcaption>${cap}</figcaption>`:''}</figure>`;
