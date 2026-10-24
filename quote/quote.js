@@ -1363,7 +1363,7 @@ function renderDocs(){ _reprint = null;
     ${list.map(([k,l])=>`<button class="${doc===k?'on':''}" onclick="${k==='board'?`if(!carOf('${d.car.id}').board){openBrdPick('${d.car.id}')}else{S.ui.doc='board';renderDocs()}`:`S.ui.doc='${k}';renderDocs()`}">${l}</button>`).join('')}${plans}
     ${doc==='board'?`<span style="color:#fffa;font-size:12px;margin-left:10px">季節</span><select style="font:inherit;padding:3px 6px;border-radius:6px" onchange="brdSetSeason('${d.car.id}',this.value);renderDocs()">${brdSeasons().map(x=>`<option ${x===brdSeason(d.car)?'selected':''}>${x}</option>`).join('')}</select><button onclick="openBrdPick('${d.car.id}')">装備を選ぶ</button>`:''}
     
-    ${doc==='order1'?`<label style="margin-left:10px"><input type="checkbox" ${S.ui.ordSet!==false?'checked':''} onchange="S.ui.ordSet=this.checked;save();renderDocs()"> 見積書も一緒に刷る</label>`:''}
+    ${doc==='order1'?`<label style="margin-left:10px"><input type="checkbox" ${S.ui.ordSet!==false?'checked':''} onchange="S.ui.ordSet=this.checked;save();renderDocs()"> 見積書も刷る</label>`:''}
     ${EQ_WITH_OK.includes(doc)?`<label style="margin-left:10px"><input type="checkbox" ${eqWith(doc)?'checked':''} onchange="S.ui.eqWith['${doc}']=this.checked;save();renderDocs()"> 装備品一覧も一緒に刷る</label>`:''}
     <span class="sp"></span>${zoomBar()}<button onclick="docPrint()">${I('printer','🖨',14)} 印刷${eqWith(doc)?'（2枚）':''}</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers"><div class="paper" id="q-paper"></div><div class="paper" id="q-paper2" hidden></div></div></div></div>`;
@@ -1473,10 +1473,10 @@ function docOrder1(d, k){
     <div class="fx">${[['年式', q.yearW], ['走行距離', q.km], ['車体色', q.car.color], ['修復歴', q.b.repair], ['車検', shakenText(q.b,k).replace(/（.*$/,'')], ['管理番号', q.car.num]].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1]||'—')}</b></div>`).join('')}</div></div>
   <div class="ref"><div class="rl"><small>ご注文の内容</small><b>お見積書 No.${esc(no)}</b><span>${esc(q.plan)} に準ずる</span></div>
     <div class="tot"><small>${q.headLb}<span>消費税込</span></small><b>${qY(k.net)}</b><div class="eq"><span>車両販売価格 ${yen(q.vehIn)}</span><span>諸費用 ${yen(q.feesIn)}</span>${qTrLine(q)}</div></div></div>
-  <div class="body"><div class="bx pay"><h3>お支払い方法</h3>${pay}</div>
-    <div class="bx"><h3>お引渡し</h3>${deliv}${q.tr ? `<h3>下取車</h3>${trade}` : ''}</div></div>
-  <div class="bx pmx"><h3>お約束事項 <small>納車までに行うこと・口頭でお約束したことは、すべてここに書きます</small></h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div></div>
-  <div class="bx"><h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div>
+  <div class="body"><div class="ob pay"><h3>お支払い方法</h3>${pay}</div>
+    <div class="ob"><h3>お引渡し</h3>${deliv}${q.tr ? `<h3>下取車</h3>${trade}` : ''}</div></div>
+  <div class="ob pmx"><h3>お約束事項 <small>納車までに行うこと・口頭でお約束したことは、すべてここに書きます</small></h3><div class="pm">${o.promise ? esc(o.promise) : ''}</div></div>
+  <div class="ob"><h3>ご確認ください</h3><ol class="nt">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></div>
   <div class="sg"><div class="by"><div class="h">ご購入者</div>
       <div class="ck"><div>☐ 上記の内容・お見積書・別紙の約款を確認し、注文します。</div><div>☐ 私は暴力団等の反社会的勢力ではなく、今後も関わりません。</div>${L?'<div>☐ 信販会社の承認前に、登録・整備に着手することを（ 依頼する ・ 依頼しない ）</div>':''}</div>
       <div class="ln"><small>ご署名${u && u.name ? `（${esc(u.name)} 様）` : ''}</small><span></span></div>
