@@ -1451,7 +1451,7 @@ const ordOf = d => d.kind==='order' && d.car.order ? d.car.order : { plan: d.ctx
    ＝見積書（ショールーム・金の線）と同じ字・色の縦1枚。見積番号は見積書と同じ No。左に内訳・右にお引渡しと注意書き・下にご署名 */
 function docOrder1(d, k){
   const q = qvData(Object.assign({ tradeModel: (d.who && d.who.tradeModel) || '' }, d), k), o = ordOf(d), u = d.who, L = k.loan, P = u ? qPayOf(u, o.plan, k) : null, c = q.c;
-  const qq = q.opts.filter(x=>!x.sub).length > 10 ? Object.assign({}, q, { opts1: [{ n: `付属品・オプション ${q.nOpt}点`, a: k.optSum, fold: true }], foldNote: `明細はお見積書 No.${q.no} のとおり` }) : q;
+  const qq = q.opts.filter(x=>!x.sub).length > (q.tr ? 8 : 10) ?   /* オプションが多い時は1行にまとめ、明細は見積書へ（下取りがある時は内訳が3行増えるので早めに） */ Object.assign({}, q, { opts1: [{ n: `付属品・オプション ${q.nOpt}点`, a: k.optSum, fold: true }], foldNote: `明細はお見積書 No.${q.no} のとおり` }) : q;
   const kv = arr => arr.map(x=>`<div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
   const pay = L ? kv([['お支払い方法', 'オートローン（信販会社：'+qLine(90)+'）'], ['頭金', yen(L.down)+' 円'], ['月々', `${yen(L.later)} 円 × ${L.n-1}回（初回 ${yen(L.first)} 円）`], ['実質年率・分割手数料', `${L.rate}%・${yen(L.fee)} 円`], ['割賦販売価格', yen(L.hanbai)+' 円']])
     : kv([['お支払い方法', '現金'+(P && P.m && P.m!=='現金' ? '（'+esc(P.m)+'）' : '')]].concat(P && P.down ? [['頭金', yen(P.down)+' 円'], ['残金'+(P.when?'（'+esc(P.when)+'）':''), yen(P.rest)+' 円']] : [['お支払い期日', qLine(110)]], [['お振込先', esc(c.bank)]]));
