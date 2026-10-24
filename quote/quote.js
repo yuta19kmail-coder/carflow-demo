@@ -41,7 +41,8 @@ const DR_VO_IMP = () => [['前後セダン',18000],['前後セダン＋駐車監
 const DR_BO = () => [['ユピテル SN-TW73d',27000],['ユピテル SN-ST 5700d',19500],['ユピテル Z-330',50000],['ユピテル ZNV-800M',55000]];   // StockFlow の定価（2026-10-23）の控え
 const PACK_ITEMS = () => [
   /* 🗣 2026-10-04「希望ナンバーはパックとしてプラン見積に入れたい」→「デフォで ABC チェック・OP の一番上」。SCD の在庫見積では 10/11 件に「希望ナンバーパック（10,000円）」（調査 10）。
-     金額の中に希望番号のナンバー代と手続きが入る＝パックが入ったプランはナンバー代（通常）を外す。名前に「希望ナンバー」が入る品で判定 */
+     金額の中に希望番号のナンバー代と手続きが入る＝パックが入ったプランはナンバー代（通常）を外す。名前に「希望ナンバー」が入る品で判定
+     → v4.5.7 🗣 2026-10-24「希望ナンバーはパックで1万円、それとは別に通常ナンバー代はいれてほしい」＝パックが入っても通常のナンバー代（諸費用・立替）は外さない */
   { id:'wish_pk', n:'希望ナンバーパック', a:10000, in:{A:1,B:1,C:1} },
   { id:'etc_re',  n:'既設ETC再セットアップ', a:3500, in:{A:1,B:1,C:1} },
   /* labor＝取付工賃が付く品（🗣 2026-10-03「ドラレコとかは工賃と分けて記載」→ お勧め＝入力は1行・紙は本体と工賃の2行）。a＝本体、vo＝取付工賃の種類（3つ目が 1 なら本体なし＝持ち込み品の取付） */
@@ -312,14 +313,13 @@ function calc(ctx){
   const isWishPk = x => /希望ナンバー/.test(x.n||'');
   const inPlan = up.concat(items.filter(x=>plan && x.in[plan] && !(cond.wish && isWishPk(x))));
   const optSum = inPlan.reduce((s,x)=>s+(+x.a||0),0);
-  const wishPk = inPlan.some(isWishPk);   // 希望ナンバーパックが入ったプラン＝ナンバー代はパックの中
   const vehicle = bc.body - disc + optSum;
   /* 🗣 2026-10-19「車庫証明は裸で要らない。今は車庫はやってもらう前提で裸見積もりを出しているみたい」＝裸（基本価格・プラン見積）は入れない。個別見積の「当店で取る」の時だけ代行費用と手数料が入る */
   /* 🗣 2026-10-19「保管場所届出は行ごと抜いちゃって」＝軽は保管場所届出の行（代行・手数料・条件）を出さない */
   const g = (cond.garage && !bc.R.buyerReg && !bc.kei) ? 1 : 0, gD = g ? condD(cond, 'garage') : null, wD = cond.wish ? condD(cond, 'wish', bc.kei) : null;
   const fRows = feeRows(bc, b, g).filter(r=>!r.hide && !(r.id==='garage' && !g)).map(r=> r.id==='garage' && gD ? Object.assign({}, r, { a: +gD.k||0, n: r.n + (gD.ty && gD.ty!==CONDP().garage.ty[0][0] ? '（'+gD.ty+'）' : '') }) : r), feeK = fRows.filter(r=>r.t!=='t').map(r=>[r.n, r.a]), feeT = fRows.filter(r=>r.t==='t').map(r=>[r.n, r.a]);
   const feeKSum = feeK.reduce((s,f)=>s+f[1],0);
-  const legal = [[bc.R.buyerReg?'予備検査手数料':bc.kei?'検査手数料（軽）':'検査・登録手数料', bc.regFee], ...(bc.kei || !g ? [] : [['車庫証明手数料', gD ? (+gD.t||0) : bc.garageFee*g]]), wD ? ['ナンバープレート代（'+(wD.ty||'希望番号').replace(/^希望番号（(.+)）$/, '希望・$1')+'）', +wD.t||0] : ['ナンバープレート代', wishPk?0:bc.plateFee]].concat(feeT);
+  const legal = [[bc.R.buyerReg?'予備検査手数料':bc.kei?'検査手数料（軽）':'検査・登録手数料', bc.regFee], ...(bc.kei || !g ? [] : [['車庫証明手数料', gD ? (+gD.t||0) : bc.garageFee*g]]), wD ? ['ナンバープレート代（'+(wD.ty||'希望番号').replace(/^希望番号（(.+)）$/, '希望・$1')+'）', +wD.t||0] : ['ナンバープレート代', bc.plateFee]].concat(feeT);
   const legalSum = legal.reduce((s,f)=>s+f[1],0);
   const taxIns = bc.carTax + bc.weight + bc.jibai;
   const condRows = [];
@@ -2931,7 +2931,7 @@ function cgDetail(car){
    ===================================================================== */
 function qvData(d, k){
   const car = d.car, b = d.ctx.b, p = d.ctx.plan, c = C(), who = d.who;
-  const nz = L => L.filter(r=>+r[1]);   // 0円の行は出さない（パックに入ったナンバー代・継続移転で0の自動車税 など）
+  const nz = L => L.filter(r=>+r[1]);   // 0円の行は出さない（ナンバー代が要らない登録・継続移転で0の自動車税 など）
   const feesK = nz(k.feeK.map(f=>[f[0], f[1]]).concat(k.bc.unexpTax?[['自動車税 未経過相当額', k.bc.unexpTax]]:[], k.bc.unexpJb?[['自賠責 未経過相当額', k.bc.unexpJb]]:[], k.condRows.filter(r=>r[2]==='k').map(r=>[r[0], r[1]])));
   const feesT = nz(k.legal.map(f=>[f[0], f[1]]).concat(k.condRows.filter(r=>r[2]==='t').map(r=>[r[0], r[1]])));
   const taxes = nz([[k.bc.kei ? '軽自動車税（種別割）' : `自動車税（種別割）${k.bc.months?' '+k.bc.months+'か月分':''}`, k.bc.carTax], ['自動車重量税', k.bc.weight], ['自賠責保険料', k.bc.jibai]]);
