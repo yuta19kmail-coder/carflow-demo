@@ -1175,7 +1175,7 @@ function custExtraRows(car, u, opP, dis){ const R = [], names = new Set(u.items.
   stdItems(car).filter(x=>!x.dup && !names.has(x.n)).forEach(x=>R.push(qkRow(x.base, x.vt==='size' ? (x.noSize ? 'サイズ未選択（プラン見積で選ぶ）' : 'サイズ '+x.vo[x.vi][0]) : '', x.noSize ? `<span class="q-why" style="margin:0">${OPT_TBD}</span>` : `<b class="cat-a">${yen(x.a)}</b>`, qkBtns(opP, p=>`custAddTpl('${car.id}','${u.id}','${jsq(x.key)}','${p}')`, dis))));
   S.set.quick.filter(([n])=>!names.has(n)).forEach(([n,a])=>R.push(qkRow(n, 'よく足す物', `<b class="cat-a">${yen(a)}</b>`, qkBtns(opP, p=>`custAdd('${car.id}','${u.id}','${jsq(n)}',${a},'${p}')`, dis))));
   return { n:R.length, html:R.join('') }; }
-function stdPrint(p){ S.ui.docBase = p==='base'; if (p!=='base') S.ui.plan = p; save(); openDocs('quote'); }
+function stdPrint(p){ saveOnPrint(); S.ui.docBase = p==='base'; if (p!=='base') S.ui.plan = p; save(); openDocs('quote'); }
 function stepStd(car){ let RW;
   const kb = calc(baseCtx(car)), rec = car.std.rec || S.set.packs.rec, items = stdItems(car), dis = !!car.order, tiers = stdTiers(car), ps = plansOf(car.std.showD);
   let h = (car.order ? `<div class="q-note ok">${I('lock','🔒',14)} この車は売約済み（${esc(orderNo(car))}）なので、プラン見積は直せません（見るだけ）。直す時は ④売約 で売約を取り消します。</div>` : '') + `<div class="q-plans">${baseCard(car, kb)}${ps.map(p=>planCard(p, calc(stdCtx(car,p)), kb, S.ui.plan===p, rec===p, `<div style="margin-top:8px;display:flex;gap:6px"><button class="q-btn sm" onclick="event.stopPropagation();S.ui.plan='${p}';openDocs('quote')">${I('printer','🖨',13)} 見積書</button></div>`, estNo(car,p))).join('')}</div>`;
@@ -1268,8 +1268,8 @@ function stepCust(car){
 
 
 /* ---------- 個別見積の印刷：1種ずつ・全部まとめて（🗣 2026-10-02「個別見積もプランと同じく、印刷 BOX はある見積全てを印刷できるように」） ---------- */
-function custPrint(p){ S.ui.docBase = false; S.ui.plan = p; save(); openDocs('quote'); }
-function printCust(cid, uid){ _reprint = () => printCust(cid, uid); const car = carOf(cid), u = custOf(car, uid), ps = custPlans(u); _docNew = !!u.baseSnap.newCar;
+function custPrint(p){ saveOnPrint(); S.ui.docBase = false; S.ui.plan = p; save(); openDocs('quote'); }
+function printCust(cid, uid){ saveOnPrint(); _reprint = () => printCust(cid, uid); const car = carOf(cid), u = custOf(car, uid), ps = custPlans(u); _docNew = !!u.baseSnap.newCar;
   let papers = ps.map(p=>{ const d = { car, ctx:custCtx(car,u,p), who:u, kind:'cust' }; return quotePapers(d, calc(d.ctx)); }).join('');
   /* 🗣 2026-10-12「詳細から帳票の印刷でも、まとめてにプラン比較が入ってない」→ プランが2つ以上ならプラン比較も付ける */
   const dc = { car, ctx:custCtx(car,u,ps[0]), who:u, kind:'cust' };
@@ -1360,7 +1360,7 @@ function renderDocs(){ _reprint = null;
     ${doc==='board'?`<span style="color:#fffa;font-size:12px;margin-left:10px">季節</span><select style="font:inherit;padding:3px 6px;border-radius:6px" onchange="brdSetSeason('${d.car.id}',this.value);renderDocs()">${brdSeasons().map(x=>`<option ${x===brdSeason(d.car)?'selected':''}>${x}</option>`).join('')}</select><button onclick="openBrdPick('${d.car.id}')">装備を選ぶ</button>`:''}
     
     ${EQ_WITH_OK.includes(doc)?`<label style="margin-left:10px"><input type="checkbox" ${eqWith(doc)?'checked':''} onchange="S.ui.eqWith['${doc}']=this.checked;save();renderDocs()"> 装備品一覧も一緒に刷る</label>`:''}
-    <span class="sp"></span>${zoomBar()}<button onclick="window.print()">${I('printer','🖨',14)} 印刷${eqWith(doc)?'（2枚）':''}</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
+    <span class="sp"></span>${zoomBar()}<button onclick="docPrint()">${I('printer','🖨',14)} 印刷${eqWith(doc)?'（2枚）':''}</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers"><div class="paper" id="q-paper"></div><div class="paper" id="q-paper2" hidden></div></div></div></div>`;
   const k = calc(d.ctx);
   const wb = k.bc.wtMiss ? '重量税が入っていません（基本価格の「国交省で照会」で入れる）' : k.bc.wtStale ? '重量税の照会し直しが要ります（税制の年度が変わる）' : '';
@@ -1979,7 +1979,7 @@ function openPick(cid){
     <div class="ft"><button class="q-btn" onclick="closeOv()">やめる</button><button class="q-btn pri" ${n?'':'disabled'} onclick="closeOv();printSheets(['${cid}'], S.ui.pickSet)">${I('printer','🖨',14)} 並べて見る（${n} 枚）</button></div>`, true);
 }
 /* 選んだ車 × 選んだもの を並べて、そこから印刷 */
-function printSheets(ids, set){ _reprint = () => printSheets(ids, set);
+function printSheets(ids, set){ saveOnPrint(); _reprint = () => printSheets(ids, set);
   const cars = ids.map(carOf).filter(c=>c && c.base), plans = ['base','A','B','C','D'].filter(p=>set[p]);
   let papers = '';
   cars.forEach(car=>{ _docNew = !!car.base.newCar;
@@ -1989,7 +1989,7 @@ function printSheets(ids, set){ _reprint = () => printSheets(ids, set);
     if (set.equip && !window.QData && eqDone(car)){ const d = { car, ctx:{ car, b:car.base, plan:null }, who:null, kind:'std' }; papers += `<div class="paper qvp">${eqShow(d)}</div>`; }
     if (set.board) papers += `<div class="paper a3">${docBoard(car)}</div>`; });
   const n = (papers.match(/class="paper[ "]/g)||[]).length;
-  $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${cars.length===1?esc(cars[0].num+' '+cars[0].model)+' の選択印刷':'一括印刷　'+cars.length+' 台'}・${n} 枚</span><span class="sp"></span>${zoomBar()}<button onclick="window.print()">${I('printer','🖨',14)} 印刷（${n}枚）</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
+  $('q-docov').innerHTML = `<div class="q-docbar"><span class="t">${cars.length===1?esc(cars[0].num+' '+cars[0].model)+' の選択印刷':'一括印刷　'+cars.length+' 台'}・${n} 枚</span><span class="sp"></span>${zoomBar()}<button onclick="docPrint()">${I('printer','🖨',14)} 印刷（${n}枚）</button><button onclick="closeDocs()">${I('close','✕',14)} 閉じる</button></div>
     <div class="q-stage" id="q-stage"><div class="q-scaler" id="q-scaler"><div class="q-papers" id="q-papers">${papers}</div></div></div>`;
   $('q-docov').hidden = false; $('q-page').textContent = '@page{size:A4 portrait;margin:0}@page a3{size:A3 landscape;margin:0}';   // A4 と A3 を1回の印刷で（紙の大きさは1枚ごと）
   const _b = typeof set==='object' && set && set.board, W = _b ? 1587 : 794, st = $('q-stage'), box = $('q-papers'), s = zoomOf(st, W, _b ? 1123 : 1123);
@@ -2972,6 +2972,7 @@ function qvData(d, k){
     sumK: k.feeKSum + k.bc.unexpTax + k.bc.unexpJb + k.condK, sumT: k.nonTax + k.legalSum + k.condT, vehIn, feesIn: k.cash - vehIn,
     cond: condText(b, k.ws), loan: k.loan, tr: !!(k.trade || k.tradeLoan), tradeModel: d.tradeModel || '',
     headLb: (k.trade || k.tradeLoan) ? '差引お支払額' : 'お支払総額',
+    pay: who ? qPayOf(who, d.ctx.plan, k) : null,
     headSub: (k.trade || k.tradeLoan) ? `お支払総額 ${yen(k.cash)} − 下取車 ${yen(k.trade)}${k.tradeLoan ? ' ＋ 残債 '+yen(k.tradeLoan) : ''}` : '',
     opts1: opts, fold: false, nOpt: opts.filter(o=>!o.sub).length,
     loanX: k.loan || (k.net > 0 ? loanCalc(k.net, 0, S.set.loan.rate, S.set.loan.count) : null), loanEx: !k.loan,
@@ -2982,6 +2983,15 @@ const qyz = v => v ? yen(v) : '—';
 const qOptAmt = o => o.tbd ? OPT_TBD : o.a ? yen(o.a) : 'サービス';
 /* 🗣 2026-10-24「プラン見積などでは＿＿＿様を無くして、LINE と電話を大きめに。LINE は QR」＝お客様の名前が無い時は、LINE の QR（quote/vendor/qrcode-generator）と電話 */
 const qQR = u => { try { if (!u || typeof qrcode !== 'function') return ''; const g = qrcode(0, 'H'); g.addData(String(u)); g.make(); return g.createSvgTag({ cellSize:4, margin:0, scalable:true }); } catch (e) { return ''; } };
+/* v4.5.29 🗣 2026-10-24「個別見積に支払いイメージみたいなものがほしい。総額は今のままバーンとあっていいから、何処かにローンなのか頭金とかを入れたい」
+   ＝個別見積の「お支払い」（プランごとの頭金・残金の支払方法・ローン）から。残金の支払方法も頭金も無い時は出さない */
+function qPayOf(u, plan, k){ const q = ppOf(u, plan || 'base'), down = q.downOn ? (+q.down || 0) : 0, L = k.loan, m = q.restMethod || '';
+  if (!m && !down) return null;
+  return { down, m, L, rest: L ? L.P : Math.max(0, k.net - down), when: u.restWhen==='del' ? '納車時' : (u.restWhen==='date' && u.restDate ? jd(u.restDate) : '') }; }
+const qPayBox = q => { const P = q.pay; if (!P) return ''; const L = P.L;
+  return `<h3>お支払いのイメージ</h3><div class="qpay"><div class="pr"><span>${q.headLb}</span><b>${yen(q.k.net)}</b></div>${P.down ? `<div class="pr"><span>頭金</span><b>▲${yen(P.down)}</b></div>` : ''}
+    <div class="pr last"><span>${L ? 'オートローン（お借入れ）' : '残金' + (P.m ? '（' + esc(P.m) + (P.when ? '・' + esc(P.when) : '') + '）' : '')}</span><b>${yen(P.rest)}</b></div>
+    ${L ? `<div class="ln">月々 <b>${yen(L.later)}円</b> × ${L.n-1}回（初回 ${yen(L.first)}円）<br>${L.n}回払い・実質年率 ${L.rate}%・分割手数料 ${yen(L.fee)}円・割賦販売価格 ${yen(L.hanbai)}円</div>` : ''}</div>`; };
 const qContact = q => { const l = q.c.line, qr = qQR(l);
   /* v4.5.21 🗣「ラインの ID の記載は要らない。QR の真ん中に LINE ってあるようなやつに」＝ID の行を外し、QR の真ん中に LINE の印（誤り訂正 H で真ん中を隠しても読める） */
   return `<span class="q-cta">${qr ? `<span class="qr">${qr}<span class="ln">LINE</span></span>` : ''}<span class="t"><small>${qr ? 'LINE・お電話でお気軽にご相談ください' : 'お電話でお気軽にご相談ください'}</small><b>TEL ${esc(q.c.tel)}</b></span></span>`; };
@@ -3056,7 +3066,7 @@ const QV = [
    <div class="facts">${[['年式', q.yearW, q.yearA], ['走行距離', q.car.km.toLocaleString()+' km', '実走行'], ['修復歴', q.b.repair, ''], ['車検', shakenText(q.b,k).replace(/（.*$/,''), ''], ['保証', k.ws?'なし':warText(q.b), '']].map(f=>`<div><small>${f[0]}</small><b>${esc(f[1])}</b>${f[2]?`<i>${esc(f[2])}</i>`:''}</div>`).join('')}</div>
    <div class="body"><div class="l"><h3>お車</h3>${q.spec.filter(s=>!/車名|年式|走行|修復|保証|車検/.test(s[0])).map(s=>`<div class="sp"><span>${s[0]}</span><b>${esc(s[1])}</b></div>`).join('')}
        <h3>主な装備</h3><div class="eqs">${q.equip.map(e=>`<span>${esc(e)}</span>`).join('')}</div>
-       <h3>納車整備</h3><div class="tx"><b>${esc(q.seibi.name)}</b>　${esc(q.seibi.note)}</div></div>
+       <h3>納車整備</h3><div class="tx"><b>${esc(q.seibi.name)}</b>　${esc(q.seibi.note)}</div>${qPayBox(q)}</div>
      <div class="r"><h3>お見積の内訳 <small>${esc(q.plan)}</small></h3>${qBreak(q,{note:1})}</div></div>
    <div class="foot"><div class="who"><div class="cu">${qCustLine(q)}</div><div class="m">見積日 ${q.date}　有効期限 ${q.valid}${q.staff?'　担当 '+esc(q.staff):''}</div></div>
      <div class="cp"><b>${esc(q.c.name)}</b>${qAddr(q)}<br>${qTel(q)}<br>${qReg(q)}</div></div>
@@ -3951,6 +3961,11 @@ function saveStdOk(pr){ const car = curCar(); closeOv(); car.reached = Math.max(
   if (pr) printSheets([car.id], { base:1, A:1, B:1, C:1, D:car.std.showD?1:0, equip:0 }); toast(`${car.num} ${car.model} のプラン見積を保存しました`); }
 /* 保存だけ（次の段がまだ無い時：個別見積で売約前） */
 function saveOnly(){ const car = curCar(); editCommit(); save(); render(); toast('保存しました'); }
+/* v4.5.29 🗣 2026-10-24「全てのプラン見積でも個別見積でも、印刷ボタンを押した段階で保存をかけてほしい」
+   ＝直している途中（未保存の変更あり）の見積は、印刷の画面を開く時と、印刷を押した時に保存する。売約済み（直せない）は何もしない */
+function saveOnPrint(){ if (S.ui.view!=='car' || !S.edit || !isDirty()) return false; const car = curCar(); if (!car || car.order) return false;
+  if (S.ui.step==='std') car.reached = Math.max(reachedOf(car), 2); editCommit(); save(); toast('印刷の前に保存しました'); return true; }
+async function docPrint(){ saveOnPrint(); try { if (window.QData && QData.flush) await QData.flush(); } catch (e) {} window.print(); }
 /* 戻る・タブ：直したままなら聞く */
 function moveTo(s){
   if (s===S.ui.step) return;
